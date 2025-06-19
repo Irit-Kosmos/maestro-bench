@@ -95,15 +95,6 @@ function handleDelete(id: number) {
                 >
                   View
                 </UButton>
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  color="error"
-                  icon="i-lucide:trash-2"
-                  @click="() => handleDelete(dataset.id)"
-                >
-                  Delete
-                </UButton>
               </div>
             </div>
           </div>
