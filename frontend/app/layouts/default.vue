@@ -47,24 +47,6 @@
           >
             Agents
           </UButton>
-          <UButton
-            to="/prompts"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-lucide:message-square"
-          >
-            Prompts
-          </UButton>
-          <UButton
-            to="/models"
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            icon="i-lucide:settings"
-          >
-            Models
-          </UButton>
         </div>
       </div>
     </nav>

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 from db import engine
-from api import datasets, experiments, agent_teams, agents, experiment_executions, prompts, models
+from api import datasets, experiments, agent_teams, agents, experiment_executions
 import uvicorn
 
 app = FastAPI(
@@ -26,9 +26,6 @@ app.include_router(experiments.router)
 app.include_router(agent_teams.router)
 app.include_router(agents.router)
 app.include_router(experiment_executions.router)
-
-app.include_router(prompts.router)
-app.include_router(models.router)
 
 @app.on_event("startup")
 def seed_db():

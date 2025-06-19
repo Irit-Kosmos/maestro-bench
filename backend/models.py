@@ -25,14 +25,6 @@ class Agent(SQLModel, table=True):
     variables: Optional[str] = None  # JSON string of variable definitions
     team_id: int = Field(foreign_key="agentteam.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # MAESTRO Integration fields
-    agent_type: Optional[str] = None  # 'clarification', 'correction', 'probability', 'custom'
-    default_content_prompt_id: Optional[int] = Field(foreign_key="prompttemplate.id", default=None)
-    default_language_prompt_id: Optional[int] = Field(foreign_key="prompttemplate.id", default=None)
-    default_model_config_id: Optional[int] = Field(foreign_key="modelconfig.id", default=None)
-    default_weights: Optional[str] = None  # JSON array [content_weight, language_weight]
-    
     # Relationships
     team: Optional[AgentTeam] = Relationship(back_populates="agents")
 
@@ -127,25 +119,3 @@ class AgentExecutionConfig(SQLModel, table=True):
     # Relationships
     experiment_execution: Optional[ExperimentExecution] = Relationship(back_populates="agent_executions")
     agent: Optional[Agent] = Relationship()
-
-
-# MAESTRO Integration Models
-class ModelConfig(SQLModel, table=True):
-    """Model configurations for MAESTRO experiments"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)  # e.g., "mistral-medium-default"
-    model: str  # e.g., "mistral-medium-latest"
-    temperature: float
-    max_tokens: Optional[int] = None
-    top_p: Optional[float] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class PromptTemplate(SQLModel, table=True):
-    """Prompt templates for MAESTRO agents"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    type: str  # 'content', 'language', 'system', 'user'
-    value: str = Field(description="The actual prompt text")
-    description: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
