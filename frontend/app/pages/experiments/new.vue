@@ -10,15 +10,65 @@ const { availableTeams } = useAgentTeams()
 // Form state
 const formData = ref<CreateExperimentForm>({
   name: '',
-  dataset_id: null,
+  dataset_id: undefined,
   agent_teams: [],
 })
 
 const isSubmitting = ref(false)
 
+// Stepper configuration
+const stepperItems = [
+  {
+    title: 'Experiment Name',
+    description: 'Provide a name for your experiment',
+    icon: 'i-lucide-file-text',
+    slot: 'name',
+  },
+  {
+    title: 'Dataset Selection',
+    description: 'Choose the dataset for your experiment',
+    icon: 'i-lucide-database',
+    slot: 'dataset',
+  },
+  {
+    title: 'Agent Teams',
+    description: 'Select agent teams and configuration',
+    icon: 'i-lucide-users',
+    slot: 'teams',
+  },
+]
+
+const currentStep = ref(0)
+const stepper = useTemplateRef<any>('stepper')
+
 // Computed
 const formValid = computed(() => {
-  return formData.value.name.trim() && formData.value.dataset_id !== null
+  return formData.value.name.trim() && formData.value.dataset_id != null
+})
+
+const isStepValid = computed(() => {
+  switch (currentStep.value) {
+    case 0:
+      return formData.value.name.trim().length > 0
+    case 1:
+      return formData.value.dataset_id != null
+    case 2:
+      return true // Teams are optional
+    default:
+      return false
+  }
+})
+
+const canGoNext = computed(() => {
+  return isStepValid.value && stepper.value?.hasNext
+})
+
+// Computed property to handle dataset selection conversion between null and undefined
+const selectedDataset = computed({
+  get: () => formData.value.dataset_id ?? undefined,
+  set: (value: number | undefined) => {
+    formData.value.dataset_id = value ?? null
+  },
 })
 
 // Handlers
@@ -34,6 +84,18 @@ function toggleTeamSelection(teamId: number) {
   else {
     // Add team if not selected
     teams.push(teamIdStr)
+  }
+}
+
+function nextStep() {
+  if (canGoNext.value) {
+    stepper.value?.next()
+  }
+}
+
+function prevStep() {
+  if (stepper.value?.hasPrev) {
+    stepper.value?.prev()
   }
 }
 
@@ -89,119 +151,136 @@ async function handleCancel() {
 
 <template>
   <div class="min-h-screen">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Experiment Configuration Form -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+      <!-- Experiment Configuration Form with Stepper -->
       <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4 border-b border-gray-200">
           <h2 class="text-lg font-semibold text-gray-900">
-            Experiment Configuration
+            Create New Experiment
           </h2>
+          <p class="text-sm text-gray-600 mt-1">
+            Follow the steps below to configure your experiment
+          </p>
         </div>
 
-        <form class="p-6 space-y-6" @submit.prevent="handleSubmit">
-          <!-- Basic Information -->
-          <div class="space-y-4">
-            <h3 class="text-md font-medium text-gray-900">
-              Basic Information
-            </h3>
-
-            <div>
-              <label for="name" class="block text-sm font-medium text-gray-700 mb-1">
-                Experiment Name
-              </label>
-              <input
-                id="name"
-                v-model="formData.name"
-                type="text"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter experiment name (e.g., 'Corrector Agent Test v2.1')"
-              >
-            </div>
-
-            <div>
-              <label for="dataset" class="block text-sm font-medium text-gray-700 mb-1">
-                Dataset
-              </label>
-              <select
-                id="dataset"
-                v-model="formData.dataset_id"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">
-                  Select a dataset...
-                </option>
-                <option v-for="dataset in datasets" :key="dataset.id" :value="dataset.id">
-                  {{ dataset.name }} - {{ dataset.description }}
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Agent Team Selection -->
-          <div class="space-y-4">
-            <h3 class="text-md font-medium text-gray-900">
-              Agent Teams
-            </h3>
-            <p class="text-sm text-gray-600">
-              Select which agent teams to include in this experiment
-            </p>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <UCard
-                v-for="team in availableTeams"
-                :key="team.id"
-                class="cursor-pointer hover:shadow-md transition-shadow"
-                @click="() => toggleTeamSelection(team.id)"
-              >
-                <div class="flex items-start space-x-3">
-                  <input
-                    :id="`team-${team.id}`"
-                    v-model="formData.agent_teams"
-                    type="checkbox"
-                    :value="team.id.toString()"
-                    class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded pointer-events-none"
-                  >
-                  <div class="flex-1 pointer-events-none">
-                    <div class="block text-sm font-medium text-gray-900">
-                      {{ team.name }}
-                    </div>
-                    <p class="text-sm text-gray-500">
-                      {{ team.description }}
-                    </p>
-                  </div>
-                </div>
-              </UCard>
-            </div>
-          </div>
-
-          <!-- Advanced Configuration (Placeholder) -->
-          <div class="space-y-4">
-            <h3 class="text-md font-medium text-gray-900">
-              Advanced Configuration
-            </h3>
-            <div class="bg-yellow-50 rounded-lg p-4">
-              <div class="flex">
-                <UIcon name="i-lucide:info" class="h-5 w-5 text-yellow-400" />
-                <div class="ml-3">
-                  <h4 class="text-sm font-medium text-yellow-800">
-                    Coming Soon
-                  </h4>
-                  <p class="text-sm text-yellow-700 mt-1">
-                    Advanced configuration options like prompt customization, sampling parameters,
-                    and evaluation metrics will be available in future versions.
+        <div class="p-6">
+          <!-- Stepper Component -->
+          <UStepper
+            ref="stepper"
+            v-model="currentStep"
+            :items="stepperItems"
+            size="lg"
+            class="w-full"
+          >
+            <!-- Step 1: Experiment Name -->
+            <template #name>
+              <div class="flex flex-col justify-center">
+                <div class="max-w-md mx-auto w-full mt-6">
+                  <label for="experiment-name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Experiment Name
+                  </label>
+                  <UInput
+                    id="experiment-name"
+                    v-model="formData.name"
+                    size="lg"
+                    placeholder="e.g., 'Corrector Agent Test v2.1'"
+                    class="w-full"
+                  />
+                  <p class="text-xs text-gray-500 mt-2">
+                    Use a clear, descriptive name for easy identification
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
+            </template>
 
-          <!-- Submit Button -->
-          <div class="flex justify-end pt-6 border-t border-gray-200">
+            <!-- Step 2: Dataset Selection -->
+            <template #dataset>
+              <div class="space-y-4  flex flex-col justify-center">
+                <div class="max-w-md mx-auto mt-4 w-full">
+                  <label for="dataset-select" class="block text-sm font-medium text-gray-700 mb-2">
+                    Available Datasets
+                  </label>
+                  <USelect
+                    id="dataset-select"
+                    v-model="selectedDataset"
+                    :items="datasets?.map(d => ({ label: `${d.name} - ${d.description}`, value: d.id })) || []"
+                    value-key="value"
+                    placeholder="Select a dataset..."
+                    size="lg"
+                    class="w-full"
+                  />
+                  <p class="text-xs text-gray-500 mt-2">
+                    The dataset contains the questions/tasks for your experiment
+                  </p>
+                </div>
+              </div>
+            </template>
+
+            <!-- Step 3: Agent Teams Selection -->
+            <template #teams>
+              <div class="space-y-6 ">
+                <div v-if="availableTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <UCard
+                    v-for="team in availableTeams"
+                    :key="team.id"
+                    class="cursor-pointer hover:shadow-md transition-shadow"
+                    :class="{
+                      'ring-2 ring-primary-500 bg-primary-50': formData.agent_teams.includes(team.id.toString()),
+                    }"
+                    @click="() => toggleTeamSelection(team.id)"
+                  >
+                    <div class="flex items-start space-x-3">
+                      <div class="flex-1 pointer-events-none">
+                        <div class="block text-sm font-medium text-gray-900">
+                          {{ team.name }}
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">
+                          {{ team.description }}
+                        </p>
+                      </div>
+                    </div>
+                  </UCard>
+                </div>
+
+                <div v-else class="text-center py-8">
+                  <UIcon name="i-lucide-users-x" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h4 class="text-lg font-medium text-gray-900 mb-2">
+                    No Agent Teams Available
+                  </h4>
+                  <p class="text-gray-600 mb-4">
+                    You need to create agent teams before running experiments.
+                  </p>
+                  <UButton
+                    to="/agents"
+                    icon="i-lucide-plus"
+                    variant="outline"
+                  >
+                    Create Agent Teams
+                  </UButton>
+                </div>
+
+                <div class="bg-blue-50 rounded-lg p-4">
+                  <div class="flex">
+                    <UIcon name="i-lucide-info" class="h-5 w-5 text-blue-400 mt-0.5" />
+                    <div class="ml-3">
+                      <h4 class="text-sm font-medium text-blue-800">
+                        Optional Step
+                      </h4>
+                      <p class="text-sm text-blue-700 mt-1">
+                        You can create an experiment without selecting teams now and add them later.
+                        Selected teams will run their agents against your chosen dataset.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UStepper>
+
+          <!-- Navigation Controls -->
+          <div class="flex justify-between mt-8 pt-6 border-t border-gray-200">
             <div class="flex space-x-3">
               <UButton
-                type="button"
                 variant="outline"
                 color="neutral"
                 @click="handleCancel"
@@ -209,18 +288,36 @@ async function handleCancel() {
                 Cancel
               </UButton>
               <UButton
-                type="submit"
-                variant="solid"
-                color="primary"
+                v-if="stepper?.hasPrev"
+                variant="outline"
+                icon="i-lucide-arrow-left"
+                @click="prevStep"
+              >
+                Previous
+              </UButton>
+            </div>
+
+            <div class="flex space-x-3">
+              <UButton
+                v-if="stepper?.hasNext"
+                :disabled="!isStepValid"
+                trailing-icon="i-lucide-arrow-right"
+                @click="nextStep"
+              >
+                Next
+              </UButton>
+              <UButton
+                v-else
                 :disabled="isSubmitting || !formValid"
                 :loading="isSubmitting"
-                icon="i-lucide:play"
+                icon="i-lucide-play"
+                @click="handleSubmit"
               >
                 Create & Launch Experiment
               </UButton>
             </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   </div>

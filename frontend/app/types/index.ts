@@ -62,7 +62,7 @@ export interface AgentTeam {
 
 export interface CreateExperimentForm {
   name: string
-  dataset_id: number | null
+  dataset_id: number | null | undefined
   agent_teams: string[]
 }
 
