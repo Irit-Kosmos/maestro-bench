@@ -19,6 +19,7 @@ export interface AgentConfig {
 export interface Experiment {
   id: number
   name: string
+  description?: string
   dataset_id: number
   created_at: string
   completed_at?: string

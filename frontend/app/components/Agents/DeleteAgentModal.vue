@@ -50,7 +50,7 @@ async function handleConfirm() {
       <UCard>
         <template #header>
           <div class="flex items-center space-x-3">
-            <div class="flex-shrink-0">
+            <div class="flex-shrink-0 flex items-center">
               <UIcon name="i-lucide:alert-triangle" class="w-6 h-6 text-error" />
             </div>
             <div>

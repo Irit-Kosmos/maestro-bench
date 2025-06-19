@@ -121,25 +121,6 @@ watch(() => route.params.id, () => {
 <template>
   <div class="min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Breadcrumb -->
-      <nav class="flex mb-6" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-          <li class="inline-flex items-center">
-            <NuxtLink to="/datasets" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
-              <UIcon name="i-lucide:database" class="w-4 h-4 mr-2" />
-              Datasets
-            </NuxtLink>
-          </li>
-          <li>
-            <div class="flex items-center">
-              <UIcon name="i-lucide:chevron-right" class="w-4 h-4 text-gray-400" />
-              <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">
-                {{ loading ? 'Loading...' : dataset?.name || 'Dataset' }}
-              </span>
-            </div>
-          </li>
-        </ol>
-      </nav>
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-12">
         <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />

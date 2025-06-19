@@ -85,7 +85,7 @@ const columns: TableColumn<Experiment>[] = [
             size: 'sm',
             icon: 'i-lucide-eye',
             onClick: () => handleViewExperiment(row.original.id),
-          }),
+          }, () => 'View'),
         ],
       )
     },

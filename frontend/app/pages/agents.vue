@@ -29,15 +29,6 @@ function handleConfigureTeam(teamId: number) {
   })
 }
 
-function handleEditPrompts(teamId: number) {
-  toast.add({
-    title: 'Coming Soon',
-    description: `Prompt editor coming soon! (Team: ${teamId})`,
-    color: 'info',
-    icon: 'i-lucide:info',
-  })
-}
-
 function handleEditAgent(agent: any) {
   selectedAgent.value = agent
   showEditAgentModal.value = true
@@ -194,11 +185,20 @@ const tabItems = [
                 class="hover:shadow-md transition-shadow"
               >
                 <div class="space-y-4">
-                  <div class="flex justify-between items-start">
-                    <div>
-                      <h3 class="text-lg font-semibold text-gray-900">
-                        {{ team.name }}
-                      </h3>
+                  <div class="flex justify-between w-full items-start">
+                    <div class="flex-1 ">
+                      <div class="flex justify-between w-full">
+                        <h3 class="text-lg font-semibold flex-1 text-gray-900">
+                          {{ team.name }}
+                        </h3>
+
+                        <UButton
+                          variant="ghost"
+                          size="sm"
+                          icon="i-lucide:settings"
+                          @click="() => handleConfigureTeam(team.id)"
+                        />
+                      </div>
                       <p class="text-sm text-gray-600 mt-1">
                         {{ team.description }}
                       </p>
@@ -218,27 +218,6 @@ const tabItems = [
                       >
                         {{ agent.name }}
                       </UBadge>
-                    </div>
-                  </div>
-
-                  <div class="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <div class="flex space-x-2">
-                      <UButton
-                        variant="ghost"
-                        size="sm"
-                        icon="i-lucide:settings"
-                        @click="() => handleConfigureTeam(team.id)"
-                      >
-                        Configure
-                      </UButton>
-                      <UButton
-                        variant="ghost"
-                        size="sm"
-                        icon="i-lucide:edit"
-                        @click="() => handleEditPrompts(team.id)"
-                      >
-                        Edit Prompts
-                      </UButton>
                     </div>
                   </div>
                 </div>
@@ -284,11 +263,26 @@ const tabItems = [
                 <div class="space-y-4">
                   <!-- Agent Header -->
                   <div class="flex justify-between items-start">
-                    <div class="flex items-center space-x-3">
-                      <div>
+                    <div class="flex items-center flex-1 space-x-3">
+                      <div class="flex flex-1 justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">
                           {{ agent.name }}
                         </h3>
+                        <div class="flex gap-2">
+                          <UButton
+                            variant="ghost"
+                            size="sm"
+                            icon="i-lucide:edit"
+                            @click="() => handleEditAgent(agent)"
+                          />
+                          <UButton
+                            variant="ghost"
+                            size="sm"
+                            color="error"
+                            icon="i-lucide:trash"
+                            @click="() => handleDeleteAgentClick(agent)"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -335,27 +329,6 @@ const tabItems = [
                         </UBadge>
                       </div>
                     </div>
-                  </div>
-
-                  <!-- Actions -->
-                  <div class="flex justify-between items-center pt-3 border-t border-gray-100">
-                    <UButton
-                      variant="ghost"
-                      size="sm"
-                      icon="i-lucide:edit"
-                      @click="() => handleEditAgent(agent)"
-                    >
-                      Edit
-                    </UButton>
-                    <UButton
-                      variant="ghost"
-                      size="sm"
-                      color="error"
-                      icon="i-lucide:trash"
-                      @click="() => handleDeleteAgentClick(agent)"
-                    >
-                      Delete
-                    </UButton>
                   </div>
                 </div>
               </UCard>

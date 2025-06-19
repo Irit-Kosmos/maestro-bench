@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Experiment } from '~/types'
+import type { AgentExecutionConfig, Experiment, ExperimentExecution } from '~/types'
 
 // Route params
 const route = useRoute()
@@ -8,10 +8,12 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 // Composables
 const toast = useToast()
 const { fetchExperiment, deleteExperiment } = useExperiments()
+const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDuration } = useUIHelpers()
 
 // State
 const experiment = ref<Experiment | null>(null)
+const executions = ref<ExperimentExecution[]>([])
 const loading = ref(true)
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
@@ -26,7 +28,7 @@ useSeoMeta({
   title: pageTitle,
   description: computed(() =>
     experiment.value
-      ? `View details and results for experiment: ${experiment.value.name}`
+      ? `View details and configuration for experiment: ${experiment.value.name}`
       : 'Loading experiment...',
   ),
 })
@@ -40,6 +42,41 @@ const statusColor = computed(() => {
     case 'failed': return 'error'
     case 'pending': return 'warning'
     default: return 'neutral'
+  }
+})
+
+// Latest execution for configuration display
+const latestExecution = computed(() => {
+  if (!executions.value || executions.value.length === 0)
+    return null
+  return [...executions.value].sort((a, b) =>
+    new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+  )[0]
+})
+
+// Configuration accordion items
+const configurationItems = computed(() => {
+  if (!latestExecution.value || !latestExecution.value.agent_executions)
+    return []
+
+  return latestExecution.value.agent_executions.map((agentConfig: AgentExecutionConfig) => ({
+    label: agentConfig.agent_name_snapshot,
+    icon: 'i-lucide-user',
+    value: `agent-${agentConfig.id}`,
+    slot: `agent-${agentConfig.id}`,
+    agentConfig,
+  }))
+})
+
+// Parse dataset snapshot
+const datasetInfo = computed(() => {
+  if (!latestExecution.value)
+    return null
+  try {
+    return JSON.parse(latestExecution.value.dataset_snapshot)
+  }
+  catch {
+    return null
   }
 })
 
@@ -59,6 +96,13 @@ async function loadExperiment() {
         icon: 'i-lucide:alert-circle',
       })
       await navigateTo('/experiments')
+      return
+    }
+
+    // Load executions for configuration data
+    const executionsResult = await fetchExperimentExecutions(experimentId.value)
+    if (executionsResult.success && executionsResult.data) {
+      executions.value = executionsResult.data
     }
   }
   catch (error) {
@@ -127,6 +171,18 @@ const duration = computed(() => {
     : 'N/A'
 })
 
+// Helper function to format variables JSON
+function formatVariables(variables: string | null): string {
+  if (!variables)
+    return 'None'
+  try {
+    return JSON.stringify(JSON.parse(variables), null, 2)
+  }
+  catch {
+    return variables
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   loadExperiment()
@@ -182,9 +238,12 @@ watch(() => route.params.id, () => {
         <UCard>
           <template #header>
             <div class="flex items-center justify-between">
-              <h2 class="text-xl font-semibold text-gray-900">
-                Experiment Overview
-              </h2>
+              <div class="flex items-center gap-3">
+                <UIcon name="i-lucide:flask-conical" class="h-6 w-6" />
+                <h2 class="text-xl font-semibold text-gray-900">
+                  Experiment Overview
+                </h2>
+              </div>
               <UBadge
                 :color="statusColor"
                 variant="subtle"
@@ -197,87 +256,202 @@ watch(() => route.params.id, () => {
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-gray-500 mb-2">
                 Created
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="text-lg font-semibold text-gray-900">
                 {{ new Date(experiment.created_at).toLocaleDateString() }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-gray-500 mb-2">
                 Dataset
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="text-lg font-semibold text-gray-900">
                 {{ experiment.dataset?.name || 'Unknown' }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
-                Status
+              <dt class="text-sm font-medium text-gray-500 mb-2">
+                Executions
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 capitalize">
-                {{ experiment.status }}
+              <dd class="text-lg font-semibold text-gray-900">
+                {{ executions.length }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-gray-500 mb-2">
                 Duration
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
-                <!-- TODO: Calculate duration based on timestamps -->
+              <dd class="text-lg font-semibold text-gray-900">
                 {{ experiment.status === 'completed' ? duration : '-' }}
               </dd>
             </div>
           </div>
         </UCard>
 
-        <!-- Results Section -->
-        <UCard v-if="experiment.status === 'completed'">
+        <!-- Dataset Configuration -->
+        <UCard v-if="datasetInfo">
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
-              Results
-            </h2>
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-database" class="h-6 w-6" />
+              <h2 class="text-xl font-semibold text-gray-900">
+                Dataset Configuration
+              </h2>
+            </div>
           </template>
 
-          <div class="space-y-4">
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">
-                Performance Metrics
-              </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <dt class="text-sm font-medium text-gray-500 mb-2">
+                Name
+              </dt>
+              <dd class="text-sm text-gray-900">
+                {{ datasetInfo.name }}
+              </dd>
             </div>
-
-            <div class="text-sm text-gray-500">
-              Results will appear here once the experiment completes.
+            <div>
+              <dt class="text-sm font-medium text-gray-500 mb-2">
+                File Path
+              </dt>
+              <dd class="text-sm text-gray-900 font-mono">
+                {{ datasetInfo.file_path }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500 mb-2">
+                Description
+              </dt>
+              <dd class="text-sm text-gray-900">
+                {{ datasetInfo.description || 'No description' }}
+              </dd>
             </div>
           </div>
         </UCard>
 
-        <!-- Configuration -->
-        <UCard>
+        <!-- Agent Configurations -->
+        <UCard v-if="latestExecution && latestExecution.agent_executions.length > 0">
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
-              Configuration
-            </h2>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <UIcon name="i-lucide-users" class="h-6 w-6" />
+                <h2 class="text-xl font-semibold text-gray-900">
+                  Agent Configurations
+                </h2>
+              </div>
+              <UBadge
+                :label="`${latestExecution.agent_executions.length} agents`"
+                color="info"
+                variant="soft"
+              />
+            </div>
           </template>
 
-          <div class="space-y-4">
-            <div>
-              <h3 class="text-sm font-medium text-gray-900 mb-2">
-                Experiment Name
-              </h3>
-              <p class="text-sm text-gray-600">
-                {{ experiment.name }}
-              </p>
+          <UAccordion
+            type="multiple"
+            :items="configurationItems"
+            class="space-y-0"
+          >
+            <template
+              v-for="agentConfig in latestExecution.agent_executions"
+              :key="agentConfig.id"
+              #[`agent-${agentConfig.id}`]
+            >
+              <div class="space-y-6 pb-4">
+                <!-- Agent Basic Info -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">
+                      Agent Name
+                    </dt>
+                    <dd class="text-sm text-gray-900">
+                      {{ agentConfig.agent_name_snapshot }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">
+                      Team
+                    </dt>
+                    <dd class="text-sm text-gray-900">
+                      {{ agentConfig.agent_team_name_snapshot }}
+                    </dd>
+                  </div>
+                </div>
+
+                <!-- System Prompt -->
+                <div v-if="agentConfig.final_system_prompt">
+                  <dt class="text-sm font-medium text-gray-500 mb-2">
+                    System Prompt
+                  </dt>
+                  <dd class="bg-gray-50 rounded-lg p-4 text-sm text-gray-900 whitespace-pre-wrap">
+                    {{ agentConfig.final_system_prompt }}
+                  </dd>
+                </div>
+
+                <!-- User Prompt -->
+                <div v-if="agentConfig.final_user_prompt">
+                  <dt class="text-sm font-medium text-gray-500 mb-2">
+                    User Prompt
+                  </dt>
+                  <dd class="bg-gray-50 rounded-lg p-4 text-sm text-gray-900 whitespace-pre-wrap">
+                    {{ agentConfig.final_user_prompt }}
+                  </dd>
+                </div>
+
+                <!-- Variables -->
+                <div v-if="agentConfig.final_variables">
+                  <dt class="text-sm font-medium text-gray-500 mb-2">
+                    Variables
+                  </dt>
+                  <dd class="bg-gray-50 rounded-lg p-4 text-sm text-gray-900">
+                    <pre class="whitespace-pre-wrap font-mono">{{ formatVariables(agentConfig.final_variables) }}</pre>
+                  </dd>
+                </div>
+
+                <!-- Configuration Metadata -->
+                <div class="border-t pt-4">
+                  <dt class="text-sm font-medium text-gray-500 mb-2">
+                    Configuration Snapshot
+                  </dt>
+                  <div class="text-xs text-gray-600 space-y-1">
+                    <div>Agent ID: {{ agentConfig.agent_id }}</div>
+                    <div>Team ID: {{ agentConfig.agent_team_id_snapshot }}</div>
+                    <div>Created: {{ new Date(agentConfig.created_at).toLocaleString() }}</div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </UAccordion>
+        </UCard>
+
+        <!-- No Configuration Available -->
+        <UCard v-else>
+          <div class="text-center py-12">
+            <UIcon name="i-lucide-settings" class="mx-auto h-16 w-16 text-gray-400 mb-4" />
+            <h3 class="text-lg font-medium text-gray-900 mb-2">
+              No Configuration Available
+            </h3>
+            <p class="text-gray-600">
+              No execution configuration found for this experiment.
+            </p>
+          </div>
+        </UCard>
+
+        <!-- Experiment Description -->
+        <UCard v-if="experiment.description">
+          <template #header>
+            <div class="flex items-center gap-3">
+              <UIcon name="i-lucide-file-text" class="h-6 w-6" />
+              <h2 class="text-xl font-semibold text-gray-900">
+                Description
+              </h2>
             </div>
-            <div>
-              <h3 class="text-sm font-medium text-gray-900 mb-2">
-                Agent Teams
-              </h3>
-              <p class="text-sm text-gray-600">
-                Configuration details will be displayed here
-              </p>
-            </div>
+          </template>
+
+          <div class="prose prose-sm max-w-none">
+            <p class="text-gray-700 whitespace-pre-wrap">
+              {{ experiment.description }}
+            </p>
           </div>
         </UCard>
       </div>
