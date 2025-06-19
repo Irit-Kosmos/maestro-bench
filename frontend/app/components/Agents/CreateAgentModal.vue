@@ -112,11 +112,11 @@ watch(() => props.open, (newValue) => {
 
             <div>
               <UFormField label="Description">
-                <UInput
+                <UTextarea
                   v-model="formData.description"
                   class="w-full"
-
                   placeholder="Brief description of the agent's purpose"
+                  :rows="3"
                   required
                 />
               </UFormField>
@@ -124,33 +124,33 @@ watch(() => props.open, (newValue) => {
 
             <div>
               <UFormField label="System Prompt">
-                <UInput
+                <UTextarea
                   v-model="formData.system_prompt"
                   class="w-full"
                   placeholder="Enter system prompt"
-                  required
+                  :rows="4"
                 />
               </UFormField>
             </div>
 
             <div>
               <UFormField label="User Prompt">
-                <UInput
+                <UTextarea
                   v-model="formData.user_prompt"
                   class="w-full"
                   placeholder="Enter user prompt"
-                  required
+                  :rows="4"
                 />
               </UFormField>
             </div>
 
             <div>
               <UFormField label="Variables (JSON)">
-                <UInput
+                <UTextarea
                   v-model="formData.variables"
                   class="w-full"
-                  placeholder="Enter variables as JSON (e.g. {&quot;key&quot;: &quot;value&quot;})"
-                  required
+                  placeholder="Enter variables as JSON (e.g. [&quot;key1&quot;, &quot;key2&quot;])"
+                  :rows="2"
                 />
               </UFormField>
             </div>
