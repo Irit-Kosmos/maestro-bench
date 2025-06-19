@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select, Session
+from rq import Queue
+from redis import Redis
 from db import get_session
 from models import Experiment, ExperimentConfig, Dataset
 from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate
+from jobs import run_experiment
 from typing import List
 
 router = APIRouter(tags=["experiments"])
+
+# Initialize Redis connection and queue
+redis_conn = Redis.from_url("redis://localhost:6379/0")
+queue = Queue("experiments", connection=redis_conn)
 
 @router.get("/experiments", response_model=List[ExperimentResponse])
 def list_experiments(session: Session = Depends(get_session)):
@@ -39,11 +46,19 @@ def list_experiments(session: Session = Depends(get_session)):
 
 @router.post("/experiments", response_model=ExperimentResponse, status_code=201)
 def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get_session)):
-    """Create a new experiment"""
+    """Create a new experiment and automatically start it"""
     experiment = Experiment(**exp_data.model_dump())
     session.add(experiment)
     session.commit()
     session.refresh(experiment)
+    
+    # Automatically queue the experiment job
+    try:
+        job = queue.enqueue(run_experiment, experiment.id)
+        print(f"[API] Experiment {experiment.id} queued with job ID: {job.id}")
+    except Exception as e:
+        print(f"[API] Failed to queue experiment {experiment.id}: {str(e)}")
+        # Don't fail the creation, just log the error
     
     # Return the created experiment with related data
     dataset = session.get(Dataset, experiment.dataset_id)
