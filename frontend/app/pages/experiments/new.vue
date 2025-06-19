@@ -5,7 +5,10 @@ import type { CreateExperimentForm } from '~/types'
 const { datasets } = useDatasets()
 const { createExperiment } = useExperiments()
 const toast = useToast()
-const { availableTeams } = useAgentTeams()
+const { agentTeams } = useAgentTeams()
+
+// Get full teams data with agents
+const fullTeams = computed(() => agentTeams.value || [])
 
 // Form state
 const formData = ref<CreateExperimentForm>({
@@ -15,6 +18,14 @@ const formData = ref<CreateExperimentForm>({
 })
 
 const isSubmitting = ref(false)
+
+// Enhanced state for agent team management
+const selectedTeamId = ref<number | null>(null)
+const agentConfigurations = ref<Record<number, {
+  system_prompt?: string
+  user_prompt?: string
+  variables?: string
+}>>({})
 
 // Stepper configuration
 const stepperItems = [
@@ -43,7 +54,9 @@ const stepper = useTemplateRef<any>('stepper')
 
 // Computed
 const formValid = computed(() => {
-  return formData.value.name.trim() && formData.value.dataset_id != null
+  return formData.value.name.trim()
+    && formData.value.dataset_id != null
+    && selectedTeamId.value != null
 })
 
 const isStepValid = computed(() => {
@@ -53,7 +66,7 @@ const isStepValid = computed(() => {
     case 1:
       return formData.value.dataset_id != null
     case 2:
-      return true // Teams are optional
+      return selectedTeamId.value != null // Single team required
     default:
       return false
   }
@@ -71,20 +84,45 @@ const selectedDataset = computed({
   },
 })
 
-// Handlers
-function toggleTeamSelection(teamId: number) {
-  const teamIdStr = teamId.toString()
-  const teams = formData.value.agent_teams
-  const index = teams.indexOf(teamIdStr)
+// Computed properties for enhanced agent management
+const selectedTeam = computed(() => {
+  return selectedTeamId.value ? fullTeams.value.find(team => team.id === selectedTeamId.value) : null
+})
 
-  if (index > -1) {
-    // Remove team if already selected
-    teams.splice(index, 1)
+// Handlers
+function selectTeam(teamId: number) {
+  // Clear previous selection
+  if (selectedTeamId.value !== null) {
+    const previousTeam = fullTeams.value.find(t => t.id === selectedTeamId.value)
+    if (previousTeam) {
+      previousTeam.agents.forEach((agent) => {
+        delete agentConfigurations.value[agent.id]
+      })
+    }
   }
-  else {
-    // Add team if not selected
-    teams.push(teamIdStr)
+
+  // Set new selection
+  selectedTeamId.value = teamId
+  formData.value.agent_teams = [teamId.toString()]
+
+  // Initialize configurations for new team
+  const team = fullTeams.value.find(t => t.id === teamId)
+  if (team) {
+    team.agents.forEach((agent) => {
+      agentConfigurations.value[agent.id] = {
+        system_prompt: agent.system_prompt || '',
+        user_prompt: agent.user_prompt || '',
+        variables: agent.variables || '',
+      }
+    })
   }
+}
+
+function updateAgentConfiguration(agentId: number, field: string, value: string) {
+  if (!agentConfigurations.value[agentId]) {
+    agentConfigurations.value[agentId] = {}
+  }
+  agentConfigurations.value[agentId][field as keyof typeof agentConfigurations.value[number]] = value
 }
 
 function nextStep() {
@@ -106,15 +144,20 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
-    const result = await createExperiment({
+    // Prepare experiment data with agent configurations
+    const experimentData = {
       name: formData.value.name.trim(),
       dataset_id: formData.value.dataset_id!,
-    })
+      agent_teams: formData.value.agent_teams,
+      agent_configurations: agentConfigurations.value,
+    }
+
+    const result = await createExperiment(experimentData)
 
     if (result.success) {
       toast.add({
         title: 'Success',
-        description: 'Experiment created successfully!',
+        description: 'Experiment created successfully with custom agent configurations!',
         color: 'success',
         icon: 'i-lucide:check-circle',
       })
@@ -218,57 +261,184 @@ async function handleCancel() {
 
             <!-- Step 3: Agent Teams Selection -->
             <template #teams>
-              <div class="space-y-6 ">
-                <div v-if="availableTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-6">
+                <!-- Team Selection Grid -->
+                <div v-if="fullTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <UCard
-                    v-for="team in availableTeams"
+                    v-for="team in fullTeams"
                     :key="team.id"
-                    class="cursor-pointer hover:shadow-md transition-shadow"
+                    class="cursor-pointer hover:shadow-md transition-all duration-200"
                     :class="{
-                      'ring-2 ring-primary-500 bg-primary-50': formData.agent_teams.includes(team.id.toString()),
+                      'ring-2 ring-primary-500 bg-primary-50': selectedTeamId === team.id,
+                      'hover:ring-1 hover:ring-gray-300': selectedTeamId !== team.id,
                     }"
-                    @click="() => toggleTeamSelection(team.id)"
+                    @click="selectTeam(team.id)"
                   >
-                    <div class="flex items-start space-x-3">
-                      <div class="flex-1 pointer-events-none">
-                        <div class="block text-sm font-medium text-gray-900">
-                          {{ team.name }}
+                    <div class="flex items-start justify-between">
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                          <h4 class="text-lg font-medium text-gray-900">
+                            {{ team.name }}
+                          </h4>
+                          <UBadge size="sm" variant="subtle" :color="selectedTeamId === team.id ? 'primary' : 'neutral'">
+                            {{ team.agents.length }} agent{{ team.agents.length > 1 ? 's' : '' }}
+                          </UBadge>
                         </div>
-                        <p class="text-sm text-gray-500 mt-1">
+                        <p class="text-sm text-gray-500 mb-3">
                           {{ team.description }}
                         </p>
+                        <div class="flex flex-wrap gap-2">
+                          <UBadge
+                            v-for="agent in team.agents"
+                            :key="agent.id"
+                            size="sm"
+                            variant="outline"
+                            :color="selectedTeamId === team.id ? 'primary' : 'neutral'"
+                          >
+                            {{ agent.name }}
+                          </UBadge>
+                        </div>
                       </div>
                     </div>
                   </UCard>
                 </div>
 
-                <div v-else class="text-center py-8">
-                  <UIcon name="i-lucide-users-x" class="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <!-- No Teams Available -->
+                <div v-else class="text-center py-12">
+                  <UIcon name="i-lucide-users-x" class="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h4 class="text-lg font-medium text-gray-900 mb-2">
                     No Agent Teams Available
                   </h4>
-                  <p class="text-gray-600 mb-4">
+                  <p class="text-gray-600 mb-6">
                     You need to create agent teams before running experiments.
                   </p>
                   <UButton
                     to="/agents"
                     icon="i-lucide-plus"
-                    variant="outline"
+                    size="lg"
                   >
                     Create Agent Teams
                   </UButton>
                 </div>
 
-                <div class="bg-blue-50 rounded-lg p-4">
+                <!-- Agent Configuration Section (appears when team is selected) -->
+                <div v-if="selectedTeam" class="border-t border-gray-200 pt-8">
+                  <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                      Configure {{ selectedTeam.name }} Agents
+                    </h4>
+                    <p class="text-gray-600">
+                      Customize the configuration for each agent in your selected team
+                    </p>
+                  </div>
+
+                  <!-- Agents Configuration Grid -->
+                  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <UCard
+                      v-for="agent in selectedTeam.agents"
+                      :key="agent.id"
+                      class="h-fit"
+                    >
+                      <template #header>
+                        <div class="flex items-center justify-between">
+                          <div class="mr-4">
+                            <h5 class="text-base font-medium text-gray-900">
+                              {{ agent.name }}
+                            </h5>
+                            <p v-if="agent.description" class="text-sm text-gray-500 mt-1 pr-4">
+                              {{ agent.description }}
+                            </p>
+                          </div>
+                          <UBadge variant="subtle" color="primary" class="min-w-16">
+                            Agent {{ agent.id }}
+                          </UBadge>
+                        </div>
+                      </template>
+
+                      <div class="space-y-4">
+                        <!-- System Prompt -->
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-2">
+                            System Prompt
+                          </label>
+                          <UTextarea
+                            :model-value="agentConfigurations[agent.id]?.system_prompt || agent.system_prompt || ''"
+                            placeholder="Enter system prompt..."
+                            :rows="3"
+                            resize
+                            size="sm"
+                            class="w-full"
+                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'system_prompt', value)"
+                          />
+                        </div>
+
+                        <!-- User Prompt -->
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-2">
+                            User Prompt
+                          </label>
+                          <UTextarea
+                            :model-value="agentConfigurations[agent.id]?.user_prompt || agent.user_prompt || ''"
+                            placeholder="Enter user prompt..."
+                            :rows="5"
+                            resize
+                            size="sm"
+                            class="w-full"
+                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'user_prompt', value)"
+                          />
+                        </div>
+
+                        <!-- Variables -->
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Variables (JSON)
+                          </label>
+                          <UTextarea
+                            :model-value="agentConfigurations[agent.id]?.variables || agent.variables || ''"
+                            placeholder="{&quot;key&quot;: &quot;value&quot;}"
+                            :rows="2"
+                            resize
+                            size="sm"
+                            class="w-full"
+                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'variables', value)"
+                          />
+                          <p class="text-xs text-gray-500 mt-1">
+                            JSON format variables for agent execution
+                          </p>
+                        </div>
+
+                        <!-- Reset Button -->
+                        <div class="flex justify-end pt-2">
+                          <UButton
+                            variant="ghost"
+                            size="xs"
+                            icon="i-lucide-rotate-ccw"
+                            @click="() => {
+                              agentConfigurations[agent.id] = {
+                                system_prompt: agent.system_prompt || '',
+                                user_prompt: agent.user_prompt || '',
+                                variables: agent.variables || '',
+                              }
+                            }"
+                          >
+                            Reset
+                          </UButton>
+                        </div>
+                      </div>
+                    </UCard>
+                  </div>
+                </div>
+
+                <!-- Required Notice (only shown when no team selected) -->
+                <div v-if="!selectedTeamId" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div class="flex">
-                    <UIcon name="i-lucide-info" class="h-5 w-5 text-blue-400 mt-0.5" />
+                    <UIcon name="i-lucide-alert-triangle" class="h-5 w-5 text-amber-500 mt-0.5" />
                     <div class="ml-3">
-                      <h4 class="text-sm font-medium text-blue-800">
-                        Optional Step
+                      <h4 class="text-sm font-medium text-amber-800">
+                        Agent Team Required
                       </h4>
-                      <p class="text-sm text-blue-700 mt-1">
-                        You can create an experiment without selecting teams now and add them later.
-                        Selected teams will run their agents against your chosen dataset.
+                      <p class="text-sm text-amber-700 mt-1">
+                        You must select one agent team to proceed. The selected team will run its agents against your chosen dataset.
                       </p>
                     </div>
                   </div>

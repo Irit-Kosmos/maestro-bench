@@ -47,7 +47,7 @@ async function handleConfirm() {
 <template>
   <UModal v-model:open="show" :prevent-close="isDeleting">
     <template #content>
-      <UCard class="max-w-md">
+      <UCard>
         <template #header>
           <div class="flex items-center space-x-3">
             <div class="flex-shrink-0">

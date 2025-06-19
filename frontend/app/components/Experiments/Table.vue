@@ -66,17 +66,6 @@ const columns: TableColumn<Experiment>[] = [
     },
   },
   {
-    accessorKey: 'results',
-    header: 'Results',
-    cell: ({ row }) => {
-      const results = row.original.results
-      if (results && results.total_questions) {
-        return h('div', { class: 'text-sm text-gray-500' }, `${results.total_questions} questions`)
-      }
-      return h('span', { class: 'text-sm text-gray-400' }, 'No results yet')
-    },
-  },
-  {
     accessorKey: 'created_at',
     header: 'Created',
     cell: ({ row }) => {
