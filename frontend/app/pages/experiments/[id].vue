@@ -7,21 +7,28 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
 const toast = useToast()
-const { experiments, deleteExperiment } = useExperiments()
+const { fetchExperiment, deleteExperiment } = useExperiments()
+const { formatDuration } = useUIHelpers()
 
 // State
 const experiment = ref<Experiment | null>(null)
 const loading = ref(true)
 const showDeleteDialog = ref(false)
+const isDeleting = ref(false)
 
 // Computed
 const pageTitle = computed(() => {
   return experiment.value ? experiment.value.name : 'Loading...'
 })
 
-// Set page title
+// Set page title and meta
 useSeoMeta({
   title: pageTitle,
+  description: computed(() =>
+    experiment.value
+      ? `View details and results for experiment: ${experiment.value.name}`
+      : 'Loading experiment...',
+  ),
 })
 
 const statusColor = computed(() => {
@@ -40,31 +47,18 @@ const statusColor = computed(() => {
 async function loadExperiment() {
   loading.value = true
   try {
-    // Find experiment in existing data or fetch from API
-    if (!experiments.value || experiments.value.length === 0) {
-      toast.add({
-        title: 'Error',
-        description: 'No experiments data available',
-        color: 'error',
-        icon: 'i-lucide:alert-circle',
-      })
-      await navigateTo('/')
-      return
-    }
-
-    const found = experiments.value.find(exp => exp.id === experimentId.value)
-    if (found) {
-      experiment.value = JSON.parse(JSON.stringify(found))
+    const result = await fetchExperiment(experimentId.value)
+    if (result.success && result.data) {
+      experiment.value = result.data as Experiment
     }
     else {
-      // TODO: Implement API call to fetch single experiment
       toast.add({
         title: 'Error',
         description: 'Experiment not found',
         color: 'error',
         icon: 'i-lucide:alert-circle',
       })
-      await navigateTo('/')
+      await navigateTo('/experiments')
     }
   }
   catch (error) {
@@ -75,6 +69,7 @@ async function loadExperiment() {
       color: 'error',
       icon: 'i-lucide:alert-circle',
     })
+    await navigateTo('/experiments')
   }
   finally {
     loading.value = false
@@ -85,6 +80,7 @@ async function handleDeleteExperiment() {
   if (!experiment.value)
     return
 
+  isDeleting.value = true
   try {
     const result = await deleteExperiment(experiment.value.id)
     if (result.success) {
@@ -94,7 +90,7 @@ async function handleDeleteExperiment() {
         color: 'success',
         icon: 'i-lucide:check-circle',
       })
-      await navigateTo('/')
+      await navigateTo('/experiments')
     }
     else {
       toast.add({
@@ -115,9 +111,21 @@ async function handleDeleteExperiment() {
     })
   }
   finally {
+    isDeleting.value = false
     showDeleteDialog.value = false
   }
 }
+
+const duration = computed(() => {
+  return experiment.value
+    ? formatDuration(
+        experiment.value.completed_at
+          ? new Date(experiment.value.completed_at).getTime() / 1000
+          - new Date(experiment.value.created_at).getTime() / 1000
+          : 0,
+      )
+    : 'N/A'
+})
 
 // Lifecycle
 onMounted(() => {
@@ -140,6 +148,36 @@ watch(() => route.params.id, () => {
 
       <!-- Experiment Details -->
       <div v-else-if="experiment" class="space-y-8">
+        <!-- Header with Actions -->
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">
+              {{ experiment.name }}
+            </h1>
+            <p class="text-gray-500 mt-1">
+              Experiment ID: {{ experiment.id }}
+            </p>
+          </div>
+          <div class="flex gap-3">
+            <UButton
+              variant="outline"
+              color="neutral"
+              icon="i-lucide:arrow-left"
+              @click="$router.go(-1)"
+            >
+              Back
+            </UButton>
+            <UButton
+              variant="outline"
+              color="error"
+              icon="i-lucide:trash-2"
+              @click="showDeleteDialog = true"
+            >
+              Delete
+            </UButton>
+          </div>
+        </div>
+
         <!-- Overview Card -->
         <UCard>
           <template #header>
@@ -188,7 +226,7 @@ watch(() => route.params.id, () => {
               </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 <!-- TODO: Calculate duration based on timestamps -->
-                {{ experiment.status === 'completed' ? '2m 34s' : '-' }}
+                {{ experiment.status === 'completed' ? duration : '-' }}
               </dd>
             </div>
           </div>
@@ -210,7 +248,7 @@ watch(() => route.params.id, () => {
             </div>
 
             <div class="text-sm text-gray-500">
-              Note: Detailed results and visualizations will be implemented in future iterations.
+              Results will appear here once the experiment completes.
             </div>
           </div>
         </UCard>
@@ -259,38 +297,33 @@ watch(() => route.params.id, () => {
       </div>
     </div>
 
-    <!-- Delete Confirmation Dialog -->
-    <UModal v-model="showDeleteDialog">
-      <UCard>
-        <template #header>
-          <h2 class="text-lg font-semibold text-gray-900">
-            Delete Experiment
-          </h2>
-        </template>
+    <!-- Delete Confirmation Modal -->
+    <UModal v-model:open="showDeleteDialog" title="Delete Experiment">
+      <template #body>
+        <p class="text-gray-600">
+          Are you sure you want to delete "{{ experiment?.name }}"? This action cannot be undone.
+        </p>
+      </template>
 
-        <div class="space-y-4">
-          <p class="text-gray-600">
-            Are you sure you want to delete "{{ experiment?.name }}"? This action cannot be undone.
-          </p>
-
-          <div class="flex gap-3 justify-end">
-            <UButton
-              variant="outline"
-              color="neutral"
-              @click="showDeleteDialog = false"
-            >
-              Cancel
-            </UButton>
-            <UButton
-              variant="solid"
-              color="error"
-              @click="handleDeleteExperiment"
-            >
-              Delete
-            </UButton>
-          </div>
+      <template #footer>
+        <div class="flex gap-3 justify-end">
+          <UButton
+            variant="outline"
+            color="neutral"
+            @click="showDeleteDialog = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            variant="solid"
+            color="error"
+            :loading="isDeleting"
+            @click="handleDeleteExperiment"
+          >
+            Delete
+          </UButton>
         </div>
-      </UCard>
+      </template>
     </UModal>
   </div>
 </template>

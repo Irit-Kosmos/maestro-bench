@@ -5,6 +5,12 @@ import type { CreateDatasetForm } from '~/types'
 const { datasets, pending, refresh, createDataset, deleteDataset } = useDatasets()
 const toast = useToast()
 
+// Page meta
+useSeoMeta({
+  title: 'Datasets',
+  description: 'Manage your datasets and data sources for AI agent experiments.',
+})
+
 // State
 const isSubmitting = ref(false)
 const showCreateModal = ref(false)
@@ -82,11 +88,20 @@ function handleRefresh() {
   <div class="min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <!-- Page Header -->
-      <div class="flex items-center justify-end mb-4">
+      <div class="flex justify-between items-center mb-8">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">
+            Datasets
+          </h1>
+          <p class="text-gray-500 mt-1">
+            Manage your datasets and data sources
+          </p>
+        </div>
         <UButton
           variant="solid"
           color="primary"
           icon="i-lucide:plus"
+          size="lg"
           @click="showCreateModal = true"
         >
           Create Dataset

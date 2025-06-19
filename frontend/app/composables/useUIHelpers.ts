@@ -28,11 +28,11 @@ export function useUIHelpers() {
 
   // Format duration in seconds to human readable
   function formatDuration(seconds: number): string {
-    if (seconds < 60)
-      return `${seconds}s`
-    if (seconds < 3600)
-      return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
-    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
+    if (seconds < 0)
+      return 'N/A'
+    const minutes = Math.floor(seconds / 60)
+    const secs = (seconds % 60).toFixed(2)
+    return `${minutes > 0 ? `${minutes}m ` : ''}${secs}s`
   }
 
   // Truncate text with ellipsis

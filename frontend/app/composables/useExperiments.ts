@@ -58,6 +58,18 @@ export function useExperiments() {
     }
   }
 
+  // Fetch a single experiment by ID
+  const fetchExperiment = async (id: number) => {
+    try {
+      const response = await $api(`/experiments/${id}`)
+      return { success: true, data: response }
+    }
+    catch (error) {
+      console.error('Error fetching experiment:', error)
+      return { success: false, error }
+    }
+  }
+
   // Delete an experiment
   const deleteExperiment = async (id: number) => {
     try {
@@ -84,6 +96,7 @@ export function useExperiments() {
     error: readonly(error),
     refresh,
     createExperiment,
+    fetchExperiment,
     deleteExperiment,
   }
 }

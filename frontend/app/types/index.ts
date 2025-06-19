@@ -21,6 +21,7 @@ export interface Experiment {
   name: string
   dataset_id: number
   created_at: string
+  completed_at?: string
   dataset?: Dataset
   agent_configs?: AgentConfig[]
   status?: ExperimentStatus
