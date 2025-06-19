@@ -80,9 +80,6 @@ class AgentUpdate(BaseModel):
 
 class ExperimentConfigCreate(BaseModel):
     agent_team_id: int
-    custom_system_prompt: Optional[str] = None
-    custom_user_prompt: Optional[str] = None
-    custom_variables: Optional[str] = None
     active: bool = True
     priority: int = 1
 
@@ -91,9 +88,6 @@ class ExperimentConfigResponse(BaseModel):
     id: int
     experiment_id: int
     agent_team_id: int
-    custom_system_prompt: Optional[str]
-    custom_user_prompt: Optional[str]
-    custom_variables: Optional[str]
     active: bool
     priority: int
     created_at: datetime
@@ -101,9 +95,6 @@ class ExperimentConfigResponse(BaseModel):
 
 
 class ExperimentConfigUpdate(BaseModel):
-    custom_system_prompt: Optional[str] = None
-    custom_user_prompt: Optional[str] = None
-    custom_variables: Optional[str] = None
     active: Optional[bool] = None
     priority: Optional[int] = None
 

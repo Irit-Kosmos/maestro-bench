@@ -1,4 +1,4 @@
-// Core types for the MAESTRO experiment system
+// Core types for the MAESTRO experiment system with complete traceability
 
 export interface Dataset {
   id: number
@@ -26,6 +26,7 @@ export interface Experiment {
   agent_configs?: AgentConfig[]
   status?: ExperimentStatus
   results?: ExperimentResults
+  executions?: ExperimentExecution[]
 }
 
 export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -39,6 +40,38 @@ export interface ExperimentStats {
   total: number
   completed: number
   running: number
+}
+
+// New traceability types
+export interface ExperimentExecution {
+  id: number
+  experiment_id: number
+  started_at: string
+  completed_at?: string
+  status: string
+  dataset_snapshot: string
+  results_file_path?: string
+  agent_executions: AgentExecutionConfig[]
+}
+
+export interface AgentExecutionConfig {
+  id: number
+  agent_id: number
+  agent_name_snapshot: string
+  agent_team_id_snapshot: number
+  agent_team_name_snapshot: string
+  final_system_prompt?: string
+  final_user_prompt?: string
+  final_variables?: string
+  created_at: string
+}
+
+export interface ExperimentTrace {
+  execution: ExperimentExecution
+  agent_configs: AgentExecutionConfig[]
+  experiment_metadata: Record<string, any>
+  dataset_metadata: Record<string, any>
+  results_summary: Record<string, any> // Summary from MAESTRO results file
 }
 
 export interface Agent {

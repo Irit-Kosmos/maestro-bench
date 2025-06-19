@@ -199,8 +199,16 @@ watch(() => route.params.id, () => {
               <dt class="text-sm font-medium text-gray-500">
                 File Path
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 font-mono truncate">
+              <dd class="mt-1 text-sm text-gray-900 font-mono truncate" :title="dataset.file_path">
                 {{ dataset.file_path || 'No file uploaded' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">
+                File Type
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                {{ dataset.file_path ? dataset.file_path.split('.').pop()?.toUpperCase() || 'Unknown' : 'N/A' }}
               </dd>
             </div>
             <div>
@@ -219,39 +227,15 @@ watch(() => route.params.id, () => {
           </div>
         </UCard>
 
-        <!-- File Information -->
+        <!-- Dataset Preview -->
         <UCard v-if="dataset.file_path">
           <template #header>
             <h2 class="text-lg font-semibold text-gray-900">
-              File Information
+              Dataset Preview
             </h2>
           </template>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <dt class="text-sm font-medium text-gray-500">
-                Path
-              </dt>
-              <dd class="mt-1 text-sm text-gray-900 font-mono break-all">
-                {{ dataset.file_path }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-gray-500">
-                Size
-              </dt>
-              <dd class="mt-1 text-sm text-gray-900">
-                <span class="text-gray-500">Calculating...</span>
-              </dd>
-            </div>
-          </div>
-
-          <div class="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p class="text-sm text-blue-700">
-              <UIcon name="i-lucide:info" class="w-4 h-4 inline mr-1" />
-              File preview and analysis features will be implemented in future iterations.
-            </p>
-          </div>
+          <DatasetsPreview :dataset-id="dataset.id" />
         </UCard>
 
         <!-- Upload Section -->

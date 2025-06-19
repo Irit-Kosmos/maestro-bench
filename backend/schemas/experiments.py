@@ -20,6 +20,8 @@ class ExperimentCreate(BaseModel):
     name: str
     description: Optional[str] = None
     dataset_id: int
+    agent_teams: Optional[List[str]] = []  # List of team IDs as strings
+    agent_configurations: Optional[dict] = {}  # Agent ID -> custom config mapping
 
 
 class ExperimentResponse(BaseModel):

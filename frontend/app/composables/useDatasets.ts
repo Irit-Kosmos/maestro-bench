@@ -46,6 +46,23 @@ export function useDatasets() {
     }
   }
 
+  // Check if a dataset can be previewed
+  function canPreview(dataset: Dataset): boolean {
+    if (!dataset.file_path)
+      return false
+
+    const extension = dataset.file_path.toLowerCase().split('.').pop()
+    return extension === 'csv' || extension === 'json'
+  }
+
+  // Get file extension from dataset
+  function getFileExtension(dataset: Dataset): string | null {
+    if (!dataset.file_path)
+      return null
+
+    return dataset.file_path.toLowerCase().split('.').pop() || null
+  }
+
   return {
     datasets: readonly(computed(() => datasets.value ?? null)),
     pending: readonly(pending),
@@ -53,5 +70,7 @@ export function useDatasets() {
     refresh,
     createDataset,
     deleteDataset,
+    canPreview,
+    getFileExtension,
   }
 }

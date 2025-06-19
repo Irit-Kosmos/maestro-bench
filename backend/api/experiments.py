@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select, Session
 from rq import Queue
 from redis import Redis
+import json
 from db import get_session
-from models import Experiment, ExperimentConfig, Dataset
+from models import Experiment, ExperimentConfig, Dataset, Agent
 from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate
 from jobs import run_experiment
 from typing import List
@@ -46,16 +47,46 @@ def list_experiments(session: Session = Depends(get_session)):
 
 @router.post("/experiments", response_model=ExperimentResponse, status_code=201)
 def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get_session)):
-    """Create a new experiment and automatically start it"""
-    experiment = Experiment(**exp_data.model_dump())
+    """Create a new experiment with agent team configurations and automatically start it"""
+    
+    # Create the base experiment
+    experiment = Experiment(
+        name=exp_data.name,
+        description=exp_data.description,
+        dataset_id=exp_data.dataset_id,
+        agent_configurations=json.dumps(exp_data.agent_configurations) if exp_data.agent_configurations else None
+    )
     session.add(experiment)
     session.commit()
     session.refresh(experiment)
+    
+    # Create experiment configurations for each agent team
+    experiment_configs = []
+    if exp_data.agent_teams:
+        for i, team_id_str in enumerate(exp_data.agent_teams):
+            team_id = int(team_id_str)
+            
+            # Create experiment config for this team
+            config = ExperimentConfig(
+                experiment_id=experiment.id,
+                agent_team_id=team_id,
+                active=True,
+                priority=i + 1  # Priority based on order
+            )
+            
+            # Store custom agent configurations in the config if provided
+            # Note: Individual agent configs are now stored on the experiment itself
+            # This is just for team-level overrides if needed
+            session.add(config)
+            experiment_configs.append(config)
+    
+    session.commit()
     
     # Automatically queue the experiment job
     try:
         job = queue.enqueue(run_experiment, experiment.id)
         print(f"[API] Experiment {experiment.id} queued with job ID: {job.id}")
+        print(f"[API] Agent configurations stored in experiment: {json.dumps(exp_data.agent_configurations, indent=2) if exp_data.agent_configurations else 'None'}")
     except Exception as e:
         print(f"[API] Failed to queue experiment {experiment.id}: {str(e)}")
         # Don't fail the creation, just log the error

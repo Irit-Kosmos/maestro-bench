@@ -238,8 +238,8 @@ async function handleCancel() {
 
             <!-- Step 2: Dataset Selection -->
             <template #dataset>
-              <div class="space-y-4  flex flex-col justify-center">
-                <div class="max-w-md mx-auto mt-4 w-full">
+              <div class="space-y-6">
+                <div class="max-w-2xl mx-auto w-full">
                   <label for="dataset-select" class="block text-sm font-medium text-gray-700 mb-2">
                     Available Datasets
                   </label>
@@ -255,6 +255,11 @@ async function handleCancel() {
                   <p class="text-xs text-gray-500 mt-2">
                     The dataset contains the questions/tasks for your experiment
                   </p>
+                </div>
+
+                <!-- Dataset Preview -->
+                <div v-if="selectedDataset" class="max-w-4xl mx-auto w-full">
+                  <DatasetsPreview :dataset-id="selectedDataset" />
                 </div>
               </div>
             </template>

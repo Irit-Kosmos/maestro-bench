@@ -51,22 +51,21 @@ class Experiment(SQLModel, table=True):
     status: str = Field(default="pending")  # pending, running, completed, failed
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
+    
+    # Store agent configurations as JSON for flexibility
+    agent_configurations: Optional[str] = None  # JSON string of agent ID -> custom config mapping
 
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")
     experiment_configs: List["ExperimentConfig"] = Relationship(back_populates="experiment")
+    executions: List["ExperimentExecution"] = Relationship(back_populates="experiment")
 
 
 class ExperimentConfig(SQLModel, table=True):
-    """Configuration linking an experiment to an agent team with custom settings"""
+    """Configuration linking an experiment to an agent team - simplified"""
     id: Optional[int] = Field(default=None, primary_key=True)
     experiment_id: int = Field(foreign_key="experiment.id")
     agent_team_id: int = Field(foreign_key="agentteam.id")
-    
-    # Customization options
-    custom_system_prompt: Optional[str] = None  # Override system prompts for all agents in team
-    custom_user_prompt: Optional[str] = None    # Override user prompts for all agents in team
-    custom_variables: Optional[str] = None      # JSON string of custom variables
     
     # Execution settings
     active: bool = Field(default=True)
@@ -77,3 +76,50 @@ class ExperimentConfig(SQLModel, table=True):
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="experiment_configs")
     agent_team: Optional[AgentTeam] = Relationship(back_populates="experiment_configs")
+
+
+class ExperimentExecution(SQLModel, table=True):
+    """Captures the exact state of an experiment at execution time - immutable snapshot"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    experiment_id: int = Field(foreign_key="experiment.id")
+    
+    # Execution metadata
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = None
+    status: str = Field(default="running")  # running, completed, failed, cancelled
+    
+    # Dataset snapshot at execution time
+    dataset_snapshot: str = Field(description="JSON snapshot of dataset metadata at execution")
+    
+    # Results storage
+    results_file_path: Optional[str] = None  # Path to CSV/JSON results file from MAESTRO
+    
+    # Relationships
+    experiment: Optional[Experiment] = Relationship(back_populates="executions")
+    agent_executions: List["AgentExecutionConfig"] = Relationship(back_populates="experiment_execution")
+
+
+class AgentExecutionConfig(SQLModel, table=True):
+    """Immutable snapshot of each agent's EXACT configuration used during execution"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    experiment_execution_id: int = Field(foreign_key="experimentexecution.id")
+    agent_id: int = Field(foreign_key="agent.id")
+    
+    # Agent snapshot - exactly as it was during execution
+    agent_name_snapshot: str = Field(description="Agent name at execution time")
+    agent_team_id_snapshot: int = Field(description="Team ID at execution time")
+    agent_team_name_snapshot: str = Field(description="Team name at execution time")
+    
+    # EXACT prompts and variables used (either original or custom overrides)
+    final_system_prompt: Optional[str] = None  # The actual system prompt used
+    final_user_prompt: Optional[str] = None    # The actual user prompt used
+    final_variables: Optional[str] = None      # JSON of actual variables used
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    experiment_execution: Optional[ExperimentExecution] = Relationship(back_populates="agent_executions")
+    agent: Optional[Agent] = Relationship()
+
+
+# Note: QuestionResult removed as requested - MAESTRO will provide result files directly

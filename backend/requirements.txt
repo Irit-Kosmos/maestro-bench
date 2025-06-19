@@ -4,3 +4,4 @@ sqlmodel
 pydantic
 rq
 redis
+pandas
