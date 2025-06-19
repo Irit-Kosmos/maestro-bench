@@ -1,11 +1,11 @@
 import type { CreateDatasetForm, Dataset } from '~/types'
 
-const { $api } = useNuxtApp()
-
 /**
  * Composable for managing datasets data and operations
  */
 export function useDatasets() {
+  const { $api } = useNuxtApp()
+
   // Fetch datasets with auto-refresh capability
   const { data: datasets, refresh, pending, error } = useMyLazyFetch<Dataset[]>('/datasets')
 
@@ -47,7 +47,7 @@ export function useDatasets() {
   }
 
   return {
-    datasets: readonly(datasets),
+    datasets: readonly(computed(() => datasets.value ?? null)),
     pending: readonly(pending),
     error: readonly(error),
     refresh,

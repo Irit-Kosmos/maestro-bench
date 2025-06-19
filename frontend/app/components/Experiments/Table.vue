@@ -2,7 +2,7 @@
 import type { Experiment } from '~/types'
 
 interface Props {
-  experiments: Experiment[] | null
+  experiments: any
   loading?: boolean
 }
 

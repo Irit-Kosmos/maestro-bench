@@ -68,6 +68,7 @@ export interface CreateExperimentForm {
 export interface CreateDatasetForm {
   name: string
   description: string
+  file_path?: string
 }
 
 export interface CreateAgentTeamForm {

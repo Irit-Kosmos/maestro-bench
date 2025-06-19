@@ -6,7 +6,7 @@ const route = useRoute()
 const datasetId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
-const { showError, showSuccess } = useNotifications()
+const toast = useToast()
 const { datasets, deleteDataset } = useDatasets()
 
 // State
@@ -19,13 +19,23 @@ const pageTitle = computed(() => {
   return dataset.value ? dataset.value.name : 'Loading...'
 })
 
+// Set page title
+useSeoMeta({
+  title: pageTitle,
+})
+
 // Methods
 async function loadDataset() {
   loading.value = true
   try {
     // Find dataset in existing data or fetch from API
-    if (!datasets.value) {
-      showError('No datasets data available')
+    if (!datasets.value || datasets.value.length === 0) {
+      toast.add({
+        title: 'Error',
+        description: 'No datasets data available',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
       await navigateTo('/datasets')
       return
     }
@@ -36,13 +46,23 @@ async function loadDataset() {
     }
     else {
       // TODO: Implement API call to fetch single dataset
-      showError('Dataset not found')
+      toast.add({
+        title: 'Error',
+        description: 'Dataset not found',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
       await navigateTo('/datasets')
     }
   }
   catch (error) {
     console.error('Error loading dataset:', error)
-    showError('Failed to load dataset')
+    toast.add({
+      title: 'Error',
+      description: 'Failed to load dataset',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
   }
   finally {
     loading.value = false
@@ -56,16 +76,31 @@ async function handleDeleteDataset() {
   try {
     const result = await deleteDataset(dataset.value.id)
     if (result.success) {
-      showSuccess('Dataset deleted successfully')
+      toast.add({
+        title: 'Success',
+        description: 'Dataset deleted successfully',
+        color: 'success',
+        icon: 'i-lucide:check-circle',
+      })
       await navigateTo('/datasets')
     }
     else {
-      showError('Failed to delete dataset')
+      toast.add({
+        title: 'Error',
+        description: 'Failed to delete dataset',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
     }
   }
   catch (error) {
     console.error('Error deleting dataset:', error)
-    showError('Failed to delete dataset')
+    toast.add({
+      title: 'Error',
+      description: 'Failed to delete dataset',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
   }
   finally {
     showDeleteDialog.value = false
@@ -86,22 +121,72 @@ watch(() => route.params.id, () => {
 <template>
   <div class="min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Breadcrumb -->
+      <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+          <li class="inline-flex items-center">
+            <NuxtLink to="/datasets" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+              <UIcon name="i-lucide:database" class="w-4 h-4 mr-2" />
+              Datasets
+            </NuxtLink>
+          </li>
+          <li>
+            <div class="flex items-center">
+              <UIcon name="i-lucide:chevron-right" class="w-4 h-4 text-gray-400" />
+              <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">
+                {{ loading ? 'Loading...' : dataset?.name || 'Dataset' }}
+              </span>
+            </div>
+          </li>
+        </ol>
+      </nav>
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-12">
         <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
       </div>
 
       <!-- Dataset Details -->
-      <div v-else-if="dataset" class="space-y-8">
+      <div v-else-if="dataset" class="space-y-6">
+        <!-- Dataset Header -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900">
+              {{ dataset.name }}
+            </h1>
+            <p class="mt-2 text-gray-600">
+              {{ dataset.description }}
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <UButton
+              variant="outline"
+              color="neutral"
+              icon="i-lucide:edit"
+              size="sm"
+              disabled
+            >
+              Edit
+            </UButton>
+            <UButton
+              variant="outline"
+              color="error"
+              icon="i-lucide:trash-2"
+              size="sm"
+              @click="showDeleteDialog = true"
+            >
+              Delete
+            </UButton>
+          </div>
+        </div>
         <!-- Overview Card -->
         <UCard>
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
-              Dataset Overview
+            <h2 class="text-lg font-semibold text-gray-900">
+              Overview
             </h2>
           </template>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <dt class="text-sm font-medium text-gray-500">
                 Created
@@ -114,7 +199,7 @@ watch(() => route.params.id, () => {
               <dt class="text-sm font-medium text-gray-500">
                 File Path
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-gray-900 font-mono truncate">
                 {{ dataset.file_path || 'No file uploaded' }}
               </dd>
             </div>
@@ -134,100 +219,89 @@ watch(() => route.params.id, () => {
           </div>
         </UCard>
 
-        <!-- Description -->
-        <UCard>
-          <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
-              Description
-            </h2>
-          </template>
-
-          <div class="prose max-w-none">
-            <p class="text-gray-600">
-              {{ dataset.description }}
-            </p>
-          </div>
-        </UCard>
-
         <!-- File Information -->
         <UCard v-if="dataset.file_path">
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-gray-900">
               File Information
             </h2>
           </template>
 
-          <div class="space-y-4">
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">
-                File Details
-              </h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">
-                    Path
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900 font-mono">
-                    {{ dataset.file_path }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">
-                    Size
-                  </dt>
-                  <dd class="mt-1 text-sm text-gray-900">
-                    Calculating...
-                  </dd>
-                </div>
-              </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">
+                Path
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900 font-mono break-all">
+                {{ dataset.file_path }}
+              </dd>
             </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">
+                Size
+              </dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                <span class="text-gray-500">Calculating...</span>
+              </dd>
+            </div>
+          </div>
 
-            <div class="text-sm text-gray-500">
-              Note: File preview and analysis features will be implemented in future iterations.
-            </div>
+          <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p class="text-sm text-blue-700">
+              <UIcon name="i-lucide:info" class="w-4 h-4 inline mr-1" />
+              File preview and analysis features will be implemented in future iterations.
+            </p>
           </div>
         </UCard>
 
         <!-- Upload Section -->
         <UCard v-else>
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-gray-900">
               Upload Dataset File
             </h2>
           </template>
 
-          <div class="space-y-4">
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <UIcon name="i-lucide:upload" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 class="text-lg font-medium text-gray-900 mb-2">
-                Upload Your Dataset
-              </h3>
-              <p class="text-gray-500 mb-4">
-                Drag and drop your dataset file here, or click to browse
-              </p>
-              <UButton variant="solid" color="primary" disabled>
-                Upload File (Coming Soon)
-              </UButton>
-            </div>
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <UIcon name="i-lucide:upload" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 class="text-lg font-medium text-gray-900 mb-2">
+              Upload Your Dataset
+            </h3>
+            <p class="text-gray-500 mb-4">
+              Drag and drop your dataset file here, or click to browse
+            </p>
+            <UButton variant="solid" color="primary" disabled>
+              <UIcon name="i-lucide:upload" class="w-4 h-4 mr-2" />
+              Upload File (Coming Soon)
+            </UButton>
           </div>
         </UCard>
 
         <!-- Usage Information -->
         <UCard>
           <template #header>
-            <h2 class="text-xl font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-gray-900">
               Usage in Experiments
             </h2>
           </template>
 
-          <div class="space-y-4">
-            <p class="text-gray-600">
-              This dataset has been used in <strong>0</strong> experiments.
-            </p>
-
-            <div class="text-sm text-gray-500">
-              Note: Experiment usage tracking will be implemented in future iterations.
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">
+                This dataset has been used in <span class="font-semibold text-gray-900">0</span> experiments.
+              </p>
+              <p class="text-xs text-gray-500 mt-1">
+                Experiment usage tracking will be implemented in future iterations.
+              </p>
             </div>
+            <UButton
+              variant="outline"
+              color="neutral"
+              size="sm"
+              disabled
+            >
+              View Experiments
+            </UButton>
           </div>
         </UCard>
       </div>
@@ -248,37 +322,29 @@ watch(() => route.params.id, () => {
     </div>
 
     <!-- Delete Confirmation Dialog -->
-    <UModal v-model="showDeleteDialog">
-      <UCard>
-        <template #header>
-          <h2 class="text-lg font-semibold text-gray-900">
-            Delete Dataset
-          </h2>
-        </template>
-
-        <div class="space-y-4">
-          <p class="text-gray-600">
-            Are you sure you want to delete "{{ dataset?.name }}"? This action cannot be undone.
-          </p>
-
-          <div class="flex gap-3 justify-end">
-            <UButton
-              variant="outline"
-              color="neutral"
-              @click="showDeleteDialog = false"
-            >
-              Cancel
-            </UButton>
-            <UButton
-              variant="solid"
-              color="error"
-              @click="handleDeleteDataset"
-            >
-              Delete
-            </UButton>
-          </div>
+    <UModal
+      v-model:open="showDeleteDialog"
+      title="Delete Dataset"
+      :description="`Are you sure you want to delete &quot;${dataset?.name}&quot;? This action cannot be undone.`"
+    >
+      <template #footer>
+        <div class="flex w-full gap-2 justify-end">
+          <UButton
+            variant="outline"
+            color="neutral"
+            @click="showDeleteDialog = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            variant="solid"
+            color="error"
+            @click="handleDeleteDataset"
+          >
+            Delete
+          </UButton>
         </div>
-      </UCard>
+      </template>
     </UModal>
   </div>
 </template>

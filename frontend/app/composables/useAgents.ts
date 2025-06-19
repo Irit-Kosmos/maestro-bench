@@ -1,11 +1,11 @@
 import type { Agent, CreateAgentForm } from '~/types'
 
-const { $api } = useNuxtApp()
-
 /**
  * Composable for managing individual agents
  */
 export function useAgents() {
+  const { $api } = useNuxtApp()
+
   // Fetch agents with auto-refresh capability
   const { data: agents, refresh, pending, error } = useMyLazyFetch<Agent[]>('/agents')
 
@@ -66,7 +66,7 @@ export function useAgents() {
   }
 
   return {
-    agents: readonly(agents),
+    agents: readonly(computed(() => agents.value ?? null)),
     pending: readonly(pending),
     error: readonly(error),
     refresh,

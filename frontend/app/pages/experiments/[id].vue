@@ -6,7 +6,7 @@ const route = useRoute()
 const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
-const { showError, showSuccess } = useNotifications()
+const toast = useToast()
 const { experiments, deleteExperiment } = useExperiments()
 
 // State
@@ -17,6 +17,11 @@ const showDeleteDialog = ref(false)
 // Computed
 const pageTitle = computed(() => {
   return experiment.value ? experiment.value.name : 'Loading...'
+})
+
+// Set page title
+useSeoMeta({
+  title: pageTitle,
 })
 
 const statusColor = computed(() => {
@@ -36,8 +41,13 @@ async function loadExperiment() {
   loading.value = true
   try {
     // Find experiment in existing data or fetch from API
-    if (!experiments.value) {
-      showError('No experiments data available')
+    if (!experiments.value || experiments.value.length === 0) {
+      toast.add({
+        title: 'Error',
+        description: 'No experiments data available',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
       await navigateTo('/')
       return
     }
@@ -48,13 +58,23 @@ async function loadExperiment() {
     }
     else {
       // TODO: Implement API call to fetch single experiment
-      showError('Experiment not found')
+      toast.add({
+        title: 'Error',
+        description: 'Experiment not found',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
       await navigateTo('/')
     }
   }
   catch (error) {
     console.error('Error loading experiment:', error)
-    showError('Failed to load experiment')
+    toast.add({
+      title: 'Error',
+      description: 'Failed to load experiment',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
   }
   finally {
     loading.value = false
@@ -68,16 +88,31 @@ async function handleDeleteExperiment() {
   try {
     const result = await deleteExperiment(experiment.value.id)
     if (result.success) {
-      showSuccess('Experiment deleted successfully')
+      toast.add({
+        title: 'Success',
+        description: 'Experiment deleted successfully',
+        color: 'success',
+        icon: 'i-lucide:check-circle',
+      })
       await navigateTo('/')
     }
     else {
-      showError('Failed to delete experiment')
+      toast.add({
+        title: 'Error',
+        description: 'Failed to delete experiment',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
     }
   }
   catch (error) {
     console.error('Error deleting experiment:', error)
-    showError('Failed to delete experiment')
+    toast.add({
+      title: 'Error',
+      description: 'Failed to delete experiment',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
   }
   finally {
     showDeleteDialog.value = false

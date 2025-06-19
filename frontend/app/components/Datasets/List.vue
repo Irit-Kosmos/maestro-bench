@@ -2,7 +2,7 @@
 import type { Dataset } from '~/types'
 
 interface Props {
-  datasets: Dataset[] | null
+  datasets: readonly Dataset[] | null
   loading?: boolean
 }
 

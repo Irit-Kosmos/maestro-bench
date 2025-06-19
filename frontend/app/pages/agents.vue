@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import type { CreateAgentForm, CreateAgentTeamForm } from '~/types'
-
 // Composables
-const { showNotification, showSuccess, showError } = useNotifications()
+const toast = useToast()
 const { agentTeams, pending, createTeam } = useAgentTeams()
 const { agents, createAgent } = useAgents()
 
@@ -12,11 +10,21 @@ const showCreateAgentModal = ref(false)
 
 // Handlers
 function handleConfigureTeam(teamId: number) {
-  showNotification(`Team configuration coming soon! (Team: ${teamId})`, 'info')
+  toast.add({
+    title: 'Coming Soon',
+    description: `Team configuration coming soon! (Team: ${teamId})`,
+    color: 'info',
+    icon: 'i-lucide:info',
+  })
 }
 
 function handleEditPrompts(teamId: number) {
-  showNotification(`Prompt editor coming soon! (Team: ${teamId})`, 'info')
+  toast.add({
+    title: 'Coming Soon',
+    description: `Prompt editor coming soon! (Team: ${teamId})`,
+    color: 'info',
+    icon: 'i-lucide:info',
+  })
 }
 </script>
 

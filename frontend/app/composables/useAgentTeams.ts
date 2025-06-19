@@ -1,17 +1,17 @@
 import type { AgentTeam } from '~/types'
 
-const { $api } = useNuxtApp()
-
 /**
  * Composable for managing agent teams data and operations
  */
 export function useAgentTeams() {
+  const { $api } = useNuxtApp()
+
   // Fetch agent teams with auto-refresh capability
   const { data: agentTeams, refresh, pending, error } = useMyLazyFetch<AgentTeam[]>('/agent-teams')
 
   // Get available agent teams for experiment creation
   const availableTeams = computed(() => {
-    if (!agentTeams.value)
+    if (!agentTeams.value || agentTeams.value.length === 0)
       return []
     return agentTeams.value.map(team => ({
       id: team.id,
@@ -77,7 +77,7 @@ export function useAgentTeams() {
   }
 
   return {
-    agentTeams: readonly(agentTeams),
+    agentTeams: readonly(computed(() => agentTeams.value ?? null)),
     availableTeams: readonly(availableTeams),
     pending: readonly(pending),
     error: readonly(error),

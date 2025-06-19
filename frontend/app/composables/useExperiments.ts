@@ -1,17 +1,17 @@
 import type { Experiment, ExperimentStats } from '~/types'
 
-const { $api } = useNuxtApp()
-
 /**
  * Composable for managing experiments data and operations
  */
 export function useExperiments() {
+  const { $api } = useNuxtApp()
+
   // Fetch experiments with auto-refresh capability
   const { data: experiments, refresh, pending, error } = useMyLazyFetch<Experiment[]>('/experiments')
 
   // Computed statistics for dashboard
   const stats = computed((): ExperimentStats => {
-    if (!experiments.value) {
+    if (!experiments.value || experiments.value.length === 0) {
       return { total: 0, completed: 0, running: 0 }
     }
 
@@ -28,7 +28,7 @@ export function useExperiments() {
 
   // Recent experiments for dashboard (limit to 5 most recent)
   const recentExperiments = computed(() => {
-    if (!experiments.value)
+    if (!experiments.value || experiments.value.length === 0)
       return null
     return experiments.value
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -77,7 +77,7 @@ export function useExperiments() {
   }
 
   return {
-    experiments: readonly(experiments),
+    experiments: readonly(computed(() => experiments.value ?? null)),
     stats: readonly(stats),
     recentExperiments,
     pending: readonly(pending),

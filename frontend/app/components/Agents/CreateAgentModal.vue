@@ -2,17 +2,25 @@
 import type { AgentTeam, CreateAgentForm } from '~/types'
 
 interface Props {
+  open?: boolean
   availableTeams?: readonly AgentTeam[]
 }
 
 interface Emits {
-  submit: [data: CreateAgentForm]
+  'update:open': [value: boolean]
+  'submit': [data: CreateAgentForm]
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  open: false,
   availableTeams: () => [],
 })
 const emit = defineEmits<Emits>()
+
+const show = computed({
+  get: () => props.open,
+  set: (value: boolean) => emit('update:open', value),
+})
 
 // Form state
 const formData = ref<CreateAgentForm>({
@@ -47,6 +55,7 @@ function resetForm() {
 
 function handleCancel() {
   resetForm()
+  show.value = false
 }
 
 async function handleSubmit() {
@@ -57,6 +66,7 @@ async function handleSubmit() {
   try {
     emit('submit', { ...formData.value })
     resetForm()
+    show.value = false
   }
   finally {
     isSubmitting.value = false
@@ -67,10 +77,17 @@ async function handleSubmit() {
 onMounted(() => {
   resetForm()
 })
+
+// Watch for modal close to reset form
+watch(() => props.open, (newValue) => {
+  if (!newValue) {
+    resetForm()
+  }
+})
 </script>
 
 <template>
-  <UModal :prevent-close="isSubmitting">
+  <UModal v-model:open="show" :prevent-close="isSubmitting">
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
@@ -164,6 +181,8 @@ onMounted(() => {
             </UButton>
             <UButton
               type="submit"
+              variant="solid"
+              color="primary"
               :disabled="!formValid || isSubmitting"
               :loading="isSubmitting"
             >

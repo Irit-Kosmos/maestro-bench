@@ -4,7 +4,7 @@ import type { CreateExperimentForm } from '~/types'
 // Composables
 const { datasets } = useDatasets()
 const { createExperiment } = useExperiments()
-const { showSuccess, showError } = useNotifications()
+const toast = useToast()
 const { availableTeams } = useAgentTeams()
 
 // Form state
@@ -50,17 +50,32 @@ async function handleSubmit() {
     })
 
     if (result.success) {
-      showSuccess('Experiment created successfully!')
+      toast.add({
+        title: 'Success',
+        description: 'Experiment created successfully!',
+        color: 'success',
+        icon: 'i-lucide:check-circle',
+      })
       // Redirect to dashboard
       await navigateTo('/')
     }
     else {
-      showError('Failed to create experiment. Please try again.')
+      toast.add({
+        title: 'Error',
+        description: 'Failed to create experiment. Please try again.',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
     }
   }
   catch (error) {
     console.error('Error creating experiment:', error)
-    showError('An unexpected error occurred. Please try again.')
+    toast.add({
+      title: 'Error',
+      description: 'An unexpected error occurred. Please try again.',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
   }
   finally {
     isSubmitting.value = false

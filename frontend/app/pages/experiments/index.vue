@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Composables
 const { experiments, pending, refresh } = useExperiments()
-const { showNotification } = useNotifications()
+const toast = useToast()
 
 // Navigation handlers
 async function handleViewExperiment(id: number) {
@@ -10,7 +10,12 @@ async function handleViewExperiment(id: number) {
 
 async function handleDeleteExperiment(_id: number) {
   // TODO: Add confirmation dialog
-  showNotification('Delete confirmation dialog coming soon!', 'info')
+  toast.add({
+    title: 'Coming Soon',
+    description: 'Delete confirmation dialog coming soon!',
+    color: 'info',
+    icon: 'i-lucide:info',
+  })
 }
 </script>
 
