@@ -267,6 +267,20 @@ async function handleCancel() {
             <!-- Step 3: Agent Teams Selection -->
             <template #teams>
               <div class="space-y-6">
+                <!-- Required Notice (only shown when no team selected) -->
+                <div v-if="!selectedTeamId" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div class="flex">
+                    <UIcon name="i-lucide-alert-triangle" class="h-5 w-5 text-amber-500 mt-0.5" />
+                    <div class="ml-3">
+                      <h4 class="text-sm font-medium text-amber-800">
+                        Agent Team Required
+                      </h4>
+                      <p class="text-sm text-amber-700 mt-1">
+                        You must select one agent team to proceed. The selected team will run its agents against your chosen dataset.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <!-- Team Selection Grid -->
                 <div v-if="fullTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <UCard
@@ -431,21 +445,6 @@ async function handleCancel() {
                         </div>
                       </div>
                     </UCard>
-                  </div>
-                </div>
-
-                <!-- Required Notice (only shown when no team selected) -->
-                <div v-if="!selectedTeamId" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div class="flex">
-                    <UIcon name="i-lucide-alert-triangle" class="h-5 w-5 text-amber-500 mt-0.5" />
-                    <div class="ml-3">
-                      <h4 class="text-sm font-medium text-amber-800">
-                        Agent Team Required
-                      </h4>
-                      <p class="text-sm text-amber-700 mt-1">
-                        You must select one agent team to proceed. The selected team will run its agents against your chosen dataset.
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
