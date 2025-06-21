@@ -3,6 +3,57 @@ from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 
 
+class Model(SQLModel, table=True):
+    """LLM models available for experiments"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)  # e.g., "gpt-4", "claude-3-opus", "mistral-large"
+    provider: str  # e.g., "openai", "anthropic", "mistral"
+    description: Optional[str] = None
+    max_tokens: Optional[int] = None  # Model's context limit
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    prompt_versions: List["PromptVersion"] = Relationship(back_populates="model")
+
+
+class Prompt(SQLModel, table=True):
+    """Reusable prompts with versioning"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)  # e.g., "Language Evaluator", "Content Scorer"
+    description: Optional[str] = None
+    category: Optional[str] = None  # e.g., "evaluation", "generation", "analysis"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    versions: List["PromptVersion"] = Relationship(back_populates="prompt")
+
+
+class PromptVersion(SQLModel, table=True):
+    """Versioned prompt configurations"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    prompt_id: int = Field(foreign_key="prompt.id")
+    version: str = Field(index=True)  # e.g., "1.0", "1.1", "2.0-beta"
+    system_prompt: Optional[str] = None
+    user_prompt: Optional[str] = None
+    variables: Optional[str] = None  # JSON string of variable definitions
+    
+    # Model-specific optimizations
+    model_id: Optional[int] = Field(default=None, foreign_key="model.id")
+    temperature: Optional[float] = Field(default=0.7)
+    max_tokens: Optional[int] = None
+    
+    # Metadata
+    is_active: bool = Field(default=True)
+    is_default: bool = Field(default=False)  # Default version for this prompt
+    notes: Optional[str] = None  # Version notes/changelog
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    prompt: Optional[Prompt] = Relationship(back_populates="versions")
+    model: Optional[Model] = Relationship(back_populates="prompt_versions")
+
+
 class AgentTeam(SQLModel, table=True):
     """A team of agents that work together"""
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -16,17 +67,22 @@ class AgentTeam(SQLModel, table=True):
 
 
 class Agent(SQLModel, table=True):
-    """Individual agent with specific prompts and behavior"""
+    """Individual agent that can be configured with prompts/models at experiment time"""
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str  # Human-readable name
     description: Optional[str] = None
-    system_prompt: Optional[str] = None  # System prompt for the agent
-    user_prompt: Optional[str] = None  # User prompt template with variables
-    variables: Optional[str] = None  # JSON string of variable definitions
+    
+    # Optional default prompt version and model (can be overridden in experiments)
+    default_prompt_version_id: Optional[int] = Field(default=None, foreign_key="promptversion.id")
+    default_model_id: Optional[int] = Field(default=None, foreign_key="model.id")
+    
     team_id: int = Field(foreign_key="agentteam.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    
     # Relationships
     team: Optional[AgentTeam] = Relationship(back_populates="agents")
+    default_prompt_version: Optional[PromptVersion] = Relationship()
+    default_model: Optional[Model] = Relationship()
 
 
 class Dataset(SQLModel, table=True):
@@ -99,23 +155,52 @@ class ExperimentExecution(SQLModel, table=True):
 
 
 class AgentExecutionConfig(SQLModel, table=True):
-    """Immutable snapshot of each agent's EXACT configuration used during execution"""
+    """Immutable snapshot of each agent's configuration used during execution"""
     id: Optional[int] = Field(default=None, primary_key=True)
     experiment_execution_id: int = Field(foreign_key="experimentexecution.id")
     agent_id: int = Field(foreign_key="agent.id")
     
-    # Agent snapshot - exactly as it was during execution
+    # Snapshot of configuration at execution time
     agent_name_snapshot: str = Field(description="Agent name at execution time")
-    agent_team_id_snapshot: int = Field(description="Team ID at execution time")
-    agent_team_name_snapshot: str = Field(description="Team name at execution time")
+    model_name_snapshot: str = Field(description="Model name used")
+    prompt_version_snapshot: str = Field(description="Prompt version used")
     
-    # EXACT prompts and variables used (either original or custom overrides)
-    final_system_prompt: Optional[str] = None  # The actual system prompt used
-    final_user_prompt: Optional[str] = None    # The actual user prompt used
-    final_variables: Optional[str] = None      # JSON of actual variables used
+    # Actual configuration used (may include custom overrides)
+    final_system_prompt: Optional[str] = None
+    final_user_prompt: Optional[str] = None
+    final_variables: Optional[str] = None  # JSON string
+    final_temperature: Optional[float] = None
+    final_max_tokens: Optional[int] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
     experiment_execution: Optional[ExperimentExecution] = Relationship(back_populates="agent_executions")
     agent: Optional[Agent] = Relationship()
+
+
+class ExperimentAgentConfig(SQLModel, table=True):
+    """Configuration for an agent within a specific experiment"""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    experiment_id: int = Field(foreign_key="experiment.id")
+    agent_id: int = Field(foreign_key="agent.id")
+    
+    # Experiment-specific configuration (can override agent defaults)
+    prompt_version_id: int = Field(foreign_key="promptversion.id")
+    model_id: int = Field(foreign_key="model.id")
+    
+    # Optional overrides for model parameters
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    
+    # Execution order and settings
+    execution_order: int = Field(default=1)
+    is_active: bool = Field(default=True)
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    experiment: Optional[Experiment] = Relationship()
+    agent: Optional[Agent] = Relationship()
+    prompt_version: Optional[PromptVersion] = Relationship()
+    model: Optional[Model] = Relationship()

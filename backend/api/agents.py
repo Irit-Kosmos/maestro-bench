@@ -15,9 +15,8 @@ def create_agent(agent_data: AgentCreate, session=Depends(get_session)):
     agent = Agent(
         name=agent_data.name,
         description=agent_data.description,
-        system_prompt=agent_data.system_prompt,
-        user_prompt=agent_data.user_prompt,
-        variables=agent_data.variables,
+        default_prompt_version_id=agent_data.default_prompt_version_id,
+        default_model_id=agent_data.default_model_id,
         team_id=agent_data.team_id
     )
     session.add(agent)

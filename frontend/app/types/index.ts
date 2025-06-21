@@ -1,5 +1,42 @@
 // Core types for the MAESTRO experiment system with complete traceability
 
+export interface Model {
+  id: number
+  name: string
+  provider: string
+  description: string | null
+  max_tokens: number | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface Prompt {
+  id: number
+  name: string
+  description: string | null
+  category: string | null
+  created_at: string
+  versions?: PromptVersion[]
+}
+
+export interface PromptVersion {
+  id: number
+  prompt_id: number
+  version: string
+  system_prompt: string | null
+  user_prompt: string | null
+  variables: string | null
+  model_id: number | null
+  temperature: number | null
+  max_tokens: number | null
+  is_active: boolean
+  is_default: boolean
+  notes: string | null
+  created_at: string
+  prompt?: Prompt
+  model?: Model
+}
+
 export interface Dataset {
   id: number
   name: string
@@ -79,11 +116,12 @@ export interface Agent {
   id: number
   name: string
   description: string | null
-  system_prompt: string | null
-  user_prompt: string | null
-  variables: string | null
+  default_prompt_version_id: number | null
+  default_model_id: number | null
   team_id: number
   created_at: string
+  default_prompt_version?: PromptVersion
+  default_model?: Model
 }
 
 export interface AgentTeam {
@@ -115,8 +153,23 @@ export interface CreateAgentTeamForm {
 export interface CreateAgentForm {
   name: string
   description: string
-  system_prompt: string
-  user_prompt: string
-  variables?: string
+  default_prompt_version_id?: number
+  default_model_id?: number
   team_id: number
+}
+
+export interface ExperimentAgentConfig {
+  id: number
+  experiment_id: number
+  agent_id: number
+  prompt_version_id: number
+  model_id: number
+  temperature: number | null
+  max_tokens: number | null
+  execution_order: number
+  is_active: boolean
+  created_at: string
+  agent?: Agent
+  prompt_version?: PromptVersion
+  model?: Model
 }

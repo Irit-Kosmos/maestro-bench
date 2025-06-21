@@ -13,9 +13,8 @@ class AgentResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
-    system_prompt: Optional[str]
-    user_prompt: Optional[str]
-    variables: Optional[str]
+    default_prompt_version_id: Optional[int]
+    default_model_id: Optional[int]
     team_id: int
     created_at: datetime
 
@@ -64,18 +63,16 @@ class AgentTeamResponse(BaseModel):
 class AgentCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    system_prompt: Optional[str] = None
-    user_prompt: Optional[str] = None
-    variables: Optional[str] = None  # JSON string of variable definitions
+    default_prompt_version_id: Optional[int] = None
+    default_model_id: Optional[int] = None
     team_id: int
 
 
 class AgentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    system_prompt: Optional[str] = None
-    user_prompt: Optional[str] = None
-    variables: Optional[str] = None
+    default_prompt_version_id: Optional[int] = None
+    default_model_id: Optional[int] = None
 
 
 class ExperimentConfigCreate(BaseModel):
