@@ -38,8 +38,8 @@ async function handleActionClick(route: string) {
 
 <template>
   <div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b border-gray-200">
-      <h2 class="text-lg font-semibold text-gray-900">
+    <div class="px-6 py-4 border-b border-neutral-200">
+      <h2 class="text-lg font-semibold text-neutral-900">
         Quick Actions
       </h2>
     </div>
@@ -56,10 +56,10 @@ async function handleActionClick(route: string) {
               <UIcon :name="action.icon" :class="`h-8 w-8 ${action.color}`" />
             </div>
             <div>
-              <h3 class="text-lg font-medium text-gray-900">
+              <h3 class="text-lg font-medium text-neutral-900">
                 {{ action.title }}
               </h3>
-              <p class="text-sm text-gray-500">
+              <p class="text-sm text-neutral-500">
                 {{ action.description }}
               </p>
             </div>

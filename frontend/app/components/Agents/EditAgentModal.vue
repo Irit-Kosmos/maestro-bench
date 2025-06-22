@@ -9,7 +9,7 @@ interface Props {
 
 interface Emits {
   'update:open': [value: boolean]
-  'submit': [data: { id: number, name: string, description: string, system_prompt: string, user_prompt: string, variables: string, team_id: number }]
+  'submit': [data: { id: number, name: string, description: string, default_prompt_version_id: number | null, default_model_id: number | null, team_id: number }]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -18,6 +18,10 @@ const props = withDefaults(defineProps<Props>(), {
   availableTeams: () => [],
 })
 const emit = defineEmits<Emits>()
+
+// Composables
+const { allPromptVersions } = usePrompts()
+const { models } = useModels()
 
 const show = computed({
   get: () => props.open,
@@ -28,9 +32,8 @@ const show = computed({
 const formData = ref({
   name: '',
   description: '',
-  system_prompt: '',
-  user_prompt: '',
-  variables: '[]',
+  default_prompt_version_id: null as number | null,
+  default_model_id: null as number | null,
   team_id: 0,
 })
 
@@ -43,15 +46,34 @@ const formValid = computed(() => {
     && formData.value.team_id > 0
 })
 
+const promptVersionOptions = computed(() => {
+  if (!allPromptVersions.value)
+    return []
+  return allPromptVersions.value.map(version => ({
+    label: `${version.prompt?.name || 'Unknown'} v${version.version}`,
+    value: version.id,
+  }))
+})
+
+const modelOptions = computed(() => {
+  if (!models.value)
+    return []
+  return models.value
+    .filter(model => model.is_active)
+    .map(model => ({
+      label: `${model.name} (${model.provider})`,
+      value: model.id,
+    }))
+})
+
 // Methods
 function populateForm() {
   if (props.agent) {
     formData.value = {
       name: props.agent.name,
       description: props.agent.description || '',
-      system_prompt: props.agent.system_prompt || '',
-      user_prompt: props.agent.user_prompt || '',
-      variables: props.agent.variables || '[]',
+      default_prompt_version_id: props.agent.default_prompt_version_id,
+      default_model_id: props.agent.default_model_id,
       team_id: props.agent.team_id,
     }
   }
@@ -61,9 +83,8 @@ function resetForm() {
   formData.value = {
     name: '',
     description: '',
-    system_prompt: '',
-    user_prompt: '',
-    variables: '[]',
+    default_prompt_version_id: null,
+    default_model_id: null,
     team_id: props.availableTeams?.[0]?.id || 0,
   }
 }
@@ -113,7 +134,7 @@ watch(() => props.open, (newValue) => {
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
-          <h2 class="text-lg font-semibold text-gray-900">
+          <h2 class="text-lg font-semibold text-neutral-900">
             Edit Agent
           </h2>
         </template>
@@ -145,39 +166,6 @@ watch(() => props.open, (newValue) => {
             </div>
 
             <div>
-              <UFormField label="System Prompt">
-                <UTextarea
-                  v-model="formData.system_prompt"
-                  class="w-full"
-                  placeholder="Enter system prompt"
-                  :rows="4"
-                />
-              </UFormField>
-            </div>
-
-            <div>
-              <UFormField label="User Prompt">
-                <UTextarea
-                  v-model="formData.user_prompt"
-                  class="w-full"
-                  placeholder="Enter user prompt"
-                  :rows="4"
-                />
-              </UFormField>
-            </div>
-
-            <div>
-              <UFormField label="Variables (JSON)">
-                <UTextarea
-                  v-model="formData.variables"
-                  class="w-full"
-                  placeholder="Enter variables as JSON (e.g. [&quot;key1&quot;, &quot;key2&quot;])"
-                  :rows="2"
-                />
-              </UFormField>
-            </div>
-
-            <div>
               <UFormField label="Agent Team">
                 <USelect
                   v-model="formData.team_id"
@@ -188,10 +176,32 @@ watch(() => props.open, (newValue) => {
                 />
               </UFormField>
             </div>
+
+            <div>
+              <UFormField label="Default Prompt Version">
+                <USelect
+                  v-model="formData.default_prompt_version_id"
+                  :items="[{ label: 'No default prompt', value: null }, ...promptVersionOptions]"
+                  class="w-full"
+                  placeholder="Select a default prompt version"
+                />
+              </UFormField>
+            </div>
+
+            <div>
+              <UFormField label="Default Model">
+                <USelect
+                  v-model="formData.default_model_id"
+                  :items="[{ label: 'No default model', value: null }, ...modelOptions]"
+                  class="w-full"
+                  placeholder="Select a default model"
+                />
+              </UFormField>
+            </div>
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-gray-200">
+          <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
             <UButton
               type="button"
               variant="outline"

@@ -243,10 +243,10 @@ watch(() => showDeleteModal.value, (newValue) => {
     <!-- Header -->
     <div class="flex justify-between items-center mb-8">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
+        <h1 class="text-3xl font-bold text-neutral-900">
           AI Models
         </h1>
-        <p class="text-gray-600 mt-2">
+        <p class="text-neutral-600 mt-2">
           Manage available AI models for your experiments
         </p>
       </div>
@@ -288,11 +288,11 @@ watch(() => showDeleteModal.value, (newValue) => {
 
     <!-- Empty State -->
     <div v-else-if="!models || models.length === 0" class="text-center py-12">
-      <UIcon name="i-heroicons-cpu-chip" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-gray-900 mb-2">
+      <UIcon name="i-heroicons-cpu-chip" class="w-16 h-16 text-neutral-400 mx-auto mb-4" />
+      <h3 class="text-lg font-medium text-neutral-900 mb-2">
         No models yet
       </h3>
-      <p class="text-gray-600 mb-4">
+      <p class="text-neutral-600 mb-4">
         Start by adding your first AI model
       </p>
       <UButton
@@ -304,11 +304,11 @@ watch(() => showDeleteModal.value, (newValue) => {
 
     <!-- No Results State -->
     <div v-else-if="filteredModels.length === 0" class="text-center py-12">
-      <UIcon name="i-heroicons-funnel" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-gray-900 mb-2">
+      <UIcon name="i-heroicons-funnel" class="w-16 h-16 text-neutral-400 mx-auto mb-4" />
+      <h3 class="text-lg font-medium text-neutral-900 mb-2">
         No models match your filters
       </h3>
-      <p class="text-gray-600 mb-4">
+      <p class="text-neutral-600 mb-4">
         Try adjusting your search or filter criteria
       </p>
       <UButton
@@ -338,7 +338,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       <template #content>
         <UCard class="overflow-y-auto">
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Create New Model
             </h2>
           </template>
@@ -404,7 +404,7 @@ watch(() => showDeleteModal.value, (newValue) => {
               </UFormField>
 
               <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-gray-700">Active</label>
+                <label class="text-sm font-medium text-neutral-700">Active</label>
                 <USwitch
                   v-model="createForm.is_active"
                   name="is_active"
@@ -412,7 +412,7 @@ watch(() => showDeleteModal.value, (newValue) => {
               </div>
             </div>
 
-            <div class="flex gap-3 justify-end pt-4 border-t border-gray-200">
+            <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
               <UButton
                 type="button"
                 variant="outline"
@@ -440,7 +440,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       <template #content>
         <UCard class="overflow-y-auto">
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Edit Model
             </h2>
           </template>
@@ -500,7 +500,7 @@ watch(() => showDeleteModal.value, (newValue) => {
               </UFormField>
 
               <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-gray-700">Active</label>
+                <label class="text-sm font-medium text-neutral-700">Active</label>
                 <USwitch
                   v-model="editForm.is_active"
                   name="edit_is_active"
@@ -508,7 +508,7 @@ watch(() => showDeleteModal.value, (newValue) => {
               </div>
             </div>
 
-            <div class="flex gap-3 justify-end pt-4 border-t border-gray-200">
+            <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
               <UButton
                 type="button"
                 variant="outline"
@@ -542,7 +542,7 @@ watch(() => showDeleteModal.value, (newValue) => {
           </template>
 
           <div class="py-4">
-            <p class="text-gray-700">
+            <p class="text-neutral-700">
               Are you sure you want to delete "<strong>{{ modelToDelete?.name }}</strong>"?
               This action cannot be undone.
             </p>

@@ -32,9 +32,9 @@ function handleDelete(id: number) {
 
 <template>
   <div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b border-gray-200">
+    <div class="px-6 py-4 border-b border-neutral-200">
       <div class="flex justify-between items-center">
-        <h2 class="text-lg font-semibold text-gray-900">
+        <h2 class="text-lg font-semibold text-neutral-900">
           Available Datasets
         </h2>
         <UButton
@@ -52,11 +52,11 @@ function handleDelete(id: number) {
     <div class="overflow-hidden">
       <!-- Empty State -->
       <div v-if="!datasets || datasets.length === 0" class="p-12 text-center">
-        <UIcon name="i-lucide:database" class="mx-auto h-12 w-12 text-gray-400" />
-        <h3 class="mt-2 text-sm font-medium text-gray-900">
+        <UIcon name="i-lucide:database" class="mx-auto h-12 w-12 text-neutral-400" />
+        <h3 class="mt-2 text-sm font-medium text-neutral-900">
           No datasets yet
         </h3>
-        <p class="mt-1 text-sm text-gray-500">
+        <p class="mt-1 text-sm text-neutral-500">
           Get started by creating your first dataset.
         </p>
       </div>
@@ -70,7 +70,7 @@ function handleDelete(id: number) {
         >
           <div class="space-y-3">
             <div class="flex justify-between items-start">
-              <h3 class="text-lg font-semibold text-gray-900">
+              <h3 class="text-lg font-semibold text-neutral-900">
                 {{ dataset.name }}
               </h3>
               <UBadge color="info" variant="soft">
@@ -78,12 +78,12 @@ function handleDelete(id: number) {
               </UBadge>
             </div>
 
-            <p class="text-gray-600 text-sm">
+            <p class="text-neutral-600 text-sm">
               {{ dataset.description }}
             </p>
 
-            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
-              <span class="text-xs text-gray-500">
+            <div class="flex justify-between items-center pt-3 border-t border-neutral-100">
+              <span class="text-xs text-neutral-500">
                 Created: {{ formatDate(dataset.created_at) }}
               </span>
               <div class="flex space-x-2">

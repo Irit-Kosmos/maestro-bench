@@ -38,8 +38,8 @@ const columns: TableColumn<Experiment>[] = [
     cell: ({ row }) => {
       const experiment = row.original
       return h('div', {}, [
-        h('div', { class: 'text-sm font-medium text-gray-900' }, experiment.name),
-        h('div', { class: 'text-sm text-gray-500' }, `ID: ${experiment.id}`),
+        h('div', { class: 'text-sm font-medium text-neutral-900' }, experiment.name),
+        h('div', { class: 'text-sm text-neutral-500' }, `ID: ${experiment.id}`),
       ])
     },
   },
@@ -49,8 +49,8 @@ const columns: TableColumn<Experiment>[] = [
     cell: ({ row }) => {
       const dataset = row.original.dataset
       return h('div', {}, [
-        h('div', { class: 'text-sm text-gray-900' }, dataset?.name || 'Unknown'),
-        h('div', { class: 'text-sm text-gray-500' }, dataset?.description || ''),
+        h('div', { class: 'text-sm text-neutral-900' }, dataset?.name || 'Unknown'),
+        h('div', { class: 'text-sm text-neutral-500' }, dataset?.description || ''),
       ])
     },
   },
@@ -69,7 +69,7 @@ const columns: TableColumn<Experiment>[] = [
     accessorKey: 'created_at',
     header: 'Created',
     cell: ({ row }) => {
-      return h('span', { class: 'text-sm text-gray-500' }, formatDate(row.original.created_at))
+      return h('span', { class: 'text-sm text-neutral-500' }, formatDate(row.original.created_at))
     },
   },
   {
@@ -95,10 +95,10 @@ const columns: TableColumn<Experiment>[] = [
 
 <template>
   <div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b border-gray-200">
+    <div class="px-6 py-4 border-b border-neutral-200">
       <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">
+          <h2 class="text-lg font-semibold text-neutral-900">
             Recent Experiments
           </h2>
         </div>
@@ -117,11 +117,11 @@ const columns: TableColumn<Experiment>[] = [
     <div class="overflow-hidden">
       <!-- Empty State -->
       <div v-if="!experiments || experiments.length === 0" class="p-12 text-center">
-        <UIcon name="i-lucide:flask" class="mx-auto h-12 w-12 text-gray-400" />
-        <h3 class="mt-2 text-sm font-medium text-gray-900">
+        <UIcon name="i-lucide:flask" class="mx-auto h-12 w-12 text-neutral-400" />
+        <h3 class="mt-2 text-sm font-medium text-neutral-900">
           No experiments yet
         </h3>
-        <p class="mt-1 text-sm text-gray-500">
+        <p class="mt-1 text-sm text-neutral-500">
           Get started by creating your first experiment.
         </p>
       </div>
@@ -134,9 +134,9 @@ const columns: TableColumn<Experiment>[] = [
         :loading="loading"
         class="min-w-full"
         :ui="{
-          th: 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
+          th: 'px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider',
           td: 'px-6 py-4 whitespace-nowrap',
-          tbody: 'bg-white divide-y divide-gray-200 [&>tr]:hover:bg-gray-50',
+          tbody: 'bg-white divide-y divide-neutral-200 [&>tr]:hover:bg-neutral-50',
         }"
       />
     </div>

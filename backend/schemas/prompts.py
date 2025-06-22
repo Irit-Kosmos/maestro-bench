@@ -62,3 +62,4 @@ class PromptVersionResponse(BaseModel):
     is_default: bool
     notes: Optional[str]
     created_at: datetime
+    prompt: Optional[PromptResponse] = None

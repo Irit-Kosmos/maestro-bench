@@ -31,6 +31,10 @@ const agentConfigurations = ref<Record<number, {
   is_active?: boolean
 }>>({})
 
+// Modal state for prompt details
+const showPromptDetailsModal = ref(false)
+const selectedPromptVersionForDetails = ref<any>(null)
+
 // Stepper configuration
 const stepperItems = [
   {
@@ -166,6 +170,14 @@ function updateAgentConfiguration(agentId: number, field: string, value: any) {
   agentConfigurations.value[agentId][field as keyof typeof agentConfigurations.value[number]] = value
 }
 
+function openPromptDetails(promptVersionId: number) {
+  const promptVersion = allPromptVersions.value?.find(v => v.id === promptVersionId)
+  if (promptVersion) {
+    selectedPromptVersionForDetails.value = promptVersion
+    showPromptDetailsModal.value = true
+  }
+}
+
 function nextStep() {
   if (canGoNext.value) {
     stepper.value?.next()
@@ -239,11 +251,11 @@ async function handleCancel() {
     <div class="max-w-7xl mx-auto px-4 py-8">
       <!-- Experiment Configuration Form with Stepper -->
       <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h2 class="text-lg font-semibold text-gray-900">
+        <div class="px-6 py-4 border-b border-neutral-200">
+          <h2 class="text-lg font-semibold text-neutral-900">
             Create New Experiment
           </h2>
-          <p class="text-sm text-gray-600 mt-1">
+          <p class="text-sm text-neutral-600 mt-1">
             Configure your experiment with prompt version and model selection
           </p>
         </div>
@@ -280,7 +292,7 @@ async function handleCancel() {
                       />
                     </UFormField>
                   </div>
-                  <p class="text-xs text-gray-500 mt-4">
+                  <p class="text-xs text-neutral-500 mt-4">
                     Use a clear, descriptive name for easy identification
                   </p>
                 </div>
@@ -300,7 +312,7 @@ async function handleCancel() {
                       class="w-full"
                     />
                   </UFormField>
-                  <p class="text-xs text-gray-500 mt-2">
+                  <p class="text-xs text-neutral-500 mt-2">
                     The dataset contains the questions/tasks for your experiment
                   </p>
                 </div>
@@ -322,7 +334,7 @@ async function handleCancel() {
                     />
 
                     <template #content>
-                      <div class="bg-gray-50 rounded-lg border p-4">
+                      <div class="p-1">
                         <DatasetsPreview :dataset-id="selectedDataset" />
                       </div>
                     </template>
@@ -334,21 +346,6 @@ async function handleCancel() {
             <!-- Step 3: Agent Team & Configuration -->
             <template #agents>
               <div class="space-y-6">
-                <!-- Required Notice (only shown when no team selected) -->
-                <div v-if="!selectedTeamId" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div class="flex">
-                    <UIcon name="i-lucide-alert-triangle" class="h-5 w-5 text-amber-500 mt-0.5" />
-                    <div class="ml-3">
-                      <h4 class="text-sm font-medium text-amber-800">
-                        Agent Team Required
-                      </h4>
-                      <p class="text-sm text-amber-700 mt-1">
-                        Select one agent team to proceed. Each agent will use its default configuration unless you override it.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 <!-- Team Selection Grid -->
                 <div v-if="fullTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <UCard
@@ -357,21 +354,21 @@ async function handleCancel() {
                     class="cursor-pointer hover:shadow-md transition-all duration-200"
                     :class="{
                       'ring-2 ring-primary-500 bg-primary-50': selectedTeamId === team.id,
-                      'hover:ring-1 hover:ring-gray-300': selectedTeamId !== team.id,
+                      'hover:ring-1 hover:ring-neutral-300': selectedTeamId !== team.id,
                     }"
                     @click="selectTeam(team.id)"
                   >
                     <div class="flex items-start justify-between">
                       <div class="flex-1">
                         <div class="flex items-center justify-between mb-2">
-                          <h4 class="text-lg font-medium text-gray-900">
+                          <h4 class="text-lg font-medium text-neutral-900">
                             {{ team.name }}
                           </h4>
                           <UBadge size="sm" variant="subtle" :color="selectedTeamId === team.id ? 'primary' : 'neutral'">
                             {{ team.agents.length }} agent{{ team.agents.length > 1 ? 's' : '' }}
                           </UBadge>
                         </div>
-                        <p class="text-sm text-gray-500 mb-3">
+                        <p class="text-sm text-neutral-500 mb-3">
                           {{ team.description }}
                         </p>
                         <div class="flex flex-wrap gap-2">
@@ -392,11 +389,11 @@ async function handleCancel() {
 
                 <!-- No Teams Available -->
                 <div v-else class="text-center py-12">
-                  <UIcon name="i-lucide-users-x" class="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h4 class="text-lg font-medium text-gray-900 mb-2">
+                  <UIcon name="i-lucide-users-x" class="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                  <h4 class="text-lg font-medium text-neutral-900 mb-2">
                     No Agent Teams Available
                   </h4>
-                  <p class="text-gray-600 mb-6">
+                  <p class="text-neutral-600 mb-6">
                     You need to create agent teams before running experiments.
                   </p>
                   <UButton
@@ -409,12 +406,12 @@ async function handleCancel() {
                 </div>
 
                 <!-- Agent Configuration Section (appears when team is selected) -->
-                <div v-if="selectedTeam" class="border-t border-gray-200 pt-8">
+                <div v-if="selectedTeam" class="border-t border-neutral-200 pt-8">
                   <div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                    <h4 class="text-lg font-semibold text-neutral-900 mb-2">
                       Configure {{ selectedTeam.name }} Agents
                     </h4>
-                    <p class="text-gray-600">
+                    <p class="text-neutral-600">
                       Select prompt versions and models for each agent, or use their defaults
                     </p>
                   </div>
@@ -425,20 +422,25 @@ async function handleCancel() {
                       v-for="agent in selectedTeam.agents"
                       :key="agent.id"
                       class="h-fit"
+                      :class="{
+                        'ring-2 ring-primary-500 bg-primary-50': agentConfigurations[agent.id]?.is_active,
+                        'hover:ring-1 hover:ring-neutral-300 opacity-70': !agentConfigurations[agent.id]?.is_active,
+                      }"
                     >
                       <template #header>
                         <div class="flex items-center justify-between">
                           <div class="mr-4">
-                            <h5 class="text-base font-medium text-gray-900">
+                            <h5 class="text-base font-medium text-neutral-900">
                               {{ agent.name }}
                             </h5>
-                            <p v-if="agent.description" class="text-sm text-gray-500 mt-1 pr-4">
+                            <p v-if="agent.description" class="text-sm text-neutral-500 mt-1 pr-4">
                               {{ agent.description }}
                             </p>
                           </div>
-                          <UBadge variant="subtle" color="primary" class="min-w-16">
-                            Agent {{ agent.id }}
-                          </UBadge>
+                          <USwitch
+                            :model-value="agentConfigurations[agent.id]?.is_active ?? true"
+                            @update:model-value="(value: boolean) => updateAgentConfiguration(agent.id, 'is_active', value)"
+                          />
                         </div>
                       </template>
 
@@ -449,13 +451,19 @@ async function handleCancel() {
                             :model-value="agentConfigurations[agent.id]?.prompt_version_id"
                             :items="promptVersionOptions"
                             placeholder="Select prompt version..."
+                            class="w-full"
                             @update:model-value="(value) => updateAgentConfiguration(agent.id, 'prompt_version_id', value)"
                           />
-                          <template #hint>
-                            <span v-if="agent.default_prompt_version" class="text-xs text-gray-500">
-                              Default: {{ agent.default_prompt_version.prompt?.name }} v{{ agent.default_prompt_version.version }}
-                            </span>
-                          </template>
+                          <div v-if="agentConfigurations[agent.id]?.prompt_version_id" class="mt-2 flex justify-end">
+                            <UButton
+                              variant="ghost"
+                              size="xs"
+                              icon="i-lucide-eye"
+                              @click="openPromptDetails(agentConfigurations[agent.id]?.prompt_version_id!)"
+                            >
+                              See details
+                            </UButton>
+                          </div>
                         </UFormField>
 
                         <!-- Model Selection -->
@@ -464,13 +472,9 @@ async function handleCancel() {
                             :model-value="agentConfigurations[agent.id]?.model_id"
                             :items="modelOptions"
                             placeholder="Select model..."
+                            class="w-full"
                             @update:model-value="(value) => updateAgentConfiguration(agent.id, 'model_id', value)"
                           />
-                          <template #hint>
-                            <span v-if="agent.default_model" class="text-xs text-gray-500">
-                              Default: {{ agent.default_model.name }} ({{ agent.default_model.provider }})
-                            </span>
-                          </template>
                         </UFormField>
 
                         <!-- Advanced Configuration -->
@@ -481,8 +485,8 @@ async function handleCancel() {
                               type="number"
                               step="0.1"
                               min="0"
-                              max="2"
-                              placeholder="0.7"
+                              max="1"
+                              placeholder="0"
                               @update:model-value="(value: string) => updateAgentConfiguration(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
                             />
                           </UFormField>
@@ -491,27 +495,12 @@ async function handleCancel() {
                             <UInput
                               :model-value="agentConfigurations[agent.id]?.max_tokens?.toString() || ''"
                               type="number"
-                              min="1"
-                              placeholder="2048"
+                              min="100"
+                              placeholder="10000"
                               @update:model-value="(value: string) => updateAgentConfiguration(agent.id, 'max_tokens', value ? Number.parseInt(value) : undefined)"
                             />
                           </UFormField>
                         </div>
-
-                        <!-- Agent Active Toggle -->
-                        <UFormField label="Agent Status">
-                          <USwitch
-                            :model-value="agentConfigurations[agent.id]?.is_active ?? true"
-                            @update:model-value="(value: boolean) => updateAgentConfiguration(agent.id, 'is_active', value)"
-                          />
-                          <template #hint>
-                            <span class="text-xs text-gray-500">
-                              {{ agentConfigurations[agent.id]?.is_active ?? true ? 'Active' : 'Inactive' }} -
-                              {{ agentConfigurations[agent.id]?.is_active ?? true ? 'Agent will run in experiment' : 'Agent will be skipped' }}
-                            </span>
-                          </template>
-                        </UFormField>
-
                         <!-- Reset to Defaults Button -->
                         <div class="flex justify-end pt-2">
                           <UButton
@@ -541,7 +530,7 @@ async function handleCancel() {
         </div>
 
         <!-- Footer Actions -->
-        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div class="px-6 py-4 border-t border-neutral-200 bg-neutral-50">
           <div class="flex justify-between">
             <div class="flex space-x-3">
               <UButton
@@ -585,6 +574,124 @@ async function handleCancel() {
           </div>
         </div>
       </div>
+
+      <!-- Prompt Details Modal -->
+      <UModal v-model:open="showPromptDetailsModal">
+        <template #content>
+          <UCard class="overflow-auto max-h-[80vh]">
+            <template #header>
+              <div class="flex items-center justify-between">
+                <h3 class="text-base font-semibold leading-6 text-neutral-900 dark:text-white">
+                  Prompt Details: {{ selectedPromptVersionForDetails?.prompt?.name }} v{{ selectedPromptVersionForDetails?.version }}
+                </h3>
+                <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="showPromptDetailsModal = false" />
+              </div>
+            </template>
+
+            <div v-if="selectedPromptVersionForDetails" class="space-y-6">
+              <!-- Basic Info -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                    Prompt Name
+                  </h4>
+                  <p class="text-sm text-neutral-600 dark:text-neutral-300">
+                    {{ selectedPromptVersionForDetails.prompt?.name || 'Unknown' }}
+                  </p>
+                </div>
+                <div>
+                  <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                    Version
+                  </h4>
+                  <div class="flex items-center gap-2">
+                    <UBadge size="sm" variant="subtle">
+                      v{{ selectedPromptVersionForDetails.version }}
+                    </UBadge>
+                    <UBadge v-if="selectedPromptVersionForDetails.is_default" size="sm" color="success">
+                      Default
+                    </UBadge>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div v-if="selectedPromptVersionForDetails.prompt?.description">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  Description
+                </h4>
+                <p class="text-sm text-neutral-600 dark:text-neutral-300">
+                  {{ selectedPromptVersionForDetails.prompt.description }}
+                </p>
+              </div>
+
+              <!-- System Prompt -->
+              <div v-if="selectedPromptVersionForDetails.system_prompt">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  System Prompt
+                </h4>
+                <div class="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4">
+                  <pre class="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ selectedPromptVersionForDetails.system_prompt }}</pre>
+                </div>
+              </div>
+
+              <!-- User Prompt -->
+              <div v-if="selectedPromptVersionForDetails.user_prompt">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  User Prompt
+                </h4>
+                <div class="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4">
+                  <pre class="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ selectedPromptVersionForDetails.user_prompt }}</pre>
+                </div>
+              </div>
+
+              <!-- Variables -->
+              <div v-if="selectedPromptVersionForDetails.variables">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  Variables
+                </h4>
+                <div class="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4">
+                  <pre class="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{{ selectedPromptVersionForDetails.variables }}</pre>
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div v-if="selectedPromptVersionForDetails.notes">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  Notes
+                </h4>
+                <p class="text-sm text-neutral-600 dark:text-neutral-300">
+                  {{ selectedPromptVersionForDetails.notes }}
+                </p>
+              </div>
+
+              <!-- Metadata -->
+              <div class="border-t pt-4">
+                <h4 class="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  Metadata
+                </h4>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span class="text-neutral-500 dark:text-neutral-400">Created:</span>
+                    <span class="ml-2 text-neutral-700 dark:text-neutral-300">{{ new Date(selectedPromptVersionForDetails.created_at).toLocaleDateString() }}</span>
+                  </div>
+                  <div>
+                    <span class="text-neutral-500 dark:text-neutral-400">Category:</span>
+                    <span class="ml-2 text-neutral-700 dark:text-neutral-300">{{ selectedPromptVersionForDetails.prompt?.category || 'Uncategorized' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <template #footer>
+              <div class="flex justify-end">
+                <UButton color="neutral" variant="solid" @click="showPromptDetailsModal = false">
+                  Close
+                </UButton>
+              </div>
+            </template>
+          </UCard>
+        </template>
+      </UModal>
     </div>
   </div>
 </template>

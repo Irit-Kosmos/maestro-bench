@@ -116,7 +116,7 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="flex flex-col">
-            <span class="text-sm font-medium text-gray-600 mb-1">File Type</span>
+            <span class="text-sm font-medium text-neutral-600 mb-1">File Type</span>
             <UBadge
               :label="fileInfo?.type || 'Unknown'"
               :color="getFileTypeBadgeColor(fileInfo?.type || '')"
@@ -125,15 +125,15 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
             />
           </div>
           <div class="flex flex-col">
-            <span class="text-sm font-medium text-gray-600 mb-1">Total Rows</span>
+            <span class="text-sm font-medium text-neutral-600 mb-1">Total Rows</span>
             <span class="text-lg font-semibold">{{ fileInfo?.rows || 0 }}</span>
           </div>
           <div class="flex flex-col">
-            <span class="text-sm font-medium text-gray-600 mb-1">Columns</span>
+            <span class="text-sm font-medium text-neutral-600 mb-1">Columns</span>
             <span class="text-lg font-semibold">{{ fileInfo?.columns || 0 }}</span>
           </div>
           <div class="flex flex-col">
-            <span class="text-sm font-medium text-gray-600 mb-1">Preview Sample</span>
+            <span class="text-sm font-medium text-neutral-600 mb-1">Preview Sample</span>
             <span class="text-lg font-semibold">{{ sampleRows.length }} rows</span>
           </div>
         </div>
@@ -193,8 +193,8 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
       <!-- No Sample Data Card -->
       <UCard v-else>
         <div class="text-center py-8">
-          <UIcon name="i-lucide-database" class="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <p class="text-gray-600">
+          <UIcon name="i-lucide-database" class="mx-auto h-12 w-12 text-neutral-400 mb-4" />
+          <p class="text-neutral-600">
             No sample data available
           </p>
         </div>
@@ -204,11 +204,11 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
     <!-- No Preview Available -->
     <UCard v-else>
       <div class="text-center py-12">
-        <UIcon name="i-lucide-file-search" class="mx-auto h-16 w-16 text-gray-400 mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
+        <UIcon name="i-lucide-file-search" class="mx-auto h-16 w-16 text-neutral-400 mb-4" />
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
           No preview available
         </h3>
-        <p class="text-gray-600">
+        <p class="text-neutral-600">
           Select a dataset to view its contents and structure
         </p>
       </div>

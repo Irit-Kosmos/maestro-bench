@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from db import get_session
 from models import Prompt, PromptVersion
-from schemas.prompts import PromptCreate, PromptUpdate, PromptVersionCreate, PromptVersionUpdate
+from schemas.prompts import PromptCreate, PromptUpdate, PromptVersionCreate, PromptVersionUpdate, PromptVersionResponse
 
 router = APIRouter(tags=["prompts"])
 
@@ -55,15 +55,18 @@ def delete_prompt(prompt_id: int, session=Depends(get_session)):
     return {"message": "Prompt deleted successfully"}
 
 # Prompt Version endpoints
-@router.get("/prompt-versions", response_model=list[PromptVersion])
+@router.get("/prompt-versions", response_model=list[PromptVersionResponse])
 def list_all_prompt_versions(session=Depends(get_session)):
     """Get all prompt versions across all prompts for dropdown selections"""
-    query = select(PromptVersion).where(PromptVersion.is_active == True)
+    from sqlmodel import select
+    
+    # Use JOIN to include prompt data in the query
+    query = select(PromptVersion).join(Prompt).where(PromptVersion.is_active == True)
     versions = session.exec(query).all()
     
-    # Load prompt relationship manually if needed
+    # Explicitly load prompt relationship for each version
     for version in versions:
-        if version.prompt_id:
+        if version.prompt_id and not version.prompt:
             version.prompt = session.get(Prompt, version.prompt_id)
     
     return versions

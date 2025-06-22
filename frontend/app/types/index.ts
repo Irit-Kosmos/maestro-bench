@@ -97,12 +97,14 @@ export interface ExperimentExecution {
 
 export interface AgentExecutionSnapshot {
   id: number
+  execution_id: number
   agent_id: number
   agent_name_snapshot: string
+  agent_team_name_snapshot?: string
   model_name_snapshot: string
   model_provider_snapshot: string
   prompt_name_snapshot: string
-  prompt_version_snapshot: number
+  prompt_version_snapshot: string
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string
@@ -169,8 +171,8 @@ export interface CreateAgentTeamForm {
 export interface CreateAgentForm {
   name: string
   description: string
-  default_prompt_version_id?: number
-  default_model_id?: number
+  default_prompt_version_id?: number | null
+  default_model_id?: number | null
   team_id: number
 }
 

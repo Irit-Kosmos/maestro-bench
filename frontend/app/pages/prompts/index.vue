@@ -78,10 +78,10 @@ async function handleCreatePrompt() {
       <!-- Page Header -->
       <div class="flex justify-between items-center mb-8">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">
+          <h1 class="text-2xl font-bold text-neutral-900">
             Prompts
           </h1>
-          <p class="text-gray-500 mt-1">
+          <p class="text-neutral-500 mt-1">
             Manage your reusable prompts with versioning support
           </p>
         </div>
@@ -104,10 +104,10 @@ async function handleCreatePrompt() {
       <!-- Error State -->
       <div v-else-if="error" class="text-center py-12">
         <UIcon name="i-lucide-alert-circle" class="h-16 w-16 text-red-400 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
           Error Loading Prompts
         </h3>
-        <p class="text-gray-600 mb-4">
+        <p class="text-neutral-600 mb-4">
           {{ error }}
         </p>
         <UButton @click="() => refresh()">
@@ -117,11 +117,11 @@ async function handleCreatePrompt() {
 
       <!-- Empty State -->
       <div v-else-if="!prompts || prompts.length === 0" class="text-center py-12">
-        <UIcon name="i-lucide-message-square-text" class="h-16 w-16 text-gray-400 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
+        <UIcon name="i-lucide-message-square-text" class="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
           No Prompts Found
         </h3>
-        <p class="text-gray-600 mb-6">
+        <p class="text-neutral-600 mb-6">
           Create your first prompt to get started with prompt versioning
         </p>
         <UButton
@@ -140,42 +140,32 @@ async function handleCreatePrompt() {
         <UCard
           v-for="prompt in prompts"
           :key="prompt.id"
-          class="hover:shadow-lg transition-shadow duration-200"
+          class="hover:ring hover:ring-primary transition cursor-pointer"
+          @click="viewPrompt(prompt)"
         >
           <template #header>
-            <div class="flex items-start justify-between">
-              <div class="flex-1 min-w-0">
-                <div class="flex justify-between items-center">
-                  <h3 class="text-lg font-medium text-gray-900 truncate">
-                    {{ prompt.name }}
-                  </h3>
-                  <UButton
-                    variant="soft"
-                    color="primary"
-                    size="sm"
-                    icon="i-lucide-eye"
-                    @click="viewPrompt(prompt)"
-                  >
-                    View
-                  </UButton>
-                </div>
-                <p v-if="prompt.category" class="text-sm text-gray-500 mt-1">
+            <div class="flex flex-col gap-1 items-start justify-between">
+              <div class="flex justify-between items-center w-full">
+                <h3 class="text-lg  font-medium text-neutral-900 truncate">
+                  {{ prompt.name }}
+                </h3>
+              </div>
+              <div class="flex justify-between items-center w-full">
+                <p v-if="prompt.category" class="text-sm text-neutral-500 mt-1">
                   {{ prompt.category }}
                 </p>
+                <div class="text-xs flex items-center text-neutral-500">
+                  <UIcon name="i-lucide-calendar" class="inline-block mr-1" />
+                  {{ formatDate(prompt.created_at) }}
+                </div>
               </div>
             </div>
           </template>
 
           <div class="space-y-4">
-            <p v-if="prompt.description" class="text-sm text-gray-600">
+            <p v-if="prompt.description" class="text-sm text-neutral-600">
               {{ prompt.description }}
             </p>
-
-            <div class="flex items-center justify-between">
-              <div class="text-xs text-gray-500">
-                Created {{ formatDate(prompt.created_at) }}
-              </div>
-            </div>
           </div>
         </UCard>
       </div>
@@ -217,7 +207,7 @@ async function handleCreatePrompt() {
                 />
               </UFormField>
 
-              <div class="flex justify-end gap-2 pt-4 border-t border-gray-200">
+              <div class="flex justify-end gap-2 pt-4 border-t border-neutral-200">
                 <UButton
                   type="button"
                   variant="outline"

@@ -5,7 +5,10 @@
   <div class="w-screen h-screen max-w-6xl m-auto px-4 ">
     <nav class="flex gap-4 items-center py-4 justify-between ">
       <span class="text-2xl font-bold">
-        <NuxtLink to="/">maestro-bench</NuxtLink>
+        <NuxtLink to="/">
+          <span class="hidden lg:inline">maestro-bench</span>
+          <span class="inline lg:hidden">mb</span>
+        </NuxtLink>
       </span>
 
       <div class="flex items-center gap-4">
@@ -18,7 +21,7 @@
             size="sm"
             icon="i-lucide:home"
           >
-            Dashboard
+            <span class="hidden lg:inline">Dashboard</span>
           </UButton>
           <UButton
             to="/experiments"
@@ -27,7 +30,7 @@
             size="sm"
             icon="i-lucide:flask-conical"
           >
-            Experiments
+            <span class="hidden lg:inline">Experiments</span>
           </UButton>
           <UButton
             to="/datasets"
@@ -36,7 +39,7 @@
             size="sm"
             icon="i-lucide:database"
           >
-            Datasets
+            <span class="hidden lg:inline">Datasets</span>
           </UButton>
           <UButton
             to="/agents"
@@ -45,7 +48,7 @@
             size="sm"
             icon="i-lucide:users"
           >
-            Agents
+            <span class="hidden lg:inline">Agents</span>
           </UButton>
           <UButton
             to="/prompts"
@@ -54,7 +57,7 @@
             size="sm"
             icon="i-lucide:message-square-text"
           >
-            Prompts
+            <span class="hidden lg:inline">Prompts</span>
           </UButton>
           <UButton
             to="/models"
@@ -63,7 +66,7 @@
             size="sm"
             icon="i-lucide:cpu"
           >
-            Models
+            <span class="hidden lg:inline">Models</span>
           </UButton>
         </div>
       </div>

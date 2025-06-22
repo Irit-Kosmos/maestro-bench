@@ -43,9 +43,8 @@ async function handleUpdateAgent(data: any) {
   const result = await updateAgent(data.id, {
     name: data.name,
     description: data.description,
-    system_prompt: data.system_prompt,
-    user_prompt: data.user_prompt,
-    variables: data.variables,
+    default_prompt_version_id: data.default_prompt_version_id,
+    default_model_id: data.default_model_id,
     team_id: data.team_id,
   })
 
@@ -96,17 +95,6 @@ function getTeamName(teamId: number) {
   return team?.name || 'Unknown Team'
 }
 
-function parseVariables(variables: string | null) {
-  if (!variables)
-    return []
-  try {
-    return JSON.parse(variables)
-  }
-  catch {
-    return []
-  }
-}
-
 // Tab items for Nuxt UI UTabs
 const tabItems = [
   {
@@ -128,10 +116,10 @@ const tabItems = [
       <!-- Page Header -->
       <div class="flex justify-between items-center mb-8">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">
+          <h1 class="text-2xl font-bold text-neutral-900">
             Agents Management
           </h1>
-          <p class="text-gray-500 mt-1">
+          <p class="text-neutral-500 mt-1">
             Manage your AI agents and organize them into teams
           </p>
         </div>
@@ -168,11 +156,11 @@ const tabItems = [
 
             <!-- Empty State -->
             <div v-else-if="!agentTeams || agentTeams.length === 0" class="text-center py-12">
-              <UIcon name="i-lucide:users" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 class="text-lg font-medium text-gray-900 mb-2">
+              <UIcon name="i-lucide:users" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+              <h3 class="text-lg font-medium text-neutral-900 mb-2">
                 No Agent Teams Found
               </h3>
-              <p class="text-gray-500 mb-4">
+              <p class="text-neutral-500 mb-4">
                 No agent teams have been configured yet. Create your first team to get started.
               </p>
             </div>
@@ -188,7 +176,7 @@ const tabItems = [
                   <div class="flex justify-between w-full items-start">
                     <div class="flex-1 ">
                       <div class="flex justify-between w-full">
-                        <h3 class="text-lg font-semibold flex-1 text-gray-900">
+                        <h3 class="text-lg font-semibold flex-1 text-neutral-900">
                           {{ team.name }}
                         </h3>
 
@@ -199,14 +187,14 @@ const tabItems = [
                           @click="() => handleConfigureTeam(team.id)"
                         />
                       </div>
-                      <p class="text-sm text-gray-600 mt-1">
+                      <p class="text-sm text-neutral-600 mt-1">
                         {{ team.description }}
                       </p>
                     </div>
                   </div>
 
                   <div>
-                    <h4 class="text-sm font-medium text-gray-700 mb-2">
+                    <h4 class="text-sm font-medium text-neutral-700 mb-2">
                       Agents:
                     </h4>
                     <div class="flex flex-wrap gap-2">
@@ -236,11 +224,11 @@ const tabItems = [
 
             <!-- Empty State -->
             <div v-else-if="!agents || agents.length === 0" class="text-center py-12">
-              <UIcon name="i-lucide:user" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 class="text-lg font-medium text-gray-900 mb-2">
+              <UIcon name="i-lucide:user" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+              <h3 class="text-lg font-medium text-neutral-900 mb-2">
                 No Agents Found
               </h3>
-              <p class="text-gray-500 mb-4">
+              <p class="text-neutral-500 mb-4">
                 No agents have been created yet. Create your first agent to get started.
               </p>
               <UButton
@@ -265,7 +253,7 @@ const tabItems = [
                   <div class="flex justify-between items-start">
                     <div class="flex items-center flex-1 space-x-3">
                       <div class="flex flex-1 justify-between">
-                        <h3 class="text-lg font-semibold text-gray-900">
+                        <h3 class="text-lg font-semibold text-neutral-900">
                           {{ agent.name }}
                         </h3>
                         <div class="flex gap-2">
@@ -289,44 +277,28 @@ const tabItems = [
 
                   <!-- Agent Details -->
                   <div class="space-y-3">
-                    <div v-if="agent.description" class="text-sm text-gray-600">
+                    <div v-if="agent.description" class="text-sm text-neutral-600">
                       {{ agent.description }}
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 text-sm">
                       <div>
-                        <span class="font-medium text-gray-700">Team:</span>
-                        <p class="text-gray-600">
+                        <span class="font-medium text-neutral-700">Team:</span>
+                        <p class="text-neutral-600">
                           {{ getTeamName(agent.team_id) }}
                         </p>
                       </div>
-                      <div v-if="agent.system_prompt">
-                        <span class="font-medium text-gray-700">System Prompt:</span>
-                        <p class="text-gray-600 text-xs truncate">
-                          {{ agent.system_prompt }}
+                      <div v-if="agent.default_prompt_version">
+                        <span class="font-medium text-neutral-700">Default Prompt:</span>
+                        <p class="text-neutral-600 text-xs">
+                          {{ agent.default_prompt_version.prompt?.name || 'Unknown' }} v{{ agent.default_prompt_version.version }}
                         </p>
                       </div>
-                      <div v-if="agent.user_prompt">
-                        <span class="font-medium text-gray-700">User Prompt:</span>
-                        <p class="text-gray-600 text-xs truncate">
-                          {{ agent.user_prompt }}
+                      <div v-if="agent.default_model">
+                        <span class="font-medium text-neutral-700">Default Model:</span>
+                        <p class="text-neutral-600 text-xs">
+                          {{ agent.default_model.name }} ({{ agent.default_model.provider }})
                         </p>
-                      </div>
-                    </div>
-
-                    <!-- Agent Variables -->
-                    <div v-if="parseVariables(agent.variables).length > 0">
-                      <span class="text-sm font-medium text-gray-700">Variables:</span>
-                      <div class="flex flex-wrap gap-1 mt-1">
-                        <UBadge
-                          v-for="variable in parseVariables(agent.variables)"
-                          :key="variable"
-                          color="neutral"
-                          variant="soft"
-                          size="sm"
-                        >
-                          {{ variable }}
-                        </UBadge>
                       </div>
                     </div>
                   </div>
@@ -341,14 +313,14 @@ const tabItems = [
     <!-- Create Team Modal -->
     <AgentsCreateTeamModal
       v-model:open="showCreateTeamModal"
-      :available-agents="agents ? [...agents] : []"
+      :available-agents="agents as any"
       @submit="createTeam"
     />
 
     <!-- Create Agent Modal -->
     <AgentsCreateAgentModal
       v-model:open="showCreateAgentModal"
-      :available-teams="agentTeams ? [...agentTeams] : []"
+      :available-teams="agentTeams as any"
       @submit="createAgent"
     />
 
@@ -356,7 +328,7 @@ const tabItems = [
     <AgentsEditAgentModal
       v-model:open="showEditAgentModal"
       :agent="selectedAgent"
-      :available-teams="agentTeams ? [...agentTeams] : []"
+      :available-teams="agentTeams as any"
       @submit="handleUpdateAgent"
     />
 

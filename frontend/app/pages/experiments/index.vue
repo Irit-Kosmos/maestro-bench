@@ -11,6 +11,45 @@ useSeoMeta({
   description: 'Manage and monitor your AI agent experiments. Create, view, and analyze experiment results.',
 })
 
+// Table configuration
+const columns = [
+  {
+    key: 'name',
+    label: 'Experiment',
+    formatter: (value: string, row: Experiment) => `${value} (ID: ${row.id})`,
+  },
+  {
+    key: 'dataset',
+    label: 'Dataset',
+    formatter: (_: any, row: Experiment) => row.dataset?.name || 'Unknown',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+  },
+  {
+    key: 'created_at',
+    label: 'Created',
+  },
+]
+
+const actions = [
+  {
+    label: 'View',
+    icon: 'i-lucide-eye',
+    variant: 'ghost' as const,
+    color: 'neutral' as const,
+    handler: (experiment: Experiment) => handleViewExperiment(experiment.id),
+  },
+  {
+    label: 'Delete',
+    icon: 'i-lucide-trash-2',
+    variant: 'ghost' as const,
+    color: 'error' as const,
+    handler: (experiment: Experiment) => handleDeleteExperiment(experiment.id),
+  },
+]
+
 // Navigation handlers
 async function handleViewExperiment(id: number) {
   await navigateTo(`/experiments/${id}`)
@@ -32,64 +71,56 @@ async function handleCreateExperiment() {
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Page Header -->
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">
-            Experiments
-          </h1>
-          <p class="text-gray-500 mt-1">
-            Manage and monitor your experiments
-          </p>
-        </div>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="handleCreateExperiment"
-        >
-          Create Experiment
-        </UButton>
-      </div>
+  <BasePageLayout
+    title="Experiments"
+    subtitle="Manage and monitor your experiments"
+    :loading="pending"
+  >
+    <template #actions>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="handleCreateExperiment"
+      >
+        Create Experiment
+      </UButton>
+    </template>
 
-      <!-- All Experiments Table -->
-      <div v-if="experiments && experiments.length > 0">
-        <ExperimentsTable
-          :experiments="(experiments || []) as Experiment[]"
-          :loading="pending"
-          @refresh="refresh"
-          @view-experiment="handleViewExperiment"
-          @delete-experiment="handleDeleteExperiment"
-        />
-      </div>
+    <!-- Experiments Table -->
+    <div v-if="experiments && experiments.length > 0">
+      <BaseDataTable
+        :data="[...(experiments || [])]"
+        :columns="columns"
+        :actions="actions"
+        :loading="pending"
+        title="All Experiments"
+        searchable
+        @refresh="refresh"
+      >
+        <!-- Custom cell for status -->
+        <template #cell-status="{ item }">
+          <UIStatusBadge :status="item.status" />
+        </template>
 
-      <!-- Empty State -->
-      <div v-else-if="!pending" class="text-center py-12">
-        <UIcon name="i-lucide:flask-conical" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
-          No experiments yet
-        </h3>
-        <p class="text-gray-500 mb-6">
-          Get started by creating your first experiment to test your agent teams.
-        </p>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="handleCreateExperiment"
-        >
-          Create Your First Experiment
-        </UButton>
-      </div>
-
-      <!-- Loading State -->
-      <div v-else class="flex justify-center items-center py-12">
-        <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
-      </div>
+        <!-- Custom cell for created_at -->
+        <template #cell-created_at="{ item }">
+          <span class="text-sm text-neutral-500">
+            {{ new Date(item.created_at).toLocaleDateString() }}
+          </span>
+        </template>
+      </BaseDataTable>
     </div>
-  </div>
+
+    <!-- Empty State -->
+    <BaseEmptyState
+      v-else-if="!pending"
+      title="No experiments yet"
+      message="Get started by creating your first experiment to test your agent teams."
+      icon="i-lucide:flask-conical"
+      action-label="Create Your First Experiment"
+      @action="handleCreateExperiment"
+    />
+  </BasePageLayout>
 </template>

@@ -22,7 +22,7 @@ defineEmits<Emits>()
         <!-- Header with name and status -->
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-3">
-            <h3 class="text-xl font-semibold text-gray-900">
+            <h3 class="text-xl font-semibold text-neutral-900">
               {{ model.name }}
             </h3>
             <UBadge
@@ -52,32 +52,32 @@ defineEmits<Emits>()
         </div>
 
         <!-- Model Details -->
-        <div class="space-y-2 text-sm text-gray-600">
+        <div class="space-y-2 text-sm text-neutral-600">
           <div v-if="model.description" class="flex items-start gap-2">
-            <UIcon name="i-heroicons-document-text" class="w-4 h-4 mt-0.5 text-gray-400" />
+            <UIcon name="i-heroicons-document-text" class="w-4 h-4 mt-0.5 text-neutral-400" />
             <span class="flex-1">{{ model.description }}</span>
           </div>
 
           <div v-if="model.max_tokens" class="flex items-center gap-2">
-            <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4 text-gray-400" />
+            <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4 text-neutral-400" />
             <span class="font-medium">Max Tokens:</span>
-            <span class="font-mono text-gray-700">{{ model.max_tokens?.toLocaleString() }}</span>
+            <span class="font-mono text-neutral-700">{{ model.max_tokens?.toLocaleString() }}</span>
           </div>
 
           <div v-if="model.default_temperature !== null" class="flex items-center gap-2">
-            <UIcon name="i-heroicons-fire" class="w-4 h-4 text-gray-400" />
+            <UIcon name="i-heroicons-fire" class="w-4 h-4 text-neutral-400" />
             <span class="font-medium">Default Temperature:</span>
-            <span class="font-mono text-gray-700">{{ model.default_temperature }}</span>
+            <span class="font-mono text-neutral-700">{{ model.default_temperature }}</span>
           </div>
 
           <div v-if="model.default_max_tokens" class="flex items-center gap-2">
-            <UIcon name="i-heroicons-bars-3-bottom-left" class="w-4 h-4 text-gray-400" />
+            <UIcon name="i-heroicons-bars-3-bottom-left" class="w-4 h-4 text-neutral-400" />
             <span class="font-medium">Default Max Tokens:</span>
-            <span class="font-mono text-gray-700">{{ model.default_max_tokens?.toLocaleString() }}</span>
+            <span class="font-mono text-neutral-700">{{ model.default_max_tokens?.toLocaleString() }}</span>
           </div>
 
           <div class="flex items-center gap-2">
-            <UIcon name="i-heroicons-calendar" class="w-4 h-4 text-gray-400" />
+            <UIcon name="i-heroicons-calendar" class="w-4 h-4 text-neutral-400" />
             <span class="font-medium">Created:</span>
             <span>{{ new Date(model.created_at).toLocaleDateString() }}</span>
           </div>

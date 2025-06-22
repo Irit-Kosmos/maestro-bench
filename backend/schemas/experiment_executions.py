@@ -14,7 +14,7 @@ class AgentExecutionSnapshotResponse(BaseModel):
     model_name_snapshot: str
     model_provider_snapshot: str
     prompt_name_snapshot: str
-    prompt_version_snapshot: int
+    prompt_version_snapshot: str
     final_system_prompt: Optional[str]
     final_user_prompt: Optional[str]
     final_variables: Optional[str]

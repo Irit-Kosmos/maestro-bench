@@ -131,10 +131,10 @@ watch(() => route.params.id, () => {
         <!-- Dataset Header -->
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">
+            <h1 class="text-3xl font-bold text-neutral-900">
               {{ dataset.name }}
             </h1>
-            <p class="mt-2 text-gray-600">
+            <p class="mt-2 text-neutral-600">
               {{ dataset.description }}
             </p>
           </div>
@@ -162,41 +162,41 @@ watch(() => route.params.id, () => {
         <!-- Overview Card -->
         <UCard>
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Overview
             </h2>
           </template>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-neutral-500">
                 Created
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-neutral-900">
                 {{ new Date(dataset.created_at).toLocaleDateString() }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-neutral-500">
                 File Path
               </dt>
-              <dd class="mt-1 text-sm text-gray-900 font-mono truncate" :title="dataset.file_path">
+              <dd class="mt-1 text-sm text-neutral-900 font-mono truncate" :title="dataset.file_path">
                 {{ dataset.file_path || 'No file uploaded' }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-neutral-500">
                 File Type
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-neutral-900">
                 {{ dataset.file_path ? dataset.file_path.split('.').pop()?.toUpperCase() || 'Unknown' : 'N/A' }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-neutral-500">
                 Status
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-neutral-900">
                 <UBadge
                   :color="dataset.file_path ? 'success' : 'warning'"
                   variant="subtle"
@@ -211,7 +211,7 @@ watch(() => route.params.id, () => {
         <!-- Dataset Preview -->
         <UCard v-if="dataset.file_path">
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Dataset Preview
             </h2>
           </template>
@@ -222,17 +222,17 @@ watch(() => route.params.id, () => {
         <!-- Upload Section -->
         <UCard v-else>
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Upload Dataset File
             </h2>
           </template>
 
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <UIcon name="i-lucide:upload" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-gray-900 mb-2">
+          <div class="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center">
+            <UIcon name="i-lucide:upload" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+            <h3 class="text-lg font-medium text-neutral-900 mb-2">
               Upload Your Dataset
             </h3>
-            <p class="text-gray-500 mb-4">
+            <p class="text-neutral-500 mb-4">
               Drag and drop your dataset file here, or click to browse
             </p>
             <UButton variant="solid" color="primary" disabled>
@@ -245,17 +245,17 @@ watch(() => route.params.id, () => {
         <!-- Usage Information -->
         <UCard>
           <template #header>
-            <h2 class="text-lg font-semibold text-gray-900">
+            <h2 class="text-lg font-semibold text-neutral-900">
               Usage in Experiments
             </h2>
           </template>
 
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600">
-                This dataset has been used in <span class="font-semibold text-gray-900">0</span> experiments.
+              <p class="text-sm text-neutral-600">
+                This dataset has been used in <span class="font-semibold text-neutral-900">0</span> experiments.
               </p>
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-neutral-500 mt-1">
                 Experiment usage tracking will be implemented in future iterations.
               </p>
             </div>
@@ -274,10 +274,10 @@ watch(() => route.params.id, () => {
       <!-- Error State -->
       <div v-else class="text-center py-12">
         <UIcon name="i-lucide:alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
           Dataset Not Found
         </h3>
-        <p class="text-gray-500 mb-4">
+        <p class="text-neutral-500 mb-4">
           The dataset you're looking for doesn't exist.
         </p>
         <UButton to="/datasets" variant="solid" color="primary">
