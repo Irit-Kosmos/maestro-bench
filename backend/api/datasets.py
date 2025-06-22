@@ -98,6 +98,80 @@ def get_dataset_preview(dataset_id: int, session=Depends(get_session)):
     except Exception as e:
         raise HTTPException(500, f"Error reading dataset file: {str(e)}")
 
+@router.get("/datasets/{dataset_id}/info")
+def get_dataset_info(dataset_id: int, session=Depends(get_session)):
+    """
+    Get dataset information including row count for sampling configuration
+    """
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+    
+    if not dataset.file_path:
+        raise HTTPException(400, "Dataset has no file path")
+    
+    # Construct the full path to the dataset file
+    datasets_dir = Path(__file__).parent.parent.parent / "datasets"
+    file_path = datasets_dir / dataset.file_path
+    
+    if not file_path.exists():
+        raise HTTPException(404, f"Dataset file not found: {dataset.file_path}")
+    
+    try:
+        file_extension = file_path.suffix.lower()
+        
+        if file_extension == '.csv':
+            # Read CSV file to get row count
+            df = pd.read_csv(file_path)
+            headers = df.columns.tolist()
+            total_rows = len(df)
+            
+            return {
+                "id": dataset.id,
+                "name": dataset.name,
+                "description": dataset.description,
+                "file_type": "csv",
+                "headers": headers,
+                "total_rows": total_rows,
+                "total_columns": len(headers)
+            }
+            
+        elif file_extension == '.json':
+            # Read JSON file to get row count
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if isinstance(data, list):
+                headers = list(data[0].keys()) if data else []
+                total_rows = len(data)
+                
+                return {
+                    "id": dataset.id,
+                    "name": dataset.name,
+                    "description": dataset.description,
+                    "file_type": "json",
+                    "headers": headers,
+                    "total_rows": total_rows,
+                    "total_columns": len(headers)
+                }
+            else:
+                # Single object
+                headers = list(data.keys()) if isinstance(data, dict) else []
+                return {
+                    "id": dataset.id,
+                    "name": dataset.name,
+                    "description": dataset.description,
+                    "file_type": "json",
+                    "headers": headers,
+                    "total_rows": 1,
+                    "total_columns": len(headers)
+                }
+        else:
+            raise HTTPException(400, f"Unsupported file format: {file_extension}")
+            
+    except Exception as e:
+        raise HTTPException(500, f"Error reading dataset file: {str(e)}")
+
 @router.delete("/datasets/{dataset_id}", status_code=204)
 def delete_dataset(dataset_id: int, session=Depends(get_session)):
     dataset = session.get(Dataset, dataset_id)

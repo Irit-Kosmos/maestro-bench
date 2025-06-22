@@ -50,6 +50,12 @@ const stepperItems = [
     slot: 'dataset',
   },
   {
+    title: 'Dataset Sampling',
+    description: 'Configure which data rows to use',
+    icon: 'i-lucide-filter',
+    slot: 'sampling',
+  },
+  {
     title: 'Agent Team & Configuration',
     description: 'Select team and configure agents',
     icon: 'i-lucide-users',
@@ -66,13 +72,15 @@ const experimentDetails = ref({
   description: '',
 })
 
-// Computed
-const formValid = computed(() => {
-  return experimentDetails.value.name.trim()
-    && formData.value.dataset_id != null
-    && selectedTeamId.value != null
+// Dataset sampling configuration
+const samplingConfig = ref({
+  sampling_type: 'all',
+  sampling_size: undefined as number | undefined,
+  sampling_start_row: undefined as number | undefined,
+  sampling_end_row: undefined as number | undefined,
 })
 
+// Computed
 const isStepValid = computed(() => {
   switch (currentStep.value) {
     case 0:
@@ -80,10 +88,27 @@ const isStepValid = computed(() => {
     case 1:
       return formData.value.dataset_id != null
     case 2:
+      // Sampling step validation
+      if (samplingConfig.value.sampling_type === 'random') {
+        return samplingConfig.value.sampling_size && samplingConfig.value.sampling_size > 0
+      }
+      if (samplingConfig.value.sampling_type === 'range') {
+        return samplingConfig.value.sampling_start_row
+          && samplingConfig.value.sampling_end_row
+          && samplingConfig.value.sampling_start_row <= samplingConfig.value.sampling_end_row
+      }
+      return true // 'all' option is always valid
+    case 3:
       return selectedTeamId.value != null
     default:
       return false
   }
+})
+
+const formValid = computed(() => {
+  return experimentDetails.value.name.trim()
+    && formData.value.dataset_id != null
+    && selectedTeamId.value != null
 })
 
 const canGoNext = computed(() => {
@@ -204,6 +229,10 @@ async function handleSubmit() {
       dataset_id: formData.value.dataset_id!,
       agent_teams: formData.value.agent_teams,
       agent_configurations: agentConfigurations.value,
+      sampling_type: samplingConfig.value.sampling_type,
+      sampling_size: samplingConfig.value.sampling_size,
+      sampling_start_row: samplingConfig.value.sampling_start_row,
+      sampling_end_row: samplingConfig.value.sampling_end_row,
     }
 
     const result = await createExperiment(experimentData)
@@ -343,7 +372,35 @@ async function handleCancel() {
               </div>
             </template>
 
-            <!-- Step 3: Agent Team & Configuration -->
+            <!-- Step 3: Dataset Sampling Configuration -->
+            <template #sampling>
+              <div class="space-y-6">
+                <ExperimentsDatasetSamplingConfig
+                  v-if="selectedDataset"
+                  :dataset-id="selectedDataset"
+                  :sampling-type="samplingConfig.sampling_type"
+                  :sampling-size="samplingConfig.sampling_size"
+                  :sampling-start-row="samplingConfig.sampling_start_row"
+                  :sampling-end-row="samplingConfig.sampling_end_row"
+                  @update:sampling-type="(value: string) => samplingConfig.sampling_type = value"
+                  @update:sampling-size="(value: number | undefined) => samplingConfig.sampling_size = value"
+                  @update:sampling-start-row="(value: number | undefined) => samplingConfig.sampling_start_row = value"
+                  @update:sampling-end-row="(value: number | undefined) => samplingConfig.sampling_end_row = value"
+                />
+
+                <div v-else class="text-center py-12">
+                  <UIcon name="i-lucide-arrow-left" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+                  <h3 class="text-lg font-medium text-neutral-900 mb-2">
+                    Select a Dataset First
+                  </h3>
+                  <p class="text-neutral-600">
+                    Go back to the previous step to choose a dataset before configuring sampling options.
+                  </p>
+                </div>
+              </div>
+            </template>
+
+            <!-- Step 4: Agent Team & Configuration -->
             <template #agents>
               <div class="space-y-6">
                 <!-- Team Selection Grid -->

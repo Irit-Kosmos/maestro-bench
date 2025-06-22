@@ -101,6 +101,12 @@ class Experiment(SQLModel, table=True):
     status: str = Field(default="pending")  # pending, running, completed, failed
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
+    
+    # Dataset sampling configuration
+    sampling_type: Optional[str] = Field(default=None, description="Type of sampling: 'all', 'random', 'range'")
+    sampling_size: Optional[int] = Field(default=None, description="Number of rows for random sampling")
+    sampling_start_row: Optional[int] = Field(default=None, description="Start row for range sampling (1-based)")
+    sampling_end_row: Optional[int] = Field(default=None, description="End row for range sampling (1-based, inclusive)")
 
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")

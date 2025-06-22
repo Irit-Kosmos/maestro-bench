@@ -1,5 +1,7 @@
 import time
 import json
+import pandas as pd
+import random
 from datetime import datetime
 from sqlmodel import Session, select
 from db import engine
@@ -7,6 +9,67 @@ from models import (
     Experiment, ExperimentAgentConfig, Agent, AgentTeam, Dataset, 
     ExperimentExecution, AgentExecutionSnapshot, PromptVersion, Model
 )
+from pathlib import Path
+
+
+def apply_dataset_sampling(dataset_file_path: str, sampling_config: dict) -> pd.DataFrame:
+    """
+    Apply sampling configuration to a dataset and return the sampled DataFrame
+    
+    Args:
+        dataset_file_path: Path to the dataset file
+        sampling_config: Dictionary containing sampling configuration
+            - sampling_type: 'all', 'random', or 'range'
+            - sampling_size: Number of rows for random sampling
+            - sampling_start_row: Start row for range sampling (1-based)
+            - sampling_end_row: End row for range sampling (1-based, inclusive)
+    
+    Returns:
+        pandas.DataFrame: The sampled dataset
+    """
+    # Load the full dataset
+    file_extension = Path(dataset_file_path).suffix.lower()
+    
+    if file_extension == '.csv':
+        df = pd.read_csv(dataset_file_path)
+    elif file_extension == '.json':
+        df = pd.read_json(dataset_file_path)
+    else:
+        raise ValueError(f"Unsupported file format: {file_extension}")
+    
+    sampling_type = sampling_config.get('sampling_type', 'all')
+    
+    if sampling_type == 'all' or sampling_type is None:
+        return df
+    
+    elif sampling_type == 'random':
+        sampling_size = sampling_config.get('sampling_size')
+        if sampling_size and sampling_size > 0:
+            sample_size = min(sampling_size, len(df))
+            return df.sample(n=sample_size, random_state=42)  # Fixed seed for reproducibility
+        else:
+            return df
+    
+    elif sampling_type == 'range':
+        start_row = sampling_config.get('sampling_start_row')
+        end_row = sampling_config.get('sampling_end_row')
+        
+        if start_row and end_row:
+            # Convert to 0-based indexing
+            start_idx = start_row - 1
+            end_idx = end_row  # end_row is inclusive, so we don't subtract 1
+            
+            # Ensure indices are within bounds
+            start_idx = max(0, start_idx)
+            end_idx = min(len(df), end_idx)
+            
+            return df.iloc[start_idx:end_idx]
+        else:
+            return df
+    
+    else:
+        # Unknown sampling type, return all data
+        return df
 
 
 def create_execution_snapshot(experiment_id: int, session: Session) -> ExperimentExecution:
@@ -23,7 +86,13 @@ def create_execution_snapshot(experiment_id: int, session: Session) -> Experimen
         "id": dataset.id,
         "name": dataset.name,
         "description": dataset.description,
-        "file_path": dataset.file_path
+        "file_path": dataset.file_path,
+        "sampling_config": {
+            "sampling_type": experiment.sampling_type,
+            "sampling_size": experiment.sampling_size,
+            "sampling_start_row": experiment.sampling_start_row,
+            "sampling_end_row": experiment.sampling_end_row
+        }
     }) if dataset else "{}"
     
     # Create execution record
@@ -102,10 +171,6 @@ def run_experiment(experiment_id: int):
             time.sleep(2)  # Simulate some work
             
             # Mark as completed for now
-            execution.status = "completed"
-            execution.completed_at = datetime.utcnow()
-            session.add(execution)
-            
             experiment.status = "completed"
             experiment.completed_at = datetime.utcnow()
             session.add(experiment)

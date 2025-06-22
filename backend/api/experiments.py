@@ -33,13 +33,17 @@ def list_experiments(session: Session = Depends(get_session)):
             status=exp.status,
             created_at=exp.created_at,
             completed_at=exp.completed_at,
-            dataset={
-                "id": dataset.id,
-                "name": dataset.name,
-                "description": dataset.description,
-                "file_path": dataset.file_path,
-                "created_at": dataset.created_at
-            } if dataset else None,
+            sampling_type=exp.sampling_type,
+            sampling_size=exp.sampling_size,
+            sampling_start_row=exp.sampling_start_row,
+            sampling_end_row=exp.sampling_end_row,
+            dataset=DatasetResponse(
+                id=dataset.id,
+                name=dataset.name,
+                description=dataset.description,
+                file_path=dataset.file_path,
+                created_at=dataset.created_at
+            ) if dataset else None,
             experiment_configs=[]  # We'll populate this if needed
         )
         result.append(exp_response)
@@ -53,7 +57,11 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
     experiment = Experiment(
         name=exp_data.name,
         description=exp_data.description,
-        dataset_id=exp_data.dataset_id
+        dataset_id=exp_data.dataset_id,
+        sampling_type=exp_data.sampling_type,
+        sampling_size=exp_data.sampling_size,
+        sampling_start_row=exp_data.sampling_start_row,
+        sampling_end_row=exp_data.sampling_end_row
     )
     session.add(experiment)
     session.commit()
@@ -121,13 +129,17 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
         status=experiment.status,
         created_at=experiment.created_at,
         completed_at=experiment.completed_at,
-        dataset={
-            "id": dataset.id,
-            "name": dataset.name,
-            "description": dataset.description,
-            "file_path": dataset.file_path,
-            "created_at": dataset.created_at
-        } if dataset else None,
+        sampling_type=experiment.sampling_type,
+        sampling_size=experiment.sampling_size,
+        sampling_start_row=experiment.sampling_start_row,
+        sampling_end_row=experiment.sampling_end_row,
+        dataset=DatasetResponse(
+            id=dataset.id,
+            name=dataset.name,
+            description=dataset.description,
+            file_path=dataset.file_path,
+            created_at=dataset.created_at
+        ) if dataset else None,
         experiment_configs=[]
     )
 
@@ -150,6 +162,10 @@ def get_experiment(exp_id: int, session: Session = Depends(get_session)):
         status=experiment.status,
         created_at=experiment.created_at,
         completed_at=experiment.completed_at,
+        sampling_type=experiment.sampling_type,
+        sampling_size=experiment.sampling_size,
+        sampling_start_row=experiment.sampling_start_row,
+        sampling_end_row=experiment.sampling_end_row,
         dataset=DatasetResponse(
             id=dataset.id,
             name=dataset.name,
@@ -198,13 +214,17 @@ def update_experiment(exp_id: int, exp_update: ExperimentUpdate, session: Sessio
         status=experiment.status,
         created_at=experiment.created_at,
         completed_at=experiment.completed_at,
-        dataset={
-            "id": dataset.id,
-            "name": dataset.name,
-            "description": dataset.description,
-            "file_path": dataset.file_path,
-            "created_at": dataset.created_at
-        } if dataset else None,
+        sampling_type=experiment.sampling_type,
+        sampling_size=experiment.sampling_size,
+        sampling_start_row=experiment.sampling_start_row,
+        sampling_end_row=experiment.sampling_end_row,
+        dataset=DatasetResponse(
+            id=dataset.id,
+            name=dataset.name,
+            description=dataset.description,
+            file_path=dataset.file_path,
+            created_at=dataset.created_at
+        ) if dataset else None,
         experiment_configs=[]
     )
 

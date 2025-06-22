@@ -245,7 +245,7 @@ watch(() => route.params.id, () => {
       </div>
 
       <!-- Experiment Details -->
-      <div v-else-if="experiment" class="space-y-8">
+      <div v-else-if="experiment" class="space-y-4">
         <!-- Header with Actions -->
         <div class="flex justify-between items-center">
           <div>
@@ -338,7 +338,6 @@ watch(() => route.params.id, () => {
               </dd>
             </div>
           </div>
-
           <!-- Results File Info -->
           <div v-if="latestExecution?.results_file_path" class="mt-6 pt-6 border-t border-neutral-200">
             <div class="flex items-center justify-between">
@@ -374,30 +373,87 @@ watch(() => route.params.id, () => {
             </div>
           </template>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <dt class="text-sm font-medium text-neutral-500 mb-2">
-                Name
-              </dt>
-              <dd class="text-sm text-neutral-900">
-                {{ datasetInfo.name }}
-              </dd>
+          <div class="space-y-6">
+            <!-- Basic Dataset Info -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Name
+                </dt>
+                <dd class="text-sm text-neutral-900">
+                  {{ datasetInfo.name }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  File Path
+                </dt>
+                <dd class="text-sm text-neutral-900 font-mono">
+                  {{ datasetInfo.file_path }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Description
+                </dt>
+                <dd class="text-sm text-neutral-900">
+                  {{ datasetInfo.description || 'No description' }}
+                </dd>
+              </div>
             </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500 mb-2">
-                File Path
-              </dt>
-              <dd class="text-sm text-neutral-900 font-mono">
-                {{ datasetInfo.file_path }}
-              </dd>
+
+            <!-- Sampling Configuration -->
+            <div v-if="experiment.sampling_type && experiment.sampling_type !== 'all'">
+              <USeparator class="my-4" />
+              <div class="flex items-center gap-2 mb-4">
+                <UIcon name="i-lucide-filter" class="h-5 w-5 text-primary-500" />
+                <h3 class="text-base font-semibold text-neutral-900">
+                  Dataset Sampling
+                </h3>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <dt class="text-sm font-medium text-neutral-500 mb-2">
+                    Sampling Method
+                  </dt>
+                  <dd class="flex items-center gap-2">
+                    <UBadge
+                      :label="experiment.sampling_type === 'random' ? 'Random Sample' : 'Row Range'"
+                      :color="experiment.sampling_type === 'random' ? 'info' : 'success'"
+                      variant="subtle"
+                    />
+                  </dd>
+                </div>
+
+                <div v-if="experiment.sampling_type === 'random' && experiment.sampling_size">
+                  <dt class="text-sm font-medium text-neutral-500 mb-2">
+                    Sample Size
+                  </dt>
+                  <dd class="text-sm text-neutral-900 font-semibold">
+                    {{ experiment.sampling_size }} rows
+                  </dd>
+                </div>
+
+                <div v-if="experiment.sampling_type === 'range' && experiment.sampling_start_row && experiment.sampling_end_row">
+                  <dt class="text-sm font-medium text-neutral-500 mb-2">
+                    Row Range
+                  </dt>
+                  <dd class="text-sm text-neutral-900 font-semibold">
+                    {{ experiment.sampling_start_row }} - {{ experiment.sampling_end_row }}
+                    <span class="text-neutral-500 font-normal">
+                      ({{ experiment.sampling_end_row - experiment.sampling_start_row + 1 }} rows)
+                    </span>
+                  </dd>
+                </div>
+              </div>
             </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500 mb-2">
-                Description
-              </dt>
-              <dd class="text-sm text-neutral-900">
-                {{ datasetInfo.description || 'No description' }}
-              </dd>
+
+            <div v-else class="pt-4">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-database" class="h-5 w-5 text-neutral-400" />
+                <span class="text-sm text-neutral-600">Using all dataset rows</span>
+              </div>
             </div>
           </div>
         </UCard>

@@ -68,6 +68,12 @@ export interface Experiment {
   status?: ExperimentStatus
   results?: ExperimentResults
   executions?: ExperimentExecution[]
+
+  // Dataset sampling configuration
+  sampling_type?: string
+  sampling_size?: number
+  sampling_start_row?: number
+  sampling_end_row?: number
 }
 
 export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -154,6 +160,12 @@ export interface CreateExperimentForm {
     max_tokens?: number
     is_active?: boolean
   }>
+
+  // Dataset sampling configuration
+  sampling_type?: string // 'all', 'random', 'range'
+  sampling_size?: number // Number of rows for random sampling
+  sampling_start_row?: number // Start row for range sampling (1-based)
+  sampling_end_row?: number // End row for range sampling (1-based, inclusive)
 }
 
 export interface CreateDatasetForm {
