@@ -402,9 +402,10 @@ watch(() => route.params.id, () => {
               </div>
             </div>
 
+            <USeparator />
+
             <!-- Sampling Configuration -->
             <div v-if="experiment.sampling_type && experiment.sampling_type !== 'all'">
-              <USeparator class="my-4" />
               <div class="flex items-center gap-2 mb-4">
                 <UIcon name="i-lucide-filter" class="h-5 w-5 text-primary-500" />
                 <h3 class="text-base font-semibold text-neutral-900">
@@ -449,9 +450,9 @@ watch(() => route.params.id, () => {
               </div>
             </div>
 
-            <div v-else class="pt-4">
+            <div v-else>
               <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-database" class="h-5 w-5 text-neutral-400" />
+                <UIcon name="i-lucide:filter" class="size-5 text-neutral-400" />
                 <span class="text-sm text-neutral-600">Using all dataset rows</span>
               </div>
             </div>

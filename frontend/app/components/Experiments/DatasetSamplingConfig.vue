@@ -57,26 +57,6 @@ const isValidSampleSize = computed(() => {
   return props.samplingSize > 0 && props.samplingSize <= maxRows.value
 })
 
-const previewText = computed(() => {
-  if (!datasetInfo.value)
-    return ''
-
-  switch (props.samplingType) {
-    case 'all':
-      return `All ${datasetInfo.value.total_rows} rows will be used`
-    case 'random':
-      return props.samplingSize
-        ? `${props.samplingSize} random rows will be selected from ${datasetInfo.value.total_rows} total rows`
-        : 'Random sample size not specified'
-    case 'range':
-      return props.samplingStartRow && props.samplingEndRow
-        ? `Rows ${props.samplingStartRow} to ${props.samplingEndRow} will be used (${props.samplingEndRow - props.samplingStartRow + 1} rows total)`
-        : 'Row range not specified'
-    default:
-      return ''
-  }
-})
-
 // Methods
 async function loadDatasetInfo() {
   if (!props.datasetId)
@@ -137,13 +117,6 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center gap-3">
-      <UIcon name="i-lucide-filter" class="h-5 w-5 text-primary-500" />
-      <h3 class="text-lg font-semibold text-neutral-900">
-        Dataset Sampling Configuration
-      </h3>
-    </div>
-
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center gap-2 text-neutral-600">
       <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />

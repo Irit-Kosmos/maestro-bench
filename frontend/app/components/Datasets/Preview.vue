@@ -81,7 +81,7 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
 </script>
 
 <template>
-  <div class="dataset-preview space-y-6">
+  <div class="space-y-6">
     <!-- Loading State -->
     <UCard v-if="loading">
       <div class="flex items-center justify-center py-8">
