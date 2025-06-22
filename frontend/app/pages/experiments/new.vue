@@ -4,13 +4,15 @@ import type { CreateExperimentForm } from '~/types'
 // Composables
 const { datasets } = useDatasets()
 const { createExperiment } = useExperiments()
-const toast = useToast()
 const { agentTeams } = useAgentTeams()
+const { allPromptVersions } = usePrompts()
+const { models } = useModels()
+const toast = useToast()
 
 // Get full teams data with agents
 const fullTeams = computed(() => agentTeams.value || [])
 
-// Form state
+// Form state - updated for new backend architecture
 const formData = ref<CreateExperimentForm>({
   name: '',
   dataset_id: undefined,
@@ -19,21 +21,23 @@ const formData = ref<CreateExperimentForm>({
 
 const isSubmitting = ref(false)
 
-// Enhanced state for agent team management
+// Enhanced state for agent configuration with new architecture
 const selectedTeamId = ref<number | null>(null)
 const agentConfigurations = ref<Record<number, {
-  system_prompt?: string
-  user_prompt?: string
-  variables?: string
+  prompt_version_id?: number
+  model_id?: number
+  temperature?: number
+  max_tokens?: number
+  is_active?: boolean
 }>>({})
 
 // Stepper configuration
 const stepperItems = [
   {
-    title: 'Experiment Name',
-    description: 'Provide a name for your experiment',
+    title: 'Experiment Details',
+    description: 'Provide experiment name and description',
     icon: 'i-lucide-file-text',
-    slot: 'name',
+    slot: 'details',
   },
   {
     title: 'Dataset Selection',
@@ -42,19 +46,25 @@ const stepperItems = [
     slot: 'dataset',
   },
   {
-    title: 'Agent Teams',
-    description: 'Select agent teams and configuration',
+    title: 'Agent Team & Configuration',
+    description: 'Select team and configure agents',
     icon: 'i-lucide-users',
-    slot: 'teams',
+    slot: 'agents',
   },
 ]
 
 const currentStep = ref(0)
 const stepper = useTemplateRef<any>('stepper')
 
+// Form data for experiment details
+const experimentDetails = ref({
+  name: '',
+  description: '',
+})
+
 // Computed
 const formValid = computed(() => {
-  return formData.value.name.trim()
+  return experimentDetails.value.name.trim()
     && formData.value.dataset_id != null
     && selectedTeamId.value != null
 })
@@ -62,11 +72,11 @@ const formValid = computed(() => {
 const isStepValid = computed(() => {
   switch (currentStep.value) {
     case 0:
-      return formData.value.name.trim().length > 0
+      return experimentDetails.value.name.trim().length > 0
     case 1:
       return formData.value.dataset_id != null
     case 2:
-      return selectedTeamId.value != null // Single team required
+      return selectedTeamId.value != null
     default:
       return false
   }
@@ -89,6 +99,35 @@ const selectedTeam = computed(() => {
   return selectedTeamId.value ? fullTeams.value.find(team => team.id === selectedTeamId.value) : null
 })
 
+// Get available prompt versions for dropdowns
+const promptVersionOptions = computed(() => {
+  const options: Array<{ label: string, value: number }> = []
+
+  allPromptVersions.value?.forEach((version) => {
+    if (version.is_active) {
+      options.push({
+        label: `${version.prompt?.name || 'Unknown'} v${version.version}${version.is_default ? ' (Default)' : ''}`,
+        value: version.id,
+      })
+    }
+  })
+
+  return options
+})
+
+const modelOptions = computed(() => {
+  return models.value?.filter(model => model.is_active).map(model => ({
+    label: `${model.name} (${model.provider})`,
+    value: model.id,
+  })) || []
+})
+
+// Page meta
+useSeoMeta({
+  title: 'Create New Experiment',
+  description: 'Configure and launch a new MAESTRO experiment',
+})
+
 // Handlers
 function selectTeam(teamId: number) {
   // Clear previous selection
@@ -105,20 +144,22 @@ function selectTeam(teamId: number) {
   selectedTeamId.value = teamId
   formData.value.agent_teams = [teamId.toString()]
 
-  // Initialize configurations for new team
+  // Initialize configurations for new team with default values
   const team = fullTeams.value.find(t => t.id === teamId)
   if (team) {
     team.agents.forEach((agent) => {
       agentConfigurations.value[agent.id] = {
-        system_prompt: agent.system_prompt || '',
-        user_prompt: agent.user_prompt || '',
-        variables: agent.variables || '',
+        prompt_version_id: agent.default_prompt_version_id || undefined,
+        model_id: agent.default_model_id || undefined,
+        temperature: undefined, // Will use model default
+        max_tokens: undefined, // Will use model default
+        is_active: true,
       }
     })
   }
 }
 
-function updateAgentConfiguration(agentId: number, field: string, value: string) {
+function updateAgentConfiguration(agentId: number, field: string, value: any) {
   if (!agentConfigurations.value[agentId]) {
     agentConfigurations.value[agentId] = {}
   }
@@ -144,9 +185,10 @@ async function handleSubmit() {
   isSubmitting.value = true
 
   try {
-    // Prepare experiment data with agent configurations
+    // Prepare experiment data with new architecture
     const experimentData = {
-      name: formData.value.name.trim(),
+      name: experimentDetails.value.name.trim(),
+      description: experimentDetails.value.description.trim() || undefined,
       dataset_id: formData.value.dataset_id!,
       agent_teams: formData.value.agent_teams,
       agent_configurations: agentConfigurations.value,
@@ -157,7 +199,7 @@ async function handleSubmit() {
     if (result.success) {
       toast.add({
         title: 'Success',
-        description: 'Experiment created successfully with custom agent configurations!',
+        description: 'Experiment created successfully with modern configuration!',
         color: 'success',
         icon: 'i-lucide:check-circle',
       })
@@ -202,7 +244,7 @@ async function handleCancel() {
             Create New Experiment
           </h2>
           <p class="text-sm text-gray-600 mt-1">
-            Follow the steps below to configure your experiment
+            Configure your experiment with prompt version and model selection
           </p>
         </div>
 
@@ -215,21 +257,30 @@ async function handleCancel() {
             size="lg"
             class="w-full"
           >
-            <!-- Step 1: Experiment Name -->
-            <template #name>
+            <!-- Step 1: Experiment Details -->
+            <template #details>
               <div class="flex flex-col justify-center">
                 <div class="max-w-md mx-auto w-full mt-6">
-                  <label for="experiment-name" class="block text-sm font-medium text-gray-700 mb-2">
-                    Experiment Name
-                  </label>
-                  <UInput
-                    id="experiment-name"
-                    v-model="formData.name"
-                    size="lg"
-                    placeholder="e.g., 'Corrector Agent Test v2.1'"
-                    class="w-full"
-                  />
-                  <p class="text-xs text-gray-500 mt-2">
+                  <div class="space-y-4">
+                    <UFormField label="Experiment Name" required>
+                      <UInput
+                        v-model="experimentDetails.name"
+                        size="lg"
+                        placeholder="e.g., 'Corrector Agent Test v2.1'"
+                        class="w-full"
+                      />
+                    </UFormField>
+
+                    <UFormField label="Description">
+                      <UTextarea
+                        v-model="experimentDetails.description"
+                        placeholder="Optional description of this experiment"
+                        :rows="3"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-4">
                     Use a clear, descriptive name for easy identification
                   </p>
                 </div>
@@ -240,32 +291,48 @@ async function handleCancel() {
             <template #dataset>
               <div class="space-y-6">
                 <div class="max-w-2xl mx-auto w-full">
-                  <label for="dataset-select" class="block text-sm font-medium text-gray-700 mb-2">
-                    Available Datasets
-                  </label>
-                  <USelect
-                    id="dataset-select"
-                    v-model="selectedDataset"
-                    :items="datasets?.map(d => ({ label: `${d.name} - ${d.description}`, value: d.id })) || []"
-                    value-key="value"
-                    placeholder="Select a dataset..."
-                    size="lg"
-                    class="w-full"
-                  />
+                  <UFormField label="Available Datasets" required>
+                    <USelect
+                      v-model="selectedDataset"
+                      :items="datasets?.map(d => ({ label: `${d.name} - ${d.description}`, value: d.id })) || []"
+                      placeholder="Select a dataset..."
+                      size="lg"
+                      class="w-full"
+                    />
+                  </UFormField>
                   <p class="text-xs text-gray-500 mt-2">
                     The dataset contains the questions/tasks for your experiment
                   </p>
                 </div>
 
-                <!-- Dataset Preview -->
+                <!-- Dataset Preview - Collapsible -->
                 <div v-if="selectedDataset" class="max-w-4xl mx-auto w-full">
-                  <DatasetsPreview :dataset-id="selectedDataset" />
+                  <UCollapsible :default-open="false" class="flex flex-col gap-4">
+                    <UButton
+                      label="Dataset Preview"
+                      color="neutral"
+                      variant="subtle"
+                      leading-icon="i-lucide-eye"
+                      trailing-icon="i-lucide-chevron-down"
+                      class="group"
+                      :ui="{
+                        trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
+                      }"
+                      block
+                    />
+
+                    <template #content>
+                      <div class="bg-gray-50 rounded-lg border p-4">
+                        <DatasetsPreview :dataset-id="selectedDataset" />
+                      </div>
+                    </template>
+                  </UCollapsible>
                 </div>
               </div>
             </template>
 
-            <!-- Step 3: Agent Teams Selection -->
-            <template #teams>
+            <!-- Step 3: Agent Team & Configuration -->
+            <template #agents>
               <div class="space-y-6">
                 <!-- Required Notice (only shown when no team selected) -->
                 <div v-if="!selectedTeamId" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -276,11 +343,12 @@ async function handleCancel() {
                         Agent Team Required
                       </h4>
                       <p class="text-sm text-amber-700 mt-1">
-                        You must select one agent team to proceed. The selected team will run its agents against your chosen dataset.
+                        Select one agent team to proceed. Each agent will use its default configuration unless you override it.
                       </p>
                     </div>
                   </div>
                 </div>
+
                 <!-- Team Selection Grid -->
                 <div v-if="fullTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <UCard
@@ -347,7 +415,7 @@ async function handleCancel() {
                       Configure {{ selectedTeam.name }} Agents
                     </h4>
                     <p class="text-gray-600">
-                      Customize the configuration for each agent in your selected team
+                      Select prompt versions and models for each agent, or use their defaults
                     </p>
                   </div>
 
@@ -375,58 +443,76 @@ async function handleCancel() {
                       </template>
 
                       <div class="space-y-4">
-                        <!-- System Prompt -->
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-2">
-                            System Prompt
-                          </label>
-                          <UTextarea
-                            :model-value="agentConfigurations[agent.id]?.system_prompt || agent.system_prompt || ''"
-                            placeholder="Enter system prompt..."
-                            :rows="3"
-                            resize
-                            size="sm"
-                            class="w-full"
-                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'system_prompt', value)"
+                        <!-- Prompt Version Selection -->
+                        <UFormField label="Prompt Version">
+                          <USelect
+                            :model-value="agentConfigurations[agent.id]?.prompt_version_id"
+                            :items="promptVersionOptions"
+                            placeholder="Select prompt version..."
+                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'prompt_version_id', value)"
                           />
+                          <template #hint>
+                            <span v-if="agent.default_prompt_version" class="text-xs text-gray-500">
+                              Default: {{ agent.default_prompt_version.prompt?.name }} v{{ agent.default_prompt_version.version }}
+                            </span>
+                          </template>
+                        </UFormField>
+
+                        <!-- Model Selection -->
+                        <UFormField label="Model">
+                          <USelect
+                            :model-value="agentConfigurations[agent.id]?.model_id"
+                            :items="modelOptions"
+                            placeholder="Select model..."
+                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'model_id', value)"
+                          />
+                          <template #hint>
+                            <span v-if="agent.default_model" class="text-xs text-gray-500">
+                              Default: {{ agent.default_model.name }} ({{ agent.default_model.provider }})
+                            </span>
+                          </template>
+                        </UFormField>
+
+                        <!-- Advanced Configuration -->
+                        <div class="grid grid-cols-2 gap-3">
+                          <UFormField label="Temperature">
+                            <UInput
+                              :model-value="agentConfigurations[agent.id]?.temperature?.toString() || ''"
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="2"
+                              placeholder="0.7"
+                              @update:model-value="(value: string) => updateAgentConfiguration(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
+                            />
+                          </UFormField>
+
+                          <UFormField label="Max Tokens">
+                            <UInput
+                              :model-value="agentConfigurations[agent.id]?.max_tokens?.toString() || ''"
+                              type="number"
+                              min="1"
+                              placeholder="2048"
+                              @update:model-value="(value: string) => updateAgentConfiguration(agent.id, 'max_tokens', value ? Number.parseInt(value) : undefined)"
+                            />
+                          </UFormField>
                         </div>
 
-                        <!-- User Prompt -->
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-2">
-                            User Prompt
-                          </label>
-                          <UTextarea
-                            :model-value="agentConfigurations[agent.id]?.user_prompt || agent.user_prompt || ''"
-                            placeholder="Enter user prompt..."
-                            :rows="5"
-                            resize
-                            size="sm"
-                            class="w-full"
-                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'user_prompt', value)"
+                        <!-- Agent Active Toggle -->
+                        <UFormField label="Agent Status">
+                          <USwitch
+                            :model-value="agentConfigurations[agent.id]?.is_active ?? true"
+                            @update:model-value="(value: boolean) => updateAgentConfiguration(agent.id, 'is_active', value)"
                           />
-                        </div>
+                          <template #hint>
+                            <span class="text-xs text-gray-500">
+                              {{ agentConfigurations[agent.id]?.is_active ?? true ? 'Active' : 'Inactive' }} -
+                              {{ agentConfigurations[agent.id]?.is_active ?? true ? 'Agent will run in experiment' : 'Agent will be skipped' }}
+                            </span>
+                          </template>
+                        </UFormField>
 
-                        <!-- Variables -->
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Variables (JSON)
-                          </label>
-                          <UTextarea
-                            :model-value="agentConfigurations[agent.id]?.variables || agent.variables || ''"
-                            placeholder="{&quot;key&quot;: &quot;value&quot;}"
-                            :rows="2"
-                            resize
-                            size="sm"
-                            class="w-full"
-                            @update:model-value="(value) => updateAgentConfiguration(agent.id, 'variables', value)"
-                          />
-                          <p class="text-xs text-gray-500 mt-1">
-                            JSON format variables for agent execution
-                          </p>
-                        </div>
-
-                        <!-- Reset Button -->
+                        <!-- Reset to Defaults Button -->
                         <div class="flex justify-end pt-2">
                           <UButton
                             variant="ghost"
@@ -434,13 +520,15 @@ async function handleCancel() {
                             icon="i-lucide-rotate-ccw"
                             @click="() => {
                               agentConfigurations[agent.id] = {
-                                system_prompt: agent.system_prompt || '',
-                                user_prompt: agent.user_prompt || '',
-                                variables: agent.variables || '',
+                                prompt_version_id: agent.default_prompt_version_id || undefined,
+                                model_id: agent.default_model_id || undefined,
+                                temperature: undefined,
+                                max_tokens: undefined,
+                                is_active: true,
                               }
                             }"
                           >
-                            Reset
+                            Reset to Defaults
                           </UButton>
                         </div>
                       </div>
@@ -450,13 +538,14 @@ async function handleCancel() {
               </div>
             </template>
           </UStepper>
+        </div>
 
-          <!-- Navigation Controls -->
-          <div class="flex justify-between mt-8 pt-6 border-t border-gray-200">
+        <!-- Footer Actions -->
+        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div class="flex justify-between">
             <div class="flex space-x-3">
               <UButton
-                variant="outline"
-                color="neutral"
+                variant="ghost"
                 @click="handleCancel"
               >
                 Cancel
@@ -464,7 +553,7 @@ async function handleCancel() {
               <UButton
                 v-if="stepper?.hasPrev"
                 variant="outline"
-                icon="i-lucide-arrow-left"
+                icon="i-lucide-chevron-left"
                 @click="prevStep"
               >
                 Previous
@@ -474,20 +563,23 @@ async function handleCancel() {
             <div class="flex space-x-3">
               <UButton
                 v-if="stepper?.hasNext"
+                variant="solid"
+                icon-trailing="i-lucide-chevron-right"
                 :disabled="!isStepValid"
-                trailing-icon="i-lucide-arrow-right"
                 @click="nextStep"
               >
                 Next
               </UButton>
               <UButton
                 v-else
-                :disabled="isSubmitting || !formValid"
-                :loading="isSubmitting"
+                variant="solid"
+                color="primary"
                 icon="i-lucide-play"
+                :disabled="!formValid"
+                :loading="isSubmitting"
                 @click="handleSubmit"
               >
-                Create & Launch Experiment
+                Create & Start Experiment
               </UButton>
             </div>
           </div>

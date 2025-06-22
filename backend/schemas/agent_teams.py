@@ -75,28 +75,6 @@ class AgentUpdate(BaseModel):
     default_model_id: Optional[int] = None
 
 
-class ExperimentConfigCreate(BaseModel):
-    agent_team_id: int
-    active: bool = True
-    priority: int = 1
-
-
-class ExperimentConfigResponse(BaseModel):
-    id: int
-    experiment_id: int
-    agent_team_id: int
-    active: bool
-    priority: int
-    created_at: datetime
-    agent_team: Optional[AgentTeamResponse] = None
-
-
-class ExperimentConfigUpdate(BaseModel):
-    active: Optional[bool] = None
-    priority: Optional[int] = None
-
-
 # Forward reference resolution
 AgentTeamResponse.model_rebuild()
 AgentResponse.model_rebuild()
-ExperimentConfigResponse.model_rebuild()

@@ -25,6 +25,8 @@ const createForm = ref({
   provider: '',
   description: '',
   max_tokens: '' as string,
+  default_temperature: '' as string,
+  default_max_tokens: '' as string,
   is_active: true,
 })
 
@@ -33,6 +35,8 @@ const editForm = ref({
   provider: '',
   description: '',
   max_tokens: '' as string,
+  default_temperature: '' as string,
+  default_max_tokens: '' as string,
   is_active: true,
 })
 
@@ -66,6 +70,8 @@ function resetCreateForm() {
     provider: '',
     description: '',
     max_tokens: '',
+    default_temperature: '',
+    default_max_tokens: '',
     is_active: true,
   }
 }
@@ -76,6 +82,8 @@ function resetEditForm() {
     provider: '',
     description: '',
     max_tokens: '',
+    default_temperature: '',
+    default_max_tokens: '',
     is_active: true,
   }
 }
@@ -86,11 +94,17 @@ async function handleCreateModel() {
 
   isCreating.value = true
   try {
-    // Convert max_tokens to number if it exists and is not empty
+    // Convert numeric fields to numbers if they exist and are not empty
     const formData = {
       ...createForm.value,
       max_tokens: createForm.value.max_tokens && createForm.value.max_tokens.trim()
         ? Number(createForm.value.max_tokens)
+        : undefined,
+      default_temperature: createForm.value.default_temperature && createForm.value.default_temperature.trim()
+        ? Number(createForm.value.default_temperature)
+        : undefined,
+      default_max_tokens: createForm.value.default_max_tokens && createForm.value.default_max_tokens.trim()
+        ? Number(createForm.value.default_max_tokens)
         : undefined,
     }
 
@@ -118,6 +132,8 @@ function editModel(model: Model) {
     provider: model.provider,
     description: model.description || '',
     max_tokens: model.max_tokens ? model.max_tokens.toString() : '',
+    default_temperature: model.default_temperature ? model.default_temperature.toString() : '',
+    default_max_tokens: model.default_max_tokens ? model.default_max_tokens.toString() : '',
     is_active: model.is_active,
   }
   showEditModal.value = true
@@ -129,11 +145,17 @@ async function handleUpdateModel() {
 
   isUpdating.value = true
   try {
-    // Convert max_tokens to number if it exists and is not empty
+    // Convert numeric fields to numbers if they exist and are not empty
     const formData = {
       ...editForm.value,
       max_tokens: editForm.value.max_tokens && editForm.value.max_tokens.trim()
         ? Number(editForm.value.max_tokens)
+        : undefined,
+      default_temperature: editForm.value.default_temperature && editForm.value.default_temperature.trim()
+        ? Number(editForm.value.default_temperature)
+        : undefined,
+      default_max_tokens: editForm.value.default_max_tokens && editForm.value.default_max_tokens.trim()
+        ? Number(editForm.value.default_max_tokens)
         : undefined,
     }
 
@@ -238,7 +260,7 @@ watch(() => showDeleteModal.value, (newValue) => {
     <!-- Filters -->
     <div class="mb-8">
       <ModelsFilters
-        :selected-providers="selectedProviders"
+        :selected-providers="[...selectedProviders]"
         :search-query="searchQuery"
         :total-count="models?.length || 0"
         :filtered-count="filteredModels.length"
@@ -360,6 +382,27 @@ watch(() => showDeleteModal.value, (newValue) => {
                 />
               </UFormField>
 
+              <UFormField label="Default Temperature">
+                <UInput
+                  v-model="createForm.default_temperature"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="2"
+                  placeholder="e.g., 0.7"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="Default Max Tokens">
+                <UInput
+                  v-model="createForm.default_max_tokens"
+                  type="number"
+                  placeholder="e.g., 2048"
+                  class="w-full"
+                />
+              </UFormField>
+
               <div class="flex items-center justify-between">
                 <label class="text-sm font-medium text-gray-700">Active</label>
                 <USwitch
@@ -432,6 +475,25 @@ watch(() => showDeleteModal.value, (newValue) => {
               <UFormField label="Max Tokens">
                 <UInput
                   v-model="editForm.max_tokens"
+                  type="number"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="Default Temperature">
+                <UInput
+                  v-model="editForm.default_temperature"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="2"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="Default Max Tokens">
+                <UInput
+                  v-model="editForm.default_max_tokens"
                   type="number"
                   class="w-full"
                 />

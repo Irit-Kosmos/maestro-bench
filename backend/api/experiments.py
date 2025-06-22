@@ -4,8 +4,8 @@ from rq import Queue
 from redis import Redis
 import json
 from db import get_session
-from models import Experiment, ExperimentConfig, Dataset, Agent
-from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate
+from models import Experiment, ExperimentAgentConfig, Dataset, Agent, PromptVersion, Model, AgentTeam
+from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate, ExperimentAgentConfigResponse, DatasetResponse
 from jobs import run_experiment
 from typing import List
 
@@ -23,7 +23,7 @@ def list_experiments(session: Session = Depends(get_session)):
     for exp in experiments:
         # Fetch related data
         dataset = session.get(Dataset, exp.dataset_id) if exp.dataset_id else None
-        configs = session.exec(select(ExperimentConfig).where(ExperimentConfig.experiment_id == exp.id)).all()
+        agent_configs = session.exec(select(ExperimentAgentConfig).where(ExperimentAgentConfig.experiment_id == exp.id)).all()
         
         exp_response = ExperimentResponse(
             id=exp.id,
@@ -47,38 +47,59 @@ def list_experiments(session: Session = Depends(get_session)):
 
 @router.post("/experiments", response_model=ExperimentResponse, status_code=201)
 def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get_session)):
-    """Create a new experiment with agent team configurations and automatically start it"""
+    """Create a new experiment with individual agent configurations and automatically start it"""
     
     # Create the base experiment
     experiment = Experiment(
         name=exp_data.name,
         description=exp_data.description,
-        dataset_id=exp_data.dataset_id,
-        agent_configurations=json.dumps(exp_data.agent_configurations) if exp_data.agent_configurations else None
+        dataset_id=exp_data.dataset_id
     )
     session.add(experiment)
     session.commit()
     session.refresh(experiment)
     
-    # Create experiment configurations for each agent team
-    experiment_configs = []
+    # Create individual agent configurations for each team
+    execution_order = 1
     if exp_data.agent_teams:
-        for i, team_id_str in enumerate(exp_data.agent_teams):
+        for team_id_str in exp_data.agent_teams:
             team_id = int(team_id_str)
             
-            # Create experiment config for this team
-            config = ExperimentConfig(
-                experiment_id=experiment.id,
-                agent_team_id=team_id,
-                active=True,
-                priority=i + 1  # Priority based on order
-            )
+            # Get all agents in this team
+            agents = session.exec(select(Agent).where(Agent.team_id == team_id)).all()
             
-            # Store custom agent configurations in the config if provided
-            # Note: Individual agent configs are now stored on the experiment itself
-            # This is just for team-level overrides if needed
-            session.add(config)
-            experiment_configs.append(config)
+            for agent in agents:
+                # Get configuration for this agent (if any)
+                agent_config = exp_data.agent_configurations.get(str(agent.id), {}) if exp_data.agent_configurations else {}
+                
+                # Determine prompt version (custom or default)
+                prompt_version_id = agent_config.get('prompt_version_id') or agent.default_prompt_version_id
+                if not prompt_version_id:
+                    # If no prompt version specified and no default, skip this agent
+                    print(f"Warning: Agent {agent.id} ({agent.name}) has no prompt version configured, skipping")
+                    continue
+                
+                # Determine model (custom or default)
+                model_id = agent_config.get('model_id') or agent.default_model_id
+                if not model_id:
+                    # If no model specified and no default, skip this agent
+                    print(f"Warning: Agent {agent.id} ({agent.name}) has no model configured, skipping")
+                    continue
+                
+                # Create experiment agent config
+                exp_agent_config = ExperimentAgentConfig(
+                    experiment_id=experiment.id,
+                    agent_id=agent.id,
+                    prompt_version_id=prompt_version_id,
+                    model_id=model_id,
+                    temperature=agent_config.get('temperature'),
+                    max_tokens=agent_config.get('max_tokens'),
+                    execution_order=execution_order,
+                    is_active=agent_config.get('is_active', True)
+                )
+                
+                session.add(exp_agent_config)
+                execution_order += 1
     
     session.commit()
     
@@ -86,7 +107,6 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
     try:
         job = queue.enqueue(run_experiment, experiment.id)
         print(f"[API] Experiment {experiment.id} queued with job ID: {job.id}")
-        print(f"[API] Agent configurations stored in experiment: {json.dumps(exp_data.agent_configurations, indent=2) if exp_data.agent_configurations else 'None'}")
     except Exception as e:
         print(f"[API] Failed to queue experiment {experiment.id}: {str(e)}")
         # Don't fail the creation, just log the error
@@ -120,7 +140,7 @@ def get_experiment(exp_id: int, session: Session = Depends(get_session)):
     
     # Fetch related data
     dataset = session.get(Dataset, experiment.dataset_id) if experiment.dataset_id else None
-    configs = session.exec(select(ExperimentConfig).where(ExperimentConfig.experiment_id == exp_id)).all()
+    agent_configs = session.exec(select(ExperimentAgentConfig).where(ExperimentAgentConfig.experiment_id == exp_id)).all()
     
     return ExperimentResponse(
         id=experiment.id,
@@ -130,14 +150,27 @@ def get_experiment(exp_id: int, session: Session = Depends(get_session)):
         status=experiment.status,
         created_at=experiment.created_at,
         completed_at=experiment.completed_at,
-        dataset={
-            "id": dataset.id,
-            "name": dataset.name,
-            "description": dataset.description,
-            "file_path": dataset.file_path,
-            "created_at": dataset.created_at
-        } if dataset else None,
-        experiment_configs=[]  # We'll populate this with proper serialization if needed
+        dataset=DatasetResponse(
+            id=dataset.id,
+            name=dataset.name,
+            description=dataset.description,
+            file_path=dataset.file_path,
+            created_at=dataset.created_at
+        ) if dataset else None,
+        experiment_configs=[
+            ExperimentAgentConfigResponse(
+                id=config.id,
+                experiment_id=config.experiment_id,
+                agent_id=config.agent_id,
+                prompt_version_id=config.prompt_version_id,
+                model_id=config.model_id,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                execution_order=config.execution_order,
+                is_active=config.is_active,
+                created_at=config.created_at
+            ) for config in agent_configs
+        ]
     )
 
 @router.put("/experiments/{exp_id}", response_model=ExperimentResponse)
@@ -182,9 +215,9 @@ def delete_experiment(exp_id: int, session: Session = Depends(get_session)):
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
     
-    # Delete all experiment configurations first
-    configs = session.exec(select(ExperimentConfig).where(ExperimentConfig.experiment_id == exp_id)).all()
-    for config in configs:
+    # Delete all experiment agent configurations first
+    agent_configs = session.exec(select(ExperimentAgentConfig).where(ExperimentAgentConfig.experiment_id == exp_id)).all()
+    for config in agent_configs:
         session.delete(config)
     
     # Delete the experiment

@@ -22,9 +22,8 @@ def list_agent_teams(session=Depends(get_session)):
                 id=agent.id,
                 name=agent.name,
                 description=agent.description,
-                system_prompt=agent.system_prompt,
-                user_prompt=agent.user_prompt,
-                variables=agent.variables,
+                default_prompt_version_id=agent.default_prompt_version_id,
+                default_model_id=agent.default_model_id,
                 team_id=agent.team_id,
                 created_at=agent.created_at
             ) for agent in agents]
@@ -68,9 +67,8 @@ def get_agent_team(team_id: int, session=Depends(get_session)):
             id=agent.id,
             name=agent.name,
             description=agent.description,
-            system_prompt=agent.system_prompt,
-            user_prompt=agent.user_prompt,
-            variables=agent.variables,
+            default_prompt_version_id=agent.default_prompt_version_id,
+            default_model_id=agent.default_model_id,
             team_id=agent.team_id,
             created_at=agent.created_at
         ) for agent in agents]
@@ -101,9 +99,8 @@ def update_agent_team(team_id: int, team_data: AgentTeamUpdate, session=Depends(
             id=agent.id,
             name=agent.name,
             description=agent.description,
-            system_prompt=agent.system_prompt,
-            user_prompt=agent.user_prompt,
-            variables=agent.variables,
+            default_prompt_version_id=agent.default_prompt_version_id,
+            default_model_id=agent.default_model_id,
             team_id=agent.team_id,
             created_at=agent.created_at
         ) for agent in agents]

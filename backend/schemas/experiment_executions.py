@@ -7,15 +7,20 @@ from pydantic import BaseModel
 from datetime import datetime
 
 
-class AgentExecutionConfigResponse(BaseModel):
+class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int
     agent_name_snapshot: str
-    agent_team_id_snapshot: int
-    agent_team_name_snapshot: str
+    model_name_snapshot: str
+    model_provider_snapshot: str
+    prompt_name_snapshot: str
+    prompt_version_snapshot: int
     final_system_prompt: Optional[str]
     final_user_prompt: Optional[str]
     final_variables: Optional[str]
+    final_temperature: Optional[float]
+    final_max_tokens: Optional[int]
+    execution_order: int
     created_at: datetime
 
 
@@ -27,7 +32,7 @@ class ExperimentExecutionResponse(BaseModel):
     status: str
     dataset_snapshot: str
     results_file_path: Optional[str]
-    agent_executions: List[AgentExecutionConfigResponse] = []
+    agent_executions: List[AgentExecutionSnapshotResponse] = []
 
 
 class ExperimentExecutionCreate(BaseModel):
@@ -43,7 +48,7 @@ class ExperimentExecutionUpdate(BaseModel):
 class ExperimentTrace(BaseModel):
     """Complete trace of an experiment execution - the core scientific artifact"""
     execution: ExperimentExecutionResponse
-    agent_configs: List[AgentExecutionConfigResponse]
+    agent_configs: List[AgentExecutionSnapshotResponse]
     experiment_metadata: dict  # Original experiment details
     dataset_metadata: dict     # Dataset details at execution time
     results_summary: dict      # Summary from MAESTRO results file

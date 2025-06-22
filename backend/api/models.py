@@ -17,6 +17,8 @@ def create_model(model_data: ModelCreate, session=Depends(get_session)):
         provider=model_data.provider,
         description=model_data.description,
         max_tokens=model_data.max_tokens,
+        default_temperature=model_data.default_temperature,
+        default_max_tokens=model_data.default_max_tokens,
         is_active=model_data.is_active
     )
     session.add(model)

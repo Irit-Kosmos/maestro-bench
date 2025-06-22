@@ -55,6 +55,19 @@ def delete_prompt(prompt_id: int, session=Depends(get_session)):
     return {"message": "Prompt deleted successfully"}
 
 # Prompt Version endpoints
+@router.get("/prompt-versions", response_model=list[PromptVersion])
+def list_all_prompt_versions(session=Depends(get_session)):
+    """Get all prompt versions across all prompts for dropdown selections"""
+    query = select(PromptVersion).where(PromptVersion.is_active == True)
+    versions = session.exec(query).all()
+    
+    # Load prompt relationship manually if needed
+    for version in versions:
+        if version.prompt_id:
+            version.prompt = session.get(Prompt, version.prompt_id)
+    
+    return versions
+
 @router.get("/prompts/{prompt_id}/versions", response_model=list[PromptVersion])
 def list_prompt_versions(prompt_id: int, session=Depends(get_session)):
     return session.exec(select(PromptVersion).where(PromptVersion.prompt_id == prompt_id)).all()
@@ -84,9 +97,6 @@ def create_prompt_version(prompt_id: int, version_data: PromptVersionCreate, ses
         system_prompt=version_data.system_prompt,
         user_prompt=version_data.user_prompt,
         variables=version_data.variables,
-        model_id=version_data.model_id,
-        temperature=version_data.temperature,
-        max_tokens=version_data.max_tokens,
         is_active=version_data.is_active,
         is_default=version_data.is_default,
         notes=version_data.notes

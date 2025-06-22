@@ -6,6 +6,8 @@ export interface Model {
   provider: string
   description: string | null
   max_tokens: number | null
+  default_temperature: number | null
+  default_max_tokens: number | null
   is_active: boolean
   created_at: string
 }
@@ -26,15 +28,11 @@ export interface PromptVersion {
   system_prompt: string | null
   user_prompt: string | null
   variables: string | null
-  model_id: number | null
-  temperature: number | null
-  max_tokens: number | null
   is_active: boolean
   is_default: boolean
   notes: string | null
   created_at: string
   prompt?: Prompt
-  model?: Model
 }
 
 export interface Dataset {
@@ -47,10 +45,15 @@ export interface Dataset {
 
 export interface AgentConfig {
   id: number
-  agent_id: string
-  prompt_version: string
-  active: boolean
-  experiment_id?: number
+  experiment_id: number
+  agent_id: number
+  prompt_version_id: number | null
+  model_id: number | null
+  temperature: number | null
+  max_tokens: number | null
+  execution_order: number
+  is_active: boolean
+  created_at: string
 }
 
 export interface Experiment {
@@ -61,7 +64,7 @@ export interface Experiment {
   created_at: string
   completed_at?: string
   dataset?: Dataset
-  agent_configs?: AgentConfig[]
+  agent_configs?: ExperimentAgentConfig[]
   status?: ExperimentStatus
   results?: ExperimentResults
   executions?: ExperimentExecution[]
@@ -89,24 +92,29 @@ export interface ExperimentExecution {
   status: string
   dataset_snapshot: string
   results_file_path?: string
-  agent_executions: AgentExecutionConfig[]
+  agent_executions: AgentExecutionSnapshot[]
 }
 
-export interface AgentExecutionConfig {
+export interface AgentExecutionSnapshot {
   id: number
   agent_id: number
   agent_name_snapshot: string
-  agent_team_id_snapshot: number
-  agent_team_name_snapshot: string
+  model_name_snapshot: string
+  model_provider_snapshot: string
+  prompt_name_snapshot: string
+  prompt_version_snapshot: number
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string
+  final_temperature?: number
+  final_max_tokens?: number
+  execution_order: number
   created_at: string
 }
 
 export interface ExperimentTrace {
   execution: ExperimentExecution
-  agent_configs: AgentExecutionConfig[]
+  agent_configs: AgentExecutionSnapshot[]
   experiment_metadata: Record<string, any>
   dataset_metadata: Record<string, any>
   results_summary: Record<string, any> // Summary from MAESTRO results file
@@ -134,8 +142,16 @@ export interface AgentTeam {
 
 export interface CreateExperimentForm {
   name: string
+  description?: string
   dataset_id: number | null | undefined
   agent_teams: string[]
+  agent_configurations?: Record<number, {
+    prompt_version_id?: number
+    model_id?: number
+    temperature?: number
+    max_tokens?: number
+    is_active?: boolean
+  }>
 }
 
 export interface CreateDatasetForm {

@@ -9,6 +9,9 @@ export function usePrompts() {
   // Fetch prompts with auto-refresh capability
   const { data: prompts, refresh, pending, error } = useMyLazyFetch<Prompt[]>('/prompts')
 
+  // Fetch all prompt versions for dropdowns
+  const { data: allPromptVersions, refresh: refreshVersions } = useMyLazyFetch<PromptVersion[]>('/prompt-versions')
+
   // Create a new prompt
   async function createPrompt(promptData: { name: string, description?: string, category?: string }) {
     try {
@@ -83,9 +86,6 @@ export function usePrompts() {
     system_prompt?: string
     user_prompt?: string
     variables?: string
-    model_id?: number
-    temperature?: number
-    max_tokens?: number
     is_active?: boolean
     is_default?: boolean
     notes?: string
@@ -110,9 +110,6 @@ export function usePrompts() {
     system_prompt?: string
     user_prompt?: string
     variables?: string
-    model_id?: number
-    temperature?: number
-    max_tokens?: number
     is_active?: boolean
     is_default?: boolean
     notes?: string
@@ -148,7 +145,9 @@ export function usePrompts() {
 
   return {
     prompts,
+    allPromptVersions,
     refresh,
+    refreshVersions,
     pending,
     error,
     createPrompt,

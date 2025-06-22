@@ -37,31 +37,6 @@ def init_db():
     print("📊 Database tables initialized")
     print("🔬 Full experiment traceability enabled")
 
-@app.get("/")
-def read_root():
-    """API root endpoint with system information"""
-    return {
-        "name": "MAESTRO Experiment Bench",
-        "version": "2.0.0",
-        "description": "Complete experiment traceability system for scientific research",
-        "features": [
-            "Immutable experiment execution tracking",
-            "Complete agent configuration snapshots",
-            "Full prompt and response history",
-            "Scientific reproducibility tools",
-            "Export to CSV/JSON formats"
-        ],
-        "endpoints": {
-            "experiments": "/experiments",
-            "executions": "/executions",
-            "datasets": "/datasets",
-            "agent_teams": "/agent-teams",
-            "agents": "/agents",
-            "prompts": "/prompts",
-            "models": "/models"
-        }
-    }
-
 @app.get("/health")
 def health_check():
     """Health check endpoint"""

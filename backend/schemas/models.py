@@ -12,6 +12,8 @@ class ModelCreate(BaseModel):
     provider: str
     description: Optional[str] = None
     max_tokens: Optional[int] = None
+    default_temperature: Optional[float] = 0.7
+    default_max_tokens: Optional[int] = None
     is_active: bool = True
 
 
@@ -20,6 +22,8 @@ class ModelUpdate(BaseModel):
     provider: Optional[str] = None
     description: Optional[str] = None
     max_tokens: Optional[int] = None
+    default_temperature: Optional[float] = None
+    default_max_tokens: Optional[int] = None
     is_active: Optional[bool] = None
 
 
@@ -31,5 +35,7 @@ class ModelResponse(BaseModel):
     provider: str
     description: Optional[str]
     max_tokens: Optional[int]
+    default_temperature: Optional[float]
+    default_max_tokens: Optional[int]
     is_active: bool
     created_at: datetime

@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select, Session
 from db import get_session
 from models import (
-    Experiment, Dataset, ExperimentExecution, AgentExecutionConfig
+    Experiment, Dataset, ExperimentExecution, AgentExecutionSnapshot
 )
 from schemas.experiment_executions import (
     ExperimentExecutionResponse, ExperimentExecutionCreate, ExperimentExecutionUpdate,
-    AgentExecutionConfigResponse, ExperimentTrace
+    AgentExecutionSnapshotResponse, ExperimentTrace
 )
 from typing import List
 import json
@@ -27,21 +27,26 @@ def get_experiment_executions(experiment_id: int, session: Session = Depends(get
     for execution in executions:
         # Get agent execution configs
         agent_configs = session.exec(
-            select(AgentExecutionConfig).where(
-                AgentExecutionConfig.experiment_execution_id == execution.id
+            select(AgentExecutionSnapshot).where(
+                AgentExecutionSnapshot.execution_id == execution.id
             )
         ).all()
         
         agent_config_responses = [
-            AgentExecutionConfigResponse(
+            AgentExecutionSnapshotResponse(
                 id=config.id,
                 agent_id=config.agent_id,
                 agent_name_snapshot=config.agent_name_snapshot,
-                agent_team_id_snapshot=config.agent_team_id_snapshot,
-                agent_team_name_snapshot=config.agent_team_name_snapshot,
+                model_name_snapshot=config.model_name_snapshot,
+                model_provider_snapshot=config.model_provider_snapshot,
+                prompt_name_snapshot=config.prompt_name_snapshot,
+                prompt_version_snapshot=config.prompt_version_snapshot,
                 final_system_prompt=config.final_system_prompt,
                 final_user_prompt=config.final_user_prompt,
                 final_variables=config.final_variables,
+                final_temperature=config.final_temperature,
+                final_max_tokens=config.final_max_tokens,
+                execution_order=config.execution_order,
                 created_at=config.created_at
             ) for config in agent_configs
         ]
@@ -67,27 +72,32 @@ def get_execution_details(execution_id: int, session: Session = Depends(get_sess
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
     
-    # Get agent execution configs
+    # Get agent execution snapshots
     agent_configs = session.exec(
-        select(AgentExecutionConfig).where(
-            AgentExecutionConfig.experiment_execution_id == execution_id
+        select(AgentExecutionSnapshot).where(
+            AgentExecutionSnapshot.execution_id == execution_id
         )
     ).all()
-    
+
     agent_config_responses = [
-        AgentExecutionConfigResponse(
+        AgentExecutionSnapshotResponse(
             id=config.id,
             agent_id=config.agent_id,
             agent_name_snapshot=config.agent_name_snapshot,
-            agent_team_id_snapshot=config.agent_team_id_snapshot,
-            agent_team_name_snapshot=config.agent_team_name_snapshot,
+            model_name_snapshot=config.model_name_snapshot,
+            model_provider_snapshot=config.model_provider_snapshot,
+            prompt_name_snapshot=config.prompt_name_snapshot,
+            prompt_version_snapshot=config.prompt_version_snapshot,
             final_system_prompt=config.final_system_prompt,
             final_user_prompt=config.final_user_prompt,
             final_variables=config.final_variables,
+            final_temperature=config.final_temperature,
+            final_max_tokens=config.final_max_tokens,
+            execution_order=config.execution_order,
             created_at=config.created_at
         ) for config in agent_configs
     ]
-    
+
     return ExperimentExecutionResponse(
         id=execution.id,
         experiment_id=execution.experiment_id,
@@ -109,29 +119,37 @@ def get_execution_trace(execution_id: int, session: Session = Depends(get_sessio
     
     # Get experiment and dataset info
     experiment = session.get(Experiment, execution.experiment_id)
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Associated experiment not found")
+    
     dataset = session.get(Dataset, experiment.dataset_id)
     
-    # Get agent execution configs
+    # Get agent execution snapshots
     agent_configs = session.exec(
-        select(AgentExecutionConfig).where(
-            AgentExecutionConfig.experiment_execution_id == execution_id
+        select(AgentExecutionSnapshot).where(
+            AgentExecutionSnapshot.execution_id == execution_id
         )
     ).all()
-    
+
     agent_config_responses = [
-        AgentExecutionConfigResponse(
+        AgentExecutionSnapshotResponse(
             id=config.id,
             agent_id=config.agent_id,
             agent_name_snapshot=config.agent_name_snapshot,
-            agent_team_id_snapshot=config.agent_team_id_snapshot,
-            agent_team_name_snapshot=config.agent_team_name_snapshot,
+            model_name_snapshot=config.model_name_snapshot,
+            model_provider_snapshot=config.model_provider_snapshot,
+            prompt_name_snapshot=config.prompt_name_snapshot,
+            prompt_version_snapshot=config.prompt_version_snapshot,
             final_system_prompt=config.final_system_prompt,
             final_user_prompt=config.final_user_prompt,
             final_variables=config.final_variables,
+            final_temperature=config.final_temperature,
+            final_max_tokens=config.final_max_tokens,
+            execution_order=config.execution_order,
             created_at=config.created_at
         ) for config in agent_configs
     ]
-    
+
     execution_response = ExperimentExecutionResponse(
         id=execution.id,
         experiment_id=execution.experiment_id,
@@ -142,7 +160,7 @@ def get_execution_trace(execution_id: int, session: Session = Depends(get_sessio
         results_file_path=execution.results_file_path,
         agent_executions=agent_config_responses
     )
-    
+
     # Load results summary from file if available
     results_summary = {}
     if execution.results_file_path and os.path.exists(execution.results_file_path):
@@ -152,7 +170,7 @@ def get_execution_trace(execution_id: int, session: Session = Depends(get_sessio
                 results_summary = results_data.get('metadata', {})
         except Exception as e:
             print(f"Warning: Could not load results file: {e}")
-    
+
     return ExperimentTrace(
         execution=execution_response,
         agent_configs=agent_config_responses,
@@ -186,24 +204,28 @@ def update_execution(
     session.add(execution)
     session.commit()
     session.refresh(execution)
-    
-    # Return updated execution with agent configs
+     # Return updated execution with agent snapshots
     agent_configs = session.exec(
-        select(AgentExecutionConfig).where(
-            AgentExecutionConfig.experiment_execution_id == execution_id
+        select(AgentExecutionSnapshot).where(
+            AgentExecutionSnapshot.execution_id == execution_id
         )
     ).all()
-    
+
     agent_config_responses = [
-        AgentExecutionConfigResponse(
+        AgentExecutionSnapshotResponse(
             id=config.id,
             agent_id=config.agent_id,
             agent_name_snapshot=config.agent_name_snapshot,
-            agent_team_id_snapshot=config.agent_team_id_snapshot,
-            agent_team_name_snapshot=config.agent_team_name_snapshot,
+            model_name_snapshot=config.model_name_snapshot,
+            model_provider_snapshot=config.model_provider_snapshot,
+            prompt_name_snapshot=config.prompt_name_snapshot,
+            prompt_version_snapshot=config.prompt_version_snapshot,
             final_system_prompt=config.final_system_prompt,
             final_user_prompt=config.final_user_prompt,
             final_variables=config.final_variables,
+            final_temperature=config.final_temperature,
+            final_max_tokens=config.final_max_tokens,
+            execution_order=config.execution_order,
             created_at=config.created_at
         ) for config in agent_configs
     ]

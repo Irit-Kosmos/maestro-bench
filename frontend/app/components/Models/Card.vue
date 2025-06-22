@@ -64,6 +64,18 @@ defineEmits<Emits>()
             <span class="font-mono text-gray-700">{{ model.max_tokens?.toLocaleString() }}</span>
           </div>
 
+          <div v-if="model.default_temperature !== null" class="flex items-center gap-2">
+            <UIcon name="i-heroicons-fire" class="w-4 h-4 text-gray-400" />
+            <span class="font-medium">Default Temperature:</span>
+            <span class="font-mono text-gray-700">{{ model.default_temperature }}</span>
+          </div>
+
+          <div v-if="model.default_max_tokens" class="flex items-center gap-2">
+            <UIcon name="i-heroicons-bars-3-bottom-left" class="w-4 h-4 text-gray-400" />
+            <span class="font-medium">Default Max Tokens:</span>
+            <span class="font-mono text-gray-700">{{ model.default_max_tokens?.toLocaleString() }}</span>
+          </div>
+
           <div class="flex items-center gap-2">
             <UIcon name="i-heroicons-calendar" class="w-4 h-4 text-gray-400" />
             <span class="font-medium">Created:</span>

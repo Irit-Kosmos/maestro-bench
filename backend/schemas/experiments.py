@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
-from schemas.agent_teams import AgentTeamResponse, ExperimentConfigResponse
 
 
 class DatasetResponse(BaseModel):
@@ -13,6 +12,20 @@ class DatasetResponse(BaseModel):
     name: str
     description: Optional[str]
     file_path: Optional[str]
+    created_at: datetime
+
+
+class ExperimentAgentConfigResponse(BaseModel):
+    """Response model for experiment agent configurations"""
+    id: int
+    experiment_id: int
+    agent_id: int
+    prompt_version_id: Optional[int]
+    model_id: Optional[int]
+    temperature: Optional[float]
+    max_tokens: Optional[int]
+    execution_order: int
+    is_active: bool
     created_at: datetime
 
 
@@ -33,7 +46,7 @@ class ExperimentResponse(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime]
     dataset: Optional[DatasetResponse] = None
-    experiment_configs: List[ExperimentConfigResponse] = []
+    experiment_configs: List[ExperimentAgentConfigResponse] = []
 
 
 class ExperimentUpdate(BaseModel):

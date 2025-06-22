@@ -10,11 +10,13 @@ class Model(SQLModel, table=True):
     provider: str  # e.g., "openai", "anthropic", "mistral"
     description: Optional[str] = None
     max_tokens: Optional[int] = None  # Model's context limit
+    
+    # Default model parameters (can be overridden in experiments)
+    default_temperature: Optional[float] = Field(default=0)
+    default_max_tokens: Optional[int] = None
+    
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # Relationships
-    prompt_versions: List["PromptVersion"] = Relationship(back_populates="model")
 
 
 class Prompt(SQLModel, table=True):
@@ -30,18 +32,13 @@ class Prompt(SQLModel, table=True):
 
 
 class PromptVersion(SQLModel, table=True):
-    """Versioned prompt configurations"""
+    """Versioned prompt configurations - pure prompts without model coupling"""
     id: Optional[int] = Field(default=None, primary_key=True)
     prompt_id: int = Field(foreign_key="prompt.id")
     version: str = Field(index=True)  # e.g., "1.0", "1.1", "2.0-beta"
     system_prompt: Optional[str] = None
     user_prompt: Optional[str] = None
     variables: Optional[str] = None  # JSON string of variable definitions
-    
-    # Model-specific optimizations
-    model_id: Optional[int] = Field(default=None, foreign_key="model.id")
-    temperature: Optional[float] = Field(default=0.7)
-    max_tokens: Optional[int] = None
     
     # Metadata
     is_active: bool = Field(default=True)
@@ -51,7 +48,6 @@ class PromptVersion(SQLModel, table=True):
     
     # Relationships
     prompt: Optional[Prompt] = Relationship(back_populates="versions")
-    model: Optional[Model] = Relationship(back_populates="prompt_versions")
 
 
 class AgentTeam(SQLModel, table=True):
@@ -63,7 +59,6 @@ class AgentTeam(SQLModel, table=True):
     
     # Relationships
     agents: List["Agent"] = Relationship(back_populates="team", sa_relationship_kwargs={"lazy": "select"})
-    experiment_configs: List["ExperimentConfig"] = Relationship(back_populates="agent_team", sa_relationship_kwargs={"lazy": "select"})
 
 
 class Agent(SQLModel, table=True):
@@ -72,7 +67,7 @@ class Agent(SQLModel, table=True):
     name: str  # Human-readable name
     description: Optional[str] = None
     
-    # Optional default prompt version and model (can be overridden in experiments)
+    # Default configurations (can be overridden in experiments)
     default_prompt_version_id: Optional[int] = Field(default=None, foreign_key="promptversion.id")
     default_model_id: Optional[int] = Field(default=None, foreign_key="model.id")
     
@@ -106,35 +101,42 @@ class Experiment(SQLModel, table=True):
     status: str = Field(default="pending")  # pending, running, completed, failed
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
-    
-    # Store agent configurations as JSON for flexibility
-    agent_configurations: Optional[str] = None  # JSON string of agent ID -> custom config mapping
 
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")
-    experiment_configs: List["ExperimentConfig"] = Relationship(back_populates="experiment")
+    agent_configs: List["ExperimentAgentConfig"] = Relationship(back_populates="experiment")
     executions: List["ExperimentExecution"] = Relationship(back_populates="experiment")
 
 
-class ExperimentConfig(SQLModel, table=True):
-    """Configuration linking an experiment to an agent team - simplified"""
+class ExperimentAgentConfig(SQLModel, table=True):
+    """Configuration for an agent within a specific experiment - this is the single source of truth"""
     id: Optional[int] = Field(default=None, primary_key=True)
     experiment_id: int = Field(foreign_key="experiment.id")
-    agent_team_id: int = Field(foreign_key="agentteam.id")
+    agent_id: int = Field(foreign_key="agent.id")
+    
+    # Configuration (uses agent defaults if not specified)
+    prompt_version_id: Optional[int] = Field(default=None, foreign_key="promptversion.id")
+    model_id: Optional[int] = Field(default=None, foreign_key="model.id")
+    
+    # Optional overrides for model parameters
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
     
     # Execution settings
-    active: bool = Field(default=True)
-    priority: int = Field(default=1)  # Execution priority (1 = highest)
+    execution_order: int = Field(default=1)
+    is_active: bool = Field(default=True)
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    experiment: Optional[Experiment] = Relationship(back_populates="experiment_configs")
-    agent_team: Optional[AgentTeam] = Relationship(back_populates="experiment_configs")
+    experiment: Optional[Experiment] = Relationship(back_populates="agent_configs")
+    agent: Optional[Agent] = Relationship()
+    prompt_version: Optional[PromptVersion] = Relationship()
+    model: Optional[Model] = Relationship()
 
 
 class ExperimentExecution(SQLModel, table=True):
-    """Captures the exact state of an experiment at execution time - immutable snapshot"""
+    """Immutable snapshot of an experiment execution for scientific reproducibility"""
     id: Optional[int] = Field(default=None, primary_key=True)
     experiment_id: int = Field(foreign_key="experiment.id")
     
@@ -151,56 +153,32 @@ class ExperimentExecution(SQLModel, table=True):
     
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="executions")
-    agent_executions: List["AgentExecutionConfig"] = Relationship(back_populates="experiment_execution")
+    agent_snapshots: List["AgentExecutionSnapshot"] = Relationship(back_populates="execution")
 
 
-class AgentExecutionConfig(SQLModel, table=True):
+class AgentExecutionSnapshot(SQLModel, table=True):
     """Immutable snapshot of each agent's configuration used during execution"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    experiment_execution_id: int = Field(foreign_key="experimentexecution.id")
+    execution_id: int = Field(foreign_key="experimentexecution.id")
     agent_id: int = Field(foreign_key="agent.id")
     
-    # Snapshot of configuration at execution time
+    # Snapshot of configuration at execution time (exactly what was used)
     agent_name_snapshot: str = Field(description="Agent name at execution time")
     model_name_snapshot: str = Field(description="Model name used")
+    model_provider_snapshot: str = Field(description="Model provider")
+    prompt_name_snapshot: str = Field(description="Prompt name used")
     prompt_version_snapshot: str = Field(description="Prompt version used")
     
-    # Actual configuration used (may include custom overrides)
+    # Actual configuration used (resolved from defaults + overrides)
     final_system_prompt: Optional[str] = None
     final_user_prompt: Optional[str] = None
     final_variables: Optional[str] = None  # JSON string
     final_temperature: Optional[float] = None
     final_max_tokens: Optional[int] = None
     
+    execution_order: int = Field(description="Order in which this agent was executed")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    experiment_execution: Optional[ExperimentExecution] = Relationship(back_populates="agent_executions")
+    execution: Optional[ExperimentExecution] = Relationship(back_populates="agent_snapshots")
     agent: Optional[Agent] = Relationship()
-
-
-class ExperimentAgentConfig(SQLModel, table=True):
-    """Configuration for an agent within a specific experiment"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    experiment_id: int = Field(foreign_key="experiment.id")
-    agent_id: int = Field(foreign_key="agent.id")
-    
-    # Experiment-specific configuration (can override agent defaults)
-    prompt_version_id: int = Field(foreign_key="promptversion.id")
-    model_id: int = Field(foreign_key="model.id")
-    
-    # Optional overrides for model parameters
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    
-    # Execution order and settings
-    execution_order: int = Field(default=1)
-    is_active: bool = Field(default=True)
-    
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # Relationships
-    experiment: Optional[Experiment] = Relationship()
-    agent: Optional[Agent] = Relationship()
-    prompt_version: Optional[PromptVersion] = Relationship()
-    model: Optional[Model] = Relationship()
