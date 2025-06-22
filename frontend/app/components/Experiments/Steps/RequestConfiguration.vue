@@ -38,7 +38,7 @@ function updateColumnMapping(id: string, field: 'sourceColumn' | 'targetField', 
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 mt-4">
     <div class="max-w-6xl mx-auto w-full">
       <div v-if="selectedDataset" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Column Mapping Section -->
