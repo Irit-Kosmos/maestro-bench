@@ -127,9 +127,9 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
     <UAlert v-else-if="error" color="error" variant="soft" :title="error" />
 
     <!-- Configuration -->
-    <div v-else-if="datasetInfo" class="space-y-4">
+    <div v-else-if="datasetInfo" class="space-y-4 flex gap-4">
       <!-- Dataset Summary -->
-      <UCard>
+      <UCard class="flex-1">
         <template #header>
           <h4 class="text-base font-medium">
             Dataset Overview
@@ -162,7 +162,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
         </div>
       </UCard>
 
-      <div class="flex gap-8">
+      <div class="flex flex-1 flex-col gap-4">
         <!-- Sampling Type Selection -->
         <UFormField label="Sampling Method" required>
           <USelect

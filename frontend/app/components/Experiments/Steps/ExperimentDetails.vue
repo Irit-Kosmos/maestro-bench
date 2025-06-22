@@ -48,9 +48,6 @@ const description = computed({
           />
         </UFormField>
       </div>
-      <p class="text-xs text-neutral-500 mt-4">
-        Use a clear, descriptive name for easy identification
-      </p>
     </div>
   </div>
 </template>
