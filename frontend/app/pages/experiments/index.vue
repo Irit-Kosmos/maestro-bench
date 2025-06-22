@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { Experiment } from '~/types'
 
+// Page meta
+definePageMeta({
+  title: 'Experiments',
+})
+
 // Composables
 const { experiments, pending, refresh } = useExperiments()
-const toast = useToast()
+const { showComingSoon } = useStandardToast()
 
 // Page meta
 useSeoMeta({
@@ -56,13 +61,7 @@ async function handleViewExperiment(id: number) {
 }
 
 async function handleDeleteExperiment(_id: number) {
-  // TODO: Add confirmation dialog
-  toast.add({
-    title: 'Coming Soon',
-    description: 'Delete confirmation dialog coming soon!',
-    color: 'info',
-    icon: 'i-lucide:info',
-  })
+  showComingSoon('Delete confirmation dialog')
 }
 
 async function handleCreateExperiment() {
@@ -71,7 +70,7 @@ async function handleCreateExperiment() {
 </script>
 
 <template>
-  <BasePageLayout
+  <BasePageContent
     title="Experiments"
     subtitle="Manage and monitor your experiments"
     :loading="pending"
@@ -100,14 +99,14 @@ async function handleCreateExperiment() {
         @refresh="refresh"
       >
         <!-- Custom cell for status -->
-        <template #cell-status="{ item }">
-          <UIStatusBadge :status="item.status" />
+        <template #status-cell="{ row }">
+          <UIStatusBadge :status="row.original.status" />
         </template>
 
         <!-- Custom cell for created_at -->
-        <template #cell-created_at="{ item }">
+        <template #created_at-cell="{ row }">
           <span class="text-sm text-neutral-500">
-            {{ new Date(item.created_at).toLocaleDateString() }}
+            {{ new Date(row.original.created_at).toLocaleDateString() }}
           </span>
         </template>
       </BaseDataTable>
@@ -122,5 +121,5 @@ async function handleCreateExperiment() {
       action-label="Create Your First Experiment"
       @action="handleCreateExperiment"
     />
-  </BasePageLayout>
+  </BasePageContent>
 </template>

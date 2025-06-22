@@ -73,6 +73,7 @@ class AgentUpdate(BaseModel):
     description: Optional[str] = None
     default_prompt_version_id: Optional[int] = None
     default_model_id: Optional[int] = None
+    team_id: Optional[int] = None
 
 
 # Forward reference resolution

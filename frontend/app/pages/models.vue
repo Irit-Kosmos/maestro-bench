@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Model } from '~/types'
 
-// Meta
+// Page meta
 definePageMeta({
   title: 'Models',
 })
@@ -9,6 +9,13 @@ definePageMeta({
 // Composables
 const { models, pending, error, createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
 const { selectedProviders, searchQuery, filterModels, toggleProvider, updateSearch, clearFilters } = useModelFilters()
+const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
+
+// Page meta
+useSeoMeta({
+  title: 'Models',
+  description: 'Manage available AI models for your experiments.',
+})
 
 // State
 const showCreateModal = ref(false)
@@ -55,13 +62,61 @@ const filteredModels = computed(() => {
   return filterModels(models.value || [])
 })
 
-const formValid = computed(() => {
+const createFormValid = computed(() => {
   return createForm.value.name.trim() && createForm.value.provider.trim()
 })
 
 const editFormValid = computed(() => {
   return editForm.value.name.trim() && editForm.value.provider.trim()
 })
+
+// Table configuration
+const columns = [
+  {
+    key: 'name',
+    label: 'Model Name',
+  },
+  {
+    key: 'provider',
+    label: 'Provider',
+  },
+  {
+    key: 'description',
+    label: 'Description',
+  },
+  {
+    key: 'is_active',
+    label: 'Status',
+  },
+  {
+    key: 'created_at',
+    label: 'Created',
+  },
+]
+
+const actions = [
+  {
+    label: 'Edit',
+    icon: 'i-lucide-edit',
+    variant: 'ghost' as const,
+    color: 'neutral' as const,
+    handler: (model: Model) => editModel(model),
+  },
+  {
+    label: 'Toggle',
+    icon: 'i-lucide-toggle-left',
+    variant: 'ghost' as const,
+    color: 'neutral' as const,
+    handler: (model: Model) => handleToggleStatus(model),
+  },
+  {
+    label: 'Delete',
+    icon: 'i-lucide-trash-2',
+    variant: 'ghost' as const,
+    color: 'error' as const,
+    handler: (model: Model) => confirmDelete(model),
+  },
+]
 
 // Methods
 function resetCreateForm() {
@@ -89,7 +144,7 @@ function resetEditForm() {
 }
 
 async function handleCreateModel() {
-  if (!formValid.value)
+  if (!createFormValid.value)
     return
 
   isCreating.value = true
@@ -110,15 +165,16 @@ async function handleCreateModel() {
 
     const result = await createModel(formData)
     if (result.success) {
+      showCreateSuccess('Model')
       showCreateModal.value = false
       resetCreateForm()
     }
     else {
-      console.error('Failed to create model:', result.error)
+      showCreateError('Model', typeof result.error === 'string' ? result.error : undefined)
     }
   }
   catch (error) {
-    console.error('Error creating model:', error)
+    showCreateError('Model', error instanceof Error ? error.message : undefined)
   }
   finally {
     isCreating.value = false
@@ -161,16 +217,17 @@ async function handleUpdateModel() {
 
     const result = await updateModel(editingModel.value.id, formData)
     if (result.success) {
+      showUpdateSuccess('Model')
       showEditModal.value = false
       editingModel.value = null
       resetEditForm()
     }
     else {
-      console.error('Failed to update model:', result.error)
+      showUpdateError('Model', typeof result.error === 'string' ? result.error : undefined)
     }
   }
   catch (error) {
-    console.error('Error updating model:', error)
+    showUpdateError('Model', error instanceof Error ? error.message : undefined)
   }
   finally {
     isUpdating.value = false
@@ -181,11 +238,11 @@ async function handleToggleStatus(model: Model) {
   try {
     const result = await toggleStatus(model.id)
     if (!result.success) {
-      console.error('Failed to toggle model status:', result.error)
+      showUpdateError('Model status', typeof result.error === 'string' ? result.error : undefined)
     }
   }
   catch (error) {
-    console.error('Error toggling model status:', error)
+    showUpdateError('Model status', error instanceof Error ? error.message : undefined)
   }
 }
 
@@ -202,19 +259,24 @@ async function handleDeleteModel() {
   try {
     const result = await deleteModelApi(modelToDelete.value.id)
     if (result.success) {
+      showDeleteSuccess('Model')
       showDeleteModal.value = false
       modelToDelete.value = null
     }
     else {
-      console.error('Failed to delete model:', result.error)
+      showDeleteError('Model', typeof result.error === 'string' ? result.error : undefined)
     }
   }
   catch (error) {
-    console.error('Error deleting model:', error)
+    showDeleteError('Model', error instanceof Error ? error.message : undefined)
   }
   finally {
     isDeleting.value = false
   }
+}
+
+function handleCreateClick() {
+  showCreateModal.value = true
 }
 
 // Watch for modal close to reset forms
@@ -239,26 +301,26 @@ watch(() => showDeleteModal.value, (newValue) => {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
-      <div>
-        <h1 class="text-3xl font-bold text-neutral-900">
-          AI Models
-        </h1>
-        <p class="text-neutral-600 mt-2">
-          Manage available AI models for your experiments
-        </p>
-      </div>
+  <BasePageContent
+    title="AI Models"
+    subtitle="Manage available AI models for your experiments"
+    :loading="pending"
+    :error="error ? 'Failed to load models' : null"
+  >
+    <template #actions>
       <UButton
-        icon="i-heroicons-plus"
-        label="Add Model"
-        @click="showCreateModal = true"
-      />
-    </div>
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="handleCreateClick"
+      >
+        Add Model
+      </UButton>
+    </template>
 
     <!-- Filters -->
-    <div class="mb-8">
+    <div class="mb-6">
       <ModelsFilters
         :selected-providers="[...selectedProviders]"
         :search-query="searchQuery"
@@ -270,306 +332,219 @@ watch(() => showDeleteModal.value, (newValue) => {
       />
     </div>
 
-    <!-- Loading State -->
-    <div v-if="pending" class="flex justify-center py-8">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500" />
-    </div>
+    <!-- Models Table -->
+    <div v-if="filteredModels.length > 0">
+      <BaseDataTable
+        :data="filteredModels"
+        :columns="columns"
+        :actions="actions"
+        :loading="pending"
+        title="All Models"
+      >
+        <!-- Custom cell for status -->
+        <template #is_active-cell="{ row }">
+          <UBadge
+            :color="row.original.is_active ? 'success' : 'neutral'"
+            :label="row.original.is_active ? 'Active' : 'Inactive'"
+            variant="soft"
+          />
+        </template>
 
-    <!-- Error State -->
-    <UAlert
-      v-else-if="error"
-      icon="i-heroicons-exclamation-triangle"
-      color="error"
-      variant="soft"
-      title="Failed to load models"
-      description="Please try again later."
-      class="mb-6"
-    />
+        <!-- Custom cell for created_at -->
+        <template #created_at-cell="{ row }">
+          <span class="text-sm text-neutral-500">
+            {{ new Date(row.original.created_at).toLocaleDateString() }}
+          </span>
+        </template>
+
+        <!-- Custom cell for description -->
+        <template #description-cell="{ row }">
+          <span class="text-sm text-neutral-600">
+            {{ row.original.description || 'No description' }}
+          </span>
+        </template>
+      </BaseDataTable>
+    </div>
 
     <!-- Empty State -->
-    <div v-else-if="!models || models.length === 0" class="text-center py-12">
-      <UIcon name="i-heroicons-cpu-chip" class="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-neutral-900 mb-2">
-        No models yet
-      </h3>
-      <p class="text-neutral-600 mb-4">
-        Start by adding your first AI model
-      </p>
-      <UButton
-        icon="i-heroicons-plus"
-        label="Add Model"
-        @click="showCreateModal = true"
-      />
-    </div>
+    <BaseEmptyState
+      v-else-if="!pending && (!models || models.length === 0)"
+      title="No models yet"
+      message="Start by adding your first AI model"
+      icon="i-lucide:cpu"
+      action-label="Add Model"
+      @action="handleCreateClick"
+    />
 
     <!-- No Results State -->
-    <div v-else-if="filteredModels.length === 0" class="text-center py-12">
-      <UIcon name="i-heroicons-funnel" class="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-neutral-900 mb-2">
-        No models match your filters
-      </h3>
-      <p class="text-neutral-600 mb-4">
-        Try adjusting your search or filter criteria
-      </p>
-      <UButton
-        variant="outline"
-        label="Clear Filters"
-        @click="clearFilters"
-      />
-    </div>
-
-    <!-- Models Grid -->
-    <div v-else>
-      <!-- Model Cards -->
-      <div class="grid gap-6">
-        <ModelsCard
-          v-for="model in filteredModels"
-          :key="model.id"
-          :model="model"
-          @edit="editModel"
-          @delete="confirmDelete"
-          @toggle-status="handleToggleStatus"
-        />
-      </div>
-    </div>
+    <BaseEmptyState
+      v-else-if="!pending && filteredModels.length === 0"
+      title="No models match your filters"
+      message="Try adjusting your search or filter criteria"
+      icon="i-lucide:search-x"
+      action-label="Clear Filters"
+      @action="clearFilters"
+    />
 
     <!-- Create Model Modal -->
-    <UModal v-model:open="showCreateModal" :prevent-close="isCreating">
-      <template #content>
-        <UCard class="overflow-y-auto">
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Create New Model
-            </h2>
-          </template>
+    <BaseCrudModal
+      v-model:open="showCreateModal"
+      title="Model"
+      mode="create"
+      :loading="isCreating"
+      @submit="handleCreateModel"
+    >
+      <div class="space-y-6">
+        <div class="grid grid-cols-1 gap-4">
+          <UFormField label="Name" required>
+            <UInput
+              v-model="createForm.name"
+              placeholder="e.g., gpt-4-turbo"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-          <form class="space-y-6" @submit.prevent="handleCreateModel">
-            <div class="grid grid-cols-1 gap-4">
-              <UFormField label="Name" required>
-                <UInput
-                  v-model="createForm.name"
-                  placeholder="e.g., gpt-4-turbo"
-                  required
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Provider" required>
+            <USelect
+              v-model="createForm.provider"
+              :items="providerOptions"
+              placeholder="Select provider"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Provider" required>
-                <USelect
-                  v-model="createForm.provider"
-                  :items="providerOptions"
-                  placeholder="Select provider"
-                  required
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Description">
+            <UTextarea
+              v-model="createForm.description"
+              placeholder="Brief description of the model"
+              :rows="3"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Description">
-                <UTextarea
-                  v-model="createForm.description"
-                  placeholder="Brief description of the model"
-                  :rows="3"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Max Tokens">
+            <UInput
+              v-model="createForm.max_tokens"
+              type="number"
+              placeholder="e.g., 128000"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Max Tokens">
-                <UInput
-                  v-model="createForm.max_tokens"
-                  type="number"
-                  placeholder="e.g., 128000"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Default Temperature">
+            <UInput
+              v-model="createForm.default_temperature"
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              placeholder="e.g., 0.7"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Default Temperature">
-                <UInput
-                  v-model="createForm.default_temperature"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  placeholder="e.g., 0.7"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Default Max Tokens">
+            <UInput
+              v-model="createForm.default_max_tokens"
+              type="number"
+              placeholder="e.g., 2048"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Default Max Tokens">
-                <UInput
-                  v-model="createForm.default_max_tokens"
-                  type="number"
-                  placeholder="e.g., 2048"
-                  class="w-full"
-                />
-              </UFormField>
-
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-neutral-700">Active</label>
-                <USwitch
-                  v-model="createForm.is_active"
-                  name="is_active"
-                />
-              </div>
-            </div>
-
-            <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
-              <UButton
-                type="button"
-                variant="outline"
-                color="neutral"
-                :disabled="isCreating"
-                @click="showCreateModal = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                type="submit"
-                :disabled="!formValid || isCreating"
-                :loading="isCreating"
-              >
-                Create Model
-              </UButton>
-            </div>
-          </form>
-        </UCard>
-      </template>
-    </UModal>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-neutral-700">Active</label>
+            <USwitch
+              v-model="createForm.is_active"
+            />
+          </div>
+        </div>
+      </div>
+    </BaseCrudModal>
 
     <!-- Edit Model Modal -->
-    <UModal v-model:open="showEditModal" :prevent-close="isUpdating">
-      <template #content>
-        <UCard class="overflow-y-auto">
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Edit Model
-            </h2>
-          </template>
+    <BaseCrudModal
+      v-model:open="showEditModal"
+      title="Model"
+      mode="edit"
+      :loading="isUpdating"
+      @submit="handleUpdateModel"
+    >
+      <div class="space-y-6">
+        <div class="grid grid-cols-1 gap-4">
+          <UFormField label="Name" required>
+            <UInput
+              v-model="editForm.name"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-          <form class="space-y-6" @submit.prevent="handleUpdateModel">
-            <div class="grid grid-cols-1 gap-4">
-              <UFormField label="Name" required>
-                <UInput
-                  v-model="editForm.name"
-                  required
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Provider" required>
+            <USelect
+              v-model="editForm.provider"
+              :items="providerOptions"
+              required
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Provider" required>
-                <USelect
-                  v-model="editForm.provider"
-                  :items="providerOptions"
-                  required
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Description">
+            <UTextarea
+              v-model="editForm.description"
+              :rows="3"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Description">
-                <UTextarea
-                  v-model="editForm.description"
-                  :rows="3"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Max Tokens">
+            <UInput
+              v-model="editForm.max_tokens"
+              type="number"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Max Tokens">
-                <UInput
-                  v-model="editForm.max_tokens"
-                  type="number"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Default Temperature">
+            <UInput
+              v-model="editForm.default_temperature"
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Default Temperature">
-                <UInput
-                  v-model="editForm.default_temperature"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  class="w-full"
-                />
-              </UFormField>
+          <UFormField label="Default Max Tokens">
+            <UInput
+              v-model="editForm.default_max_tokens"
+              type="number"
+              class="w-full"
+            />
+          </UFormField>
 
-              <UFormField label="Default Max Tokens">
-                <UInput
-                  v-model="editForm.default_max_tokens"
-                  type="number"
-                  class="w-full"
-                />
-              </UFormField>
-
-              <div class="flex items-center justify-between">
-                <label class="text-sm font-medium text-neutral-700">Active</label>
-                <USwitch
-                  v-model="editForm.is_active"
-                  name="edit_is_active"
-                />
-              </div>
-            </div>
-
-            <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
-              <UButton
-                type="button"
-                variant="outline"
-                color="neutral"
-                :disabled="isUpdating"
-                @click="showEditModal = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                type="submit"
-                :disabled="!editFormValid || isUpdating"
-                :loading="isUpdating"
-              >
-                Update Model
-              </UButton>
-            </div>
-          </form>
-        </UCard>
-      </template>
-    </UModal>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium text-neutral-700">Active</label>
+            <USwitch
+              v-model="editForm.is_active"
+            />
+          </div>
+        </div>
+      </div>
+    </BaseCrudModal>
 
     <!-- Delete Confirmation Modal -->
-    <UModal v-model:open="showDeleteModal" :prevent-close="isDeleting">
-      <template #content>
-        <UCard>
-          <template #header>
-            <h2 class="text-lg font-semibold text-red-600">
-              Delete Model
-            </h2>
-          </template>
-
-          <div class="py-4">
-            <p class="text-neutral-700">
-              Are you sure you want to delete "<strong>{{ modelToDelete?.name }}</strong>"?
-              This action cannot be undone.
-            </p>
-          </div>
-
-          <template #footer>
-            <div class="flex justify-end gap-3">
-              <UButton
-                variant="outline"
-                color="neutral"
-                :disabled="isDeleting"
-                @click="showDeleteModal = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                color="error"
-                :disabled="isDeleting"
-                :loading="isDeleting"
-                @click="handleDeleteModel"
-              >
-                Delete Model
-              </UButton>
-            </div>
-          </template>
-        </UCard>
-      </template>
-    </UModal>
-  </div>
+    <BaseConfirmDialog
+      v-model:open="showDeleteModal"
+      title="Delete Model"
+      :message="`Are you sure you want to delete &quot;${modelToDelete?.name}&quot;? This action cannot be undone.`"
+      confirm-label="Delete Model"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="handleDeleteModel"
+    />
+  </BasePageContent>
 </template>

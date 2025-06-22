@@ -60,42 +60,44 @@ function handleCancel() {
 </script>
 
 <template>
-  <UModal v-model="isOpen">
-    <UCard class="max-w-md">
-      <template #header>
-        <div class="flex items-center gap-3">
-          <UIcon :name="variantConfig.icon" :class="variantConfig.iconColor" class="h-6 w-6" />
-          <h3 class="text-lg font-semibold text-neutral-900">
-            {{ title }}
-          </h3>
-        </div>
-      </template>
+  <UModal v-model:open="isOpen">
+    <template #content>
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon :name="variantConfig.icon" :class="variantConfig.iconColor" class="h-6 w-6" />
+            <h3 class="text-lg font-semibold text-neutral-900">
+              {{ title }}
+            </h3>
+          </div>
+        </template>
 
-      <div class="py-4">
-        <p class="text-neutral-600">
-          {{ message }}
-        </p>
-      </div>
-
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <UButton
-            variant="outline"
-            color="neutral"
-            @click="handleCancel"
-          >
-            {{ cancelLabel }}
-          </UButton>
-          <UButton
-            variant="solid"
-            :color="variantConfig.color"
-            :loading="loading"
-            @click="handleConfirm"
-          >
-            {{ confirmLabel }}
-          </UButton>
+        <div class="py-4">
+          <p class="text-neutral-600">
+            {{ message }}
+          </p>
         </div>
-      </template>
-    </UCard>
+
+        <template #footer>
+          <div class="flex justify-end gap-3">
+            <UButton
+              variant="outline"
+              color="neutral"
+              @click="handleCancel"
+            >
+              {{ cancelLabel }}
+            </UButton>
+            <UButton
+              variant="solid"
+              :color="variantConfig.color"
+              :loading="loading"
+              @click="handleConfirm"
+            >
+              {{ confirmLabel }}
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+    </template>
   </UModal>
 </template>

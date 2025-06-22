@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
 import type { Experiment } from '~/types'
-import { h, resolveComponent } from 'vue'
 
 interface Props {
   experiments: Experiment[]
@@ -19,9 +17,35 @@ const emit = defineEmits<Emits>()
 
 const { getStatusColor, formatDate } = useUIHelpers()
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UIcon = resolveComponent('UIcon')
+// Table configuration
+const columns = [
+  {
+    key: 'name',
+    label: 'Experiment',
+  },
+  {
+    key: 'dataset',
+    label: 'Dataset',
+  },
+  {
+    key: 'status',
+    label: 'Status',
+  },
+  {
+    key: 'created_at',
+    label: 'Created',
+  },
+]
+
+const actions = [
+  {
+    label: 'View',
+    icon: 'i-lucide-eye',
+    variant: 'ghost' as const,
+    color: 'neutral' as const,
+    handler: (experiment: Experiment) => handleViewExperiment(experiment.id),
+  },
+]
 
 function handleViewExperiment(id: number) {
   emit('viewExperiment', id)
@@ -30,115 +54,57 @@ function handleViewExperiment(id: number) {
 function handleRefresh() {
   emit('refresh')
 }
-
-const columns: TableColumn<Experiment>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Experiment',
-    cell: ({ row }) => {
-      const experiment = row.original
-      return h('div', {}, [
-        h('div', { class: 'text-sm font-medium text-neutral-900' }, experiment.name),
-        h('div', { class: 'text-sm text-neutral-500' }, `ID: ${experiment.id}`),
-      ])
-    },
-  },
-  {
-    accessorKey: 'dataset',
-    header: 'Dataset',
-    cell: ({ row }) => {
-      const dataset = row.original.dataset
-      return h('div', {}, [
-        h('div', { class: 'text-sm text-neutral-900' }, dataset?.name || 'Unknown'),
-        h('div', { class: 'text-sm text-neutral-500' }, dataset?.description || ''),
-      ])
-    },
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    cell: ({ row }) => {
-      const status = row.original.status || 'pending'
-      return h(UBadge, {
-        color: getStatusColor(status),
-        variant: 'soft',
-      }, () => status)
-    },
-  },
-  {
-    accessorKey: 'created_at',
-    header: 'Created',
-    cell: ({ row }) => {
-      return h('span', { class: 'text-sm text-neutral-500' }, formatDate(row.original.created_at))
-    },
-  },
-  {
-    id: 'actions',
-    header: 'Actions',
-    cell: ({ row }) => {
-      return h(
-        'div',
-        { class: 'flex items-center gap-2' },
-        [
-          h(UButton, {
-            variant: 'ghost',
-            size: 'sm',
-            icon: 'i-lucide-eye',
-            onClick: () => handleViewExperiment(row.original.id),
-          }, () => 'View'),
-        ],
-      )
-    },
-  },
-]
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow">
-    <div class="px-6 py-4 border-b border-neutral-200">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-lg font-semibold text-neutral-900">
-            Recent Experiments
-          </h2>
+  <BaseDataTable
+    :data="experiments"
+    :columns="columns"
+    :actions="actions"
+    :loading="loading"
+    title="Recent Experiments"
+    empty-message="Get started by creating your first experiment."
+    @refresh="handleRefresh"
+  >
+    <!-- Custom cell for name (with ID) -->
+    <template #name-cell="{ row }">
+      <div>
+        <div class="text-sm font-medium text-neutral-900">
+          {{ row.original.name }}
         </div>
-        <UButton
-          variant="ghost"
-          size="sm"
-          icon="i-lucide:refresh-cw"
-          :loading="loading"
-          @click="handleRefresh"
-        >
-          Refresh
-        </UButton>
+        <div class="text-sm text-neutral-500">
+          ID: {{ row.original.id }}
+        </div>
       </div>
-    </div>
+    </template>
 
-    <div class="overflow-hidden">
-      <!-- Empty State -->
-      <div v-if="!experiments || experiments.length === 0" class="p-12 text-center">
-        <UIcon name="i-lucide:flask" class="mx-auto h-12 w-12 text-neutral-400" />
-        <h3 class="mt-2 text-sm font-medium text-neutral-900">
-          No experiments yet
-        </h3>
-        <p class="mt-1 text-sm text-neutral-500">
-          Get started by creating your first experiment.
-        </p>
+    <!-- Custom cell for dataset -->
+    <template #dataset-cell="{ row }">
+      <div>
+        <div class="text-sm text-neutral-900">
+          {{ row.original.dataset?.name || 'Unknown' }}
+        </div>
+        <div class="text-sm text-neutral-500">
+          {{ row.original.dataset?.description || '' }}
+        </div>
       </div>
+    </template>
 
-      <!-- Experiments UTable -->
-      <UTable
-        v-else
-        :data="experiments"
-        :columns="columns"
-        :loading="loading"
-        class="min-w-full"
-        :ui="{
-          th: 'px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider',
-          td: 'px-6 py-4 whitespace-nowrap',
-          tbody: 'bg-white divide-y divide-neutral-200 [&>tr]:hover:bg-neutral-50',
-        }"
-      />
-    </div>
-  </div>
+    <!-- Custom cell for status -->
+    <template #status-cell="{ row }">
+      <UBadge
+        :color="getStatusColor(row.original.status || 'pending')"
+        variant="soft"
+      >
+        {{ row.original.status || 'pending' }}
+      </UBadge>
+    </template>
+
+    <!-- Custom cell for created_at -->
+    <template #created_at-cell="{ row }">
+      <span class="text-sm text-neutral-500">
+        {{ formatDate(row.original.created_at) }}
+      </span>
+    </template>
+  </BaseDataTable>
 </template>

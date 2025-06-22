@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import type { CreateDatasetForm, Dataset } from '~/types'
 
+// Page meta
+definePageMeta({
+  title: 'Datasets',
+})
+
 // Composables
 const { datasets, pending, refresh, createDataset, deleteDataset } = useDatasets()
-const toast = useToast()
+const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 // Page meta
 useSeoMeta({
@@ -56,30 +61,15 @@ async function handleCreateDataset(formData: CreateDatasetForm) {
     const result = await createDataset(formData)
 
     if (result.success) {
-      toast.add({
-        title: 'Success',
-        description: 'Dataset created successfully!',
-        color: 'success',
-        icon: 'i-lucide:check-circle',
-      })
+      showCreateSuccess('Dataset')
       showCreateModal.value = false
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Error creating dataset. Please try again.',
-        color: 'error',
-        icon: 'i-lucide:alert-circle',
-      })
+      showCreateError('Dataset', typeof result.error === 'string' ? result.error : undefined)
     }
   }
-  catch {
-    toast.add({
-      title: 'Error',
-      description: 'Error creating dataset. Please try again.',
-      color: 'error',
-      icon: 'i-lucide:alert-circle',
-    })
+  catch (error) {
+    showCreateError('Dataset', error instanceof Error ? error.message : undefined)
   }
   finally {
     isSubmitting.value = false
@@ -95,20 +85,10 @@ async function handleDeleteDataset(id: number) {
   const result = await deleteDataset(id)
 
   if (result.success) {
-    toast.add({
-      title: 'Success',
-      description: 'Dataset deleted successfully!',
-      color: 'success',
-      icon: 'i-lucide:check-circle',
-    })
+    showDeleteSuccess('Dataset')
   }
   else {
-    toast.add({
-      title: 'Error',
-      description: 'Error deleting dataset. Please try again.',
-      color: 'error',
-      icon: 'i-lucide:alert-circle',
-    })
+    showDeleteError('Dataset', typeof result.error === 'string' ? result.error : undefined)
   }
 }
 
@@ -122,7 +102,7 @@ function handleCreateClick() {
 </script>
 
 <template>
-  <BasePageLayout
+  <BasePageContent
     title="Datasets"
     subtitle="Manage your datasets and data sources"
     :loading="pending"
@@ -151,9 +131,9 @@ function handleCreateClick() {
         @refresh="handleRefresh"
       >
         <!-- Custom cell for created_at -->
-        <template #cell-created_at="{ item }">
+        <template #created_at-cell="{ row }">
           <span class="text-sm text-neutral-500">
-            {{ new Date(item.created_at).toLocaleDateString() }}
+            {{ new Date(row.original.created_at).toLocaleDateString() }}
           </span>
         </template>
       </BaseDataTable>
@@ -174,5 +154,5 @@ function handleCreateClick() {
       v-model:open="showCreateModal"
       @submit="handleCreateDataset"
     />
-  </BasePageLayout>
+  </BasePageContent>
 </template>

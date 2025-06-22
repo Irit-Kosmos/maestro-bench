@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
+import { h, resolveComponent } from 'vue'
+
 interface Column {
   key: string
   label: string
@@ -25,7 +28,6 @@ interface Props {
   title?: string
   emptyMessage?: string
   searchable?: boolean
-  selectable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -34,17 +36,16 @@ const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   emptyMessage: 'No data available',
   searchable: false,
-  selectable: false,
 })
 
 const emit = defineEmits<{
   refresh: []
-  selectionChange: [items: any[]]
 }>()
+
+const UButton = resolveComponent('UButton')
 
 // State
 const searchQuery = ref('')
-const selectedItems = ref<any[]>([])
 
 // Computed
 const filteredData = computed(() => {
@@ -63,38 +64,60 @@ const filteredData = computed(() => {
 
 const hasActions = computed(() => props.actions.length > 0)
 
+// Convert our column format to UTable format
+const tableColumns = computed<TableColumn<any>[]>(() => {
+  const cols: TableColumn<any>[] = props.columns.map(col => ({
+    accessorKey: col.key,
+    header: col.label,
+    cell: ({ row }) => {
+      const value = row.getValue(col.key)
+      return col.formatter ? col.formatter(value, row.original) : value
+    },
+    meta: {
+      class: {
+        td: col.class,
+      },
+    },
+  }))
+
+  // Add actions column if we have actions
+  if (hasActions.value) {
+    cols.push({
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        return h(
+          'div',
+          { class: 'flex items-center gap-2' },
+          props.actions
+            .filter(action => action.show ? action.show(row.original) : true)
+            .map(action =>
+              h(UButton, {
+                key: action.label,
+                variant: action.variant || 'ghost',
+                color: action.color || 'neutral',
+                size: action.size || 'sm',
+                icon: action.icon,
+                onClick: () => action.handler(row.original),
+              }, () => action.label),
+            ),
+        )
+      },
+      meta: {
+        class: {
+          th: 'w-32', // Fixed width for actions header
+          td: 'w-32', // Fixed width for actions cells
+        },
+      },
+    })
+  }
+
+  return cols
+})
+
 // Methods
 function handleRefresh() {
   emit('refresh')
-}
-
-function handleSelectionChange(items: any[]) {
-  selectedItems.value = items
-  emit('selectionChange', items)
-}
-
-function getCellValue(item: any, column: Column) {
-  const value = item[column.key]
-  return column.formatter ? column.formatter(value, item) : value
-}
-
-function isActionVisible(action: Action, item: any): boolean {
-  return action.show ? action.show(item) : true
-}
-
-function toggleItemSelection(item: any, selected: boolean) {
-  if (selected) {
-    if (!selectedItems.value.includes(item)) {
-      selectedItems.value.push(item)
-    }
-  }
-  else {
-    const index = selectedItems.value.indexOf(item)
-    if (index > -1) {
-      selectedItems.value.splice(index, 1)
-    }
-  }
-  emit('selectionChange', selectedItems.value)
 }
 </script>
 
@@ -133,13 +156,8 @@ function toggleItemSelection(item: any, selected: boolean) {
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="p-6">
-      <BaseLoadingState message="Loading data..." />
-    </div>
-
     <!-- Empty State -->
-    <div v-else-if="filteredData.length === 0" class="p-6">
+    <div v-if="!loading && filteredData.length === 0" class="p-6">
       <BaseEmptyState
         :title="searchQuery ? 'No results found' : 'No data available'"
         :message="searchQuery ? `No items match &quot;${searchQuery}&quot;` : emptyMessage"
@@ -148,76 +166,19 @@ function toggleItemSelection(item: any, selected: boolean) {
       />
     </div>
 
-    <!-- Data Table -->
-    <div v-else class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-neutral-200">
-        <!-- Table Header -->
-        <thead class="bg-neutral-50">
-          <tr>
-            <!-- Selection Column -->
-            <th v-if="selectable" class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-              <UCheckbox
-                :model-value="selectedItems.length === filteredData.length"
-                :indeterminate="selectedItems.length > 0 && selectedItems.length < filteredData.length"
-                @update:model-value="handleSelectionChange($event ? filteredData : [])"
-              />
-            </th>
-            <!-- Data Columns -->
-            <th
-              v-for="column in columns"
-              :key="column.key"
-              class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
-              :class="column.class"
-            >
-              {{ column.label }}
-            </th>
-            <!-- Actions Column -->
-            <th v-if="hasActions" class="relative px-6 py-3">
-              <span class="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-
-        <!-- Table Body -->
-        <tbody class="bg-white divide-y divide-neutral-200">
-          <tr v-for="(item, index) in filteredData" :key="index" class="hover:bg-neutral-50">
-            <!-- Selection Column -->
-            <td v-if="selectable" class="px-6 py-4 whitespace-nowrap">
-              <UCheckbox
-                :model-value="selectedItems.includes(item)"
-                @update:model-value="toggleItemSelection(item, !!$event)"
-              />
-            </td>
-            <!-- Data Columns -->
-            <td
-              v-for="column in columns"
-              :key="column.key"
-              class="px-6 py-4 whitespace-nowrap text-sm text-neutral-900"
-              :class="column.class"
-            >
-              <slot :name="`cell-${column.key}`" :item="item" :value="getCellValue(item, column)">
-                {{ getCellValue(item, column) }}
-              </slot>
-            </td>
-            <!-- Actions Column -->
-            <td v-if="hasActions" class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <div class="flex items-center justify-end gap-2">
-                <UButton
-                  v-for="action in actions.filter(a => isActionVisible(a, item))"
-                  :key="action.label"
-                  :variant="action.variant || 'ghost'"
-                  :color="action.color || 'neutral'"
-                  :size="action.size || 'sm'"
-                  :icon="action.icon"
-                  @click="action.handler(item)"
-                >
-                  {{ action.label }}
-                </UButton>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- UTable -->
+    <UTable
+      v-else
+      :data="filteredData"
+      :columns="tableColumns"
+      :loading="loading"
+      :empty="emptyMessage"
+      class="min-w-full"
+    >
+      <!-- Forward all dynamic slots to UTable -->
+      <template v-for="(_, slotName) in $slots" :key="slotName" #[slotName]="slotProps">
+        <slot :name="slotName" v-bind="slotProps" />
+      </template>
+    </UTable>
   </div>
 </template>

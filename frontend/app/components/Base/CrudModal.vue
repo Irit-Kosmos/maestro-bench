@@ -45,64 +45,55 @@ function handleCancel() {
   emit('cancel')
   emit('update:open', false)
 }
-
-const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-}
-
-function getSizeClass() {
-  return sizeClasses[props.size]
-}
 </script>
 
 <template>
-  <UModal v-model="isOpen">
-    <UCard :class="getSizeClass()">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-neutral-900">
-            {{ modalTitle }}
-          </h3>
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-x"
-            size="sm"
-            @click="handleCancel"
-          />
-        </div>
-      </template>
-
-      <!-- Modal Content -->
-      <div class="space-y-4">
-        <slot />
-      </div>
-
-      <template #footer>
-        <slot name="footer">
-          <div class="flex justify-end gap-3">
+  <UModal v-model:open="isOpen">
+    <template #content>
+      <UCard class="w-full">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-neutral-900">
+              {{ modalTitle }}
+            </h3>
             <UButton
-              v-if="mode !== 'view'"
-              variant="outline"
+              variant="ghost"
               color="neutral"
+              icon="i-lucide-x"
+              size="sm"
               @click="handleCancel"
-            >
-              Cancel
-            </UButton>
-            <UButton
-              variant="solid"
-              :color="mode === 'view' ? 'neutral' : 'primary'"
-              :loading="loading"
-              @click="handleSubmit"
-            >
-              {{ submitLabel }}
-            </UButton>
+            />
           </div>
-        </slot>
-      </template>
-    </UCard>
+        </template>
+
+        <!-- Modal Content -->
+        <div class="space-y-4">
+          <slot />
+        </div>
+
+        <template #footer>
+          <slot name="footer">
+            <div class="flex justify-end gap-3">
+              <UButton
+                v-if="mode !== 'view'"
+                variant="outline"
+                color="neutral"
+                @click="handleCancel"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                variant="solid"
+                :color="mode === 'view' ? 'neutral' : 'primary'"
+                :loading="loading"
+                @click="handleSubmit"
+              >
+                {{ submitLabel }}
+              </UButton>
+            </div>
+          </slot>
+        </template>
+      </UCard>
+    </template>
   </UModal>
 </template>
