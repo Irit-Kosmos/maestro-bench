@@ -8,6 +8,7 @@ definePageMeta({
 
 // Composables
 const { models, pending, error, createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
+const { selectedProviders, searchQuery, filterModels, toggleProvider, updateSearch, clearFilters } = useModelFilters()
 
 // State
 const showCreateModal = ref(false)
@@ -46,6 +47,10 @@ const providerOptions = [
 ]
 
 // Computed
+const filteredModels = computed(() => {
+  return filterModels(models.value || [])
+})
+
 const formValid = computed(() => {
   return createForm.value.name.trim() && createForm.value.provider.trim()
 })
@@ -230,6 +235,19 @@ watch(() => showDeleteModal.value, (newValue) => {
       />
     </div>
 
+    <!-- Filters -->
+    <div class="mb-8">
+      <ModelsFilters
+        :selected-providers="selectedProviders"
+        :search-query="searchQuery"
+        :total-count="models?.length || 0"
+        :filtered-count="filteredModels.length"
+        @toggle-provider="toggleProvider"
+        @update-search="updateSearch"
+        @clear-filters="clearFilters"
+      />
+    </div>
+
     <!-- Loading State -->
     <div v-if="pending" class="flex justify-center py-8">
       <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary-500" />
@@ -262,82 +280,35 @@ watch(() => showDeleteModal.value, (newValue) => {
       />
     </div>
 
+    <!-- No Results State -->
+    <div v-else-if="filteredModels.length === 0" class="text-center py-12">
+      <UIcon name="i-heroicons-funnel" class="w-16 h-16 text-gray-400 mx-auto mb-4" />
+      <h3 class="text-lg font-medium text-gray-900 mb-2">
+        No models match your filters
+      </h3>
+      <p class="text-gray-600 mb-4">
+        Try adjusting your search or filter criteria
+      </p>
+      <UButton
+        variant="outline"
+        label="Clear Filters"
+        @click="clearFilters"
+      />
+    </div>
+
     <!-- Models Grid -->
-    <div v-else class="grid gap-6">
-      <UCard
-        v-for="model in models"
-        :key="model.id"
-        class="hover:shadow-md transition-shadow"
-      >
-        <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <div class="flex items-center gap-3 mb-2">
-              <h3 class="text-xl font-semibold text-gray-900">
-                {{ model.name }}
-              </h3>
-              <UBadge
-                :color="model.is_active ? 'success' : 'neutral'"
-                variant="soft"
-                size="sm"
-              >
-                {{ model.is_active ? 'Active' : 'Inactive' }}
-              </UBadge>
-            </div>
-
-            <div class="space-y-2 text-sm text-gray-600">
-              <div class="flex items-center gap-2">
-                <UIcon name="i-heroicons-building-office" class="w-4 h-4" />
-                <span class="font-medium">Provider:</span>
-                <span class="capitalize">{{ model.provider }}</span>
-              </div>
-
-              <div v-if="model.description" class="flex items-start gap-2">
-                <UIcon name="i-heroicons-document-text" class="w-4 h-4 mt-0.5" />
-                <span class="font-medium">Description:</span>
-                <span>{{ model.description }}</span>
-              </div>
-
-              <div v-if="model.max_tokens" class="flex items-center gap-2">
-                <UIcon name="i-heroicons-squares-2x2" class="w-4 h-4" />
-                <span class="font-medium">Max Tokens:</span>
-                <span>{{ model.max_tokens?.toLocaleString() }}</span>
-              </div>
-
-              <div class="flex items-center gap-2">
-                <UIcon name="i-heroicons-calendar" class="w-4 h-4" />
-                <span class="font-medium">Created:</span>
-                <span>{{ new Date(model.created_at).toLocaleDateString() }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 ml-4">
-            <UButton
-              icon="i-heroicons-pencil"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="editModel(model)"
-            />
-
-            <UButton
-              :icon="model.is_active ? 'i-heroicons-pause' : 'i-heroicons-play'"
-              :color="model.is_active ? 'warning' : 'success'"
-              variant="ghost"
-              size="sm"
-              @click="handleToggleStatus(model)"
-            />
-
-            <UButton
-              icon="i-heroicons-trash"
-              color="error"
-              variant="ghost"
-              size="sm"
-              @click="confirmDelete(model)"
-            />
-          </div>
-        </div>
-      </UCard>
+    <div v-else>
+      <!-- Model Cards -->
+      <div class="grid gap-6">
+        <ModelsCard
+          v-for="model in filteredModels"
+          :key="model.id"
+          :model="model"
+          @edit="editModel"
+          @delete="confirmDelete"
+          @toggle-status="handleToggleStatus"
+        />
+      </div>
     </div>
 
     <!-- Create Model Modal -->
@@ -357,6 +328,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                   v-model="createForm.name"
                   placeholder="e.g., gpt-4-turbo"
                   required
+                  class="w-full"
                 />
               </UFormField>
 
@@ -366,6 +338,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                   :items="providerOptions"
                   placeholder="Select provider"
                   required
+                  class="w-full"
                 />
               </UFormField>
 
@@ -374,6 +347,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                   v-model="createForm.description"
                   placeholder="Brief description of the model"
                   :rows="3"
+                  class="w-full"
                 />
               </UFormField>
 
@@ -382,15 +356,16 @@ watch(() => showDeleteModal.value, (newValue) => {
                   v-model="createForm.max_tokens"
                   type="number"
                   placeholder="e.g., 128000"
+                  class="w-full"
                 />
               </UFormField>
 
-              <div class="flex items-center space-x-2">
-                <UCheckbox
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-gray-700">Active</label>
+                <USwitch
                   v-model="createForm.is_active"
                   name="is_active"
                 />
-                <label for="is_active" class="text-sm text-gray-700">Active</label>
               </div>
             </div>
 
@@ -433,6 +408,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                 <UInput
                   v-model="editForm.name"
                   required
+                  class="w-full"
                 />
               </UFormField>
 
@@ -441,6 +417,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                   v-model="editForm.provider"
                   :items="providerOptions"
                   required
+                  class="w-full"
                 />
               </UFormField>
 
@@ -448,6 +425,7 @@ watch(() => showDeleteModal.value, (newValue) => {
                 <UTextarea
                   v-model="editForm.description"
                   :rows="3"
+                  class="w-full"
                 />
               </UFormField>
 
@@ -455,15 +433,16 @@ watch(() => showDeleteModal.value, (newValue) => {
                 <UInput
                   v-model="editForm.max_tokens"
                   type="number"
+                  class="w-full"
                 />
               </UFormField>
 
-              <div class="flex items-center space-x-2">
-                <UCheckbox
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium text-gray-700">Active</label>
+                <USwitch
                   v-model="editForm.is_active"
                   name="edit_is_active"
                 />
-                <label for="edit_is_active" class="text-sm text-gray-700">Active</label>
               </div>
             </div>
 

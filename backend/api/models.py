@@ -8,10 +8,6 @@ router = APIRouter(tags=["models"])
 
 @router.get("/models", response_model=list[ModelTable])
 def list_models(session=Depends(get_session)):
-    return session.exec(select(ModelTable).where(ModelTable.is_active == True)).all()
-
-@router.get("/models/all", response_model=list[ModelTable])
-def list_all_models(session=Depends(get_session)):
     return session.exec(select(ModelTable)).all()
 
 @router.post("/models", response_model=ModelTable, status_code=201)
