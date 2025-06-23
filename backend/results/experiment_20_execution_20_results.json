@@ -1,0 +1,111 @@
+{
+  "execution_id": 20,
+  "experiment_id": 20,
+  "total_questions_processed": 1,
+  "processing_time_seconds": 1.764941,
+  "results": [
+    {
+      "row_index": 1,
+      "input_data": {
+        "id": 12.8,
+        "question": "What is the Euler tour traversal of a tree?",
+        "desired_answer": "A walk around the tree, starting with the root, where each node is seen three times: from the left, from below, from the right.",
+        "student_answer": "it starts node on the left of the root and then proceeds to visits each node in a left to right order, visits the root, and then proceeds to repeat the previous step on the right side of the tree.",
+        "score_me": 2.5,
+        "score_other": 3.75,
+        "score_avg": 3.125
+      },
+      "maestro_response": {
+        "results": [
+          {
+            "agent_team_name": "Corrector",
+            "agent_name": "Language",
+            "result": {
+              "score": [
+                0.0,
+                0.0,
+                0.2,
+                0.3,
+                0.4,
+                0.1
+              ],
+              "reasoning": "The answer is mostly understandable but has awkward phrasing and some unclear terminology."
+            },
+            "error": null
+          },
+          {
+            "agent_team_name": "Corrector",
+            "agent_name": "Content",
+            "result": {
+              "score": [
+                0.05,
+                0.1,
+                0.25,
+                0.3,
+                0.25,
+                0.05
+              ],
+              "reasoning": "The learner's answer captures the general idea of traversing a tree but misses key details about the three visits per node and the specific order of traversal."
+            },
+            "error": null
+          }
+        ],
+        "success": true,
+        "errors": []
+      },
+      "processed_at": "2025-06-23T16:12:58.333937"
+    }
+  ],
+  "configuration_used": {
+    "execution_id": 20,
+    "dataset_snapshot": {
+      "id": 1,
+      "name": "Mohler",
+      "description": "Mohler dataset",
+      "file_path": "mohler_dataset.csv",
+      "sampling_config": {
+        "sampling_type": "random",
+        "sampling_size": 1,
+        "sampling_start_row": null,
+        "sampling_end_row": null
+      }
+    },
+    "agents": [
+      {
+        "agent_id": 1,
+        "agent_name": "Language",
+        "model_name": "mistral-small-2503",
+        "model_provider": "Mistral",
+        "prompt_name": "Language Evaluator",
+        "prompt_version": "1.0",
+        "system_prompt": "You are a Language agent with deep knowledge of educational science and cognitive psychology",
+        "user_prompt": "You are a Language Evaluation Agent.\n\nEvaluate the learner's answer based on clarity, grammar, and use of appropriate terminology.\n\nUse this scale:\n- **5**: Clear, well-structured, grammatically flawless, and uses correct terminology.\n- **4**: Mostly clear and grammatical, with minor issues or slightly imprecise language.\n- **3**: Understandable but awkward or inconsistent, with several errors.\n- **2**: Hard to follow \u2014 many errors or awkward phrasing.\n- **1**: Poorly written \u2014 mostly ungrammatical or confusing.\n- **0**: Incomprehensible or gibberish.\n\nReturn a **probability distribution** over [0, 1, 2, 3, 4, 5] based on how well the answer communicates its ideas.\n\nOutput JSON format:\n{\n  \"score\": [p0, p1, p2, p3, p4, p5],\n  \"reasoning\": \"...\"  // max 1 sentence\n}\n\nInput:\n<learner_answer></learner_answer>",
+        "variables": [
+          "learner_answer"
+        ],
+        "temperature": 0.0,
+        "max_tokens": null,
+        "execution_order": 1
+      },
+      {
+        "agent_id": 2,
+        "agent_name": "Content",
+        "model_name": "mistral-small-2503",
+        "model_provider": "Mistral",
+        "prompt_name": "Content Evaluator",
+        "prompt_version": "1.0",
+        "system_prompt": "You are a Content agent with deep knowledge of educational science and cognitive psychology",
+        "user_prompt": "You are a Content Evaluation Agent.\n\nEvaluate how well the learner's answer covers the key factual and conceptual points in the reference answer.\n\nUse this scoring scale:\n- **5**: Complete match \u2014 all major points are covered clearly and correctly.\n- **4**: Mostly correct \u2014 1\u20132 minor points are missing or unclear.\n- **3**: Partially correct \u2014 some relevant content, but several important aspects are missing or vague.\n- **2**: Limited correctness \u2014 only a few relevant ideas, with some errors or confusion.\n- **1**: Minimal overlap \u2014 mostly incorrect or off-topic.\n- **0**: Completely incorrect or irrelevant.\n\nReturn a **probability distribution** over [0, 1, 2, 3, 4, 5] based on your confidence in the match.\n\nOutput JSON format:\n{\n  \"score\": [p0, p1, p2, p3, p4, p5],\n  \"reasoning\": \"...\"  // max 1 sentence\n}\n\nInput:\n<learner_answer></learner_answer>\n<reference_answer></reference_answer>",
+        "variables": [
+          "learner_answer",
+          "reference_answer"
+        ],
+        "temperature": 0.0,
+        "max_tokens": null,
+        "execution_order": 2
+      }
+    ]
+  },
+  "maestro_version": "1.0.0",
+  "completed_at": "2025-06-23T16:12:58.436838"
+}

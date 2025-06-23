@@ -112,7 +112,7 @@ export function useExperimentForm() {
   // Helper to get active agent configurations
   const getActiveAgentConfigurations = () => {
     return Object.fromEntries(
-      Object.entries(agentConfigurations.value).filter(([_, config]) => config.is_active !== false),
+      Object.entries(agentConfigurations.value).filter(([_, config]) => config.is_active === true),
     )
   }
 

@@ -120,7 +120,7 @@ async function handleCreateExperiment() {
       message="Get started by creating your first experiment to test your agent teams."
       icon="i-lucide:flask-conical"
       action-label="Create Your First Experiment"
-      :action-to="'/experiments/new'"
+      action-to="/experiments/new"
       @action="handleCreateExperiment"
     />
   </BasePageContent>

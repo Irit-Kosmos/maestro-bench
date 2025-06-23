@@ -18,7 +18,7 @@ queue = Queue("experiments", connection=redis_conn)
 @router.get("/experiments", response_model=List[ExperimentResponse])
 def list_experiments(session: Session = Depends(get_session)):
     """Get all experiments"""
-    experiments = session.exec(select(Experiment)).all()
+    experiments = session.exec(select(Experiment).order_by(Experiment.created_at.desc())).all()
     result = []
     for exp in experiments:
         # Fetch related data
@@ -68,9 +68,9 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
     session.commit()
     session.refresh(experiment)
     
-    # Create individual agent configurations for each team
+    # Create individual agent configurations only for explicitly configured and active agents
     execution_order = 1
-    if exp_data.agent_teams:
+    if exp_data.agent_teams and exp_data.agent_configurations:
         for team_id_str in exp_data.agent_teams:
             team_id = int(team_id_str)
             
@@ -78,8 +78,15 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
             agents = session.exec(select(Agent).where(Agent.team_id == team_id)).all()
             
             for agent in agents:
-                # Get configuration for this agent (if any)
-                agent_config = exp_data.agent_configurations.get(str(agent.id), {}) if exp_data.agent_configurations else {}
+                # Only process agents that have explicit configurations
+                agent_config = exp_data.agent_configurations.get(str(agent.id))
+                if not agent_config:
+                    continue
+                
+                # Skip inactive agents - only create configs for active agents
+                if not agent_config.get('is_active', True):
+                    print(f"Skipping inactive agent {agent.id} ({agent.name})")
+                    continue
                 
                 # Determine prompt version (custom or default)
                 prompt_version_id = agent_config.get('prompt_version_id') or agent.default_prompt_version_id
@@ -104,7 +111,7 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
                     temperature=agent_config.get('temperature'),
                     max_tokens=agent_config.get('max_tokens'),
                     execution_order=execution_order,
-                    is_active=agent_config.get('is_active', True)
+                    is_active=True  # Only active agents reach this point
                 )
                 
                 session.add(exp_agent_config)
