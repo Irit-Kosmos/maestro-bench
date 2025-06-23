@@ -61,7 +61,8 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
         sampling_type=exp_data.sampling_type,
         sampling_size=exp_data.sampling_size,
         sampling_start_row=exp_data.sampling_start_row,
-        sampling_end_row=exp_data.sampling_end_row
+        sampling_end_row=exp_data.sampling_end_row,
+        column_mappings=json.dumps(exp_data.column_mappings) if exp_data.column_mappings else None
     )
     session.add(experiment)
     session.commit()

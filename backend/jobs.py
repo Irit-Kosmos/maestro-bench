@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from datetime import datetime
 
+from typing import Optional
 from sqlmodel import Session, select
 
 from db import engine
@@ -17,6 +18,44 @@ from pathlib import Path
 # MAESTRO API Configuration
 MAESTRO_API_BASE_URL = "http://localhost:8001"
 MAESTRO_API_TIMEOUT = 300  # 5 minutes timeout for long-running experiments
+
+
+def apply_column_mappings(dataset_row: dict, column_mappings_json: Optional[str]) -> dict:
+    """
+    Apply column mappings to transform dataset columns into expected prompt variables
+    
+    Args:
+        dataset_row: A single row from the dataset as a dictionary
+        column_mappings_json: JSON string containing column mapping configuration
+    
+    Returns:
+        dict: Transformed data with mapped column names
+    """
+    if not column_mappings_json:
+        # If no column mappings, return the original data
+        return dataset_row.copy()
+    
+    try:
+        column_mappings = json.loads(column_mappings_json)
+        if not isinstance(column_mappings, list):
+            # If column mappings is not a list, return original data
+            return dataset_row.copy()
+        
+        # Apply the mappings
+        mapped_data = {}
+        for mapping in column_mappings:
+            if isinstance(mapping, dict) and 'sourceColumn' in mapping and 'targetField' in mapping:
+                source_column = mapping['sourceColumn']
+                target_field = mapping['targetField']
+                if source_column in dataset_row:
+                    mapped_data[target_field] = dataset_row[source_column]
+
+        return mapped_data
+        
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        print(f"[Job] Error applying column mappings: {e}")
+        # Return original data if mapping fails
+        return dataset_row.copy()
 
 
 def apply_dataset_sampling(dataset_file_path: str, sampling_config: dict) -> pd.DataFrame:
@@ -254,12 +293,14 @@ def build_maestro_request_payload(execution: ExperimentExecution, dataset_row: d
     Returns:
         dict: The MAESTRO API request payload
     """
-    # Get the dataset snapshot to understand column mappings
-    dataset_snapshot = json.loads(execution.dataset_snapshot)
+    # Get the experiment to access column mappings
+    experiment = session.get(Experiment, execution.experiment_id)
+    if not experiment:
+        raise ValueError(f"Experiment {execution.experiment_id} not found")
     
-    # Build the data object - for now, we'll pass the entire dataset row
-    # In the future, this could be configured with column mappings
-    data = dataset_row.copy()
+
+    # Apply column mappings to transform dataset row into expected format
+    data = apply_column_mappings(dataset_row, experiment.column_mappings)
     
     # Get agent snapshots ordered by execution order
     agent_snapshots = session.exec(
@@ -275,8 +316,15 @@ def build_maestro_request_payload(execution: ExperimentExecution, dataset_row: d
         variables = []
         if snapshot.final_variables:
             try:
-                variables_dict = json.loads(snapshot.final_variables)
-                variables = list(variables_dict.keys()) if isinstance(variables_dict, dict) else []
+                variables_data = json.loads(snapshot.final_variables)
+                if isinstance(variables_data, list):
+                    # Variables stored as array of variable names
+                    variables = variables_data
+                elif isinstance(variables_data, dict):
+                    # Variables stored as dictionary - extract keys
+                    variables = list(variables_data.keys())
+                else:
+                    variables = []
             except (json.JSONDecodeError, TypeError):
                 variables = []
         

@@ -2,7 +2,7 @@
 Request and response models for experiments API
 """
 from __future__ import annotations
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -41,6 +41,9 @@ class ExperimentCreate(BaseModel):
     sampling_size: Optional[int] = None  # Number of rows for random sampling
     sampling_start_row: Optional[int] = None  # Start row for range sampling (1-based)
     sampling_end_row: Optional[int] = None  # End row for range sampling (1-based, inclusive)
+    
+    # Column mapping configuration
+    column_mappings: Optional[List[Dict[str, str]]] = None  # List of mappings: {sourceColumn, targetField}
 
 
 class ExperimentResponse(BaseModel):
@@ -59,6 +62,9 @@ class ExperimentResponse(BaseModel):
     sampling_size: Optional[int] = None
     sampling_start_row: Optional[int] = None
     sampling_end_row: Optional[int] = None
+    
+    # Column mapping configuration
+    column_mappings: Optional[List[Dict[str, str]]] = None
 
 
 class ExperimentUpdate(BaseModel):

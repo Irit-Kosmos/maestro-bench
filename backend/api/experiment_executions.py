@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlmodel import select, Session
 from db import get_session
 from models import (
@@ -12,6 +13,7 @@ from typing import List
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 router = APIRouter(tags=["experiment-executions"])
 
@@ -239,4 +241,50 @@ def update_execution(
         dataset_snapshot=execution.dataset_snapshot,
         results_file_path=execution.results_file_path,
         agent_executions=agent_config_responses
+    )
+
+
+@router.get("/executions/{execution_id}/results", response_class=FileResponse)
+def download_results(execution_id: int, session: Session = Depends(get_session)):
+    """Download the results file of an execution"""
+    execution = session.get(ExperimentExecution, execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    
+    if not execution.results_file_path or not os.path.exists(execution.results_file_path):
+        raise HTTPException(status_code=404, detail="Results file not found")
+    
+    return FileResponse(execution.results_file_path, media_type='application/octet-stream', filename=Path(execution.results_file_path).name)
+
+
+@router.get("/executions/{execution_id}/download-results")
+def download_execution_results(execution_id: int, session: Session = Depends(get_session)):
+    """Download the results file for a specific execution"""
+    execution = session.get(ExperimentExecution, execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    
+    if not execution.results_file_path:
+        raise HTTPException(status_code=404, detail="No results file available for this execution")
+    
+    results_file = Path(execution.results_file_path)
+    
+    # Check if file exists
+    if not results_file.exists():
+        raise HTTPException(status_code=404, detail="Results file not found on disk")
+    
+    # Generate a descriptive filename for download
+    experiment = session.get(Experiment, execution.experiment_id)
+    experiment_name = experiment.name if experiment else f"experiment_{execution.experiment_id}"
+    
+    # Clean experiment name for filename (remove invalid characters)
+    safe_experiment_name = "".join(c for c in experiment_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    safe_experiment_name = safe_experiment_name.replace(' ', '_')
+    
+    download_filename = f"{safe_experiment_name}_execution_{execution_id}_results.json"
+    
+    return FileResponse(
+        path=str(results_file),
+        filename=download_filename,
+        media_type='application/json'
     )

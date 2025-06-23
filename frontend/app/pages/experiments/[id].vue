@@ -10,6 +10,7 @@ const toast = useToast()
 const { fetchExperiment, deleteExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDuration } = useUIHelpers()
+const { downloadResults: downloadResultsFile } = useResultsDownload()
 
 // State
 const experiment = ref<Experiment | null>(null)
@@ -225,6 +226,21 @@ const uniquePrompts = computed(() => {
   return Array.from(promptMap.values())
 })
 
+// Download results
+const downloadResults = async () => {
+  if (!latestExecution.value?.id) {
+    toast.add({
+      title: 'Error',
+      description: 'No execution available to download results from',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
+    return
+  }
+
+  await downloadResultsFile(latestExecution.value.id, experiment.value?.name)
+}
+
 // Lifecycle
 onMounted(() => {
   loadExperiment()
@@ -355,6 +371,7 @@ watch(() => route.params.id, () => {
                 icon="i-lucide-download"
                 size="sm"
                 :disabled="!latestExecution.results_file_path"
+                @click="downloadResults"
               >
                 Download Results
               </UButton>
@@ -788,6 +805,16 @@ watch(() => route.params.id, () => {
                 <div class="text-sm text-neutral-600">
                   {{ execution.agent_executions?.length || 0 }} agents
                 </div>
+                <UButton
+                  v-if="execution.results_file_path"
+                  variant="ghost"
+                  color="neutral"
+                  icon="i-lucide-download"
+                  size="xs"
+                  @click="downloadResultsFile(execution.id, experiment?.name)"
+                >
+                  Download
+                </UButton>
               </div>
             </div>
           </div>

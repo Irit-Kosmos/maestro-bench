@@ -107,6 +107,9 @@ class Experiment(SQLModel, table=True):
     sampling_size: Optional[int] = Field(default=None, description="Number of rows for random sampling")
     sampling_start_row: Optional[int] = Field(default=None, description="Start row for range sampling (1-based)")
     sampling_end_row: Optional[int] = Field(default=None, description="End row for range sampling (1-based, inclusive)")
+    
+    # Column mapping configuration - stores how dataset columns map to prompt variables
+    column_mappings: Optional[str] = Field(default=None, description="JSON string containing column mapping configuration")
 
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")
