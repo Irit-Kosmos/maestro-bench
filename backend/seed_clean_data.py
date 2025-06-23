@@ -148,7 +148,6 @@ Input:
 <learner_answer></learner_answer>
 <reference_answer></reference_answer>""",
             variables=json.dumps(["learner_answer", "reference_answer"]),
-            temperature=0.7,
             is_active=True,
             is_default=True
         )
@@ -185,7 +184,6 @@ To help the learner, you can take the following actions:
 You should respond with a JSON containing 'data' which is an array of an object with the 'action_type' and 'explanation' fields for each values.
 Your response must be in the same language as the query!""",
             variables=json.dumps(["query", "response"]),
-            temperature=0.7,
             is_active=True,
             is_default=True
         )

@@ -80,6 +80,13 @@ watch(selectedDataset, async (newDatasetId) => {
           targetField: 'reference_answer',
         })
       }
+      if (datasetHeaders.value.includes('student_answer')) {
+        defaultMappings.push({
+          id: crypto.randomUUID(),
+          sourceColumn: 'student_answer',
+          targetField: 'learner_answer',
+        })
+      }
       requestConfig.value.columnMappings = defaultMappings
     }
   }

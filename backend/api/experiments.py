@@ -12,7 +12,7 @@ from typing import List
 router = APIRouter(tags=["experiments"])
 
 # Initialize Redis connection and queue
-redis_conn = Redis.from_url("redis://localhost:6379/0")
+redis_conn = Redis.from_url("redis://localhost:6380/0")
 queue = Queue("experiments", connection=redis_conn)
 
 @router.get("/experiments", response_model=List[ExperimentResponse])

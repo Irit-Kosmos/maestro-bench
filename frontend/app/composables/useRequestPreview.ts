@@ -39,6 +39,7 @@ export function useRequestPreview() {
               const promptVersion = config?.prompt_version_id ? allPromptVersions.value?.find(v => v.id === config.prompt_version_id) : null
 
               return {
+                agent_team_name: selectedTeam.value.name, 
                 agent_name: agent.name,
                 model: model?.name,
                 temperature: config?.temperature ?? model?.default_temperature,
