@@ -67,6 +67,7 @@ async function handleDeleteExperiment(_id: number) {
     <ExperimentsTable
       :experiments="recentExperiments || []"
       :loading="pending"
+      :action-to="'/experiments/new'"
       @refresh="refresh"
       @view-experiment="handleViewExperiment"
       @delete-experiment="handleDeleteExperiment"

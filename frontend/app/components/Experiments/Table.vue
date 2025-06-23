@@ -4,6 +4,7 @@ import type { Experiment } from '~/types'
 interface Props {
   experiments: Experiment[]
   loading?: boolean
+  actionTo?: string
 }
 
 interface Emits {
@@ -12,7 +13,7 @@ interface Emits {
   deleteExperiment: [id: number]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { getStatusColor, formatDate } = useUIHelpers()
@@ -62,6 +63,7 @@ function handleRefresh() {
     :columns="columns"
     :actions="actions"
     :loading="loading"
+    :action-to="props.actionTo"
     title="Recent Experiments"
     empty-message="Get started by creating your first experiment."
     @refresh="handleRefresh"

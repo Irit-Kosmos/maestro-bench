@@ -1,3 +1,5 @@
+import type { Agent, AgentTeam } from '~/types'
+
 /**
  * Composable for generating MAESTRO request preview
  */
@@ -10,7 +12,7 @@ export function useRequestPreview() {
   const generatePreviewRequest = (
     selectedDataset: Ref<number | undefined>,
     requestConfig: Ref<{ columnMappings: Array<any> }>,
-    selectedTeam: ComputedRef<any>,
+    selectedTeam: ComputedRef<AgentTeam>,
     agentConfigurations: Ref<Record<number, any>>,
   ) => {
     return computed(() => {
@@ -30,8 +32,8 @@ export function useRequestPreview() {
         data,
         config: {
           agents: selectedTeam.value?.agents
-            .filter((agent: any) => agentConfigurations.value[agent.id]?.is_active !== false)
-            .map((agent: any) => {
+            .filter((agent: Agent) => agentConfigurations.value[agent.id]?.is_active !== false)
+            .map((agent: Agent) => {
               const config = agentConfigurations.value[agent.id]
               const model = config?.model_id ? models.value?.find(m => m.id === config.model_id) : null
               const promptVersion = config?.prompt_version_id ? allPromptVersions.value?.find(v => v.id === config.prompt_version_id) : null
@@ -39,7 +41,7 @@ export function useRequestPreview() {
               return {
                 agent_name: agent.name,
                 model: model?.name,
-                temperature: config?.temperature,
+                temperature: config?.temperature ?? model?.default_temperature,
                 max_tokens: config?.max_tokens,
                 system_prompt: promptVersion?.system_prompt,
                 user_prompt: promptVersion?.user_prompt,

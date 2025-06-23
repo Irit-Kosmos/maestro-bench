@@ -28,6 +28,7 @@ interface Props {
   title?: string
   emptyMessage?: string
   searchable?: boolean
+  actionTo?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -163,6 +164,7 @@ function handleRefresh() {
         :message="searchQuery ? `No items match &quot;${searchQuery}&quot;` : emptyMessage"
         :icon="searchQuery ? 'i-lucide-search-x' : 'i-lucide-folder-open'"
         :action-label="undefined"
+        :action-to="props.actionTo"
       />
     </div>
 

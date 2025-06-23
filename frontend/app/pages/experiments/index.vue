@@ -9,6 +9,7 @@ definePageMeta({
 // Composables
 const { experiments, pending, refresh } = useExperiments()
 const { showComingSoon } = useStandardToast()
+const { formatDate } = useUIHelpers()
 
 // Page meta
 useSeoMeta({
@@ -106,7 +107,7 @@ async function handleCreateExperiment() {
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
           <span class="text-sm text-neutral-500">
-            {{ new Date(row.original.created_at).toLocaleDateString() }}
+            {{ formatDate(row.original.created_at) }}
           </span>
         </template>
       </BaseDataTable>
@@ -119,6 +120,7 @@ async function handleCreateExperiment() {
       message="Get started by creating your first experiment to test your agent teams."
       icon="i-lucide:flask-conical"
       action-label="Create Your First Experiment"
+      :action-to="'/experiments/new'"
       @action="handleCreateExperiment"
     />
   </BasePageContent>
