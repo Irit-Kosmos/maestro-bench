@@ -112,8 +112,8 @@ function openPromptDetails(promptVersionId: number) {
           :key="agent.id"
           class="h-fit"
           :class="{
-            'ring-2 ring-primary-500 bg-primary-50': agentConfigurations[agent.id]?.is_active,
-            'hover:ring-1 hover:ring-neutral-300 opacity-70': !agentConfigurations[agent.id]?.is_active,
+            'ring-2 ring-primary-500 bg-primary-50': agentConfigurations[agent.id]?.is_active === true,
+            'hover:ring-1 hover:ring-neutral-300 opacity-70': agentConfigurations[agent.id]?.is_active !== true,
           }"
         >
           <template #header>
@@ -133,82 +133,103 @@ function openPromptDetails(promptVersionId: number) {
             </div>
           </template>
 
-          <div class="space-y-4">
-            <!-- Prompt Version Selection -->
-            <UFormField label="Prompt Version">
-              <USelect
-                :model-value="agentConfigurations[agent.id]?.prompt_version_id"
-                :items="promptVersionOptions"
-                placeholder="Select prompt version..."
-                class="w-full"
-                @update:model-value="(value) => updateAgentConfig(agent.id, 'prompt_version_id', value)"
-              />
-              <div v-if="agentConfigurations[agent.id]?.prompt_version_id" class="mt-2 flex justify-end">
-                <UButton
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-eye"
-                  @click="openPromptDetails(agentConfigurations[agent.id]?.prompt_version_id!)"
-                >
-                  See details
-                </UButton>
-              </div>
-            </UFormField>
-
-            <!-- Model Selection -->
-            <UFormField label="Model">
-              <USelect
-                :model-value="agentConfigurations[agent.id]?.model_id"
-                :items="modelOptions"
-                placeholder="Select model..."
-                class="w-full"
-                @update:model-value="(value) => updateAgentConfig(agent.id, 'model_id', value)"
-              />
-            </UFormField>
-
-            <!-- Advanced Configuration -->
-            <div class="grid grid-cols-2 gap-3">
-              <UFormField label="Temperature">
-                <UInput
-                  :model-value="agentConfigurations[agent.id]?.temperature?.toString() || ''"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  placeholder="0"
-                  @update:model-value="(value: string) => updateAgentConfig(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
-                />
-              </UFormField>
-
-              <UFormField label="Max Tokens">
-                <UInput
-                  :model-value="agentConfigurations[agent.id]?.max_tokens?.toString() || ''"
-                  type="number"
-                  min="100"
-                  placeholder="10000"
-                  @update:model-value="(value: string) => updateAgentConfig(agent.id, 'max_tokens', value ? Number.parseInt(value) : undefined)"
-                />
-              </UFormField>
-            </div>
-            <!-- Reset to Defaults Button -->
-            <div class="flex justify-end pt-2">
+          <!-- Agent Configuration Section -->
+          <div>
+            <UCollapsible class="flex flex-col">
               <UButton
+                class="group justify-between"
+                label="Configure Agent"
                 variant="ghost"
-                size="xs"
-                icon="i-lucide-rotate-ccw"
-                @click="() => {
-                  updateAgentConfig(agent.id, 'reset', {
-                    prompt_version_id: agent.default_prompt_version_id || undefined,
-                    model_id: agent.default_model_id || undefined,
-                    temperature: undefined,
-                    max_tokens: undefined,
-                    is_active: true,
-                  })
+                icon="i-lucide:settings"
+                trailing-icon="i-lucide-chevron-down"
+                :ui="{
+                  trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
                 }"
-              >
-                Reset to Defaults
-              </UButton>
-            </div>
+                :disabled="!agentConfigurations[agent.id].is_active"
+                block
+              />
+
+              <template #content>
+                <div class="space-y-4 pt-4">
+                  <!-- Prompt Version Selection -->
+                  <UFormField label="Prompt Version">
+                    <USelect
+                      :model-value="agentConfigurations[agent.id]?.prompt_version_id"
+                      :items="promptVersionOptions"
+                      placeholder="Select prompt version..."
+                      class="w-full"
+                      @update:model-value="(value) => updateAgentConfig(agent.id, 'prompt_version_id', value)"
+                    />
+                    <div v-if="agentConfigurations[agent.id]?.prompt_version_id" class="mt-2 flex justify-end">
+                      <UButton
+                        variant="ghost"
+                        size="xs"
+                        icon="i-lucide-eye"
+                        @click="openPromptDetails(agentConfigurations[agent.id]?.prompt_version_id!)"
+                      >
+                        See details
+                      </UButton>
+                    </div>
+                  </UFormField>
+
+                  <!-- Model Selection -->
+                  <UFormField label="Model">
+                    <USelect
+                      :model-value="agentConfigurations[agent.id]?.model_id"
+                      :items="modelOptions"
+                      placeholder="Select model..."
+                      class="w-full"
+                      @update:model-value="(value) => updateAgentConfig(agent.id, 'model_id', value)"
+                    />
+                  </UFormField>
+
+                  <!-- Advanced Configuration -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <UFormField label="Temperature">
+                      <UInput
+                        :model-value="agentConfigurations[agent.id]?.temperature?.toString() || ''"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        placeholder="0"
+                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
+                      />
+                    </UFormField>
+
+                    <UFormField label="Max Tokens">
+                      <UInput
+                        :model-value="agentConfigurations[agent.id]?.max_tokens?.toString() || ''"
+                        type="number"
+                        min="100"
+                        placeholder="10000"
+                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'max_tokens', value ? Number.parseInt(value) : undefined)"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <!-- Reset to Defaults Button -->
+                  <div class="flex justify-end pt-2">
+                    <UButton
+                      variant="ghost"
+                      size="xs"
+                      icon="i-lucide-rotate-ccw"
+                      @click="() => {
+                        updateAgentConfig(agent.id, 'reset', {
+                          prompt_version_id: agent.default_prompt_version_id || undefined,
+                          model_id: agent.default_model_id || undefined,
+                          temperature: undefined,
+                          max_tokens: undefined,
+                          is_active: true,
+                        })
+                      }"
+                    >
+                      Reset to Defaults
+                    </UButton>
+                  </div>
+                </div>
+              </template>
+            </UCollapsible>
           </div>
         </UCard>
       </div>
