@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 from db import engine
 from api import datasets, experiments, agent_teams, agents, experiment_executions, prompts, models
+from config import MAESTRO_API_BASE_URL, API_HOST, API_PORT
 import uvicorn
 
 app = FastAPI(
@@ -14,7 +15,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Support both ports
+    allow_origins=[MAESTRO_API_BASE_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,4 +44,4 @@ def health_check():
     return {"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=API_HOST, port=API_PORT)

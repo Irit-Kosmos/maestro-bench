@@ -1,4 +1,4 @@
-import type { Agent, AgentTeam } from '~/types'
+import type { Agent } from '~/types'
 
 /**
  * Composable for generating MAESTRO request preview
@@ -12,12 +12,16 @@ export function useRequestPreview() {
   const generatePreviewRequest = (
     selectedDataset: Ref<number | undefined>,
     requestConfig: Ref<{ columnMappings: Array<any> }>,
-    selectedTeam: ComputedRef<AgentTeam>,
+    selectedTeam: ComputedRef<any>,
     agentConfigurations: Ref<Record<number, any>>,
   ) => {
     return computed(() => {
       if (!selectedDataset.value || requestConfig.value.columnMappings.length === 0) {
         return 'Select a dataset and configure column mappings to see the request preview'
+      }
+
+      if (!selectedTeam.value) {
+        return 'Select a team to see the request preview'
       }
 
       const sampleData = datasetPreview.value?.sample_data?.[0] || {}
@@ -39,7 +43,7 @@ export function useRequestPreview() {
               const promptVersion = config?.prompt_version_id ? allPromptVersions.value?.find(v => v.id === config.prompt_version_id) : null
 
               return {
-                agent_team_name: selectedTeam.value.name, 
+                agent_team_name: selectedTeam.value!.name,
                 agent_name: agent.name,
                 model: model?.name,
                 temperature: config?.temperature ?? model?.default_temperature,

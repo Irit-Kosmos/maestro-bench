@@ -47,10 +47,11 @@ const {
 } = stepperComposable
 
 // Generate preview request
+const selectedTeam = agentManagement.getSelectedTeam(selectedTeamId)
 const previewRequest = requestPreview.generatePreviewRequest(
   selectedDataset,
   requestConfig,
-  agentManagement.getSelectedTeam(selectedTeamId),
+  selectedTeam,
   agentConfigurations,
 )
 

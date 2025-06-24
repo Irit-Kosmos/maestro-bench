@@ -227,7 +227,7 @@ const uniquePrompts = computed(() => {
 })
 
 // Download results
-const downloadResults = async () => {
+async function downloadResults() {
   if (!latestExecution.value?.id) {
     toast.add({
       title: 'Error',
@@ -238,7 +238,7 @@ const downloadResults = async () => {
     return
   }
 
-  await downloadResultsFile(latestExecution.value.id, experiment.value?.name)
+  await downloadResultsFile(latestExecution.value.id)
 }
 
 // Lifecycle

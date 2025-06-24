@@ -7,12 +7,13 @@ from db import get_session
 from models import Experiment, ExperimentAgentConfig, Dataset, Agent, PromptVersion, Model, AgentTeam
 from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate, ExperimentAgentConfigResponse, DatasetResponse
 from jobs import run_experiment
+from config import REDIS_URL
 from typing import List
 
 router = APIRouter(tags=["experiments"])
 
-# Initialize Redis connection and queue
-redis_conn = Redis.from_url("redis://localhost:6380/0")
+# Initialize Redis connection and queue using configuration
+redis_conn = Redis.from_url(REDIS_URL)
 queue = Queue("experiments", connection=redis_conn)
 
 @router.get("/experiments", response_model=List[ExperimentResponse])

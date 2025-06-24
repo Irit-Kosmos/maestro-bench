@@ -3,6 +3,7 @@ import signal
 import sys
 from rq import Worker, Queue
 from redis import Redis
+from config import REDIS_URL
 
 # Set environment variable to prevent macOS fork issues
 os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
@@ -10,7 +11,8 @@ os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 # Additional macOS-specific environment variables
 os.environ['PYTHONUNBUFFERED'] = '1'
 
-redis_conn = Redis.from_url("redis://localhost:6380/0")
+# Get Redis connection using configuration
+redis_conn = Redis.from_url(REDIS_URL)
 queue = Queue("experiments", connection=redis_conn)
 
 def signal_handler(signum, frame):

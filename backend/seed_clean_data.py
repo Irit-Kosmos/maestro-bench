@@ -57,7 +57,7 @@ def seed_data():
         for model_name in mistral_models:
             model = Model(
                 name=model_name,
-                provider="Mistral",
+                provider="mistral",
                 description=f"Mistral model {model_name}",
                 is_active=True
             )

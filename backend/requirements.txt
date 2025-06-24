@@ -6,3 +6,4 @@ rq
 redis
 pandas
 requests
+python-dotenv

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Index
 
 
 class Model(SQLModel, table=True):
@@ -136,6 +137,11 @@ class ExperimentAgentConfig(SQLModel, table=True):
     is_active: bool = Field(default=True)
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Add unique constraint to prevent duplicate agent configurations per experiment
+    __table_args__ = (
+        Index('idx_experiment_agent_unique', 'experiment_id', 'agent_id', unique=True),
+    )
     
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="agent_configs")
