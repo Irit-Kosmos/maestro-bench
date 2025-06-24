@@ -811,7 +811,7 @@ watch(() => route.params.id, () => {
                   color="neutral"
                   icon="i-lucide-download"
                   size="xs"
-                  @click="downloadResultsFile(execution.id, experiment?.name)"
+                  @click="downloadResultsFile(execution.id)"
                 >
                   Download
                 </UButton>
