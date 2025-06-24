@@ -13,10 +13,10 @@ from models import (
     ExperimentExecution, AgentExecutionSnapshot, PromptVersion, Model
 )
 from pathlib import Path
+from dataset_utils import validate_dataset_file
 
-
+from config import MAESTRO_API_BASE_URL
 # MAESTRO API Configuration
-MAESTRO_API_BASE_URL = "http://localhost:8001"
 MAESTRO_API_TIMEOUT = 300  # 5 minutes timeout for long-running experiments
 
 
@@ -74,16 +74,13 @@ def apply_dataset_sampling(dataset_file_path: str, sampling_config: dict) -> pd.
         pandas.DataFrame: The sampled dataset
     """
     # Load the full dataset
-    # Default folder is '../datasets', so we prepend it to the file path
-    dataset_file_path = Path("../datasets") / dataset_file_path
-    if not dataset_file_path.exists():
-        raise FileNotFoundError(f"Dataset file not found: {dataset_file_path}")
-    file_extension = dataset_file_path.suffix.lower()
+    dataset_full_path = validate_dataset_file(dataset_file_path)
+    file_extension = dataset_full_path.suffix.lower()
     
     if file_extension == '.csv':
-        df = pd.read_csv(dataset_file_path)
+        df = pd.read_csv(dataset_full_path)
     elif file_extension == '.json':
-        df = pd.read_json(dataset_file_path)
+        df = pd.read_json(dataset_full_path)
     else:
         raise ValueError(f"Unsupported file format: {file_extension}")
     

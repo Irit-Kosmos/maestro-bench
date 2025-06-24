@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 from db import engine
 from api import datasets, experiments, agent_teams, agents, experiment_executions, prompts, models
-from config import MAESTRO_API_BASE_URL, API_HOST, API_PORT
+from config import API_HOST, API_PORT
 import uvicorn
 
 app = FastAPI(
@@ -15,7 +15,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[MAESTRO_API_BASE_URL],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

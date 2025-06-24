@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Frontend Configuration
-MAESTRO_API_BASE_URL = os.getenv("MAESTRO_API_BASE_URL", "http://localhost:3000")
+# MAESTRO Configuration
+MAESTRO_API_BASE_URL = os.getenv("MAESTRO_API_BASE_URL", "http://host.docker.internal:8001")
 
 # Redis Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")

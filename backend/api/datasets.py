@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from db import get_session
 from models import Dataset
+from dataset_utils import get_dataset_file_path, validate_dataset_file
 import pandas as pd
 import json
 import os
@@ -40,11 +41,10 @@ def get_dataset_preview(dataset_id: int, session=Depends(get_session)):
         raise HTTPException(400, "Dataset has no file path")
     
     # Construct the full path to the dataset file
-    datasets_dir = Path(__file__).parent.parent.parent / "datasets"
-    file_path = datasets_dir / dataset.file_path
-    
-    if not file_path.exists():
-        raise HTTPException(404, f"Dataset file not found: {dataset.file_path}")
+    try:
+        file_path = validate_dataset_file(dataset.file_path)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
     
     try:
         file_extension = file_path.suffix.lower()
@@ -111,11 +111,10 @@ def get_dataset_info(dataset_id: int, session=Depends(get_session)):
         raise HTTPException(400, "Dataset has no file path")
     
     # Construct the full path to the dataset file
-    datasets_dir = Path(__file__).parent.parent.parent / "datasets"
-    file_path = datasets_dir / dataset.file_path
-    
-    if not file_path.exists():
-        raise HTTPException(404, f"Dataset file not found: {dataset.file_path}")
+    try:
+        file_path = validate_dataset_file(dataset.file_path)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
     
     try:
         file_extension = file_path.suffix.lower()
@@ -179,8 +178,7 @@ def delete_dataset(dataset_id: int, session=Depends(get_session)):
         raise HTTPException(404, "Dataset not found")
 
     # Remove the file from the filesystem
-    datasets_dir = Path(__file__).parent.parent.parent / "datasets"
-    file_path = datasets_dir / dataset.file_path
+    file_path = get_dataset_file_path(dataset.file_path)
 
     if file_path.exists():
         os.remove(file_path)
