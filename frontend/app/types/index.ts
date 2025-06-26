@@ -43,6 +43,15 @@ export interface Dataset {
   file_path?: string
 }
 
+export interface DatasetStats {
+  id: number
+  name: string
+  description: string
+  file_path?: string
+  created_at: string
+  experiment_count: number
+}
+
 export interface AgentConfig {
   id: number
   experiment_id: number

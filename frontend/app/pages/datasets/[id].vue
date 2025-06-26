@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Dataset } from '~/types'
+import type { Dataset, DatasetStats } from '~/types'
 
 // Route params
 const route = useRoute()
@@ -7,10 +7,11 @@ const datasetId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
 const toast = useToast()
-const { datasets, deleteDataset } = useDatasets()
+const { deleteDataset, getDataset, getDatasetStats } = useDatasets()
 
 // State
 const dataset = ref<Dataset | null>(null)
+const datasetStats = ref<DatasetStats | null>(null)
 const loading = ref(true)
 const showDeleteDialog = ref(false)
 
@@ -28,24 +29,18 @@ useSeoMeta({
 async function loadDataset() {
   loading.value = true
   try {
-    // Find dataset in existing data or fetch from API
-    if (!datasets.value || datasets.value.length === 0) {
-      toast.add({
-        title: 'Error',
-        description: 'No datasets data available',
-        color: 'error',
-        icon: 'i-lucide:alert-circle',
-      })
-      await navigateTo('/datasets')
-      return
-    }
+    // Fetch dataset directly by ID
+    const datasetResult = await getDataset(datasetId.value)
+    if (datasetResult.success && datasetResult.data) {
+      dataset.value = datasetResult.data
 
-    const found = datasets.value.find(ds => ds.id === datasetId.value)
-    if (found) {
-      dataset.value = JSON.parse(JSON.stringify(found))
+      // Fetch dataset stats including experiment count
+      const statsResult = await getDatasetStats(datasetId.value)
+      if (statsResult.success && statsResult.data) {
+        datasetStats.value = statsResult.data
+      }
     }
     else {
-      // TODO: Implement API call to fetch single dataset
       toast.add({
         title: 'Error',
         description: 'Dataset not found',
@@ -253,10 +248,13 @@ watch(() => route.params.id, () => {
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-neutral-600">
-                This dataset has been used in <span class="font-semibold text-neutral-900">0</span> experiments.
+                This dataset has been used in
+                <span class="font-semibold text-neutral-900">
+                  {{ datasetStats?.experiment_count ?? 0 }}
+                </span> experiments.
               </p>
-              <p class="text-xs text-neutral-500 mt-1">
-                Experiment usage tracking will be implemented in future iterations.
+              <p v-if="!datasetStats" class="text-xs text-neutral-500 mt-1">
+                Loading experiment count...
               </p>
             </div>
             <UButton

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from db import get_session
-from models import Dataset
+from models import Dataset, Experiment
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 import pandas as pd
 import json
@@ -170,6 +170,30 @@ def get_dataset_info(dataset_id: int, session=Depends(get_session)):
             
     except Exception as e:
         raise HTTPException(500, f"Error reading dataset file: {str(e)}")
+
+@router.get("/datasets/{dataset_id}/stats", response_model=dict)
+def get_dataset_stats(dataset_id: int, session=Depends(get_session)):
+    """
+    Get dataset with additional statistics including experiment count
+    """
+
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+    
+    # Count experiments using this dataset
+    experiment_count = session.exec(
+        select(Experiment).where(Experiment.dataset_id == dataset_id)
+    ).all()
+    
+    return {
+        "id": dataset.id,
+        "name": dataset.name,
+        "description": dataset.description,
+        "file_path": dataset.file_path,
+        "created_at": dataset.created_at,
+        "experiment_count": len(experiment_count)
+    }
 
 @router.delete("/datasets/{dataset_id}", status_code=204)
 def delete_dataset(dataset_id: int, session=Depends(get_session)):
