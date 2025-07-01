@@ -1,4 +1,14 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.local
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    networks:
+      - maestro-network
   redis:
     image: redis:7
     restart: always

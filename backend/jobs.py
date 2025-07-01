@@ -459,24 +459,6 @@ def process_maestro_results(execution: ExperimentExecution, maestro_results: lis
         "completed_at": datetime.utcnow().isoformat()
     }
     
-    # Calculate summary statistics
-    if maestro_results:
-        # Extract scores if available (this depends on MAESTRO response format)
-        scores = []
-        for result in maestro_results:
-            if isinstance(result, dict) and 'score' in result:
-                if isinstance(result['score'], (int, float)):
-                    scores.append(result['score'])
-                elif isinstance(result['score'], list) and result['score']:
-                    # If score is a probability distribution, use the expected value
-                    expected_score = sum(i * prob for i, prob in enumerate(result['score']))
-                    scores.append(expected_score)
-        
-        if scores:
-            complete_results["average_score"] = sum(scores) / len(scores)
-            complete_results["min_score"] = min(scores)
-            complete_results["max_score"] = max(scores)
-    
     # Save to file
     with open(results_file_path, 'w') as f:
         json.dump(complete_results, f, indent=2, default=str)
@@ -494,10 +476,6 @@ def process_maestro_results(execution: ExperimentExecution, maestro_results: lis
         "processing_time_seconds": complete_results["processing_time_seconds"],
         "results_file_path": str(results_file_path)
     }
-    
-    if "average_score" in complete_results:
-        summary["average_score"] = complete_results["average_score"]
-    
     return summary
 
 
