@@ -2,8 +2,7 @@ fastapi
 uvicorn[standard]
 sqlmodel
 pydantic
-rq
-redis
+aiohttp
 pandas
 requests
 python-dotenv

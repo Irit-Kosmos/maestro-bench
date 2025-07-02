@@ -11,9 +11,6 @@ load_dotenv()
 # MAESTRO Configuration
 MAESTRO_API_BASE_URL = os.getenv("MAESTRO_API_BASE_URL", "http://host.docker.internal:8001")
 
-# Redis Configuration
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
-
 # API Configuration
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))

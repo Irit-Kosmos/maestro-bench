@@ -1,20 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select, Session
-from rq import Queue
-from redis import Redis
 import json
 from db import get_session
 from models import Experiment, ExperimentAgentConfig, Dataset, Agent, PromptVersion, Model, AgentTeam
 from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate, ExperimentAgentConfigResponse, DatasetResponse
-from jobs import run_experiment
-from config import REDIS_URL
+from async_jobs import task_runner
 from typing import List
 
 router = APIRouter(tags=["experiments"])
-
-# Initialize Redis connection and queue using configuration
-redis_conn = Redis.from_url(REDIS_URL)
-queue = Queue("experiments", connection=redis_conn)
 
 @router.get("/experiments", response_model=List[ExperimentResponse])
 def list_experiments(session: Session = Depends(get_session)):
@@ -120,12 +113,15 @@ def create_experiment(exp_data: ExperimentCreate, session: Session = Depends(get
     
     session.commit()
     
-    # Automatically queue the experiment job
+    # Automatically start the experiment using async processing
     try:
-        job = queue.enqueue(run_experiment, experiment.id)
-        print(f"[API] Experiment {experiment.id} queued with job ID: {job.id}")
+        success = task_runner.start_experiment(experiment.id)
+        if success:
+            print(f"[API] Experiment {experiment.id} started with async processor")
+        else:
+            print(f"[API] Failed to start experiment {experiment.id}")
     except Exception as e:
-        print(f"[API] Failed to queue experiment {experiment.id}: {str(e)}")
+        print(f"[API] Failed to start experiment {experiment.id}: {str(e)}")
         # Don't fail the creation, just log the error
     
     # Return the created experiment with related data
@@ -254,3 +250,21 @@ def delete_experiment(exp_id: int, session: Session = Depends(get_session)):
     session.commit()
     
     return {"message": "Experiment deleted successfully"}
+
+@router.get("/experiments/{experiment_id}/status")
+def get_experiment_status(experiment_id: int):
+    """Get the current processing status of an experiment"""
+    task_status = task_runner.get_task_status(experiment_id)
+    return {
+        "experiment_id": experiment_id,
+        "task_status": task_status
+    }
+
+@router.post("/experiments/{experiment_id}/cancel")
+def cancel_experiment(experiment_id: int):
+    """Cancel a running experiment"""
+    success = task_runner.cancel_experiment(experiment_id)
+    return {
+        "experiment_id": experiment_id,
+        "cancelled": success
+    }

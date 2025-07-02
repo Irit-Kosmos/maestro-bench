@@ -1,23 +1,19 @@
-import time
+"""
+Shared utilities for experiment processing.
+Contains functions used by both sync and async experiment processors.
+"""
 import json
 import pandas as pd
-import requests
 from datetime import datetime
-
 from typing import Optional
+from pathlib import Path
 from sqlmodel import Session, select
 
-from db import engine
 from models import (
-    Experiment, ExperimentAgentConfig, Agent, AgentTeam, Dataset, 
+    Experiment, ExperimentAgentConfig, Agent, Dataset, 
     ExperimentExecution, AgentExecutionSnapshot, PromptVersion, Model
 )
-from pathlib import Path
 from dataset_utils import validate_dataset_file
-
-from config import MAESTRO_API_BASE_URL
-# MAESTRO API Configuration
-MAESTRO_API_TIMEOUT = 300  # 5 minutes timeout for long-running experiments
 
 
 def apply_column_mappings(dataset_row: dict, column_mappings_json: Optional[str]) -> dict:
@@ -53,7 +49,7 @@ def apply_column_mappings(dataset_row: dict, column_mappings_json: Optional[str]
         return mapped_data
         
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-        print(f"[Job] Error applying column mappings: {e}")
+        print(f"[ExperimentUtils] Error applying column mappings: {e}")
         # Return original data if mapping fails
         return dataset_row.copy()
 
@@ -93,7 +89,7 @@ def apply_dataset_sampling(dataset_file_path: str, sampling_config: dict) -> pd.
         sampling_size = sampling_config.get('sampling_size')
         if sampling_size and sampling_size > 0:
             sample_size = min(sampling_size, len(df))
-            return df.sample(n=sample_size, random_state=42)  # Fixed seed for reproducibility
+            return df.sample(n=sample_size)
         else:
             return df
     
@@ -160,14 +156,22 @@ def create_execution_snapshot(experiment_id: int, session: Session) -> Experimen
     # Create agent execution snapshots
     for agent_config in agent_configs:
         agent = session.get(Agent, agent_config.agent_id)
+        if not agent:
+            print(f"[ExperimentUtils] Warning: Agent {agent_config.agent_id} not found")
+            continue
+            
         prompt_version = session.get(PromptVersion, agent_config.prompt_version_id or agent.default_prompt_version_id)
         model = session.get(Model, agent_config.model_id or agent.default_model_id)
         
         if not prompt_version or not model:
-            print(f"[Job] Warning: Missing prompt version or model for agent {agent.id}")
+            print(f"[ExperimentUtils] Warning: Missing prompt version or model for agent {agent.id}")
             continue
         
         # Create agent execution snapshot
+        if execution.id is None or agent.id is None:
+            print(f"[ExperimentUtils] Warning: Invalid execution or agent ID")
+            continue
+            
         agent_snapshot = AgentExecutionSnapshot(
             execution_id=execution.id,
             agent_id=agent.id,
@@ -186,97 +190,10 @@ def create_execution_snapshot(experiment_id: int, session: Session) -> Experimen
         session.add(agent_snapshot)
     
     session.commit()
-    print(f"[Job] Created execution snapshot {execution.id} for experiment {experiment_id} with {len(agent_configs)} agent configs")
+    print(f"[ExperimentUtils] Created execution snapshot {execution.id} for experiment {experiment_id} with {len(agent_configs)} agent configs")
     
     return execution
 
-
-def run_experiment(experiment_id: int):
-    """Run an experiment with complete traceability and robust database handling"""
-    print(f"[Job] Starting experiment {experiment_id}")
-    
-    try:
-        with Session(engine) as session:
-            # Update experiment status
-            experiment = session.get(Experiment, experiment_id)
-            if not experiment:
-                print(f"[Job] Experiment {experiment_id} not found")
-                return
-            
-            print(f"[Job] Found experiment: {experiment.name} (status: {experiment.status})")
-            experiment.status = "running" 
-            session.add(experiment)
-            session.commit()
-            print(f"[Job] Updated experiment {experiment_id} status to 'running'")
-            
-            # Create execution snapshot
-            execution = create_execution_snapshot(experiment_id, session)
-            print(f"[Job] Created execution snapshot {execution.id}")
-            
-            # Get dataset and apply sampling
-            dataset_snapshot = json.loads(execution.dataset_snapshot)
-            dataset_file_path = dataset_snapshot.get("file_path")
-            sampling_config = dataset_snapshot.get("sampling_config", {})
-            
-            if not dataset_file_path:
-                raise Exception("Dataset file path not found in snapshot")
-                
-            print(f"[Job] Loading dataset from {dataset_file_path}")
-            sampled_dataset = apply_dataset_sampling(dataset_file_path, sampling_config)
-            print(f"[Job] Dataset loaded with {len(sampled_dataset)} rows after sampling")
-            
-            # Execute experiment using MAESTRO API
-            results_summary = execute_maestro_experiment(execution, sampled_dataset, session)
-            print(f"[Job] MAESTRO execution completed: {results_summary}")
-            
-            # Mark execution as completed
-            execution.status = "completed"
-            execution.completed_at = datetime.utcnow()
-            session.add(execution)
-            
-            # Mark experiment as completed
-            experiment.status = "completed"
-            experiment.completed_at = datetime.utcnow()
-            session.add(experiment)
-            session.commit()
-            
-            print(f"[Job] Experiment {experiment_id} completed successfully")
-            
-    except Exception as e:
-        print(f"[Job] Error in experiment {experiment_id}: {str(e)}")
-        import traceback
-        print(f"[Job] Full traceback: {traceback.format_exc()}")
-        
-        # Mark experiment and execution as failed with retry logic
-        try:
-            with Session(engine) as session:
-                experiment = session.get(Experiment, experiment_id)
-                if experiment:
-                    experiment.status = "failed"
-                    session.add(experiment)
-                    
-                    # Also mark any running executions as failed
-                    executions = session.exec(
-                        select(ExperimentExecution)
-                        .where(
-                            ExperimentExecution.experiment_id == experiment_id,
-                            ExperimentExecution.status == "running"
-                        )
-                    ).all()
-                    
-                    for execution in executions:
-                        execution.status = "failed"
-                        execution.completed_at = datetime.utcnow()
-                        session.add(execution)
-                    
-                    session.commit()
-                    print(f"[Job] Marked experiment {experiment_id} and its executions as failed")
-                else:
-                    print(f"[Job] Could not find experiment {experiment_id} to mark as failed")
-        except Exception as update_error:
-            print(f"[Job] Failed to update experiment status: {str(update_error)}")
-            import traceback
-            print(f"[Job] Update error traceback: {traceback.format_exc()}")
 
 def build_maestro_request_payload(execution: ExperimentExecution, dataset_row: dict, session: Session) -> dict:
     """
@@ -294,7 +211,6 @@ def build_maestro_request_payload(execution: ExperimentExecution, dataset_row: d
     experiment = session.get(Experiment, execution.experiment_id)
     if not experiment:
         raise ValueError(f"Experiment {execution.experiment_id} not found")
-    
 
     # Apply column mappings to transform dataset row into expected format
     data = apply_column_mappings(dataset_row, experiment.column_mappings)
@@ -352,58 +268,6 @@ def build_maestro_request_payload(execution: ExperimentExecution, dataset_row: d
     return request_payload
 
 
-def call_maestro_api(request_payload: dict) -> dict:
-    """
-    Call the MAESTRO API with the given payload
-    
-    Args:
-        request_payload: The request payload to send to MAESTRO
-        
-    Returns:
-        dict: The response from MAESTRO API
-        
-    Raises:
-        requests.RequestException: If the API call fails
-        ValueError: If the response is not valid JSON
-    """
-    url = f"{MAESTRO_API_BASE_URL}/api/flexible-agents"
-    
-    try:
-        print(f"[Job] Calling MAESTRO API at {url}")
-        response = requests.post(
-            url,
-            json=request_payload,
-            headers={"Content-Type": "application/json"},
-            timeout=MAESTRO_API_TIMEOUT
-        )
-        
-        response.raise_for_status()  # Raises an HTTPError for bad responses
-        
-        result = response.json()
-        print(f"[Job] MAESTRO API call successful")
-        return result
-        
-    except requests.exceptions.ConnectionError as e:
-        error_msg = f"Cannot connect to MAESTRO API at {url}. Make sure MAESTRO is running on port 8001."
-        print(f"[Job] {error_msg}")
-        raise requests.RequestException(error_msg) from e
-        
-    except requests.exceptions.Timeout as e:
-        error_msg = f"MAESTRO API call timed out after {MAESTRO_API_TIMEOUT} seconds"
-        print(f"[Job] {error_msg}")
-        raise requests.RequestException(error_msg) from e
-        
-    except requests.exceptions.HTTPError as e:
-        error_msg = f"MAESTRO API returned error status {response.status_code}: {response.text}"
-        print(f"[Job] {error_msg}")
-        raise requests.RequestException(error_msg) from e
-        
-    except json.JSONDecodeError as e:
-        error_msg = f"MAESTRO API returned invalid JSON response: {response.text}"
-        print(f"[Job] {error_msg}")
-        raise ValueError(error_msg) from e
-
-
 def process_maestro_results(execution: ExperimentExecution, maestro_results: list, session: Session) -> dict:
     """
     Process MAESTRO results and save them to disk
@@ -427,7 +291,6 @@ def process_maestro_results(execution: ExperimentExecution, maestro_results: lis
     complete_results = {
         "execution_id": execution.id,
         "experiment_id": execution.experiment_id,
-        "total_questions_processed": len(maestro_results),
         "processing_time_seconds": (datetime.utcnow() - execution.started_at).total_seconds(),
         "results": maestro_results,
         "configuration_used": {
@@ -463,7 +326,7 @@ def process_maestro_results(execution: ExperimentExecution, maestro_results: lis
     with open(results_file_path, 'w') as f:
         json.dump(complete_results, f, indent=2, default=str)
     
-    print(f"[Job] Results saved to {results_file_path}")
+    print(f"[ExperimentUtils] Results saved to {results_file_path}")
     
     # Update execution record with results file path
     execution.results_file_path = str(results_file_path)
@@ -472,75 +335,7 @@ def process_maestro_results(execution: ExperimentExecution, maestro_results: lis
     
     # Return summary for immediate use
     summary = {
-        "total_questions_processed": complete_results["total_questions_processed"],
         "processing_time_seconds": complete_results["processing_time_seconds"],
         "results_file_path": str(results_file_path)
     }
     return summary
-
-
-def execute_maestro_experiment(execution: ExperimentExecution, sampled_dataset: pd.DataFrame, session: Session) -> dict:
-    """
-    Execute the experiment using MAESTRO API for each row in the dataset
-    
-    Args:
-        execution: The experiment execution with snapshots
-        sampled_dataset: The sampled dataset to process
-        session: Database session
-        
-    Returns:
-        dict: Summary of the execution results
-    """
-    maestro_results = []
-    total_rows = len(sampled_dataset)
-    
-    print(f"[Job] Starting MAESTRO execution for {total_rows} rows")
-    
-    for idx, (_, row) in enumerate(sampled_dataset.iterrows(), 1):
-        try:
-            print(f"[Job] Processing row {idx}/{total_rows}")
-            
-            # Convert row to dictionary
-            row_dict = row.to_dict()
-            
-            # Build MAESTRO request payload
-            request_payload = build_maestro_request_payload(execution, row_dict, session)
-            
-            # Call MAESTRO API
-            maestro_response = call_maestro_api(request_payload)
-            
-            # Store the result with metadata
-            result_entry = {
-                "row_index": idx,
-                "input_data": row_dict,
-                "maestro_response": maestro_response,
-                "processed_at": datetime.utcnow().isoformat()
-            }
-            
-            maestro_results.append(result_entry)
-            
-            # Brief pause between requests to avoid overwhelming the API
-            time.sleep(0.1)
-            
-        except Exception as e:
-            error_msg = f"Error processing row {idx}: {str(e)}"
-            print(f"[Job] {error_msg}")
-            
-            # Store error in results
-            error_entry = {
-                "row_index": idx,
-                "input_data": row.to_dict(),
-                "error": error_msg,
-                "processed_at": datetime.utcnow().isoformat()
-            }
-            maestro_results.append(error_entry)
-            
-            # Continue with next row rather than failing the entire experiment
-            continue
-    
-    print(f"[Job] MAESTRO execution completed. Processed {len(maestro_results)} rows")
-    
-    # Process and save results
-    results_summary = process_maestro_results(execution, maestro_results, session)
-    
-    return results_summary

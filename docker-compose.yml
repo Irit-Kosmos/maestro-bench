@@ -9,13 +9,6 @@ services:
       - ./frontend:/app
     networks:
       - maestro-network
-  redis:
-    image: redis:7
-    restart: always
-    ports:
-      - "6380:6379"
-    networks:
-      - maestro-network
 
   backend:
     build:
@@ -25,7 +18,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - REDIS_URL=redis://redis:6379/0
       - MAESTRO_API_BASE_URL=http://host.docker.internal:8001
       - API_HOST=0.0.0.0
       - API_PORT=8000
@@ -33,33 +25,11 @@ services:
     volumes:
       - ./backend:/app
       - ./datasets:/app/datasets
-    depends_on:
-      - redis
     networks:
       - maestro-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    restart: always
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - MAESTRO_API_BASE_URL=http://host.docker.internal:8001
-      - DATABASE_URL=sqlite:///./app.db
-    volumes:
-      - ./backend:/app
-      - ./datasets:/app/datasets
-    depends_on:
-      - redis
-    networks:
-      - maestro-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: ["python", "worker.py"]
 
 networks:
   maestro-network:

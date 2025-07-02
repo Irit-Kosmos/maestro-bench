@@ -3,6 +3,11 @@ FROM python:3.13-slim
 
 # Prevents Python from buffering stdout/stderr
 ENV PYTHONUNBUFFERED=1
+ENV OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
+# Memory optimization environment variables
+ENV PYTHONHASHSEED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Set working directory
 WORKDIR /app
@@ -20,7 +25,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
