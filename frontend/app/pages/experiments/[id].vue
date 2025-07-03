@@ -863,7 +863,7 @@ watch(() => route.params.id, () => {
       </template>
 
       <template #footer>
-        <div class="flex gap-3 justify-end">
+        <div class="flex gap-3 w-full justify-end">
           <UButton
             variant="outline"
             color="neutral"

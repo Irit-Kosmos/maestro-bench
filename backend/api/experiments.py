@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select, Session
 import json
 from db import get_session
-from models import Experiment, ExperimentAgentConfig, Dataset, Agent, PromptVersion, Model, AgentTeam
+from models import (
+    Experiment, ExperimentAgentConfig, Dataset, Agent, PromptVersion, Model, 
+    AgentTeam, ExperimentExecution, AgentExecutionSnapshot
+)
 from schemas.experiments import ExperimentCreate, ExperimentResponse, ExperimentUpdate, ExperimentAgentConfigResponse, DatasetResponse
 from async_jobs import task_runner
 from typing import List
@@ -240,7 +243,18 @@ def delete_experiment(exp_id: int, session: Session = Depends(get_session)):
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
     
-    # Delete all experiment agent configurations first
+    # Delete all experiment executions and their related data first
+    executions = session.exec(select(ExperimentExecution).where(ExperimentExecution.experiment_id == exp_id)).all()
+    for execution in executions:
+        # Delete all agent execution snapshots for this execution
+        agent_snapshots = session.exec(select(AgentExecutionSnapshot).where(AgentExecutionSnapshot.execution_id == execution.id)).all()
+        for snapshot in agent_snapshots:
+            session.delete(snapshot)
+        
+        # Delete the execution itself
+        session.delete(execution)
+    
+    # Delete all experiment agent configurations
     agent_configs = session.exec(select(ExperimentAgentConfig).where(ExperimentAgentConfig.experiment_id == exp_id)).all()
     for config in agent_configs:
         session.delete(config)

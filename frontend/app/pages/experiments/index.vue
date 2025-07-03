@@ -7,9 +7,11 @@ definePageMeta({
 })
 
 // Composables
-const { experiments, pending, refresh } = useExperiments()
-const { showComingSoon } = useStandardToast()
+const { experiments, pending, refresh, deleteExperiment } = useExperiments()
 const { formatDate } = useUIHelpers()
+const showDeleteDialog = ref(false)
+const isDeleting = ref(false)
+const experimentId = ref<number | null>(null)
 
 // Page meta
 useSeoMeta({
@@ -62,7 +64,46 @@ async function handleViewExperiment(id: number) {
 }
 
 async function handleDeleteExperiment(_id: number) {
-  showComingSoon('Delete confirmation dialog')
+  experimentId.value = _id
+  showDeleteDialog.value = true
+}
+
+async function confirmDelete() {
+  if (!experimentId.value)
+    return
+
+  isDeleting.value = true
+
+  try {
+    await deleteExperiment(experimentId.value)
+
+    // Show success toast
+    const toast = useToast()
+    toast.add({
+      title: 'Success',
+      description: 'Experiment deleted successfully',
+      color: 'success',
+    })
+
+    // Close modal and reset state
+    showDeleteDialog.value = false
+    experimentId.value = null
+
+    // Refresh experiments list
+    await refresh()
+  }
+  catch {
+    // Show error toast
+    const toast = useToast()
+    toast.add({
+      title: 'Error',
+      description: 'Failed to delete experiment',
+      color: 'error',
+    })
+  }
+  finally {
+    isDeleting.value = false
+  }
 }
 
 async function handleCreateExperiment() {
@@ -123,5 +164,33 @@ async function handleCreateExperiment() {
       action-to="/experiments/new"
       @action="handleCreateExperiment"
     />
+
+    <UModal v-model:open="showDeleteDialog" title="Delete Experiment">
+      <template #body>
+        <p class="text-neutral-600">
+          Are you sure you want to delete this experiment? This action cannot be undone.
+        </p>
+      </template>
+
+      <template #footer>
+        <div class="flex gap-3 w-full justify-end">
+          <UButton
+            variant="outline"
+            color="neutral"
+            @click="showDeleteDialog = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            variant="solid"
+            color="error"
+            :loading="isDeleting"
+            @click="confirmDelete"
+          >
+            Delete
+          </UButton>
+        </div>
+      </template>
+    </UModal>
   </BasePageContent>
 </template>
