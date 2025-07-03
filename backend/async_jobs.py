@@ -343,6 +343,7 @@ class AsyncExperimentProcessor:
                 "user_prompt": snapshot.final_user_prompt,
                 "variables": variables,
                 "model": snapshot.model_name_snapshot,
+                "provider": snapshot.model_provider_snapshot,
                 "temperature": snapshot.final_temperature if snapshot.final_temperature is not None else 0.0
             }
             
