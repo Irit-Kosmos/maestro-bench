@@ -192,7 +192,7 @@ function openPromptDetails(promptVersionId: number) {
                         step="0.1"
                         min="0"
                         max="1"
-                        placeholder="0"
+                        placeholder="0.7"
                         @update:model-value="(value: string) => updateAgentConfig(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
                       />
                     </UFormField>

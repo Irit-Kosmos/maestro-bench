@@ -88,10 +88,7 @@ const columns = [
     key: 'is_active',
     label: 'Status',
   },
-  {
-    key: 'created_at',
-    label: 'Created',
-  },
+
 ]
 
 const actions = [
@@ -152,14 +149,14 @@ async function handleCreateModel() {
     // Convert numeric fields to numbers if they exist and are not empty
     const formData = {
       ...createForm.value,
-      max_tokens: createForm.value.max_tokens && createForm.value.max_tokens.trim()
-        ? Number(createForm.value.max_tokens)
+      max_tokens: createForm.value.max_tokens && String(createForm.value.max_tokens).trim()
+        ? Number(String(createForm.value.max_tokens).trim())
         : undefined,
-      default_temperature: createForm.value.default_temperature && createForm.value.default_temperature.trim()
-        ? Number(createForm.value.default_temperature)
+      default_temperature: createForm.value.default_temperature && String(createForm.value.default_temperature).trim()
+        ? Number(String(createForm.value.default_temperature).trim())
         : undefined,
-      default_max_tokens: createForm.value.default_max_tokens && createForm.value.default_max_tokens.trim()
-        ? Number(createForm.value.default_max_tokens)
+      default_max_tokens: createForm.value.default_max_tokens && String(createForm.value.default_max_tokens).trim()
+        ? Number(String(createForm.value.default_max_tokens).trim())
         : undefined,
     }
 
@@ -187,9 +184,9 @@ function editModel(model: Model) {
     name: model.name,
     provider: model.provider,
     description: model.description || '',
-    max_tokens: model.max_tokens ? model.max_tokens.toString() : '',
-    default_temperature: model.default_temperature ? model.default_temperature.toString() : '',
-    default_max_tokens: model.default_max_tokens ? model.default_max_tokens.toString() : '',
+    max_tokens: model.max_tokens ? String(model.max_tokens) : '',
+    default_temperature: model.default_temperature !== null && model.default_temperature !== undefined ? String(model.default_temperature) : '',
+    default_max_tokens: model.default_max_tokens ? String(model.default_max_tokens) : '',
     is_active: model.is_active,
   }
   showEditModal.value = true
@@ -204,14 +201,14 @@ async function handleUpdateModel() {
     // Convert numeric fields to numbers if they exist and are not empty
     const formData = {
       ...editForm.value,
-      max_tokens: editForm.value.max_tokens && editForm.value.max_tokens.trim()
-        ? Number(editForm.value.max_tokens)
+      max_tokens: editForm.value.max_tokens && String(editForm.value.max_tokens).trim()
+        ? Number(String(editForm.value.max_tokens).trim())
         : undefined,
-      default_temperature: editForm.value.default_temperature && editForm.value.default_temperature.trim()
-        ? Number(editForm.value.default_temperature)
+      default_temperature: editForm.value.default_temperature && String(editForm.value.default_temperature).trim()
+        ? Number(String(editForm.value.default_temperature).trim())
         : undefined,
-      default_max_tokens: editForm.value.default_max_tokens && editForm.value.default_max_tokens.trim()
-        ? Number(editForm.value.default_max_tokens)
+      default_max_tokens: editForm.value.default_max_tokens && String(editForm.value.default_max_tokens).trim()
+        ? Number(String(editForm.value.default_max_tokens).trim())
         : undefined,
     }
 
@@ -348,13 +345,6 @@ watch(() => showDeleteModal.value, (newValue) => {
             :label="row.original.is_active ? 'Active' : 'Inactive'"
             variant="soft"
           />
-        </template>
-
-        <!-- Custom cell for created_at -->
-        <template #created_at-cell="{ row }">
-          <span class="text-sm text-neutral-500">
-            {{ new Date(row.original.created_at).toLocaleDateString() }}
-          </span>
         </template>
 
         <!-- Custom cell for description -->
