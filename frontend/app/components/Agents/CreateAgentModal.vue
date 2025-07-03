@@ -4,6 +4,8 @@ import type { AgentTeam, CreateAgentForm } from '~/types'
 interface Props {
   open?: boolean
   availableTeams?: readonly AgentTeam[]
+  availablePromptVersions?: readonly any[]
+  availableModels?: readonly any[]
 }
 
 interface Emits {
@@ -14,12 +16,10 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   open: false,
   availableTeams: () => [],
+  availablePromptVersions: () => [],
+  availableModels: () => [],
 })
 const emit = defineEmits<Emits>()
-
-// Composables
-const { allPromptVersions } = usePrompts()
-const { models } = useModels()
 
 const show = computed({
   get: () => props.open,
@@ -45,20 +45,20 @@ const formValid = computed(() => {
 })
 
 const promptVersionOptions = computed(() => {
-  if (!allPromptVersions.value)
+  if (!props.availablePromptVersions)
     return []
-  return allPromptVersions.value.map(version => ({
+  return props.availablePromptVersions.map((version: any) => ({
     label: `${version.prompt?.name || 'Unknown'} v${version.version}`,
     value: version.id,
   }))
 })
 
 const modelOptions = computed(() => {
-  if (!models.value)
+  if (!props.availableModels)
     return []
-  return models.value
-    .filter(model => model.is_active)
-    .map(model => ({
+  return props.availableModels
+    .filter((model: any) => model.is_active)
+    .map((model: any) => ({
       label: `${model.name} (${model.provider})`,
       value: model.id,
     }))

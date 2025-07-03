@@ -4,6 +4,9 @@
 export function useModels() {
   const { $api } = useNuxtApp()
 
+  // Reactive data fetching for models
+  const { data: models, pending: modelsPending, refresh: refreshModels } = useMyLazyFetch<any[]>('/models/all')
+
   // Fetch all models (including inactive)
   async function getAllModels() {
     try {
@@ -91,6 +94,9 @@ export function useModels() {
   }
 
   return {
+    models,
+    modelsPending,
+    refreshModels,
     getAllModels,
     createModel,
     updateModel,

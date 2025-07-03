@@ -9,6 +9,8 @@ const { createAgent, updateAgent, deleteAgent } = useAgents()
 // Fetch data directly in the page
 const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
+const { data: allPromptVersions, pending: _promptVersionsPending } = await useMyLazyFetch<any[]>('/prompt-versions')
+const { data: models, pending: _modelsPending } = await useMyLazyFetch<any[]>('/models')
 
 // Page meta
 useSeoMeta({
@@ -374,6 +376,8 @@ const tabItems = [
     <AgentsCreateAgentModal
       v-model:open="showCreateAgentModal"
       :available-teams="agentTeams as any"
+      :available-prompt-versions="allPromptVersions as any"
+      :available-models="models as any"
       @submit="handleCreateAgent"
     />
 
@@ -382,6 +386,8 @@ const tabItems = [
       v-model:open="showEditAgentModal"
       :agent="selectedAgent"
       :available-teams="agentTeams as any"
+      :available-prompt-versions="allPromptVersions as any"
+      :available-models="models as any"
       @submit="handleUpdateAgent"
     />
 
