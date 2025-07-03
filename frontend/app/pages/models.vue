@@ -6,8 +6,11 @@ definePageMeta({
   title: 'Models',
 })
 
+// Fetch data directly in the page
+const { data: models, pending, error, refresh } = await useMyLazyFetch<Model[]>('/models')
+
 // Composables
-const { models, pending, error, createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
+const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
 const { selectedProviders, searchQuery, filterModels, toggleProvider, updateSearch, clearFilters } = useModelFilters()
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
 
@@ -165,6 +168,8 @@ async function handleCreateModel() {
       showCreateSuccess('Model')
       showCreateModal.value = false
       resetCreateForm()
+      // Refresh the models list
+      await refresh()
     }
     else {
       showCreateError('Model', typeof result.error === 'string' ? result.error : undefined)
@@ -218,6 +223,8 @@ async function handleUpdateModel() {
       showEditModal.value = false
       editingModel.value = null
       resetEditForm()
+      // Refresh the models list
+      await refresh()
     }
     else {
       showUpdateError('Model', typeof result.error === 'string' ? result.error : undefined)
@@ -234,7 +241,11 @@ async function handleUpdateModel() {
 async function handleToggleStatus(model: Model) {
   try {
     const result = await toggleStatus(model.id)
-    if (!result.success) {
+    if (result.success) {
+      // Refresh the models list
+      await refresh()
+    }
+    else {
       showUpdateError('Model status', typeof result.error === 'string' ? result.error : undefined)
     }
   }
@@ -259,6 +270,8 @@ async function handleDeleteModel() {
       showDeleteSuccess('Model')
       showDeleteModal.value = false
       modelToDelete.value = null
+      // Refresh the models list
+      await refresh()
     }
     else {
       showDeleteError('Model', typeof result.error === 'string' ? result.error : undefined)

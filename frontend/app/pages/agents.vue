@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import type { Agent, AgentTeam } from '~/types'
+
 // Composables
 const toast = useToast()
-const { agentTeams, pending, createTeam } = useAgentTeams()
-const { agents, createAgent, updateAgent, deleteAgent, pending: agentsPending } = useAgents()
+const { createTeam } = useAgentTeams()
+const { createAgent, updateAgent, deleteAgent } = useAgents()
+
+// Fetch data directly in the page
+const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
 
 // Page meta
 useSeoMeta({
@@ -39,6 +45,49 @@ function handleDeleteAgentClick(agent: any) {
   showDeleteAgentModal.value = true
 }
 
+async function handleCreateTeam(data: any) {
+  const result = await createTeam(data)
+  if (result.success) {
+    toast.add({
+      title: 'Success',
+      description: 'Team created successfully',
+      color: 'success',
+      icon: 'i-lucide:check',
+    })
+    await refreshTeams()
+  }
+  else {
+    toast.add({
+      title: 'Error',
+      description: result.error || 'Failed to create team',
+      color: 'error',
+      icon: 'i-lucide:x',
+    })
+  }
+}
+
+async function handleCreateAgent(data: any) {
+  const result = await createAgent(data)
+  if (result.success) {
+    toast.add({
+      title: 'Success',
+      description: 'Agent created successfully',
+      color: 'success',
+      icon: 'i-lucide:check',
+    })
+    await refreshAgents()
+    await refreshTeams() // Also refresh teams as they include agents
+  }
+  else {
+    toast.add({
+      title: 'Error',
+      description: result.error || 'Failed to create agent',
+      color: 'error',
+      icon: 'i-lucide:x',
+    })
+  }
+}
+
 async function handleUpdateAgent(data: any) {
   const result = await updateAgent(data.id, {
     name: data.name,
@@ -57,6 +106,8 @@ async function handleUpdateAgent(data: any) {
     })
     showEditAgentModal.value = false
     selectedAgent.value = null
+    await refreshAgents()
+    await refreshTeams() // Also refresh teams as they include agents
   }
   else {
     toast.add({
@@ -79,6 +130,8 @@ async function handleDeleteAgent(agentId: number) {
     })
     showDeleteAgentModal.value = false
     selectedAgent.value = null
+    await refreshAgents()
+    await refreshTeams() // Also refresh teams as they include agents
   }
   else {
     toast.add({
@@ -314,14 +367,14 @@ const tabItems = [
     <AgentsCreateTeamModal
       v-model:open="showCreateTeamModal"
       :available-agents="agents as any"
-      @submit="createTeam"
+      @submit="handleCreateTeam"
     />
 
     <!-- Create Agent Modal -->
     <AgentsCreateAgentModal
       v-model:open="showCreateAgentModal"
       :available-teams="agentTeams as any"
-      @submit="createAgent"
+      @submit="handleCreateAgent"
     />
 
     <!-- Edit Agent Modal -->

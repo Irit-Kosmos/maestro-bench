@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { Dataset } from '~/types'
+
 interface Props {
   selectedDataset?: number
+  datasets?: Dataset[] | null
 }
 
 interface Emits {
@@ -10,7 +13,8 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const { datasets } = useDatasets()
+// Get datasets from props
+const datasets = computed(() => props.datasets || [])
 
 // Track which dataset preview is expanded
 const expandedDataset = ref<number | null>(null)

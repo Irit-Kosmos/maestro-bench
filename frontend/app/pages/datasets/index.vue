@@ -6,8 +6,11 @@ definePageMeta({
   title: 'Datasets',
 })
 
+// Fetch data directly in the page
+const { data: datasets, pending, refresh } = await useMyLazyFetch<Dataset[]>('/datasets')
+
 // Composables
-const { datasets, pending, refresh, createDataset, deleteDataset } = useDatasets()
+const { createDataset, deleteDataset } = useDatasets()
 const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 // Page meta
@@ -63,6 +66,8 @@ async function handleCreateDataset(formData: CreateDatasetForm) {
     if (result.success) {
       showCreateSuccess('Dataset')
       showCreateModal.value = false
+      // Refresh the datasets list
+      await refresh()
     }
     else {
       showCreateError('Dataset', typeof result.error === 'string' ? result.error : undefined)
@@ -86,6 +91,8 @@ async function handleDeleteDataset(id: number) {
 
   if (result.success) {
     showDeleteSuccess('Dataset')
+    // Refresh the datasets list
+    await refresh()
   }
   else {
     showDeleteError('Dataset', typeof result.error === 'string' ? result.error : undefined)

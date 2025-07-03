@@ -1,7 +1,7 @@
 /**
  * Composable for managing stepper navigation and modal state
  */
-export function useExperimentStepper() {
+export function useExperimentStepper(allPromptVersions: Ref<any[] | null | undefined> = ref(null)) {
   // Stepper state
   const currentStep = ref(0)
   const stepper = useTemplateRef<any>('stepper')
@@ -34,7 +34,6 @@ export function useExperimentStepper() {
 
   // Modal handlers
   function openPromptDetails(promptVersionId: number) {
-    const { allPromptVersions } = useAgentManagement()
     const promptVersion = allPromptVersions.value?.find(v => v.id === promptVersionId)
     if (promptVersion) {
       selectedPromptVersionForDetails.value = promptVersion

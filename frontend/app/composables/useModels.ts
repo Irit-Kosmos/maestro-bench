@@ -1,13 +1,8 @@
-import type { Model } from '~/types'
-
 /**
  * Composable for managing LLM models
  */
 export function useModels() {
   const { $api } = useNuxtApp()
-
-  // Fetch models with auto-refresh capability
-  const { data: models, refresh, pending, error } = useMyLazyFetch<Model[]>('/models')
 
   // Fetch all models (including inactive)
   async function getAllModels() {
@@ -35,9 +30,6 @@ export function useModels() {
         body: modelData,
       })
 
-      // Refresh the models list
-      await refresh()
-
       return { success: true, data: response }
     }
     catch (error) {
@@ -60,9 +52,6 @@ export function useModels() {
         body: modelData,
       })
 
-      // Refresh the models list
-      await refresh()
-
       return { success: true, data: response }
     }
     catch (error) {
@@ -77,9 +66,6 @@ export function useModels() {
       await $api(`/models/${modelId}`, {
         method: 'DELETE',
       })
-
-      // Refresh the models list
-      await refresh()
 
       return { success: true }
     }
@@ -96,9 +82,6 @@ export function useModels() {
         method: 'PATCH',
       })
 
-      // Refresh the models list
-      await refresh()
-
       return { success: true, data: response }
     }
     catch (error) {
@@ -108,10 +91,6 @@ export function useModels() {
   }
 
   return {
-    models,
-    refresh,
-    pending,
-    error,
     getAllModels,
     createModel,
     updateModel,

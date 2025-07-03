@@ -1,24 +1,8 @@
-import type { AgentTeam } from '~/types'
-
 /**
- * Composable for managing agent teams data and operations
+ * Composable for managing agent teams operations
  */
 export function useAgentTeams() {
   const { $api } = useNuxtApp()
-
-  // Fetch agent teams with auto-refresh capability
-  const { data: agentTeams, refresh, pending, error } = useMyLazyFetch<AgentTeam[]>('/agent-teams')
-
-  // Get available agent teams for experiment creation
-  const availableTeams = computed(() => {
-    if (!agentTeams.value || agentTeams.value.length === 0)
-      return []
-    return agentTeams.value.map(team => ({
-      id: team.id,
-      name: team.name,
-      description: team.description,
-    }))
-  })
 
   // Create a new agent team
   async function createTeam(teamData: { name: string, description: string, agent_ids?: number[] }) {
@@ -27,9 +11,6 @@ export function useAgentTeams() {
         method: 'POST',
         body: teamData,
       })
-
-      // Refresh the teams list
-      await refresh()
 
       return { success: true, data: response }
     }
@@ -47,9 +28,6 @@ export function useAgentTeams() {
         body: teamData,
       })
 
-      // Refresh the teams list
-      await refresh()
-
       return { success: true, data: response }
     }
     catch (error) {
@@ -65,9 +43,6 @@ export function useAgentTeams() {
         method: 'DELETE',
       })
 
-      // Refresh the teams list
-      await refresh()
-
       return { success: true }
     }
     catch (error) {
@@ -77,11 +52,6 @@ export function useAgentTeams() {
   }
 
   return {
-    agentTeams: readonly(computed(() => agentTeams.value ?? null)),
-    availableTeams: readonly(availableTeams),
-    pending: readonly(pending),
-    error: readonly(error),
-    refresh,
     createTeam,
     updateTeam,
     deleteTeam,

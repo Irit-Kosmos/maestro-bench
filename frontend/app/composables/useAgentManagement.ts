@@ -1,11 +1,11 @@
 /**
  * Composable for managing agent team selection and configuration
  */
-export function useAgentManagement() {
-  const { agentTeams } = useAgentTeams()
-  const { allPromptVersions } = usePrompts()
-  const { models } = useModels()
-
+export function useAgentManagement(
+  agentTeams: Ref<any[] | null | undefined> = ref(null),
+  allPromptVersions: Ref<any[] | null | undefined> = ref(null),
+  models: Ref<any[] | null | undefined> = ref(null),
+) {
   // Get full teams data with agents
   const fullTeams = computed(() => agentTeams.value || [])
 
@@ -50,7 +50,7 @@ export function useAgentManagement() {
     if (selectedTeamId.value !== null) {
       const previousTeam = fullTeams.value.find(t => t.id === selectedTeamId.value)
       if (previousTeam) {
-        previousTeam.agents.forEach((agent) => {
+        previousTeam.agents.forEach((agent: any) => {
           delete agentConfigurations.value[agent.id]
         })
       }
@@ -63,7 +63,7 @@ export function useAgentManagement() {
     // Initialize configurations for new team with default values
     const team = fullTeams.value.find(t => t.id === teamId)
     if (team) {
-      team.agents.forEach((agent) => {
+      team.agents.forEach((agent: any) => {
         agentConfigurations.value[agent.id] = {
           prompt_version_id: agent.default_prompt_version_id || undefined,
           model_id: agent.default_model_id || undefined,

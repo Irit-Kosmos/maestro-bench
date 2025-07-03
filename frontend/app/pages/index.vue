@@ -1,21 +1,51 @@
 <script setup lang="ts">
+import type { Agent, AgentTeam, Dataset, Experiment } from '~/types'
+
 // Page meta
 definePageMeta({
   title: 'Dashboard',
 })
 
+// Fetch data directly in the page
+const { data: experiments, pending: experimentsPending, refresh: refreshExperiments } = await useMyLazyFetch<Experiment[]>('/experiments')
+const { data: datasets, pending: datasetsPending, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
+const { data: agentTeams, pending: teamsPending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
+
 // Composables
-const { recentExperiments, stats, pending, refresh } = useExperiments()
-const { datasets, pending: datasetsPending } = useDatasets()
-const { agentTeams, pending: teamsPending } = useAgentTeams()
-const { agents, pending: agentsPending } = useAgents()
 const { showComingSoon } = useStandardToast()
+
+// Refresh all data
+async function refresh() {
+  await Promise.all([
+    refreshExperiments(),
+    refreshDatasets(),
+    refreshTeams(),
+    refreshAgents(),
+  ])
+}
 
 // Computed stats
 const datasetsCount = computed(() => datasets.value?.length || 0)
 const agentTeamsCount = computed(() => agentTeams.value?.length || 0)
 const agentsCount = computed(() => agents.value?.length || 0)
 const isAdditionalStatsLoading = computed(() => datasetsPending.value || teamsPending.value || agentsPending.value)
+
+// Recent experiments (last 10)
+const recentExperiments = computed(() => {
+  return experiments.value?.slice(0, 10) || []
+})
+
+// Overall loading state
+const pending = computed(() => experimentsPending.value || datasetsPending.value || teamsPending.value || agentsPending.value)
+
+// Stats computed
+const stats = computed(() => ({
+  totalExperiments: experiments.value?.length || 0,
+  totalDatasets: datasets.value?.length || 0,
+  totalAgentTeams: agentTeams.value?.length || 0,
+  totalAgents: agents.value?.length || 0,
+}))
 
 // Navigation handlers
 async function handleViewExperiment(id: number) {
@@ -38,7 +68,7 @@ async function handleDeleteExperiment(_id: number) {
       <!-- Total Experiments -->
       <DashboardStatsCard
         title="Total Experiments"
-        :value="stats.total"
+        :value="stats.totalExperiments"
         icon="i-lucide:activity"
         icon-color="text-blue-600"
         :loading="pending"

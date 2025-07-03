@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import type { Prompt } from '~/types'
+
 // Page meta
 definePageMeta({
   title: 'Prompts',
 })
 
+// Fetch data directly in the page
+const { data: prompts, pending, error, refresh } = await useMyLazyFetch<Prompt[]>('/prompts')
+
 // Composables
-const { prompts, pending, error, createPrompt } = usePrompts()
+const { createPrompt } = usePrompts()
 const { showCreateSuccess, showCreateError } = useStandardToast()
 
 // Page meta
@@ -54,6 +59,8 @@ async function handleCreatePrompt() {
       showCreateSuccess('Prompt')
       showCreateModal.value = false
       resetCreateForm()
+      // Refresh the prompts list
+      await refresh()
     }
     else {
       showCreateError('Prompt', typeof result.error === 'string' ? result.error : undefined)

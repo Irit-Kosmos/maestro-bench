@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import type { AgentTeam, Model, PromptVersion } from '~/types'
+
 interface Props {
   selectedTeamId: number | null
   agentConfigurations: Record<number, any>
+  agentTeams?: AgentTeam[] | null
+  models?: Model[] | null
+  allPromptVersions?: PromptVersion[] | null
 }
 
 interface Emits {
@@ -13,12 +18,132 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// Get agent management data
-const { fullTeams, promptVersionOptions, modelOptions, getSelectedTeam } = useAgentManagement()
+// Get agent management data from props
+const agentTeams = computed(() => props.agentTeams || [])
+const models = computed(() => props.models || [])
+const allPromptVersions = computed(() => props.allPromptVersions || [])
 
 // Get selected team
-const selectedTeamId = toRef(props, 'selectedTeamId')
-const selectedTeam = computed(() => getSelectedTeam(selectedTeamId))
+const selectedTeam = computed(() => {
+  return props.selectedTeamId ? agentTeams.value.find(team => team.id === props.selectedTeamId) : null
+})
+
+// Create grouped model options for USelectMenu
+const modelMenuOptions = computed(() => {
+  if (!models.value)
+    return []
+
+  const groupedModels: Record<string, any[]> = {}
+
+  // Group models by provider
+  models.value
+    .filter(model => model.is_active)
+    .forEach((model) => {
+      if (!groupedModels[model.provider]) {
+        groupedModels[model.provider] = []
+      }
+      groupedModels[model.provider]!.push({
+        label: model.name,
+        value: model.id,
+      })
+    })
+
+  // Create the menu structure with separators
+  const menuItems: any[] = []
+  const providers = Object.keys(groupedModels).sort()
+
+  providers.forEach((provider, index) => {
+    // Add provider label
+    menuItems.push({
+      type: 'label',
+      label: provider,
+    })
+
+    // Add models for this provider
+    groupedModels[provider]!.forEach((model) => {
+      menuItems.push(model)
+    })
+
+    // Add separator between providers (except for the last one)
+    if (index < providers.length - 1) {
+      menuItems.push({
+        type: 'separator',
+      })
+    }
+  })
+
+  return menuItems
+})
+
+// Get selectable model items only (no separators/labels)
+const selectableModelItems = computed(() => {
+  return modelMenuOptions.value.filter(item => item.value !== undefined)
+})
+
+// Create grouped prompt version options for USelectMenu
+const promptMenuOptions = computed(() => {
+  if (!allPromptVersions.value)
+    return []
+
+  const groupedPrompts: Record<string, any[]> = {}
+
+  // Group prompt versions by prompt name
+  allPromptVersions.value
+    .filter(version => version.is_active)
+    .forEach((version) => {
+      const promptName = version.prompt?.name || 'Unknown'
+      if (!groupedPrompts[promptName]) {
+        groupedPrompts[promptName] = []
+      }
+      groupedPrompts[promptName]!.push({
+        label: `v${version.version}${version.is_default ? ' (Default)' : ''}`,
+        value: version.id,
+      })
+    })
+
+  // Create the menu structure with separators
+  const menuItems: any[] = []
+  const promptNames = Object.keys(groupedPrompts).sort()
+
+  promptNames.forEach((promptName, index) => {
+    // Add prompt name label
+    menuItems.push({
+      type: 'label',
+      label: promptName,
+    })
+
+    // Add versions for this prompt
+    groupedPrompts[promptName]!.forEach((version) => {
+      menuItems.push(version)
+    })
+
+    // Add separator between prompts (except for the last one)
+    if (index < promptNames.length - 1) {
+      menuItems.push({
+        type: 'separator',
+      })
+    }
+  })
+
+  return menuItems
+})
+
+// Get selectable prompt items only (no separators/labels)
+const selectablePromptItems = computed(() => {
+  return promptMenuOptions.value.filter(item => item.value !== undefined)
+})
+
+// Get selected model item for display
+function getSelectedModelItem(agentId: number) {
+  const modelId = props.agentConfigurations[agentId]?.model_id
+  return selectableModelItems.value.find(item => item.value === modelId) || null
+}
+
+// Get selected prompt item for display
+function getSelectedPromptItem(agentId: number) {
+  const promptVersionId = props.agentConfigurations[agentId]?.prompt_version_id
+  return selectablePromptItems.value.find(item => item.value === promptVersionId) || null
+}
 
 function selectTeam(teamId: number) {
   emit('selectTeam', teamId)
@@ -36,9 +161,9 @@ function openPromptDetails(promptVersionId: number) {
 <template>
   <div class="space-y-6">
     <!-- Team Selection Grid -->
-    <div v-if="fullTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <div v-if="agentTeams.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
       <UCard
-        v-for="team in fullTeams"
+        v-for="team in agentTeams"
         :key="team.id"
         class="cursor-pointer hover:shadow-md transition-all duration-200"
         :class="{
@@ -95,10 +220,10 @@ function openPromptDetails(promptVersionId: number) {
     </div>
 
     <!-- Agent Configuration Section (appears when team is selected) -->
-    <div v-if="selectedTeam.value" class="border-t border-neutral-200 pt-8">
+    <div v-if="selectedTeam" class="border-t border-neutral-200 pt-8">
       <div class="mb-6">
         <h4 class="text-lg font-semibold text-neutral-900 mb-2">
-          Configure {{ selectedTeam.value?.name }} Agents
+          Configure {{ selectedTeam?.name }} Agents
         </h4>
         <p class="text-neutral-600">
           Select prompt versions and models for each agent, or use their defaults
@@ -108,7 +233,7 @@ function openPromptDetails(promptVersionId: number) {
       <!-- Agents Configuration Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UCard
-          v-for="agent in selectedTeam.value?.agents"
+          v-for="agent in selectedTeam?.agents"
           :key="agent.id"
           class="h-fit"
           :class="{
@@ -145,7 +270,7 @@ function openPromptDetails(promptVersionId: number) {
                 :ui="{
                   trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
                 }"
-                :disabled="!agentConfigurations[agent.id].is_active"
+                :disabled="!agentConfigurations[agent.id]?.is_active"
                 block
               />
 
@@ -153,12 +278,12 @@ function openPromptDetails(promptVersionId: number) {
                 <div class="space-y-4 pt-4">
                   <!-- Prompt Version Selection -->
                   <UFormField label="Prompt Version">
-                    <USelect
-                      :model-value="agentConfigurations[agent.id]?.prompt_version_id"
-                      :items="promptVersionOptions"
+                    <USelectMenu
+                      :model-value="getSelectedPromptItem(agent.id)"
+                      :items="promptMenuOptions"
                       placeholder="Select prompt version..."
                       class="w-full"
-                      @update:model-value="(value) => updateAgentConfig(agent.id, 'prompt_version_id', value)"
+                      @update:model-value="(selectedItem) => updateAgentConfig(agent.id, 'prompt_version_id', selectedItem?.value || null)"
                     />
                     <div v-if="agentConfigurations[agent.id]?.prompt_version_id" class="mt-2 flex justify-end">
                       <UButton
@@ -174,12 +299,12 @@ function openPromptDetails(promptVersionId: number) {
 
                   <!-- Model Selection -->
                   <UFormField label="Model">
-                    <USelect
-                      :model-value="agentConfigurations[agent.id]?.model_id"
-                      :items="modelOptions"
+                    <USelectMenu
+                      :model-value="getSelectedModelItem(agent.id)"
+                      :items="modelMenuOptions"
                       placeholder="Select model..."
                       class="w-full"
-                      @update:model-value="(value) => updateAgentConfig(agent.id, 'model_id', value)"
+                      @update:model-value="(selectedItem) => updateAgentConfig(agent.id, 'model_id', selectedItem?.value || null)"
                     />
                   </UFormField>
 

@@ -1,11 +1,12 @@
-import type { Agent } from '~/types'
+import type { Agent, Model, PromptVersion } from '~/types'
 
 /**
  * Composable for generating MAESTRO request preview
  */
-export function useRequestPreview() {
-  const { models } = useModels()
-  const { allPromptVersions } = usePrompts()
+export function useRequestPreview(
+  models: Ref<Model[] | null | undefined> = ref(null),
+  allPromptVersions: Ref<PromptVersion[] | null | undefined> = ref(null),
+) {
   const { preview: datasetPreview } = useDatasetPreview()
 
   // Generate preview of the MAESTRO request
@@ -45,6 +46,7 @@ export function useRequestPreview() {
               return {
                 agent_team_name: selectedTeam.value!.name,
                 agent_name: agent.name,
+                provider: model?.provider,
                 model: model?.name,
                 temperature: config?.temperature ?? model?.default_temperature,
                 max_tokens: config?.max_tokens,

@@ -1,16 +1,8 @@
-import type { Prompt, PromptVersion } from '~/types'
-
 /**
  * Composable for managing prompts and their versions
  */
 export function usePrompts() {
   const { $api } = useNuxtApp()
-
-  // Fetch prompts with auto-refresh capability
-  const { data: prompts, refresh, pending, error } = useMyLazyFetch<Prompt[]>('/prompts')
-
-  // Fetch all prompt versions for dropdowns
-  const { data: allPromptVersions, refresh: refreshVersions } = useMyLazyFetch<PromptVersion[]>('/prompt-versions')
 
   // Create a new prompt
   async function createPrompt(promptData: { name: string, description?: string, category?: string }) {
@@ -19,9 +11,6 @@ export function usePrompts() {
         method: 'POST',
         body: promptData,
       })
-
-      // Refresh the prompts list
-      await refresh()
 
       return { success: true, data: response }
     }
@@ -39,9 +28,6 @@ export function usePrompts() {
         body: promptData,
       })
 
-      // Refresh the prompts list
-      await refresh()
-
       return { success: true, data: response }
     }
     catch (error) {
@@ -56,9 +42,6 @@ export function usePrompts() {
       await $api(`/prompts/${promptId}`, {
         method: 'DELETE',
       })
-
-      // Refresh the prompts list
-      await refresh()
 
       return { success: true }
     }
@@ -144,12 +127,6 @@ export function usePrompts() {
   }
 
   return {
-    prompts,
-    allPromptVersions,
-    refresh,
-    refreshVersions,
-    pending,
-    error,
     createPrompt,
     updatePrompt,
     deletePrompt,

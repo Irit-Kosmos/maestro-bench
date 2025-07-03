@@ -6,8 +6,11 @@ definePageMeta({
   title: 'Experiments',
 })
 
+// Fetch data directly in the page
+const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[]>('/experiments')
+
 // Composables
-const { experiments, pending, refresh, deleteExperiment } = useExperiments()
+const { deleteExperiment } = useExperiments()
 const { formatDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)

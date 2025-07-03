@@ -1,14 +1,21 @@
 <script setup lang="ts">
+import type { AgentTeam, Dataset, Model, PromptVersion } from '~/types'
 import { stepperItems } from '~/config/stepperConfig'
+
+// Fetch data directly in the page
+const { data: agentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: models } = await useMyLazyFetch<Model[]>('/models')
+const { data: allPromptVersions } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
+const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 
 // Composables
 const { preview: datasetPreview, loadPreview } = useDatasetPreview()
 
-// Custom composables
+// Custom composables - pass data as parameters
 const experimentForm = useExperimentForm()
-const agentManagement = useAgentManagement()
-const requestPreview = useRequestPreview()
-const stepperComposable = useExperimentStepper()
+const agentManagement = useAgentManagement(agentTeams, allPromptVersions, models)
+const requestPreview = useRequestPreview(models, allPromptVersions)
+const stepperComposable = useExperimentStepper(allPromptVersions)
 const submission = useExperimentSubmission()
 
 // Destructure form state
@@ -196,6 +203,7 @@ function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value:
             <template #dataset>
               <ExperimentsStepsDatasetSelection
                 :selected-dataset="selectedDataset"
+                :datasets="datasets"
                 @update:selected-dataset="(value) => selectedDataset = value"
               />
             </template>
@@ -217,6 +225,9 @@ function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value:
               <ExperimentsStepsAgentConfiguration
                 :selected-team-id="selectedTeamId"
                 :agent-configurations="agentConfigurations"
+                :agent-teams="agentTeams"
+                :models="models"
+                :all-prompt-versions="allPromptVersions"
                 @select-team="selectTeam"
                 @update-agent-config="updateAgentConfig"
                 @open-prompt-details="openPromptDetails"

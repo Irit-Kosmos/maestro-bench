@@ -6,9 +6,6 @@ import type { CreateDatasetForm, Dataset, DatasetStats } from '~/types'
 export function useDatasets() {
   const { $api } = useNuxtApp()
 
-  // Fetch datasets with auto-refresh capability
-  const { data: datasets, refresh, pending, error } = useMyLazyFetch<Dataset[]>('/datasets')
-
   // Create a new dataset
   async function createDataset(datasetData: CreateDatasetForm) {
     try {
@@ -16,9 +13,6 @@ export function useDatasets() {
         method: 'POST',
         body: datasetData,
       })
-
-      // Refresh the datasets list
-      await refresh()
 
       return { success: true, data: response }
     }
@@ -34,9 +28,6 @@ export function useDatasets() {
       await $api(`/datasets/${id}`, {
         method: 'DELETE',
       })
-
-      // Refresh the datasets list
-      await refresh()
 
       return { success: true }
     }
@@ -88,10 +79,6 @@ export function useDatasets() {
   }
 
   return {
-    datasets: readonly(computed(() => datasets.value ?? null)),
-    pending: readonly(pending),
-    error: readonly(error),
-    refresh,
     createDataset,
     deleteDataset,
     getDataset,
