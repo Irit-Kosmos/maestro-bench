@@ -18,7 +18,9 @@ const isOpen = computed({
 </script>
 
 <template>
-  <UModal v-model:open="isOpen">
+  <UModal
+    v-model:open="isOpen" :ui="{ content: 'lg:min-w-1/2' }"
+  >
     <template #content>
       <UCard class="overflow-auto max-h-[80vh]">
         <template #header>

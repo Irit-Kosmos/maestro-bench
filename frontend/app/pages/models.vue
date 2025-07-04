@@ -34,9 +34,9 @@ const createForm = ref({
   name: '',
   provider: '',
   description: '',
-  max_tokens: '' as string,
-  default_temperature: '' as string,
-  default_max_tokens: '' as string,
+  max_tokens: null as number | null,
+  default_temperature: null as number | null,
+  default_max_tokens: null as number | null,
   is_active: true,
 })
 
@@ -44,9 +44,9 @@ const editForm = ref({
   name: '',
   provider: '',
   description: '',
-  max_tokens: '' as string,
-  default_temperature: '' as string,
-  default_max_tokens: '' as string,
+  max_tokens: null as number | null,
+  default_temperature: null as number | null,
+  default_max_tokens: null as number | null,
   is_active: true,
 })
 
@@ -124,9 +124,9 @@ function resetCreateForm() {
     name: '',
     provider: '',
     description: '',
-    max_tokens: '',
-    default_temperature: '',
-    default_max_tokens: '',
+    max_tokens: null,
+    default_temperature: null,
+    default_max_tokens: null,
     is_active: true,
   }
 }
@@ -136,9 +136,9 @@ function resetEditForm() {
     name: '',
     provider: '',
     description: '',
-    max_tokens: '',
-    default_temperature: '',
-    default_max_tokens: '',
+    max_tokens: null,
+    default_temperature: null,
+    default_max_tokens: null,
     is_active: true,
   }
 }
@@ -149,18 +149,12 @@ async function handleCreateModel() {
 
   isCreating.value = true
   try {
-    // Convert numeric fields to numbers if they exist and are not empty
+    // Convert null to undefined for API
     const formData = {
       ...createForm.value,
-      max_tokens: createForm.value.max_tokens && String(createForm.value.max_tokens).trim()
-        ? Number(String(createForm.value.max_tokens).trim())
-        : undefined,
-      default_temperature: createForm.value.default_temperature && String(createForm.value.default_temperature).trim()
-        ? Number(String(createForm.value.default_temperature).trim())
-        : undefined,
-      default_max_tokens: createForm.value.default_max_tokens && String(createForm.value.default_max_tokens).trim()
-        ? Number(String(createForm.value.default_max_tokens).trim())
-        : undefined,
+      max_tokens: createForm.value.max_tokens ?? undefined,
+      default_temperature: createForm.value.default_temperature ?? undefined,
+      default_max_tokens: createForm.value.default_max_tokens ?? undefined,
     }
 
     const result = await createModel(formData)
@@ -189,9 +183,9 @@ function editModel(model: Model) {
     name: model.name,
     provider: model.provider,
     description: model.description || '',
-    max_tokens: model.max_tokens ? String(model.max_tokens) : '',
-    default_temperature: model.default_temperature !== null && model.default_temperature !== undefined ? String(model.default_temperature) : '',
-    default_max_tokens: model.default_max_tokens ? String(model.default_max_tokens) : '',
+    max_tokens: model.max_tokens ?? null,
+    default_temperature: model.default_temperature ?? null,
+    default_max_tokens: model.default_max_tokens ?? null,
     is_active: model.is_active,
   }
   showEditModal.value = true
@@ -203,18 +197,12 @@ async function handleUpdateModel() {
 
   isUpdating.value = true
   try {
-    // Convert numeric fields to numbers if they exist and are not empty
+    // Convert null to undefined for API
     const formData = {
       ...editForm.value,
-      max_tokens: editForm.value.max_tokens && String(editForm.value.max_tokens).trim()
-        ? Number(String(editForm.value.max_tokens).trim())
-        : undefined,
-      default_temperature: editForm.value.default_temperature && String(editForm.value.default_temperature).trim()
-        ? Number(String(editForm.value.default_temperature).trim())
-        : undefined,
-      default_max_tokens: editForm.value.default_max_tokens && String(editForm.value.default_max_tokens).trim()
-        ? Number(String(editForm.value.default_max_tokens).trim())
-        : undefined,
+      max_tokens: editForm.value.max_tokens ?? undefined,
+      default_temperature: editForm.value.default_temperature ?? undefined,
+      default_max_tokens: editForm.value.default_max_tokens ?? undefined,
     }
 
     const result = await updateModel(editingModel.value.id, formData)

@@ -183,7 +183,7 @@ def create_execution_snapshot(experiment_id: int, session: Session) -> Experimen
             final_system_prompt=prompt_version.system_prompt,
             final_user_prompt=prompt_version.user_prompt,
             final_variables=prompt_version.variables,
-            final_temperature=agent_config.temperature or model.default_temperature or 0.7,
+            final_temperature=agent_config.temperature or model.default_temperature or 0.0,
             final_max_tokens=agent_config.max_tokens or model.default_max_tokens,
             execution_order=agent_config.execution_order
         )

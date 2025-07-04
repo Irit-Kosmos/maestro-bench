@@ -96,7 +96,7 @@ const promptMenuOptions = computed(() => {
         groupedPrompts[promptName] = []
       }
       groupedPrompts[promptName]!.push({
-        label: `v${version.version}${version.is_default ? ' (Default)' : ''}`,
+        label: `${version.version}${version.is_default ? ' (Default)' : ''}`,
         value: version.id,
       })
     })
@@ -318,7 +318,7 @@ function openPromptDetails(promptVersionId: number) {
                         min="0"
                         max="1"
                         placeholder="0.7"
-                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'temperature', value ? Number.parseFloat(value) : undefined)"
+                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'temperature', value !== '' ? Number.parseFloat(value) : undefined)"
                       />
                     </UFormField>
 
@@ -328,7 +328,7 @@ function openPromptDetails(promptVersionId: number) {
                         type="number"
                         min="100"
                         placeholder="10000"
-                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'max_tokens', value ? Number.parseInt(value) : undefined)"
+                        @update:model-value="(value: string) => updateAgentConfig(agent.id, 'max_tokens', value !== '' ? Number.parseInt(value) : undefined)"
                       />
                     </UFormField>
                   </div>

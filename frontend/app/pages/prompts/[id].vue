@@ -446,7 +446,7 @@ async function deleteVersion(versionId: number) {
                   <div class="flex items-center justify-between w-full">
                     <div class="flex items-center space-x-4">
                       <h3 class="text-lg font-medium text-neutral-900">
-                        Version {{ version.version }}
+                        {{ version.version }}
                       </h3>
                       <div class="flex items-center space-x-2">
                         <UBadge
