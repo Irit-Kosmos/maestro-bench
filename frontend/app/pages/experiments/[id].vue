@@ -7,7 +7,7 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
 const toast = useToast()
-const { fetchExperiment, deleteExperiment } = useExperiments()
+const { fetchExperiment, deleteExperiment, rerunExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDuration } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
@@ -18,6 +18,7 @@ const executions = ref<ExperimentExecution[]>([])
 const loading = ref(true)
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
+const isRerunning = ref(false)
 
 // Computed
 const pageTitle = computed(() => {
@@ -161,15 +162,77 @@ async function handleDeleteExperiment() {
   }
 }
 
+async function handleRerunExperiment() {
+  if (!experiment.value)
+    return
+
+  isRerunning.value = true
+  try {
+    const result = await rerunExperiment(experiment.value.id)
+    if (result.success) {
+      toast.add({
+        title: 'Success',
+        description: 'Experiment re-run started successfully! A new execution has been created.',
+        color: 'success',
+        icon: 'i-lucide:play',
+      })
+
+      // Refresh the experiment and executions to show the new execution
+      await loadExperiment()
+
+      // Update the experiment status to running
+      if (experiment.value) {
+        experiment.value.status = 'running'
+      }
+    }
+    else {
+      toast.add({
+        title: 'Error',
+        description: 'Failed to start experiment re-run',
+        color: 'error',
+        icon: 'i-lucide:alert-circle',
+      })
+    }
+  }
+  catch (error) {
+    console.error('Error re-running experiment:', error)
+    toast.add({
+      title: 'Error',
+      description: 'Failed to start experiment re-run',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
+  }
+  finally {
+    isRerunning.value = false
+  }
+}
+
 const duration = computed(() => {
-  return experiment.value
-    ? formatDuration(
-        experiment.value.completed_at
-          ? new Date(experiment.value.completed_at).getTime() / 1000
-          - new Date(experiment.value.created_at).getTime() / 1000
-          : 0,
-      )
-    : 'N/A'
+  if (!experiment.value || !executions.value.length) {
+    return 'N/A'
+  }
+
+  // Get all completed executions
+  const completedExecutions = executions.value.filter(
+    execution => execution.status === 'completed' && execution.completed_at && execution.started_at,
+  )
+
+  if (completedExecutions.length === 0) {
+    return '-'
+  }
+
+  // Calculate duration for each completed execution
+  const durations = completedExecutions.map((execution) => {
+    const startTime = new Date(execution.started_at).getTime() / 1000
+    const endTime = new Date(execution.completed_at!).getTime() / 1000
+    return endTime - startTime
+  })
+
+  // Calculate average duration
+  const averageDuration = durations.reduce((sum, duration) => sum + duration, 0) / durations.length
+
+  return formatDuration(averageDuration)
 })
 
 // Helper function to format variables JSON
@@ -281,6 +344,18 @@ watch(() => route.params.id, () => {
             >
               Back
             </UButton>
+            <UTooltip text="Create a new execution with the same configuration">
+              <UButton
+                variant="outline"
+                color="primary"
+                icon="i-lucide:play"
+                :loading="isRerunning"
+                :disabled="!experiment || experiment.status === 'running'"
+                @click="handleRerunExperiment"
+              >
+                {{ experiment?.status === 'running' ? 'Running...' : 'Re-run' }}
+              </UButton>
+            </UTooltip>
             <UButton
               variant="outline"
               color="error"
@@ -350,8 +425,13 @@ watch(() => route.params.id, () => {
                 Duration
               </dt>
               <dd class="text-lg font-semibold text-neutral-900">
-                {{ experiment.status === 'completed' ? duration : '-' }}
+                {{ duration }}
               </dd>
+              <div v-if="executions.length > 1" class="text-xs text-neutral-500 mt-1">
+                {{ executions.filter(e => e.status === 'completed').length > 1 ? 'Average of' : 'Single' }}
+                {{ executions.filter(e => e.status === 'completed').length }}
+                {{ executions.filter(e => e.status === 'completed').length === 1 ? 'execution' : 'executions' }}
+              </div>
             </div>
           </div>
           <!-- Results File Info -->

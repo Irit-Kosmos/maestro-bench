@@ -282,3 +282,36 @@ def cancel_experiment(experiment_id: int):
         "experiment_id": experiment_id,
         "cancelled": success
     }
+
+@router.post("/experiments/{experiment_id}/rerun")
+def rerun_experiment(experiment_id: int, session: Session = Depends(get_session)):
+    """Re-run an experiment with the same configuration by creating a new execution"""
+    experiment = session.get(Experiment, experiment_id)
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    # Check if experiment has any agent configurations
+    agent_configs = session.exec(
+        select(ExperimentAgentConfig).where(ExperimentAgentConfig.experiment_id == experiment_id)
+    ).all()
+    
+    if not agent_configs:
+        raise HTTPException(status_code=400, detail="Experiment has no agent configurations")
+    
+    # Start the experiment using the async task runner
+    # This will create a new execution snapshot and run the experiment
+    try:
+        success = task_runner.start_experiment(experiment_id)
+        if success:
+            print(f"[API] Re-run started for experiment {experiment_id}")
+            return {
+                "experiment_id": experiment_id,
+                "message": "Experiment re-run started successfully",
+                "status": "started"
+            }
+        else:
+            print(f"[API] Failed to start re-run for experiment {experiment_id}")
+            raise HTTPException(status_code=500, detail="Failed to start experiment re-run")
+    except Exception as e:
+        print(f"[API] Failed to start re-run for experiment {experiment_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start experiment re-run: {str(e)}")
