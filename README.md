@@ -10,7 +10,6 @@ This project provides a comprehensive platform for managing and tracking scienti
 
 - **Frontend**: Nuxt application
 - **Backend**: FastAPI-based REST API with SQLite database
-- **Queue System**: Redis for background job processing
 - **Containerization**: Docker Compose for easy deployment
 
 ## 🚀 Quick Start
@@ -28,14 +27,12 @@ docker-compose up -d
 This will start:
 - Backend API on `http://localhost:8000`
 - Frontend on `http://localhost:3000`
-- Redis on `http://localhost:6380`
 
 ## 🔧 Configuration
 
 The project uses environment variables for configuration. Key settings include:
 
 - `MAESTRO_API_BASE_URL`: Base URL for MAESTRO API (default: `http://host.docker.internal:8001`)
-- `REDIS_URL`: Redis connection URL (default: `redis://localhost:6380/0`)
 - `API_HOST`: Backend host (default: `0.0.0.0`)
 - `API_PORT`: Backend port (default: `8000`)
 - `DATABASE_URL`: Database connection string (default: `sqlite:///./app.db`)

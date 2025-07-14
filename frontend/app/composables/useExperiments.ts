@@ -47,9 +47,25 @@ export function useExperiments() {
     }
   }
 
+  // Re-run an experiment with the same configuration
+  const rerunExperiment = async (id: number) => {
+    try {
+      const response = await $api(`/experiments/${id}/rerun`, {
+        method: 'POST',
+      })
+
+      return { success: true, data: response }
+    }
+    catch (error) {
+      console.error('Error re-running experiment:', error)
+      return { success: false, error }
+    }
+  }
+
   return {
     createExperiment,
     fetchExperiment,
     deleteExperiment,
+    rerunExperiment,
   }
 }
