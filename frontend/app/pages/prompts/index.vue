@@ -124,6 +124,7 @@ watch(() => showCreateModal.value, (newValue) => {
       v-else
       :data="prompts"
       :loading="pending"
+      @refresh="refresh"
     />
 
     <!-- Create Prompt Modal -->
