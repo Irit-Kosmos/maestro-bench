@@ -22,7 +22,7 @@ useHead({
         <div class="flex justify-between items-center py-4">
           <!-- Logo -->
           <div class="flex items-center">
-            <NuxtLink to="/" class="text-2xl font-bold text-neutral-900">
+            <NuxtLink to="/" class="text-2xl font-bold inline-flex items-center text-neutral-900">
               <img
                 src="/MAESTRO-bench.png"
                 alt="MAESTRO Bench Logo"
