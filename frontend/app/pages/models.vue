@@ -338,6 +338,7 @@ watch(() => showDeleteModal.value, (newValue) => {
         :actions="actions"
         :loading="pending"
         title="All Models"
+        @refresh="refresh"
       >
         <!-- Custom cell for status -->
         <template #is_active-cell="{ row }">

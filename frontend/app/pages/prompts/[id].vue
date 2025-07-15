@@ -75,6 +75,21 @@ const editVersionData = ref({
   notes: '',
 })
 
+// Computed properties for handling variables conversion
+const editVersionVariablesArray = computed({
+  get: () => parseVariables(editVersionData.value.variables),
+  set: (value: string[]) => {
+    editVersionData.value.variables = stringifyVariables(value)
+  },
+})
+
+const newVersionVariablesArray = computed({
+  get: () => parseVariables(newVersionData.value.variables),
+  set: (value: string[]) => {
+    newVersionData.value.variables = stringifyVariables(value)
+  },
+})
+
 // Watch for prompt changes to update edit form
 watch(prompt, (newPrompt) => {
   if (newPrompt) {
@@ -88,10 +103,6 @@ watch(prompt, (newPrompt) => {
 }, { immediate: true })
 
 // Methods
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString()
-}
-
 async function loadVersions() {
   versionsLoading.value = true
   try {
@@ -430,7 +441,7 @@ async function deleteVersion(versionId: number) {
                 v-for="version in sortedVersions"
                 :key="version.id"
                 class="border border-neutral-200 rounded-lg overflow-hidden"
-                :default-open="false"
+                :default-open="version.is_default"
               >
                 <!-- Collapsible Header -->
                 <UButton
@@ -443,40 +454,12 @@ async function deleteVersion(versionId: number) {
                   trailing-icon="i-lucide-chevron-down"
                   block
                 >
-                  <div class="flex items-center justify-between w-full">
-                    <div class="flex items-center space-x-4">
-                      <h3 class="text-lg font-medium text-neutral-900">
-                        {{ version.version }}
-                      </h3>
-                      <div class="flex items-center space-x-2">
-                        <UBadge
-                          v-if="version.is_default"
-                          label="Default"
-                          color="success"
-                          size="sm"
-                        />
-                        <UBadge
-                          v-if="version.is_active"
-                          label="Active"
-                          color="primary"
-                          variant="subtle"
-                          size="sm"
-                        />
-                        <UBadge
-                          v-else
-                          label="Inactive"
-                          color="error"
-                          variant="subtle"
-                          size="sm"
-                        />
-                      </div>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                      <span class="text-sm text-neutral-500">
-                        {{ formatDate(version.created_at) }}
-                      </span>
-                    </div>
-                  </div>
+                  <PromptVersionHeader
+                    :version="version.version"
+                    :is-default="version.is_default"
+                    :is-active="version.is_active"
+                    :created-at="version.created_at"
+                  />
                 </UButton>
 
                 <!-- Collapsible Content -->
@@ -504,47 +487,12 @@ async function deleteVersion(versionId: number) {
                     </div>
 
                     <div class="space-y-6">
-                      <!-- System Prompt -->
-                      <div v-if="version.system_prompt">
-                        <label class="block text-sm font-medium text-neutral-700 mb-3">
-                          System Prompt
-                        </label>
-                        <div class="bg-white rounded-lg p-4 border border-neutral-200">
-                          <pre class="text-sm text-neutral-800 font-mono whitespace-pre-wrap leading-relaxed">{{ version.system_prompt }}</pre>
-                        </div>
-                      </div>
-
-                      <!-- User Prompt -->
-                      <div v-if="version.user_prompt">
-                        <label class="block text-sm font-medium text-neutral-700 mb-3">
-                          User Prompt
-                        </label>
-                        <div class="bg-white rounded-lg p-4 border border-neutral-200">
-                          <pre class="text-sm text-neutral-800 font-mono whitespace-pre-wrap leading-relaxed">{{ version.user_prompt }}</pre>
-                        </div>
-                      </div>
-
-                      <!-- Variables -->
-                      <div v-if="version.variables">
-                        <label class="block text-sm font-medium text-neutral-700 mb-3">
-                          Variables
-                        </label>
-                        <div class="bg-white rounded-lg p-4 border border-neutral-200">
-                          <pre class="text-sm text-neutral-800 font-mono whitespace-pre-wrap leading-relaxed">{{ version.variables }}</pre>
-                        </div>
-                      </div>
-
-                      <!-- Notes -->
-                      <div v-if="version.notes">
-                        <label class="block text-sm font-medium text-neutral-700 mb-3">
-                          Notes
-                        </label>
-                        <div class="bg-white rounded-lg p-4 border border-neutral-200">
-                          <p class="text-sm text-neutral-600 leading-relaxed">
-                            {{ version.notes }}
-                          </p>
-                        </div>
-                      </div>
+                      <!-- Use shared PromptVersionDetails component -->
+                      <PromptVersionDetails
+                        :prompt-version="version"
+                        :show-header="false"
+                        :show-metadata="false"
+                      />
                     </div>
                   </div>
                 </template>
@@ -653,11 +601,11 @@ async function deleteVersion(versionId: number) {
             </UFormField>
 
             <UFormField label="Variables">
-              <UTextarea
-                v-model="newVersionData.variables"
-                placeholder="JSON object with variable definitions"
+              <PromptVariablesDisplay
+                v-model="newVersionVariablesArray"
+                :variables="newVersionData.variables"
+                editable
                 class="w-full"
-                :rows="3"
               />
             </UFormField>
 
@@ -743,11 +691,11 @@ async function deleteVersion(versionId: number) {
             </UFormField>
 
             <UFormField label="Variables">
-              <UTextarea
-                v-model="editVersionData.variables"
-                placeholder="JSON object with variable definitions"
+              <PromptVariablesDisplay
+                v-model="editVersionVariablesArray"
+                :variables="editVersionData.variables"
+                editable
                 class="w-full"
-                :rows="3"
               />
             </UFormField>
 
