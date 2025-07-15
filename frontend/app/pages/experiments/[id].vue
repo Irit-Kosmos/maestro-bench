@@ -235,18 +235,6 @@ const duration = computed(() => {
   return formatDuration(averageDuration)
 })
 
-// Helper function to format variables JSON
-function formatVariables(variables: string | null): string {
-  if (!variables)
-    return 'None'
-  try {
-    return JSON.stringify(JSON.parse(variables), null, 2)
-  }
-  catch {
-    return variables
-  }
-}
-
 // Get unique models used in the experiment
 const uniqueModels = computed(() => {
   if (!latestExecution.value?.agent_executions)
@@ -765,34 +753,26 @@ watch(() => route.params.id, () => {
                     </div>
 
                     <!-- System Prompt -->
-                    <div v-if="agentConfig.final_system_prompt">
-                      <dt class="text-sm font-medium text-green-700 mb-2">
-                        System Prompt
-                      </dt>
-                      <dd class="bg-white rounded-lg border border-green-200 p-4 text-sm text-green-900 whitespace-pre-wrap max-h-48 overflow-y-auto">
-                        {{ agentConfig.final_system_prompt }}
-                      </dd>
-                    </div>
+                    <PromptContentDisplay
+                      v-if="agentConfig.final_system_prompt"
+                      label="System Prompt"
+                      :content="agentConfig.final_system_prompt"
+                      type="code"
+                    />
 
                     <!-- User Prompt -->
-                    <div v-if="agentConfig.final_user_prompt">
-                      <dt class="text-sm font-medium text-green-700 mb-2">
-                        User Prompt
-                      </dt>
-                      <dd class="bg-white rounded-lg border border-green-200 p-4 text-sm text-green-900 whitespace-pre-wrap max-h-48 overflow-y-auto">
-                        {{ agentConfig.final_user_prompt }}
-                      </dd>
-                    </div>
+                    <PromptContentDisplay
+                      v-if="agentConfig.final_user_prompt"
+                      label="User Prompt"
+                      :content="agentConfig.final_user_prompt"
+                      type="code"
+                    />
 
                     <!-- Variables -->
-                    <div v-if="agentConfig.final_variables">
-                      <dt class="text-sm font-medium text-green-700 mb-2">
-                        Variables
-                      </dt>
-                      <dd class="bg-white rounded-lg border border-green-200 p-4 text-sm text-green-900">
-                        <pre class="whitespace-pre-wrap font-mono">{{ formatVariables(agentConfig.final_variables) }}</pre>
-                      </dd>
-                    </div>
+                    <PromptVariablesDisplay
+                      v-if="agentConfig.final_variables"
+                      :variables="agentConfig.final_variables"
+                    />
                   </div>
                 </UCard>
 

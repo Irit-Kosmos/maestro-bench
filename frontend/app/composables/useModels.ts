@@ -4,21 +4,6 @@
 export function useModels() {
   const { $api } = useNuxtApp()
 
-  // Reactive data fetching for models
-  const { data: models, pending: modelsPending, refresh: refreshModels } = useMyLazyFetch<any[]>('/models/all')
-
-  // Fetch all models (including inactive)
-  async function getAllModels() {
-    try {
-      const response = await $api('/models/all')
-      return { success: true, data: response }
-    }
-    catch (error) {
-      console.error('Error fetching all models:', error)
-      return { success: false, error: 'Failed to fetch models' }
-    }
-  }
-
   // Create a new model
   async function createModel(modelData: {
     name: string
@@ -94,10 +79,6 @@ export function useModels() {
   }
 
   return {
-    models,
-    modelsPending,
-    refreshModels,
-    getAllModels,
     createModel,
     updateModel,
     deleteModel,
