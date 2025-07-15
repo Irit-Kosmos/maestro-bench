@@ -6,7 +6,7 @@ interface Props {
   layout?: 'grid' | 'inline'
 }
 
-const _props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   layout: 'grid',
 })
 

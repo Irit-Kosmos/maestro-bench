@@ -16,7 +16,7 @@ interface Emits {
   'update:sampling-end-row': [value: number | undefined]
 }
 
-const _props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<Emits>()
 </script>
 
