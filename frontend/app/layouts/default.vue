@@ -30,7 +30,7 @@ useHead({
                 height="32"
                 class="inline-block mr-2"
               >
-              <span class="hidden lg:inline">maestro-bench</span>
+              <span class="hidden lg:inline">MAESTRO-bench</span>
               <span class="inline lg:hidden">mb</span>
             </NuxtLink>
           </div>
