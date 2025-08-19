@@ -1,37 +1,26 @@
-# Use Python 3.13 slim image for better performance
-FROM python:3.13-slim
+# Python 3.13 slim with uv preinstalled
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
-# Prevents Python from buffering stdout/stderr
+# Runtime settings
 ENV PYTHONUNBUFFERED=1
-ENV OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-
-# Memory optimization environment variables
-ENV PYTHONHASHSEED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+# Install into the system Python (container is already isolated)
+ENV UV_SYSTEM_PYTHON=1
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libpq-dev \
-        build-essential \
-        curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with uv (system environment via UV_SYSTEM_PYTHON)
+RUN uv pip install -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create a non-root user for security
-RUN useradd --create-home --shell /bin/bash maestro \
+# Create a non-root user for security (use /bin/sh which exists on slim images)
+RUN useradd --create-home --shell /bin/sh maestro \
     && chown -R maestro:maestro /app
 
 USER maestro
