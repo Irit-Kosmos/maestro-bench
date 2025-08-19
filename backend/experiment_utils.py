@@ -322,10 +322,11 @@ def process_maestro_results(
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
 
-    # Save detailed results to file
+    # Save detailed results to file with timestamp for uniqueness
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
     results_file_path = (
         results_dir
-        / f"experiment_{execution.experiment_id}_execution_{execution.id}_results.json"
+        / f"experiment_{execution.experiment_id}_execution_{execution.id}_{timestamp}_results.json"
     )
 
     # Build the complete results structure
