@@ -8,32 +8,32 @@ import json
 from datetime import datetime
 from sqlmodel import Session, select
 from db import engine
-from models import Model, Prompt, PromptVersion, AgentTeam, Agent, Dataset
+from tables import Model, Prompt, PromptVersion, AgentTeam, Agent, Dataset
 
 
 def seed_data():
     """Create initial data for development/testing with the new architecture"""
-    
+
     with Session(engine) as session:
         # Clear existing data in proper order (FK dependencies)
         print("Clearing existing data...")
-        
+
         # Delete agents first
         for agent in session.exec(select(Agent)).all():
             session.delete(agent)
-        
+
         # Delete agent teams
         for team in session.exec(select(AgentTeam)).all():
             session.delete(team)
-            
+
         # Delete prompt versions
         for version in session.exec(select(PromptVersion)).all():
             session.delete(version)
-            
+
         # Delete prompts
         for prompt in session.exec(select(Prompt)).all():
             session.delete(prompt)
-            
+
         # Delete models
         for model in session.exec(select(Model)).all():
             session.delete(model)
@@ -41,7 +41,7 @@ def seed_data():
         # Delete datasets (if any)
         for dataset in session.exec(select(Dataset)).all():
             session.delete(dataset)
-            
+
         session.commit()
         print("Existing data cleared.")
 
@@ -49,7 +49,7 @@ def seed_data():
             "mistral-medium-2505",
             "mistral-small-2503",
             "magistral-small-2506",
-            "magistral-medium-2506"
+            "magistral-medium-2506",
         ]
 
         # 1. Create Models
@@ -59,24 +59,24 @@ def seed_data():
                 name=model_name,
                 provider="mistral",
                 description=f"Mistral model {model_name}",
-                is_active=True
+                is_active=True,
             )
             session.add(model)
         session.commit()
 
         # 2. Create Prompts and PromptVersions
         print("Creating prompts and versions...")
-        
+
         # Language Evaluation Prompt
         language_prompt = Prompt(
             name="Language Evaluator",
             description="Evaluates learner answers based on clarity, grammar, and terminology",
-            category="evaluation"
+            category="evaluation",
         )
         session.add(language_prompt)
         session.commit()
         session.refresh(language_prompt)
-        
+
         language_version = PromptVersion(
             prompt_id=language_prompt.id,
             version="1.0",
@@ -106,20 +106,20 @@ Input:
             variables=json.dumps(["learner_answer"]),
             temperature=0.7,
             is_active=True,
-            is_default=True
+            is_default=True,
         )
         session.add(language_version)
-        
+
         # Content Evaluation Prompt
         content_prompt = Prompt(
             name="Content Evaluator",
             description="Evaluates how well learner answers cover key factual and conceptual points",
-            category="evaluation"
+            category="evaluation",
         )
         session.add(content_prompt)
         session.commit()
         session.refresh(content_prompt)
-        
+
         content_version = PromptVersion(
             prompt_id=content_prompt.id,
             version="1.0",
@@ -149,20 +149,20 @@ Input:
 <reference_answer></reference_answer>""",
             variables=json.dumps(["learner_answer", "reference_answer"]),
             is_active=True,
-            is_default=True
+            is_default=True,
         )
         session.add(content_version)
-        
+
         # MetaTutor Prompt
         metatutor_prompt = Prompt(
             name="MetaTutor",
             description="Provides actionable insights and advice for teachers",
-            category="advice"
+            category="advice",
         )
         session.add(metatutor_prompt)
         session.commit()
         session.refresh(metatutor_prompt)
-        
+
         metatutor_version = PromptVersion(
             prompt_id=metatutor_prompt.id,
             version="1.0",
@@ -185,10 +185,10 @@ You should respond with a JSON containing 'data' which is an array of an object 
 Your response must be in the same language as the query!""",
             variables=json.dumps(["query", "response"]),
             is_active=True,
-            is_default=True
+            is_default=True,
         )
         session.add(metatutor_version)
-        
+
         session.commit()
         session.refresh(language_version)
         session.refresh(content_version)
@@ -196,17 +196,17 @@ Your response must be in the same language as the query!""",
 
         # 3. Create Agent Teams
         print("Creating agent teams...")
-        
+
         corrector_team = AgentTeam(
             name="Corrector",
-            description="Agent team focused on evaluating and correcting learner responses"
+            description="Agent team focused on evaluating and correcting learner responses",
         )
-        
+
         metatutor_team = AgentTeam(
             name="Metatutor",
-            description="Agent team providing actionable insights and advice for teachers"
+            description="Agent team providing actionable insights and advice for teachers",
         )
-        
+
         session.add(corrector_team)
         session.add(metatutor_team)
         session.commit()
@@ -215,35 +215,35 @@ Your response must be in the same language as the query!""",
 
         # 4. Create Agents
         print("Creating agents...")
-        
+
         # Language Agent (Corrector team)
         language_agent = Agent(
             name="Language",
             description="Evaluates learner answers based on clarity, grammar, and terminology",
             default_prompt_version_id=language_version.id,
-            team_id=corrector_team.id
+            team_id=corrector_team.id,
         )
-        
+
         # Content Agent (Corrector team)
         content_agent = Agent(
             name="Content",
             description="Evaluates how well learner answers cover key factual and conceptual points",
             default_prompt_version_id=content_version.id,
-            team_id=corrector_team.id
+            team_id=corrector_team.id,
         )
-        
+
         # MetaTutor Agent (MetaTutor team)
         metatutor_agent = Agent(
             name="Metatutor",
             description="Provides actionable insights and advice for teachers based on responses and queries",
             default_prompt_version_id=metatutor_version.id,
-            team_id=metatutor_team.id
+            team_id=metatutor_team.id,
         )
-        
+
         session.add(language_agent)
         session.add(content_agent)
         session.add(metatutor_agent)
-        
+
         session.commit()
 
         # 5. Dataset Creation (if needed)
@@ -252,13 +252,14 @@ Your response must be in the same language as the query!""",
             name="Mohler",
             description="Mohler dataset",
             file_path="mohler_dataset.csv",
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
         session.add(dataset)
         session.commit()
 
         print("\n✅ Clean architecture successfully seeded!")
+
 
 if __name__ == "__main__":
     seed_data()

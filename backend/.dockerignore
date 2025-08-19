@@ -24,6 +24,7 @@ wheels/
 venv/
 env/
 ENV/
+.venv/
 
 # IDE files
 .vscode/
@@ -46,6 +47,10 @@ Dockerfile
 
 # Logs
 *.log
+
+# Large local data not needed in images
+datasets/
+app.db
 
 # Environment files
 .env

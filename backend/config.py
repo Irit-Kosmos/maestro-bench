@@ -2,6 +2,7 @@
 Configuration module for MAESTRO Experiment Bench backend.
 Centralizes environment variable loading and provides default values.
 """
+
 import os
 from dotenv import load_dotenv
 
@@ -9,7 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # MAESTRO Configuration
-MAESTRO_API_BASE_URL = os.getenv("MAESTRO_API_BASE_URL", "http://host.docker.internal:8001")
+MAESTRO_API_BASE_URL = os.getenv(
+    "MAESTRO_API_BASE_URL", "http://host.docker.internal:8001"
+)
 
 # API Configuration
 API_HOST = os.getenv("API_HOST", "0.0.0.0")

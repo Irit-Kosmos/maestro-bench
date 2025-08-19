@@ -1,6 +1,7 @@
 """
 Request and response models for experiment executions API
 """
+
 from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel
@@ -47,11 +48,12 @@ class ExperimentExecutionUpdate(BaseModel):
 
 class ExperimentTrace(BaseModel):
     """Complete trace of an experiment execution - the core scientific artifact"""
+
     execution: ExperimentExecutionResponse
     agent_configs: List[AgentExecutionSnapshotResponse]
     experiment_metadata: dict  # Original experiment details
-    dataset_metadata: dict     # Dataset details at execution time
-    results_summary: dict      # Summary from MAESTRO results file
+    dataset_metadata: dict  # Dataset details at execution time
+    results_summary: dict  # Summary from MAESTRO results file
 
 
 # Forward reference resolution

@@ -9,6 +9,7 @@ engine = create_engine(DATABASE_URL, echo=True)
 # Create tables
 SQLModel.metadata.create_all(engine)
 
+
 # SessionLocal is a helper function to create new DB sessions
 def get_session():
     with Session(engine) as session:

@@ -1,6 +1,7 @@
 """
 Request and response models for prompts API
 """
+
 from __future__ import annotations
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
@@ -21,7 +22,7 @@ class PromptUpdate(BaseModel):
 
 class PromptResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     description: Optional[str]
@@ -51,7 +52,7 @@ class PromptVersionUpdate(BaseModel):
 
 class PromptVersionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     prompt_id: int
     version: str
