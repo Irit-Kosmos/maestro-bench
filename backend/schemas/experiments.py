@@ -1,8 +1,9 @@
 """
 Request and response models for experiments API
 """
+
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -17,6 +18,7 @@ class DatasetResponse(BaseModel):
 
 class ExperimentAgentConfigResponse(BaseModel):
     """Response model for experiment agent configurations"""
+
     id: int
     experiment_id: int
     agent_id: int
@@ -35,15 +37,19 @@ class ExperimentCreate(BaseModel):
     dataset_id: int
     agent_teams: Optional[List[str]] = []  # List of team IDs as strings
     agent_configurations: Optional[dict] = {}  # Agent ID -> custom config mapping
-    
+
     # Dataset sampling configuration
     sampling_type: Optional[str] = None  # 'all', 'random', 'range'
     sampling_size: Optional[int] = None  # Number of rows for random sampling
     sampling_start_row: Optional[int] = None  # Start row for range sampling (1-based)
-    sampling_end_row: Optional[int] = None  # End row for range sampling (1-based, inclusive)
-    
+    sampling_end_row: Optional[int] = (
+        None  # End row for range sampling (1-based, inclusive)
+    )
+
     # Column mapping configuration
-    column_mappings: Optional[List[Dict[str, str]]] = None  # List of mappings: {sourceColumn, targetField}
+    column_mappings: Optional[List[Dict[str, str]]] = (
+        None  # List of mappings: {sourceColumn, targetField}
+    )
 
 
 class ExperimentResponse(BaseModel):
@@ -56,13 +62,13 @@ class ExperimentResponse(BaseModel):
     completed_at: Optional[datetime]
     dataset: Optional[DatasetResponse] = None
     experiment_configs: List[ExperimentAgentConfigResponse] = []
-    
+
     # Dataset sampling configuration
     sampling_type: Optional[str] = None
     sampling_size: Optional[int] = None
     sampling_start_row: Optional[int] = None
     sampling_end_row: Optional[int] = None
-    
+
     # Column mapping configuration
     column_mappings: Optional[List[Dict[str, str]]] = None
 

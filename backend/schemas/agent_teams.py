@@ -1,6 +1,7 @@
 """
 Request and response models for agent teams API
 """
+
 from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
@@ -9,7 +10,7 @@ from datetime import datetime
 
 class AgentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     description: Optional[str]
@@ -31,8 +32,9 @@ class AgentTeamUpdate(BaseModel):
 
 class AgentTeamWithAgents(BaseModel):
     """Agent team response with nested agents"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     description: Optional[str]
@@ -42,8 +44,9 @@ class AgentTeamWithAgents(BaseModel):
 
 class AgentTeamBasic(BaseModel):
     """Basic agent team response without nested agents"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     description: Optional[str]
@@ -52,7 +55,7 @@ class AgentTeamBasic(BaseModel):
 
 class AgentTeamResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     name: str
     description: Optional[str]
