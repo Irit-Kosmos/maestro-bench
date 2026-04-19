@@ -8,7 +8,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.nuxt
     networks:
       - maestro-network
 
@@ -19,19 +18,19 @@ services:
     restart: always
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
     environment:
-      - MAESTRO_API_BASE_URL=http://host.docker.internal:8001
       - API_HOST=0.0.0.0
       - API_PORT=8000
       - DATABASE_URL=sqlite:///./app.db
     volumes:
       - ./backend:/app
       - ./datasets:/app/datasets
+      - ./configs:/app/../configs
     networks:
       - maestro-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 networks:
   maestro-network:
