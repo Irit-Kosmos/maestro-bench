@@ -26,7 +26,7 @@ services:
       - DATABASE_URL=sqlite:///./app.db
     volumes:
       - ./backend:/app
-      - ./datasets:/app/datasets
+      - ./datasets:/datasets
       - ./configs:/app/../configs
     networks:
       - maestro-network
