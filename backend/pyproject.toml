@@ -1,0 +1,16 @@
+[project]
+name = "maestro-bench"
+version = "2.0.0"
+description = "Standalone experiment benchmarking platform with direct LLM provider access"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlmodel",
+    "pydantic",
+    "pandas",
+    "python-dotenv",
+    "jinja2",
+    "pyyaml",
+    "litellm",
+]
