@@ -4,8 +4,7 @@ Request and response models for models API
 
 from __future__ import annotations
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from pydantic import BaseModel
 
 
 class ModelCreate(BaseModel):
@@ -28,15 +27,4 @@ class ModelUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class ModelResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    name: str
-    provider: str
-    description: Optional[str]
-    max_tokens: Optional[int]
-    default_temperature: Optional[float]
-    default_max_tokens: Optional[int]
-    is_active: bool
-    created_at: datetime

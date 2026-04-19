@@ -1,73 +1,66 @@
 #!/usr/bin/env python3
 """
-Clean seed script for the updated MAESTRO architecture
-Creates prompts, models, agent teams, and agents with proper relationships
+Seed script for development/testing.
+Creates prompts, models, agent teams, agents, and a sample dataset.
+
+Usage (from the backend/ directory):
+    python scripts/seed.py
 """
 
 import json
-from datetime import datetime
-from sqlmodel import Session, select
-from db import engine
+import sys
+from pathlib import Path
+
+# Allow running from any working directory
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from sqlmodel import Session, delete
+from db import engine, init_db
 from tables import Model, Prompt, PromptVersion, AgentTeam, Agent, Dataset
 
 
-def seed_data():
-    """Create initial data for development/testing with the new architecture"""
+def seed_data() -> None:
+    """Create initial data for development/testing."""
+
+    init_db()
 
     with Session(engine) as session:
-        # Clear existing data in proper order (FK dependencies)
+        # ------------------------------------------------------------------
+        # Clear existing data in FK-safe order using bulk DELETE statements
+        # ------------------------------------------------------------------
         print("Clearing existing data...")
-
-        # Delete agents first
-        for agent in session.exec(select(Agent)).all():
-            session.delete(agent)
-
-        # Delete agent teams
-        for team in session.exec(select(AgentTeam)).all():
-            session.delete(team)
-
-        # Delete prompt versions
-        for version in session.exec(select(PromptVersion)).all():
-            session.delete(version)
-
-        # Delete prompts
-        for prompt in session.exec(select(Prompt)).all():
-            session.delete(prompt)
-
-        # Delete models
-        for model in session.exec(select(Model)).all():
-            session.delete(model)
-
-        # Delete datasets (if any)
-        for dataset in session.exec(select(Dataset)).all():
-            session.delete(dataset)
-
+        for table in (Agent, AgentTeam, PromptVersion, Prompt, Model, Dataset):
+            session.exec(delete(table))
         session.commit()
         print("Existing data cleared.")
 
+        # ------------------------------------------------------------------
+        # 1. Models
+        # ------------------------------------------------------------------
+        print("Creating models...")
         mistral_models = [
             "mistral-medium-2505",
             "mistral-small-2503",
             "magistral-small-2506",
             "magistral-medium-2506",
         ]
-
-        # 1. Create Models
-        print("Creating models...")
         for model_name in mistral_models:
-            model = Model(
-                name=model_name,
-                provider="mistral",
-                description=f"Mistral model {model_name}",
-                is_active=True,
+            session.add(
+                Model(
+                    name=model_name,
+                    provider="mistral",
+                    description=f"Mistral model {model_name}",
+                    is_active=True,
+                )
             )
-            session.add(model)
         session.commit()
 
-        # 2. Create Prompts and PromptVersions
+        # ------------------------------------------------------------------
+        # 2. Prompts & PromptVersions
+        # ------------------------------------------------------------------
         print("Creating prompts and versions...")
 
-        # Language Evaluation Prompt
+        # Language Evaluator
         language_prompt = Prompt(
             name="Language Evaluator",
             description="Evaluates learner answers based on clarity, grammar, and terminology",
@@ -80,7 +73,10 @@ def seed_data():
         language_version = PromptVersion(
             prompt_id=language_prompt.id,
             version="1.0",
-            system_prompt="You are a Language agent with deep knowledge of educational science and cognitive psychology",
+            system_prompt=(
+                "You are a Language agent with deep knowledge of educational science "
+                "and cognitive psychology"
+            ),
             user_prompt="""You are a Language Evaluation Agent.
 
 Evaluate the learner's answer based on clarity, grammar, and use of appropriate terminology.
@@ -104,13 +100,12 @@ Output JSON format:
 Input:
 <learner_answer></learner_answer>""",
             variables=json.dumps(["learner_answer"]),
-            temperature=0.7,
             is_active=True,
             is_default=True,
         )
         session.add(language_version)
 
-        # Content Evaluation Prompt
+        # Content Evaluator
         content_prompt = Prompt(
             name="Content Evaluator",
             description="Evaluates how well learner answers cover key factual and conceptual points",
@@ -123,7 +118,10 @@ Input:
         content_version = PromptVersion(
             prompt_id=content_prompt.id,
             version="1.0",
-            system_prompt="You are a Content agent with deep knowledge of educational science and cognitive psychology",
+            system_prompt=(
+                "You are a Content agent with deep knowledge of educational science "
+                "and cognitive psychology"
+            ),
             user_prompt="""You are a Content Evaluation Agent.
 
 Evaluate how well the learner's answer covers the key factual and conceptual points in the reference answer.
@@ -153,7 +151,7 @@ Input:
         )
         session.add(content_version)
 
-        # MetaTutor Prompt
+        # MetaTutor
         metatutor_prompt = Prompt(
             name="MetaTutor",
             description="Provides actionable insights and advice for teachers",
@@ -166,9 +164,12 @@ Input:
         metatutor_version = PromptVersion(
             prompt_id=metatutor_prompt.id,
             version="1.0",
-            system_prompt="""You are a MetaTutor agent with deep knowledge of educational science and cognitive psychology.
-You provide actionable insights or advice for a teacher, based on the teacher's question 
-and the final explanation from the system.""",
+            system_prompt=(
+                "You are a MetaTutor agent with deep knowledge of educational science and "
+                "cognitive psychology.\n"
+                "You provide actionable insights or advice for a teacher, based on the "
+                "teacher's question and the final explanation from the system."
+            ),
             user_prompt="""Teacher's original query: '<query></query>'
 
 Response provided to the teacher: '<response></response>'
@@ -194,71 +195,67 @@ Your response must be in the same language as the query!""",
         session.refresh(content_version)
         session.refresh(metatutor_version)
 
-        # 3. Create Agent Teams
+        # ------------------------------------------------------------------
+        # 3. Agent Teams
+        # ------------------------------------------------------------------
         print("Creating agent teams...")
-
         corrector_team = AgentTeam(
             name="Corrector",
             description="Agent team focused on evaluating and correcting learner responses",
         )
-
         metatutor_team = AgentTeam(
             name="Metatutor",
             description="Agent team providing actionable insights and advice for teachers",
         )
-
         session.add(corrector_team)
         session.add(metatutor_team)
         session.commit()
         session.refresh(corrector_team)
         session.refresh(metatutor_team)
 
-        # 4. Create Agents
+        # ------------------------------------------------------------------
+        # 4. Agents
+        # ------------------------------------------------------------------
         print("Creating agents...")
-
-        # Language Agent (Corrector team)
-        language_agent = Agent(
-            name="Language",
-            description="Evaluates learner answers based on clarity, grammar, and terminology",
-            default_prompt_version_id=language_version.id,
-            team_id=corrector_team.id,
+        session.add(
+            Agent(
+                name="Language",
+                description="Evaluates learner answers based on clarity, grammar, and terminology",
+                default_prompt_version_id=language_version.id,
+                team_id=corrector_team.id,
+            )
+        )
+        session.add(
+            Agent(
+                name="Content",
+                description="Evaluates how well learner answers cover key factual and conceptual points",
+                default_prompt_version_id=content_version.id,
+                team_id=corrector_team.id,
+            )
+        )
+        session.add(
+            Agent(
+                name="Metatutor",
+                description="Provides actionable insights and advice for teachers",
+                default_prompt_version_id=metatutor_version.id,
+                team_id=metatutor_team.id,
+            )
         )
 
-        # Content Agent (Corrector team)
-        content_agent = Agent(
-            name="Content",
-            description="Evaluates how well learner answers cover key factual and conceptual points",
-            default_prompt_version_id=content_version.id,
-            team_id=corrector_team.id,
-        )
-
-        # MetaTutor Agent (MetaTutor team)
-        metatutor_agent = Agent(
-            name="Metatutor",
-            description="Provides actionable insights and advice for teachers based on responses and queries",
-            default_prompt_version_id=metatutor_version.id,
-            team_id=metatutor_team.id,
-        )
-
-        session.add(language_agent)
-        session.add(content_agent)
-        session.add(metatutor_agent)
-
-        session.commit()
-
-        # 5. Dataset Creation (if needed)
+        # ------------------------------------------------------------------
+        # 5. Sample dataset
+        # ------------------------------------------------------------------
         print("Creating datasets...")
-        dataset = Dataset(
-            name="Mohler",
-            description="Mohler dataset",
-            file_path="mohler_dataset.csv",
-            created_at=datetime.utcnow(),
+        session.add(
+            Dataset(
+                name="Mohler",
+                description="Mohler dataset",
+                file_path="mohler_dataset.csv",
+            )
         )
 
-        session.add(dataset)
         session.commit()
-
-        print("\n✅ Clean architecture successfully seeded!")
+        print("\nClean architecture successfully seeded!")
 
 
 if __name__ == "__main__":

@@ -36,10 +36,6 @@ class ExperimentExecutionResponse(BaseModel):
     agent_executions: List[AgentExecutionSnapshotResponse] = []
 
 
-class ExperimentExecutionCreate(BaseModel):
-    experiment_id: int
-
-
 class ExperimentExecutionUpdate(BaseModel):
     status: Optional[str] = None
     completed_at: Optional[datetime] = None
@@ -47,13 +43,13 @@ class ExperimentExecutionUpdate(BaseModel):
 
 
 class ExperimentTrace(BaseModel):
-    """Complete trace of an experiment execution - the core scientific artifact"""
+    """Complete trace of an experiment execution — the core scientific artifact."""
 
     execution: ExperimentExecutionResponse
     agent_configs: List[AgentExecutionSnapshotResponse]
-    experiment_metadata: dict  # Original experiment details
-    dataset_metadata: dict  # Dataset details at execution time
-    results_summary: dict  # Summary from MAESTRO results file
+    experiment_metadata: dict
+    dataset_metadata: dict
+    results_summary: dict
 
 
 # Forward reference resolution

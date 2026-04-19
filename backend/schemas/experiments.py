@@ -35,21 +35,17 @@ class ExperimentCreate(BaseModel):
     name: str
     description: Optional[str] = None
     dataset_id: int
-    agent_teams: Optional[List[str]] = []  # List of team IDs as strings
-    agent_configurations: Optional[dict] = {}  # Agent ID -> custom config mapping
+    agent_teams: Optional[List[str]] = []
+    agent_configurations: Optional[dict] = {}
 
     # Dataset sampling configuration
     sampling_type: Optional[str] = None  # 'all', 'random', 'range'
-    sampling_size: Optional[int] = None  # Number of rows for random sampling
-    sampling_start_row: Optional[int] = None  # Start row for range sampling (1-based)
-    sampling_end_row: Optional[int] = (
-        None  # End row for range sampling (1-based, inclusive)
-    )
+    sampling_size: Optional[int] = None
+    sampling_start_row: Optional[int] = None
+    sampling_end_row: Optional[int] = None
 
     # Column mapping configuration
-    column_mappings: Optional[List[Dict[str, str]]] = (
-        None  # List of mappings: {sourceColumn, targetField}
-    )
+    column_mappings: Optional[List[Dict[str, str]]] = None
 
 
 class ExperimentResponse(BaseModel):
@@ -62,15 +58,13 @@ class ExperimentResponse(BaseModel):
     completed_at: Optional[datetime]
     dataset: Optional[DatasetResponse] = None
     experiment_configs: List[ExperimentAgentConfigResponse] = []
+    column_mappings: Optional[List[Dict[str, str]]] = None
 
     # Dataset sampling configuration
     sampling_type: Optional[str] = None
     sampling_size: Optional[int] = None
     sampling_start_row: Optional[int] = None
     sampling_end_row: Optional[int] = None
-
-    # Column mapping configuration
-    column_mappings: Optional[List[Dict[str, str]]] = None
 
 
 class ExperimentUpdate(BaseModel):

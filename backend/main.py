@@ -1,7 +1,12 @@
+from contextlib import asynccontextmanager
+from datetime import datetime
+
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel
-from db import engine
+
+from config import API_HOST, API_PORT, CORS_ORIGINS
+from db import init_db
 from api import (
     datasets,
     experiments,
@@ -11,25 +16,32 @@ from api import (
     prompts,
     models,
 )
-from config import API_HOST, API_PORT
-import uvicorn
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: initialize DB on startup."""
+    init_db()
+    print("MAESTRO Experiment Bench API started")
+    print("Database tables initialized")
+    yield
+
 
 app = FastAPI(
     title="MAESTRO Experiment Bench API",
     description="Complete experiment traceability system for scientific research",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routers
 app.include_router(datasets.router)
 app.include_router(experiments.router)
 app.include_router(agent_teams.router)
@@ -39,19 +51,9 @@ app.include_router(prompts.router)
 app.include_router(models.router)
 
 
-@app.on_event("startup")
-def init_db():
-    """Initialize database tables"""
-    SQLModel.metadata.create_all(engine)  # Ensure all tables exist
-    print("🚀 MAESTRO Experiment Bench API started")
-    print("📊 Database tables initialized")
-    print("🔬 Full experiment traceability enabled")
-
-
 @app.get("/health")
 def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"}
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 
 if __name__ == "__main__":
