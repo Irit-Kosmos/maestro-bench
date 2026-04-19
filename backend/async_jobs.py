@@ -8,7 +8,7 @@ Experiments are dispatched as native asyncio Tasks on uvicorn's event loop.
 import asyncio
 import json
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, AsyncGenerator, Dict, Any
 from sqlmodel import Session, select
 
@@ -100,9 +100,9 @@ async def run_experiment_async(experiment_id: int) -> None:
             )
 
             execution.status = "completed"
-            execution.completed_at = datetime.utcnow()
+            execution.completed_at = datetime.now(timezone.utc)
             experiment.status = "completed"
-            experiment.completed_at = datetime.utcnow()
+            experiment.completed_at = datetime.now(timezone.utc)
 
             db_session.add(execution)
             db_session.add(experiment)
@@ -143,7 +143,7 @@ async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
 
                 for exc in running_executions:
                     exc.status = "failed"
-                    exc.completed_at = datetime.utcnow()
+                    exc.completed_at = datetime.now(timezone.utc)
                     db_session.add(exc)
 
                 db_session.commit()
@@ -175,8 +175,6 @@ class _ExperimentProcessor:
         """Process an experiment: run pipeline + optional scoring."""
         from experiment_utils import (
             build_agent_configs_from_snapshot,
-            apply_column_mappings,
-            apply_dataset_sampling,
             process_pipeline_results,
         )
 
@@ -226,7 +224,7 @@ class _ExperimentProcessor:
         column_mappings_json: Optional[str],
     ) -> AsyncGenerator[tuple, None]:
         """Yield (chunk_results, chunk_size) for each processed chunk."""
-        from experiment_utils import apply_dataset_sampling, apply_column_mappings
+        from experiment_utils import apply_dataset_sampling
 
         dataset_full_path = validate_dataset_file(dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")

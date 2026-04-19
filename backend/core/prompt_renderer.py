@@ -57,7 +57,7 @@ def render_prompt(template: str, variables: dict) -> str:
     try:
         tpl = _jinja_env.from_string(converted)
         return tpl.render(**variables)
-    except (TemplateSyntaxError, UndefinedError) as e:
+    except (TemplateSyntaxError, UndefinedError):
         # Fallback: do simple string replacement if Jinja2 fails
         result = converted
         for key, value in variables.items():

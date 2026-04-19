@@ -7,7 +7,7 @@ V2: Uses core engine (LiteLLM + orchestrator) instead of external MAESTRO API.
 
 import json
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pathlib import Path
 from sqlmodel import Session, select
@@ -24,7 +24,6 @@ from tables import (
 )
 from dataset_utils import validate_dataset_file
 from core.orchestrator import AgentConfig, PipelineResult
-from core.scorer import BaseScorer, create_scorer
 
 
 def apply_column_mappings(
@@ -314,7 +313,8 @@ def process_pipeline_results(
             if vals:
                 score_averages[scorer_name] = round(sum(vals) / len(vals), 4)
 
-    processing_time = (datetime.utcnow() - execution.started_at).total_seconds()
+    started_at = execution.started_at if execution.started_at.tzinfo is not None else execution.started_at.replace(tzinfo=timezone.utc)
+    processing_time = (datetime.now(timezone.utc) - started_at).total_seconds()
 
     complete_results = {
         "execution_id": execution.id,
@@ -334,7 +334,7 @@ def process_pipeline_results(
         "rows": rows,
         "configuration_used": _build_config_snapshot(execution, session),
         "maestro_bench_version": "2.0.0",
-        "completed_at": datetime.utcnow().isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
     with open(results_file_path, "w") as f:

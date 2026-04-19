@@ -116,7 +116,7 @@ class RegexScorer(BaseScorer):
             return ScoreResult(
                 scorer_name=self.name,
                 score=0.0,
-                details=f"Pattern not found in prediction",
+                details="Pattern not found in prediction",
             )
         extracted = match.group(self.group)
         is_match = extracted.strip().lower() == reference.strip().lower()
