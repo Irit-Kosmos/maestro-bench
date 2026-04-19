@@ -305,7 +305,7 @@ watch(() => route.params.id, () => {
 
 <template>
   <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="pb-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-12">
         <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />

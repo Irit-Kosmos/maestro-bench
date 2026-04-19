@@ -13,6 +13,11 @@ const { data: allPromptVersions, pending: _promptVersionsPending } = await useMy
 const { data: models, pending: _modelsPending } = await useMyLazyFetch<any[]>('/models')
 
 // Page meta
+definePageMeta({
+  title: 'Agents',
+  subtitle: 'Manage your AI agents and organize them into teams',
+})
+
 useSeoMeta({
   title: 'Agent Teams',
   description: 'Manage your AI agents and organize them into teams for coordinated experiments.',
@@ -166,38 +171,30 @@ const tabItems = [
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Page Header -->
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h1 class="text-2xl font-bold text-neutral-900">
-            Agents Management
-          </h1>
-          <p class="text-neutral-500 mt-1">
-            Manage your AI agents and organize them into teams
-          </p>
-        </div>
-        <div class="flex gap-3">
-          <UButton
-            variant="outline"
-            color="neutral"
-            icon="i-lucide:users-round"
-            @click="showCreateTeamModal = true"
-          >
-            Create Team
-          </UButton>
-          <UButton
-            variant="solid"
-            color="primary"
-            icon="i-lucide:user-plus"
-            size="lg"
-            @click="showCreateAgentModal = true"
-          >
-            Create Agent
-          </UButton>
-        </div>
-      </div>
+  <BasePageContent
+    :loading="pending && agentsPending"
+  >
+    <template #before-content>
+      <Teleport to="#page-actions" defer>
+        <UButton
+          variant="outline"
+          color="neutral"
+          icon="i-lucide:users-round"
+          @click="showCreateTeamModal = true"
+        >
+          Create Team
+        </UButton>
+        <UButton
+          variant="solid"
+          color="primary"
+          icon="i-lucide:user-plus"
+          size="lg"
+          @click="showCreateAgentModal = true"
+        >
+          Create Agent
+        </UButton>
+      </Teleport>
+    </template>
 
       <!-- Tabs -->
       <UTabs :items="tabItems" class="w-full">
@@ -363,7 +360,6 @@ const tabItems = [
           </div>
         </template>
       </UTabs>
-    </div>
 
     <!-- Create Team Modal -->
     <AgentsCreateTeamModal
@@ -397,5 +393,5 @@ const tabItems = [
       :agent="selectedAgent"
       @confirm="handleDeleteAgent"
     />
-  </div>
+  </BasePageContent>
 </template>

@@ -123,16 +123,16 @@ function handleRefresh() {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow">
+  <div class="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
     <!-- Table Header -->
-    <div v-if="title || searchable" class="px-6 py-4 border-b border-neutral-200">
+    <div v-if="title || searchable" class="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
       <div class="flex justify-between items-center">
         <div>
-          <h3 v-if="title" class="text-lg font-medium text-neutral-900">
+          <h3 v-if="title" class="text-sm font-semibold text-neutral-700 dark:text-neutral-300 tracking-wide">
             {{ title }}
           </h3>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <!-- Search -->
           <UInput
             v-if="searchable"
@@ -140,19 +140,18 @@ function handleRefresh() {
             placeholder="Search..."
             icon="i-lucide-search"
             size="sm"
-            class="w-64"
+            variant="ghost"
+            class="w-56"
           />
           <!-- Refresh Button -->
           <UButton
-            variant="outline"
+            variant="ghost"
             color="neutral"
             icon="i-lucide-refresh-cw"
             size="sm"
             :loading="loading"
             @click="handleRefresh"
-          >
-            Refresh
-          </UButton>
+          />
         </div>
       </div>
     </div>

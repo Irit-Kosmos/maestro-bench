@@ -169,137 +169,129 @@ function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value:
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <!-- Experiment Configuration Form with Stepper -->
-      <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-neutral-200">
-          <h2 class="text-lg font-semibold text-neutral-900">
-            Create New Experiment
-          </h2>
-          <p class="text-sm text-neutral-600 mt-1">
-            Configure your experiment with prompt version and model selection
-          </p>
-        </div>
+  <BasePageContent>
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-neutral-900">
+        Create New Experiment
+      </h1>
+      <p class="text-sm text-neutral-500 mt-1">
+        Configure your experiment with prompt version and model selection
+      </p>
+    </div>
 
-        <div class="p-6">
-          <!-- Stepper Component -->
-          <UStepper
-            ref="stepper"
-            v-model="currentStep"
-            :items="stepperItems"
-            class="w-full"
-          >
-            <!-- Step 1: Experiment Details -->
-            <template #details>
-              <ExperimentsStepsExperimentDetails
-                :experiment-details="experimentDetails"
-                @update:name="(value) => experimentDetails.name = value"
-                @update:description="(value) => experimentDetails.description = value"
-              />
-            </template>
+    <!-- Stepper Component -->
+    <UStepper
+      ref="stepper"
+      v-model="currentStep"
+      :items="stepperItems"
+      class="w-full"
+    >
+      <!-- Step 1: Experiment Details -->
+      <template #details>
+        <ExperimentsStepsExperimentDetails
+          :experiment-details="experimentDetails"
+          @update:name="(value) => experimentDetails.name = value"
+          @update:description="(value) => experimentDetails.description = value"
+        />
+      </template>
 
-            <!-- Step 2: Dataset Selection -->
-            <template #dataset>
-              <ExperimentsStepsDatasetSelection
-                :selected-dataset="selectedDataset"
-                :datasets="datasets"
-                @update:selected-dataset="(value) => selectedDataset = value"
-              />
-            </template>
+      <!-- Step 2: Dataset Selection -->
+      <template #dataset>
+        <ExperimentsStepsDatasetSelection
+          :selected-dataset="selectedDataset"
+          :datasets="datasets"
+          @update:selected-dataset="(value) => selectedDataset = value"
+        />
+      </template>
 
-            <!-- Step 3: Dataset Sampling Configuration -->
-            <template #sampling>
-              <ExperimentsStepsDatasetSampling
-                :selected-dataset="selectedDataset"
-                :sampling-config="samplingConfig"
-                @update:sampling-type="(value) => samplingConfig.sampling_type = value"
-                @update:sampling-size="(value) => samplingConfig.sampling_size = value"
-                @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
-                @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
-              />
-            </template>
+      <!-- Step 3: Dataset Sampling Configuration -->
+      <template #sampling>
+        <ExperimentsStepsDatasetSampling
+          :selected-dataset="selectedDataset"
+          :sampling-config="samplingConfig"
+          @update:sampling-type="(value) => samplingConfig.sampling_type = value"
+          @update:sampling-size="(value) => samplingConfig.sampling_size = value"
+          @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
+          @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
+        />
+      </template>
 
-            <!-- Step 4: Agent Team & Configuration -->
-            <template #agents>
-              <ExperimentsStepsAgentConfiguration
-                :selected-team-id="selectedTeamId"
-                :agent-configurations="agentConfigurations"
-                :agent-teams="agentTeams"
-                :models="models"
-                :all-prompt-versions="allPromptVersions"
-                @select-team="selectTeam"
-                @update-agent-config="updateAgentConfig"
-                @open-prompt-details="openPromptDetails"
-              />
-            </template>
+      <!-- Step 4: Agent Team & Configuration -->
+      <template #agents>
+        <ExperimentsStepsAgentConfiguration
+          :selected-team-id="selectedTeamId"
+          :agent-configurations="agentConfigurations"
+          :agent-teams="agentTeams"
+          :models="models"
+          :all-prompt-versions="allPromptVersions"
+          @select-team="selectTeam"
+          @update-agent-config="updateAgentConfig"
+          @open-prompt-details="openPromptDetails"
+        />
+      </template>
 
-            <!-- Step 5: Request Configuration -->
-            <template #request>
-              <ExperimentsStepsRequestConfiguration
-                :selected-dataset="selectedDataset"
-                :request-config="requestConfig"
-                :preview-request="previewRequest"
-                :dataset-headers="datasetHeaders"
-                @add-column-mapping="addMapping"
-                @remove-column-mapping="removeMapping"
-                @update-column-mapping="updateMapping"
-              />
-            </template>
-          </UStepper>
-        </div>
+      <!-- Step 5: Request Configuration -->
+      <template #request>
+        <ExperimentsStepsRequestConfiguration
+          :selected-dataset="selectedDataset"
+          :request-config="requestConfig"
+          :preview-request="previewRequest"
+          :dataset-headers="datasetHeaders"
+          @add-column-mapping="addMapping"
+          @remove-column-mapping="removeMapping"
+          @update-column-mapping="updateMapping"
+        />
+      </template>
+    </UStepper>
 
-        <!-- Footer Actions -->
-        <div class="px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-          <div class="flex justify-between">
-            <div class="flex space-x-3">
-              <UButton
-                variant="ghost"
-                @click="handleCancel"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                v-if="stepper?.hasPrev"
-                variant="outline"
-                icon="i-lucide-chevron-left"
-                @click="prevStep"
-              >
-                Previous
-              </UButton>
-            </div>
-
-            <div class="flex space-x-3">
-              <UButton
-                v-if="stepper?.hasNext"
-                variant="solid"
-                icon-trailing="i-lucide-chevron-right"
-                :disabled="!isStepValid(currentStep)"
-                @click="nextStep"
-              >
-                Next
-              </UButton>
-              <UButton
-                v-else
-                variant="solid"
-                color="primary"
-                icon="i-lucide-play"
-                :disabled="!formValid"
-                :loading="isSubmitting"
-                @click="handleSubmit"
-              >
-                Create & Start Experiment
-              </UButton>
-            </div>
-          </div>
-        </div>
+    <!-- Navigation Actions -->
+    <div class="flex justify-between mt-8">
+      <div class="flex space-x-3">
+        <UButton
+          variant="ghost"
+          @click="handleCancel"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          v-if="stepper?.hasPrev"
+          variant="outline"
+          icon="i-lucide-chevron-left"
+          @click="prevStep"
+        >
+          Previous
+        </UButton>
       </div>
 
-      <!-- Prompt Details Modal -->
-      <ExperimentsPromptDetailsModal
-        v-model:is-open="showPromptDetailsModal"
-        :prompt-version-details="selectedPromptVersionForDetails"
-      />
+      <div class="flex space-x-3">
+        <UButton
+          v-if="stepper?.hasNext"
+          variant="solid"
+          icon-trailing="i-lucide-chevron-right"
+          :disabled="!isStepValid(currentStep)"
+          @click="nextStep"
+        >
+          Next
+        </UButton>
+        <UButton
+          v-else
+          variant="solid"
+          color="primary"
+          icon="i-lucide-play"
+          :disabled="!formValid"
+          :loading="isSubmitting"
+          @click="handleSubmit"
+        >
+          Create & Start Experiment
+        </UButton>
+      </div>
     </div>
-  </div>
+
+    <!-- Prompt Details Modal -->
+    <ExperimentsPromptDetailsModal
+      v-model:is-open="showPromptDetailsModal"
+      :prompt-version-details="selectedPromptVersionForDetails"
+    />
+  </BasePageContent>
 </template>

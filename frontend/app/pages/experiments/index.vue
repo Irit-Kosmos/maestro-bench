@@ -4,6 +4,7 @@ import type { Experiment } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Experiments',
+  subtitle: 'Manage and monitor your experiments',
 })
 
 // Fetch data directly in the page
@@ -116,20 +117,20 @@ async function handleCreateExperiment() {
 
 <template>
   <BasePageContent
-    title="Experiments"
-    subtitle="Manage and monitor your experiments"
     :loading="pending"
   >
-    <template #actions>
-      <UButton
-        variant="solid"
-        color="primary"
-        icon="i-lucide:plus"
-        size="lg"
-        @click="handleCreateExperiment"
-      >
-        Create Experiment
-      </UButton>
+    <template #before-content>
+      <Teleport to="#page-actions" defer>
+        <UButton
+          variant="solid"
+          color="primary"
+          icon="i-lucide:plus"
+          size="lg"
+          @click="handleCreateExperiment"
+        >
+          Create Experiment
+        </UButton>
+      </Teleport>
     </template>
 
     <!-- Experiments Table -->

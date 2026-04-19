@@ -4,6 +4,7 @@ import type { Prompt } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Prompts',
+  subtitle: 'Manage your reusable prompts with versioning support',
 })
 
 // Fetch data directly in the page
@@ -84,21 +85,21 @@ watch(() => showCreateModal.value, (newValue) => {
 
 <template>
   <BasePageContent
-    title="Prompts"
-    subtitle="Manage your reusable prompts with versioning support"
     :loading="pending"
     :error="error?.message || null"
   >
-    <template #actions>
-      <UButton
-        variant="solid"
-        color="primary"
-        icon="i-lucide:plus"
-        size="lg"
-        @click="showCreateModal = true"
-      >
-        Create Prompt
-      </UButton>
+    <template #before-content>
+      <Teleport to="#page-actions" defer>
+        <UButton
+          variant="solid"
+          color="primary"
+          icon="i-lucide:plus"
+          size="lg"
+          @click="showCreateModal = true"
+        >
+          Create Prompt
+        </UButton>
+      </Teleport>
     </template>
 
     <!-- Empty State -->
