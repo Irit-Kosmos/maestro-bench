@@ -20,16 +20,6 @@ class PromptUpdate(BaseModel):
     category: Optional[str] = None
 
 
-class PromptResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    description: Optional[str]
-    category: Optional[str]
-    created_at: datetime
-
-
 class PromptVersionCreate(BaseModel):
     version: str
     system_prompt: Optional[str] = None

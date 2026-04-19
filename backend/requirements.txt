@@ -4,5 +4,4 @@ sqlmodel
 pydantic
 aiohttp
 pandas
-requests
 python-dotenv

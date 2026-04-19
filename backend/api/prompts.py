@@ -78,8 +78,6 @@ def delete_prompt(prompt_id: int, session: Annotated[Session, Depends(get_sessio
 @router.get("/prompt-versions", response_model=list[PromptVersionResponse])
 def list_all_prompt_versions(session: Annotated[Session, Depends(get_session)]):
     """Get all prompt versions across all prompts for dropdown selections"""
-    from sqlmodel import select
-
     # Use JOIN to include prompt data in the query
     query = select(PromptVersion).join(Prompt).where(PromptVersion.is_active)
     versions = session.exec(query).all()

@@ -137,10 +137,14 @@ class Experiment(SQLModel, table=True):
 
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")
-    agent_configs: List["ExperimentAgentConfig"] = Relationship(
-        back_populates="experiment"
+    executions: List["ExperimentExecution"] = Relationship(
+        back_populates="experiment",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    executions: List["ExperimentExecution"] = Relationship(back_populates="experiment")
+    agent_configs: List["ExperimentAgentConfig"] = Relationship(
+        back_populates="experiment",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class ExperimentAgentConfig(SQLModel, table=True):
@@ -202,7 +206,8 @@ class ExperimentExecution(SQLModel, table=True):
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="executions")
     agent_snapshots: List["AgentExecutionSnapshot"] = Relationship(
-        back_populates="execution"
+        back_populates="execution",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
 

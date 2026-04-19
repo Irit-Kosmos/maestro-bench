@@ -42,27 +42,6 @@ class AgentTeamWithAgents(BaseModel):
     agents: List[AgentResponse] = []
 
 
-class AgentTeamBasic(BaseModel):
-    """Basic agent team response without nested agents"""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    description: Optional[str]
-    created_at: datetime
-
-
-class AgentTeamResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-    description: Optional[str]
-    created_at: datetime
-    agents: List[AgentResponse] = []
-
-
 class AgentCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -80,5 +59,5 @@ class AgentUpdate(BaseModel):
 
 
 # Forward reference resolution
-AgentTeamResponse.model_rebuild()
+AgentTeamWithAgents.model_rebuild()
 AgentResponse.model_rebuild()

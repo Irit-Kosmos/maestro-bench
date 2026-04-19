@@ -1,16 +1,15 @@
 from sqlmodel import SQLModel, create_engine, Session
 
-# SQLite DB URL
-DATABASE_URL = "sqlite:///./app.db"
+from config import DATABASE_URL, DB_ECHO
 
-# Create engine with echo enabled for debugging
-engine = create_engine(DATABASE_URL, echo=True)
-
-# Create tables
-SQLModel.metadata.create_all(engine)
+engine = create_engine(DATABASE_URL, echo=DB_ECHO)
 
 
-# SessionLocal is a helper function to create new DB sessions
+def init_db() -> None:
+    """Create all tables. Call once at application startup."""
+    SQLModel.metadata.create_all(engine)
+
+
 def get_session():
     with Session(engine) as session:
         yield session
