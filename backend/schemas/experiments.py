@@ -47,6 +47,9 @@ class ExperimentCreate(BaseModel):
     # Column mapping configuration
     column_mappings: Optional[List[Dict[str, str]]] = None
 
+    # V2: Scoring configuration
+    scoring_config: Optional[List[Dict]] = None
+
 
 class ExperimentResponse(BaseModel):
     id: int
@@ -65,6 +68,9 @@ class ExperimentResponse(BaseModel):
     sampling_size: Optional[int] = None
     sampling_start_row: Optional[int] = None
     sampling_end_row: Optional[int] = None
+
+    # V2: Scoring
+    scoring_config: Optional[List[Dict]] = None
 
 
 class ExperimentUpdate(BaseModel):

@@ -65,6 +65,7 @@ def _build_experiment_response(
         sampling_start_row=experiment.sampling_start_row,
         sampling_end_row=experiment.sampling_end_row,
         column_mappings=column_mappings,
+        scoring_config=json.loads(experiment.scoring_config) if experiment.scoring_config else None,
         dataset=DatasetResponse(
             id=int(dataset.id) if dataset.id is not None else 0,
             name=dataset.name,
@@ -121,6 +122,9 @@ async def create_experiment(
         sampling_end_row=exp_data.sampling_end_row,
         column_mappings=json.dumps(exp_data.column_mappings)
         if exp_data.column_mappings
+        else None,
+        scoring_config=json.dumps(exp_data.scoring_config)
+        if exp_data.scoring_config
         else None,
     )
     session.add(experiment)

@@ -135,6 +135,12 @@ class Experiment(SQLModel, table=True):
         default=None, description="JSON string containing column mapping configuration"
     )
 
+    # V2: Scoring configuration
+    scoring_config: Optional[str] = Field(
+        default=None,
+        description="JSON string containing scoring configuration list",
+    )
+
     # Relationships
     dataset: Optional[Dataset] = Relationship(back_populates="experiments")
     executions: List["ExperimentExecution"] = Relationship(
@@ -199,9 +205,12 @@ class ExperimentExecution(SQLModel, table=True):
     )
 
     # Results storage
-    results_file_path: Optional[str] = (
-        None  # Path to CSV/JSON results file from MAESTRO
-    )
+    results_file_path: Optional[str] = None
+
+    # V2: Aggregated metrics
+    total_tokens: Optional[int] = None
+    total_cost_usd: Optional[float] = None
+    scores_summary: Optional[str] = None  # JSON string of {scorer_name: avg_score}
 
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="executions")

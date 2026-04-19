@@ -1,29 +1,29 @@
 """
 Async experiment processor.
 
-Experiments are dispatched as native asyncio Tasks on uvicorn's event loop via
-`asyncio.create_task()`.  No daemon threads, no secondary event loops.
+V2: Uses core engine (LiteLLM + orchestrator + scorer) instead of external MAESTRO API.
+Experiments are dispatched as native asyncio Tasks on uvicorn's event loop.
 """
 
 import asyncio
-import aiohttp
 import json
 import pandas as pd
 from datetime import datetime
-from typing import Optional, AsyncGenerator, List, Dict, Any
-from sqlmodel import Session
+from typing import Optional, AsyncGenerator, Dict, Any
+from sqlmodel import Session, select
 
 from db import engine
-from tables import Experiment, ExperimentExecution, AgentExecutionSnapshot
+from tables import Experiment, ExperimentExecution
 from dataset_utils import validate_dataset_file
-from config import MAESTRO_API_BASE_URL
+from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
+from core.scorer import BaseScorer, ScoreResult, create_scorer
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-MAESTRO_API_TIMEOUT = 300  # seconds
-
+DEFAULT_CHUNK_SIZE = 5
+DEFAULT_MAX_CONCURRENT = 2
 
 # ---------------------------------------------------------------------------
 # Task registry — maps experiment_id → running asyncio.Task
@@ -33,11 +33,7 @@ _running_tasks: Dict[int, asyncio.Task] = {}
 
 
 def start_experiment(experiment_id: int) -> bool:
-    """
-    Schedule an experiment run as a background asyncio Task.
-    Must be called from within an async context (e.g. a FastAPI async route).
-    Cancels any previously running task for the same experiment_id.
-    """
+    """Schedule an experiment run as a background asyncio Task."""
     existing = _running_tasks.get(experiment_id)
     if existing and not existing.done():
         existing.cancel()
@@ -59,7 +55,7 @@ def get_task_status(experiment_id: int) -> str:
 
 
 def cancel_experiment(experiment_id: int) -> bool:
-    """Cancel a running experiment task. Returns True if a task was found."""
+    """Cancel a running experiment task."""
     task = _running_tasks.get(experiment_id)
     if task and not task.done():
         task.cancel()
@@ -77,42 +73,44 @@ async def run_experiment_async(experiment_id: int) -> None:
     print(f"[AsyncJob] Starting experiment {experiment_id}")
 
     try:
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=MAESTRO_API_TIMEOUT),
-            connector=aiohttp.TCPConnector(limit=_processor.max_concurrent),
-        ) as http_session:
-            with Session(engine) as db_session:
-                experiment = db_session.get(Experiment, experiment_id)
-                if not experiment:
-                    print(f"[AsyncJob] Experiment {experiment_id} not found")
-                    return
+        with Session(engine) as db_session:
+            experiment = db_session.get(Experiment, experiment_id)
+            if not experiment:
+                print(f"[AsyncJob] Experiment {experiment_id} not found")
+                return
 
-                print(f"[AsyncJob] Found experiment: {experiment.name}")
-                experiment.status = "running"
-                db_session.add(experiment)
-                db_session.commit()
+            print(f"[AsyncJob] Found experiment: {experiment.name}")
+            experiment.status = "running"
+            db_session.add(experiment)
+            db_session.commit()
 
-                execution = _processor.create_execution_snapshot(
-                    experiment_id, db_session
-                )
-                print(f"[AsyncJob] Created execution snapshot {execution.id}")
+            # Create immutable execution snapshot
+            from experiment_utils import create_execution_snapshot
 
-                results_summary = await _processor.process_experiment_chunks(
-                    execution, http_session, db_session
-                )
+            execution = create_execution_snapshot(experiment_id, db_session)
+            print(f"[AsyncJob] Created execution snapshot {execution.id}")
 
-                execution.status = "completed"
-                execution.completed_at = datetime.utcnow()
-                experiment.status = "completed"
-                experiment.completed_at = datetime.utcnow()
+            # Run the experiment pipeline
+            processor = _ExperimentProcessor(
+                chunk_size=DEFAULT_CHUNK_SIZE,
+                max_concurrent=DEFAULT_MAX_CONCURRENT,
+            )
+            results_summary = await processor.process_experiment(
+                execution, db_session
+            )
 
-                db_session.add(execution)
-                db_session.add(experiment)
-                db_session.commit()
+            execution.status = "completed"
+            execution.completed_at = datetime.utcnow()
+            experiment.status = "completed"
+            experiment.completed_at = datetime.utcnow()
 
-                print(
-                    f"[AsyncJob] Experiment {experiment_id} completed: {results_summary}"
-                )
+            db_session.add(execution)
+            db_session.add(experiment)
+            db_session.commit()
+
+            print(
+                f"[AsyncJob] Experiment {experiment_id} completed: {results_summary}"
+            )
 
     except asyncio.CancelledError:
         print(f"[AsyncJob] Experiment {experiment_id} cancelled")
@@ -121,14 +119,15 @@ async def run_experiment_async(experiment_id: int) -> None:
 
     except Exception as e:
         print(f"[AsyncJob] Error in experiment {experiment_id}: {e}")
+        import traceback
+
+        traceback.print_exc()
         await _mark_experiment_failed(experiment_id, str(e))
 
 
 async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
     """Mark experiment and any running executions as failed."""
     try:
-        from sqlmodel import select
-
         with Session(engine) as db_session:
             experiment = db_session.get(Experiment, experiment_id)
             if experiment:
@@ -156,46 +155,39 @@ async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Chunked processor
+# Experiment processor — uses core engine
 # ---------------------------------------------------------------------------
 
 
-class AsyncExperimentProcessor:
-    """Async experiment processor with memory-efficient chunked processing."""
+class _ExperimentProcessor:
+    """Processes experiments using the core pipeline engine."""
 
     def __init__(self, chunk_size: int = 5, max_concurrent: int = 2):
         self.chunk_size = chunk_size
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
 
-    # ------------------------------------------------------------------
-    # Snapshot helpers — delegate to experiment_utils
-    # ------------------------------------------------------------------
-
-    def create_execution_snapshot(
-        self, experiment_id: int, session: Session
-    ) -> ExperimentExecution:
-        from experiment_utils import create_execution_snapshot
-
-        return create_execution_snapshot(experiment_id, session)
-
-    def save_results(
-        self, execution: ExperimentExecution, results: List[Dict], db_session: Session
-    ) -> Dict[str, Any]:
-        from experiment_utils import process_maestro_results
-
-        return process_maestro_results(execution, results, db_session)
-
-    # ------------------------------------------------------------------
-    # Main chunk processing pipeline
-    # ------------------------------------------------------------------
-
-    async def process_experiment_chunks(
+    async def process_experiment(
         self,
         execution: ExperimentExecution,
-        http_session: aiohttp.ClientSession,
         db_session: Session,
     ) -> Dict[str, Any]:
+        """Process an experiment: run pipeline + optional scoring."""
+        from experiment_utils import (
+            build_agent_configs_from_snapshot,
+            apply_column_mappings,
+            apply_dataset_sampling,
+            process_pipeline_results,
+        )
+
+        # Build agent configs from execution snapshot
+        agent_configs = build_agent_configs_from_snapshot(execution, db_session)
+        if not agent_configs:
+            raise ValueError("No agent configurations found in execution snapshot")
+
+        print(f"[AsyncJob] Pipeline has {len(agent_configs)} agents")
+
+        # Load dataset
         dataset_snapshot = json.loads(execution.dataset_snapshot)
         dataset_file_path = dataset_snapshot.get("file_path")
         sampling_config = dataset_snapshot.get("sampling_config", {})
@@ -203,188 +195,200 @@ class AsyncExperimentProcessor:
         if not dataset_file_path:
             raise ValueError("Dataset file path not found in snapshot")
 
-        print(f"[AsyncJob] Processing dataset: {dataset_file_path}")
+        # Get column mappings from experiment
+        experiment = db_session.get(Experiment, execution.experiment_id)
+        column_mappings_json = experiment.column_mappings if experiment else None
 
-        all_results: List[Dict] = []
+        # Process all rows
+        all_results: list[PipelineResult] = []
         total_processed = 0
 
-        async for chunk_results, chunk_size in self._process_dataset_chunks(
-            dataset_file_path, sampling_config, execution, http_session, db_session
+        async for chunk_results, chunk_size in self._process_chunks(
+            dataset_file_path,
+            sampling_config,
+            agent_configs,
+            column_mappings_json,
         ):
             all_results.extend(chunk_results)
             total_processed += chunk_size
             print(f"[AsyncJob] Processed {total_processed} rows so far...")
 
-            import gc
+        # Optional scoring
+        scores = await self._run_scoring(execution, all_results, db_session)
 
-            gc.collect()
+        return process_pipeline_results(execution, all_results, scores, db_session)
 
-        return self.save_results(execution, all_results, db_session)
-
-    async def _process_dataset_chunks(
+    async def _process_chunks(
         self,
         dataset_file_path: str,
-        sampling_config: Dict,
-        execution: ExperimentExecution,
-        http_session: aiohttp.ClientSession,
-        db_session: Session,
+        sampling_config: dict,
+        agent_configs: list[AgentConfig],
+        column_mappings_json: Optional[str],
     ) -> AsyncGenerator[tuple, None]:
         """Yield (chunk_results, chunk_size) for each processed chunk."""
-        from experiment_utils import apply_dataset_sampling
+        from experiment_utils import apply_dataset_sampling, apply_column_mappings
 
         dataset_full_path = validate_dataset_file(dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")
 
         if sampling_type == "all":
-            chunk_iterator = self._read_csv_chunks(dataset_full_path)
+            chunk_iter = self._read_csv_chunks(dataset_full_path)
         elif sampling_type == "random":
             df = apply_dataset_sampling(dataset_file_path, sampling_config)
-            chunk_iterator = self._dataframe_to_chunks(df)
+            chunk_iter = self._dataframe_to_chunks(df)
         elif sampling_type == "range":
             start_row = sampling_config.get("sampling_start_row", 1) - 1
             end_row = sampling_config.get("sampling_end_row")
-            chunk_iterator = self._read_csv_range_chunks(
+            chunk_iter = self._read_csv_range_chunks(
                 dataset_full_path, start_row, end_row
             )
         else:
-            chunk_iterator = self._read_csv_chunks(dataset_full_path)
+            chunk_iter = self._read_csv_chunks(dataset_full_path)
 
         chunk_number = 0
-        async for chunk_df in chunk_iterator:
+        async for chunk_df in chunk_iter:
             chunk_number += 1
             print(
-                f"[AsyncJob] Processing chunk {chunk_number} with {len(chunk_df)} rows"
+                f"[AsyncJob] Processing chunk {chunk_number} ({len(chunk_df)} rows)"
             )
-            chunk_results = await self._process_chunk_concurrent(
-                chunk_df, execution, http_session, db_session, chunk_number
+            chunk_results = await self._process_chunk(
+                chunk_df,
+                agent_configs,
+                column_mappings_json,
+                chunk_number,
             )
             yield chunk_results, len(chunk_df)
 
+    async def _process_chunk(
+        self,
+        chunk_df: pd.DataFrame,
+        agent_configs: list[AgentConfig],
+        column_mappings_json: Optional[str],
+        chunk_number: int,
+    ) -> list[PipelineResult]:
+        """Process a chunk of rows concurrently via the orchestrator."""
+        from experiment_utils import apply_column_mappings
+
+        tasks = []
+        for idx, (_, row) in enumerate(chunk_df.iterrows()):
+            row_index = idx + ((chunk_number - 1) * self.chunk_size) + 1
+            row_dict = row.to_dict()
+            mapped_data = apply_column_mappings(row_dict, column_mappings_json)
+
+            tasks.append(
+                self._run_pipeline_with_semaphore(
+                    agent_configs, mapped_data, row_index
+                )
+            )
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        pipeline_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                row_index = i + ((chunk_number - 1) * self.chunk_size) + 1
+                print(f"[AsyncJob] Row {row_index} error: {result}")
+                pipeline_results.append(
+                    PipelineResult(
+                        row_index=row_index,
+                        input_data={},
+                        error=str(result),
+                    )
+                )
+            else:
+                pipeline_results.append(result)
+
+        return pipeline_results
+
+    async def _run_pipeline_with_semaphore(
+        self,
+        agent_configs: list[AgentConfig],
+        data: dict,
+        row_index: int,
+    ) -> PipelineResult:
+        """Run the orchestrator pipeline with concurrency limiting."""
+        async with self.semaphore:
+            return await run_pipeline(agent_configs, data, row_index)
+
+    async def _run_scoring(
+        self,
+        execution: ExperimentExecution,
+        results: list[PipelineResult],
+        db_session: Session,
+    ) -> Optional[dict]:
+        """Run scoring on pipeline results if scoring config exists."""
+        experiment = db_session.get(Experiment, execution.experiment_id)
+        if not experiment or not experiment.scoring_config:
+            return None
+
+        try:
+            scoring_configs = json.loads(experiment.scoring_config)
+            if not scoring_configs:
+                return None
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        scorers: list[tuple[BaseScorer, dict]] = []
+        for sc in scoring_configs:
+            scorer = create_scorer(sc)
+            scorers.append((scorer, sc))
+
+        # Get original dataset rows for reference columns
+        dataset_snapshot = json.loads(execution.dataset_snapshot)
+        dataset_file_path = dataset_snapshot.get("file_path")
+        if not dataset_file_path:
+            return None
+
+        # For now, scoring uses final_output vs reference_column
+        # TODO: support prediction_field extraction from structured output
+        all_scores: dict[int, dict[str, ScoreResult]] = {}
+
+        for result in results:
+            if result.error:
+                continue
+
+            row_scores = {}
+            for scorer, sc_config in scorers:
+                reference_col = sc_config.get("reference_column")
+                reference_val = ""
+                if reference_col and reference_col in result.input_data:
+                    reference_val = str(result.input_data[reference_col])
+
+                score_result = await scorer.score(
+                    prediction=result.final_output,
+                    reference=reference_val,
+                )
+                row_scores[scorer.name] = score_result
+
+            all_scores[result.row_index] = row_scores
+
+        return all_scores
+
     # ------------------------------------------------------------------
-    # CSV reading helpers
+    # CSV reading helpers (unchanged from V1)
     # ------------------------------------------------------------------
 
     async def _read_csv_chunks(
         self, file_path
     ) -> AsyncGenerator[pd.DataFrame, None]:
-        try:
-            for chunk in pd.read_csv(file_path, chunksize=self.chunk_size):
-                yield chunk
-        except Exception as e:
-            print(f"[AsyncJob] Error reading CSV chunks: {e}")
-            raise
+        for chunk in pd.read_csv(file_path, chunksize=self.chunk_size):
+            yield chunk
 
     async def _read_csv_range_chunks(
         self, file_path, start_row: int, end_row: Optional[int]
     ) -> AsyncGenerator[pd.DataFrame, None]:
-        try:
-            nrows = None if end_row is None else (end_row - start_row)
-            skiprows = list(range(1, start_row + 1)) if start_row > 0 else None
-            for chunk in pd.read_csv(
-                file_path,
-                chunksize=self.chunk_size,
-                skiprows=skiprows,
-                nrows=nrows,
-            ):
-                yield chunk
-        except Exception as e:
-            print(f"[AsyncJob] Error reading CSV range chunks: {e}")
-            raise
+        nrows = None if end_row is None else (end_row - start_row)
+        skiprows = list(range(1, start_row + 1)) if start_row > 0 else None
+        for chunk in pd.read_csv(
+            file_path,
+            chunksize=self.chunk_size,
+            skiprows=skiprows,
+            nrows=nrows,
+        ):
+            yield chunk
 
     async def _dataframe_to_chunks(
         self, df: pd.DataFrame
     ) -> AsyncGenerator[pd.DataFrame, None]:
         for i in range(0, len(df), self.chunk_size):
             yield df.iloc[i : i + self.chunk_size]
-
-    # ------------------------------------------------------------------
-    # Row-level concurrent processing
-    # ------------------------------------------------------------------
-
-    async def _process_chunk_concurrent(
-        self,
-        chunk_df: pd.DataFrame,
-        execution: ExperimentExecution,
-        http_session: aiohttp.ClientSession,
-        db_session: Session,
-        chunk_number: int,
-    ) -> List[Dict[str, Any]]:
-        tasks = [
-            self._process_single_row(
-                row,
-                idx + ((chunk_number - 1) * self.chunk_size) + 1,
-                execution,
-                http_session,
-                db_session,
-            )
-            for idx, (_, row) in enumerate(chunk_df.iterrows())
-        ]
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        chunk_results = []
-        for result in results:
-            if isinstance(result, Exception):
-                print(f"[AsyncJob] Row processing error: {result}")
-                chunk_results.append(
-                    {
-                        "error": str(result),
-                        "processed_at": datetime.utcnow().isoformat(),
-                    }
-                )
-            else:
-                chunk_results.append(result)
-
-        return chunk_results
-
-    async def _process_single_row(
-        self,
-        row: pd.Series,
-        row_index: int,
-        execution: ExperimentExecution,
-        http_session: aiohttp.ClientSession,
-        db_session: Session,
-    ) -> Dict[str, Any]:
-        async with self.semaphore:
-            try:
-                from experiment_utils import build_maestro_request_payload
-
-                row_dict = row.to_dict()
-                request_payload = build_maestro_request_payload(
-                    execution, row_dict, db_session
-                )
-                maestro_response = await self._call_maestro_api(
-                    http_session, request_payload
-                )
-                return {
-                    "row_index": row_index,
-                    "input_data": row_dict,
-                    "maestro_response": maestro_response,
-                    "processed_at": datetime.utcnow().isoformat(),
-                }
-            except Exception as e:
-                return {
-                    "row_index": row_index,
-                    "input_data": row.to_dict(),
-                    "error": str(e),
-                    "processed_at": datetime.utcnow().isoformat(),
-                }
-
-    async def _call_maestro_api(
-        self, http_session: aiohttp.ClientSession, request_payload: Dict
-    ) -> Dict[str, Any]:
-        url = f"{MAESTRO_API_BASE_URL}/api/flexible-agents"
-        try:
-            async with http_session.post(
-                url,
-                json=request_payload,
-                headers={"Content-Type": "application/json"},
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
-        except aiohttp.ClientError as e:
-            raise RuntimeError(f"MAESTRO API error: {e}") from e
-
-
-# Module-level processor instance
-_processor = AsyncExperimentProcessor(chunk_size=5, max_concurrent=2)
