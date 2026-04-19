@@ -107,6 +107,10 @@ export interface ExperimentExecution {
   status: string
   dataset_snapshot: string
   results_file_path?: string
+  // V2 metrics
+  total_tokens?: number
+  total_cost_usd?: number
+  scores_summary?: Record<string, number>
   agent_executions: AgentExecutionSnapshot[]
 }
 

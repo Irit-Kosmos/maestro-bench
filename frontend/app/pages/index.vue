@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { Agent, AgentTeam, Dataset, Experiment } from '~/types'
 
+interface ProviderStatus {
+  provider: string
+  configured: boolean
+}
+
 // Page meta
 definePageMeta({
   title: 'Dashboard',
@@ -11,6 +16,7 @@ const { data: experiments, pending: experimentsPending, refresh: refreshExperime
 const { data: datasets, pending: datasetsPending, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { data: agentTeams, pending: teamsPending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
+const { data: providers, pending: providersPending } = await useMyLazyFetch<ProviderStatus[]>('/api/providers')
 
 // Composables
 const { showComingSoon } = useStandardToast()
@@ -91,6 +97,25 @@ async function handleDeleteExperiment(_id: number) {
         icon-color="text-green-600"
         :loading="isAdditionalStatsLoading"
       />
+    </div>
+
+    <!-- Provider Status -->
+    <div v-if="!providersPending && providers?.length" class="mb-8">
+      <h3 class="text-sm font-medium text-neutral-500 mb-3">
+        LLM Providers
+      </h3>
+      <div class="flex flex-wrap gap-2">
+        <UBadge
+          v-for="p in providers"
+          :key="p.provider"
+          :color="p.configured ? 'success' : 'neutral'"
+          :variant="p.configured ? 'subtle' : 'outline'"
+          class="capitalize"
+        >
+          <UIcon :name="p.configured ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-3 mr-1" />
+          {{ p.provider }}
+        </UBadge>
+      </div>
     </div>
 
     <!-- Recent Experiments -->

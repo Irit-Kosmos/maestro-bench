@@ -422,6 +422,43 @@ watch(() => route.params.id, () => {
               </div>
             </div>
           </div>
+          <!-- V2 Metrics: Tokens, Cost, Scores -->
+          <div v-if="latestExecution?.total_tokens || latestExecution?.total_cost_usd || latestExecution?.scores_summary" class="mt-6 pt-6 border-t border-neutral-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div v-if="latestExecution.total_tokens">
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Total Tokens
+                </dt>
+                <dd class="text-lg font-semibold text-neutral-900">
+                  {{ latestExecution.total_tokens.toLocaleString() }}
+                </dd>
+              </div>
+              <div v-if="latestExecution.total_cost_usd !== undefined && latestExecution.total_cost_usd !== null">
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Total Cost
+                </dt>
+                <dd class="text-lg font-semibold text-neutral-900">
+                  ${{ latestExecution.total_cost_usd.toFixed(4) }}
+                </dd>
+              </div>
+              <div v-if="latestExecution.scores_summary && Object.keys(latestExecution.scores_summary).length > 0">
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Scores
+                </dt>
+                <dd class="space-y-1">
+                  <div
+                    v-for="(score, scorer) in latestExecution.scores_summary"
+                    :key="scorer"
+                    class="flex items-center justify-between"
+                  >
+                    <span class="text-sm text-neutral-700 capitalize">{{ scorer }}</span>
+                    <UBadge :label="typeof score === 'number' ? score.toFixed(3) : String(score)" color="primary" variant="subtle" />
+                  </div>
+                </dd>
+              </div>
+            </div>
+          </div>
+
           <!-- Results File Info -->
           <div v-if="latestExecution?.results_file_path" class="mt-6 pt-6 border-t border-neutral-200">
             <div class="flex items-center justify-between">
@@ -862,6 +899,12 @@ watch(() => route.params.id, () => {
                   variant="subtle"
                   class="capitalize"
                 />
+                <div v-if="execution.total_tokens" class="text-sm text-neutral-600">
+                  {{ execution.total_tokens.toLocaleString() }} tokens
+                </div>
+                <div v-if="execution.total_cost_usd" class="text-sm text-neutral-600">
+                  ${{ execution.total_cost_usd.toFixed(4) }}
+                </div>
                 <div class="text-sm text-neutral-600">
                   {{ execution.agent_executions?.length || 0 }} agents
                 </div>
