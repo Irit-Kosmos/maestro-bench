@@ -120,17 +120,15 @@ async function handleCreateExperiment() {
     :loading="pending"
   >
     <template #before-content>
-      <Teleport to="#page-actions" defer>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="handleCreateExperiment"
-        >
-          Create Experiment
-        </UButton>
-      </Teleport>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="handleCreateExperiment"
+      >
+        Create Experiment
+      </UButton>
     </template>
 
     <!-- Experiments Table -->

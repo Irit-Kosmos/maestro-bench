@@ -175,25 +175,23 @@ const tabItems = [
     :loading="pending && agentsPending"
   >
     <template #before-content>
-      <Teleport to="#page-actions" defer>
-        <UButton
-          variant="outline"
-          color="neutral"
-          icon="i-lucide:users-round"
-          @click="showCreateTeamModal = true"
-        >
-          Create Team
-        </UButton>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:user-plus"
-          size="lg"
-          @click="showCreateAgentModal = true"
-        >
-          Create Agent
-        </UButton>
-      </Teleport>
+      <UButton
+        variant="outline"
+        color="neutral"
+        icon="i-lucide:users-round"
+        @click="showCreateTeamModal = true"
+      >
+        Create Team
+      </UButton>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:user-plus"
+        size="lg"
+        @click="showCreateAgentModal = true"
+      >
+        Create Agent
+      </UButton>
     </template>
 
       <!-- Tabs -->

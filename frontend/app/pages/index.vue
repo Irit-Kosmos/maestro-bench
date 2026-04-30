@@ -80,7 +80,7 @@ const quickActions = [
       />
       <DashboardStatsCard
         title="Teams & Agents"
-        :value="`${agentTeamsCount}t · ${agentsCount}a`"
+        :value="`${agentTeamsCount} teams · ${agentsCount} agents`"
         icon="i-lucide-users"
         icon-color="text-emerald-400"
         :loading="isAdditionalStatsLoading"

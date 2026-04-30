@@ -127,44 +127,6 @@ function updateColumnMapping(id: string, field: 'sourceColumn' | 'targetField', 
             </div>
           </div>
         </div>
-
-        <!-- Request Preview Section -->
-        <div class="space-y-6">
-          <div>
-            <h5 class="text-base font-medium text-neutral-900 mb-4">
-              MAESTRO Request Preview
-            </h5>
-            <div class="bg-neutral-900 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-3">
-                <h6 class="text-sm font-medium text-neutral-300">
-                  Final Request Structure
-                </h6>
-                <UBadge size="sm" color="primary" variant="subtle">
-                  JSON
-                </UBadge>
-              </div>
-              <pre class="text-xs text-neutral-300 whitespace-pre-wrap overflow-auto max-h-96">{{ previewRequest }}</pre>
-            </div>
-
-            <!-- Mapping Summary -->
-            <div v-if="requestConfig.columnMappings.length > 0" class="mt-4 p-3 bg-blue-50 rounded-lg">
-              <h6 class="text-sm font-medium text-blue-900 mb-2">
-                Mapping Summary
-              </h6>
-              <div class="space-y-1">
-                <div
-                  v-for="mapping in requestConfig.columnMappings"
-                  :key="mapping.id"
-                  class="text-xs text-blue-700"
-                >
-                  <span class="font-mono">{{ mapping.sourceColumn }}</span>
-                  <UIcon name="i-lucide-arrow-right" class="w-3 h-3 mx-1" />
-                  <span class="font-mono">data.{{ mapping.targetField }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div v-else class="text-center py-12">

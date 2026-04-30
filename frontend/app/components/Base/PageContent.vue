@@ -19,7 +19,7 @@ defineSlots<{
 <template>
   <div class="max-w-[350]">
     <!-- Before Content Slot -->
-    <div v-if="$slots['before-content']">
+    <div v-if="$slots['before-content']" class="flex items-center justify-end gap-2 mb-4">
       <slot name="before-content" />
     </div>
 

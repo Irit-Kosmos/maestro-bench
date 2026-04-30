@@ -305,17 +305,15 @@ watch(() => showDeleteModal.value, (newValue) => {
     :error="error ? 'Failed to load models' : null"
   >
     <template #before-content>
-      <Teleport to="#page-actions" defer>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="handleCreateClick"
-        >
-          Add Model
-        </UButton>
-      </Teleport>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="handleCreateClick"
+      >
+        Add Model
+      </UButton>
     </template>
 
     <!-- Filters -->

@@ -114,17 +114,15 @@ function handleCreateClick() {
     :loading="pending"
   >
     <template #before-content>
-      <Teleport to="#page-actions" defer>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="handleCreateClick"
-        >
-          Create Dataset
-        </UButton>
-      </Teleport>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="handleCreateClick"
+      >
+        Create Dataset
+      </UButton>
     </template>
 
     <!-- Datasets List -->

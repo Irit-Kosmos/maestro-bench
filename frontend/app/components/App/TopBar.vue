@@ -58,8 +58,5 @@ const subtitle = computed(() => (route.meta.subtitle as string) || '')
       </div>
     </template>
 
-    <template #right>
-      <div id="page-actions" class="flex gap-2" />
-    </template>
   </UDashboardNavbar>
 </template>

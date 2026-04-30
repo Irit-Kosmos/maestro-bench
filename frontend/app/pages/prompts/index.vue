@@ -89,17 +89,15 @@ watch(() => showCreateModal.value, (newValue) => {
     :error="error?.message || null"
   >
     <template #before-content>
-      <Teleport to="#page-actions" defer>
-        <UButton
-          variant="solid"
-          color="primary"
-          icon="i-lucide:plus"
-          size="lg"
-          @click="showCreateModal = true"
-        >
-          Create Prompt
-        </UButton>
-      </Teleport>
+      <UButton
+        variant="solid"
+        color="primary"
+        icon="i-lucide:plus"
+        size="lg"
+        @click="showCreateModal = true"
+      >
+        Create Prompt
+      </UButton>
     </template>
 
     <!-- Empty State -->
