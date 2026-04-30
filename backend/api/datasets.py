@@ -34,12 +34,12 @@ def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> Dic
         with file_path.open("r", encoding="utf-8") as f:
             total_rows = sum(1 for _ in f) - 1  # subtract header
 
-        header_df = pd.read_csv(file_path, nrows=0)
+        header_df = pd.read_csv(file_path, nrows=0, skipinitialspace=True)
         headers = header_df.columns.tolist()
 
         sample_data = None
         if include_sample:
-            sample_df = pd.read_csv(file_path, nrows=_PREVIEW_ROWS)
+            sample_df = pd.read_csv(file_path, nrows=_PREVIEW_ROWS, skipinitialspace=True)
             sample_data = sample_df.to_dict("records")
 
         return {

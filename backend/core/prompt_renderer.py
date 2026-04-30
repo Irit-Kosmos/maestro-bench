@@ -70,11 +70,33 @@ def _convert_legacy_placeholders(template: str, variables: dict) -> str:
     """
     Convert <variable_name> placeholders to {{ variable_name }}
     Only converts placeholders whose names match known variable keys.
+
+    Handles two forms:
+    - <var_name></var_name>  → <var_name>{{ var_name }}</var_name>  (XML open+close pair, value goes between)
+    - <var_name>             → {{ var_name }}  (standalone open tag, no close tag)
+    Orphaned closing tags </var_name> are removed.
+
+    Skips conversion entirely if template already contains Jinja2 {{ syntax
+    (to avoid double-conversion of already-converted templates).
     """
+    if "{{" in template:
+        return template
+
     for var_name in variables:
-        # Match <var_name> but not things like <div> or <br> (HTML tags)
-        pattern = re.compile(rf"<{re.escape(var_name)}>")
-        template = pattern.sub(f"{{{{ {var_name} }}}}", template)
+        escaped = re.escape(var_name)
+        # Replace empty <var></var> pair with <var>{{ var }}</var> (inject value inside tags)
+        pair_pattern = re.compile(rf"<{escaped}>\s*</{escaped}>")
+        new_template = pair_pattern.sub(f"<{var_name}>{{{{ {var_name} }}}}</{var_name}>", template)
+        pair_was_found = new_template != template
+        template = new_template
+        # Replace standalone opening tag <var> (but not ones already converted by pair_pattern)
+        open_pattern = re.compile(rf"<{escaped}>(?!\s*{{{{)")
+        template = open_pattern.sub(f"{{{{ {var_name} }}}}", template)
+        # Remove orphaned closing tags </var> only if no pair was found
+        # (if a pair was found, the closing tag is kept as part of the XML structure)
+        if not pair_was_found:
+            close_pattern = re.compile(rf"</{escaped}>")
+            template = close_pattern.sub("", template)
     return template
 
 
