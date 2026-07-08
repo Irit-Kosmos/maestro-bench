@@ -27,6 +27,8 @@ class AgentConfig:
     temperature: float = 0.0
     max_tokens: Optional[int] = None
     execution_order: int = 1
+    input_mappings: Optional[list[dict]] = None
+    agent_id: Optional[int] = None
 
 
 @dataclass
@@ -122,10 +124,48 @@ def _safe_serialize(value):
     return value
 
 
+def _resolve_agent_context(
+    agent: AgentConfig,
+    base_context: dict,
+    raw_row: dict,
+    agent_outputs: dict,
+) -> dict:
+    """
+    Build the variable context for a single agent.
+
+    If the agent has explicit input_mappings, use them to map dataset columns,
+    previous agent outputs, or static values to prompt variables.
+    Otherwise fall back to the full shared context for backward compatibility.
+    """
+    if not agent.input_mappings:
+        return base_context
+
+    resolved: dict = {}
+    for mapping in agent.input_mappings:
+        variable = mapping.get("variable")
+        source = mapping.get("source")
+        if not variable or not source:
+            continue
+
+        if source == "dataset":
+            column = mapping.get("sourceColumn")
+            resolved[variable] = raw_row.get(column) if column else None
+        elif source == "agent":
+            source_agent_id = mapping.get("sourceAgentId")
+            output_field = mapping.get("sourceOutput", "output")
+            key = f"agent_{source_agent_id}_{output_field}"
+            resolved[variable] = agent_outputs.get(key)
+        elif source == "static":
+            resolved[variable] = mapping.get("staticValue")
+
+    return resolved
+
+
 async def run_pipeline(
     agents: list[AgentConfig],
     data: dict,
     row_index: int = 0,
+    raw_row: Optional[dict] = None,
 ) -> PipelineResult:
     """
     Execute a sequential agent pipeline on a single data row.
@@ -133,25 +173,36 @@ async def run_pipeline(
     Each agent receives:
     - Variables from the original data row (via column mappings)
     - Outputs from all previous agents as {{ agent_name_output }}
+    - Explicit per-agent input mappings when configured
 
     Args:
         agents: Ordered list of agent configurations
         data: Mapped data from the dataset row (variable_name → value)
         row_index: Index of this row in the dataset
+        raw_row: Original unmapped dataset row for explicit dataset mappings
 
     Returns:
         PipelineResult with all agent traces and aggregated metrics
     """
+    if raw_row is None:
+        raw_row = data
+
     result = PipelineResult(row_index=row_index, input_data=data)
 
-    # Build context: starts with data variables, accumulates agent outputs
+    # Shared context: starts with data variables, accumulates agent outputs
     context = {k: v for k, v in data.items()}
+
+    # Keep track of agent outputs by agent id for explicit mappings
+    agent_outputs: dict = {}
 
     # Sort agents by execution_order
     sorted_agents = sorted(agents, key=lambda a: a.execution_order)
 
     for agent in sorted_agents:
-        trace = await _execute_agent(agent, context)
+        # Resolve this agent's private variable context
+        agent_context = _resolve_agent_context(agent, context, raw_row, agent_outputs)
+
+        trace = await _execute_agent(agent, agent_context)
         result.agent_traces.append(trace)
 
         # Accumulate totals
@@ -168,6 +219,10 @@ async def run_pipeline(
         # Convention: {{ AgentName_output }} (spaces replaced with underscores)
         safe_name = agent.name.replace(" ", "_")
         context[f"{safe_name}_output"] = trace.output
+
+        # Also store by agent id for explicit input mappings
+        if agent.agent_id is not None:
+            agent_outputs[f"agent_{agent.agent_id}_output"] = trace.output
 
     # Final output = last successful agent's output
     if result.agent_traces:

@@ -183,6 +183,7 @@ def create_execution_snapshot(
             or model.default_temperature
             or 0.0,
             final_max_tokens=agent_config.max_tokens or model.default_max_tokens,
+            final_input_mappings=agent_config.input_mappings,
             execution_order=agent_config.execution_order,
         )
         session.add(agent_snapshot)
@@ -225,6 +226,16 @@ def build_agent_configs_from_snapshot(
         if snapshot.agent and snapshot.agent.team:
             team_name = snapshot.agent.team.name
 
+        # Parse input mappings
+        input_mappings = []
+        if snapshot.final_input_mappings:
+            try:
+                input_mappings = json.loads(snapshot.final_input_mappings)
+                if not isinstance(input_mappings, list):
+                    input_mappings = []
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         agents.append(
             AgentConfig(
                 name=snapshot.agent_name_snapshot,
@@ -237,6 +248,8 @@ def build_agent_configs_from_snapshot(
                 temperature=snapshot.final_temperature or 0.0,
                 max_tokens=snapshot.final_max_tokens,
                 execution_order=snapshot.execution_order,
+                input_mappings=input_mappings,
+                agent_id=snapshot.agent_id,
             )
         )
 
@@ -390,6 +403,9 @@ def _build_config_snapshot(
                 "temperature": s.final_temperature,
                 "max_tokens": s.final_max_tokens,
                 "execution_order": s.execution_order,
+                "input_mappings": json.loads(s.final_input_mappings)
+                if s.final_input_mappings
+                else [],
             }
             for s in agent_snapshots
         ],

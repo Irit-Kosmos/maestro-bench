@@ -34,7 +34,7 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
-  c: () => {
+  'c': () => {
     if (route.path.startsWith('/experiments')) {
       router.push('/experiments/new')
     }

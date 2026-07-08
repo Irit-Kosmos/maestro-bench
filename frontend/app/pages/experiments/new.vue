@@ -12,19 +12,15 @@ const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { preview: datasetPreview, loadPreview } = useDatasetPreview()
 
 // Custom composables - pass data as parameters
-const experimentForm = useExperimentForm()
+const experimentForm = useExperimentForm(agentTeams, allPromptVersions)
 const agentManagement = useAgentManagement(agentTeams, allPromptVersions, models)
-const requestPreview = useRequestPreview(models, allPromptVersions)
 const stepperComposable = useExperimentStepper(allPromptVersions)
 const submission = useExperimentSubmission()
 
 // Destructure form state
 const {
-  formData,
   experimentDetails,
   samplingConfig,
-  requestConfig,
-  selectedTeamId,
   agentConfigurations,
   selectedDataset,
   isStepValid,
@@ -32,14 +28,13 @@ const {
   prepareExperimentData,
 } = experimentForm
 
+// Ref for the agent configuration step component (to access flow view)
+const agentConfigRef = ref()
+
 // Destructure agent management
 const {
-  selectTeam: selectTeamAction,
   updateAgentConfiguration,
 } = agentManagement
-
-// Destructure column mapping functions
-// (none needed - implemented inline)
 
 // Destructure stepper state and methods
 const {
@@ -53,50 +48,15 @@ const {
   openPromptDetails,
 } = stepperComposable
 
-// Generate preview request
-const selectedTeam = agentManagement.getSelectedTeam(selectedTeamId)
-const previewRequest = requestPreview.generatePreviewRequest(
-  selectedDataset,
-  requestConfig,
-  selectedTeam,
-  agentConfigurations,
-)
-
 // Dataset headers from preview
 const datasetHeaders = computed(() => {
   return datasetPreview.value?.headers || []
 })
 
-// Watch for dataset changes to load preview and set default column mappings
+// Watch for dataset changes to load preview
 watch(selectedDataset, async (newDatasetId) => {
   if (newDatasetId) {
     await loadPreview(newDatasetId)
-    // Set some default column mappings based on common column names
-    if (requestConfig.value.columnMappings.length === 0) {
-      const defaultMappings = []
-      if (datasetHeaders.value.includes('question')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'question',
-          targetField: 'question',
-        })
-      }
-      if (datasetHeaders.value.includes('desired_answer')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'desired_answer',
-          targetField: 'reference_answer',
-        })
-      }
-      if (datasetHeaders.value.includes('student_answer')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'student_answer',
-          targetField: 'learner_answer',
-        })
-      }
-      requestConfig.value.columnMappings = defaultMappings
-    }
   }
 })
 
@@ -107,10 +67,6 @@ useSeoMeta({
 })
 
 // Handlers
-function selectTeam(teamId: number) {
-  selectTeamAction(teamId, selectedTeamId, formData, agentConfigurations)
-}
-
 function updateAgentConfig(agentId: number, field: string, value: any) {
   if (field === 'reset') {
     // Handle reset case
@@ -127,7 +83,15 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const experimentData = prepareExperimentData()
+    // Compute execution order from the flow graph
+    const executionOrder = agentConfigRef.value?.flowViewRef
+      ? agentConfigRef.value.flowViewRef.computeExecutionOrder()
+      : new Map<number, number>()
+
+    const experimentData = prepareExperimentData({
+      agentTeams: agentTeams.value || [],
+      executionOrder,
+    })
 
     const result = await submission.handleSubmit(experimentData)
 
@@ -142,29 +106,6 @@ async function handleSubmit() {
 
 async function handleCancel() {
   await submission.handleCancel()
-}
-
-// Helper functions for column mapping
-function addMapping() {
-  requestConfig.value.columnMappings.push({
-    id: crypto.randomUUID(),
-    sourceColumn: '',
-    targetField: '',
-  })
-}
-
-function removeMapping(id: string) {
-  const index = requestConfig.value.columnMappings.findIndex(mapping => mapping.id === id)
-  if (index > -1) {
-    requestConfig.value.columnMappings.splice(index, 1)
-  }
-}
-
-function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value: string) {
-  const mapping = requestConfig.value.columnMappings.find(m => m.id === id)
-  if (mapping) {
-    mapping[field] = value
-  }
 }
 </script>
 
@@ -220,27 +161,14 @@ function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value:
       <!-- Step 4: Agent Team & Configuration -->
       <template #agents>
         <ExperimentsStepsAgentConfiguration
-          :selected-team-id="selectedTeamId"
+          ref="agentConfigRef"
           :agent-configurations="agentConfigurations"
           :agent-teams="agentTeams"
           :models="models"
           :all-prompt-versions="allPromptVersions"
-          @select-team="selectTeam"
+          :dataset-headers="datasetHeaders"
           @update-agent-config="updateAgentConfig"
           @open-prompt-details="openPromptDetails"
-        />
-      </template>
-
-      <!-- Step 5: Request Configuration -->
-      <template #request>
-        <ExperimentsStepsRequestConfiguration
-          :selected-dataset="selectedDataset"
-          :request-config="requestConfig"
-          :preview-request="previewRequest"
-          :dataset-headers="datasetHeaders"
-          @add-column-mapping="addMapping"
-          @remove-column-mapping="removeMapping"
-          @update-column-mapping="updateMapping"
         />
       </template>
     </UStepper>

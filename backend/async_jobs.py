@@ -275,7 +275,7 @@ class _ExperimentProcessor:
 
             tasks.append(
                 self._run_pipeline_with_semaphore(
-                    agent_configs, mapped_data, row_index
+                    agent_configs, mapped_data, row_index, raw_row=row_dict
                 )
             )
 
@@ -303,10 +303,11 @@ class _ExperimentProcessor:
         agent_configs: list[AgentConfig],
         data: dict,
         row_index: int,
+        raw_row: Optional[dict] = None,
     ) -> PipelineResult:
         """Run the orchestrator pipeline with concurrency limiting."""
         async with self.semaphore:
-            return await run_pipeline(agent_configs, data, row_index)
+            return await run_pipeline(agent_configs, data, row_index, raw_row=raw_row)
 
     async def _run_scoring(
         self,

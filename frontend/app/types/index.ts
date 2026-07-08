@@ -52,6 +52,15 @@ export interface DatasetStats {
   experiment_count: number
 }
 
+export interface AgentInputMapping {
+  variable: string
+  source: 'dataset' | 'agent' | 'static'
+  sourceColumn?: string
+  sourceAgentId?: number
+  sourceOutput?: string
+  staticValue?: string
+}
+
 export interface AgentConfig {
   id: number
   experiment_id: number
@@ -62,6 +71,7 @@ export interface AgentConfig {
   max_tokens: number | null
   execution_order: number
   is_active: boolean
+  input_mappings?: AgentInputMapping[] | null
   created_at: string
 }
 

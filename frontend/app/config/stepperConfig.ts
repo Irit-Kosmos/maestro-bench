@@ -19,9 +19,4 @@ export const stepperItems = [
     icon: 'i-lucide-users',
     slot: 'agents',
   },
-  {
-    title: 'Request Configuration',
-    icon: 'i-lucide-settings',
-    slot: 'request',
-  },
 ]

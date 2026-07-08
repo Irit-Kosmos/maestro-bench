@@ -174,6 +174,13 @@ class ExperimentAgentConfig(SQLModel, table=True):
     execution_order: int = Field(default=1)
     is_active: bool = Field(default=True)
 
+    # V2: Per-agent input mappings defining how dataset columns / previous agent outputs
+    # map to this agent's prompt variables
+    input_mappings: Optional[str] = Field(
+        default=None,
+        description="JSON string of per-agent input mappings",
+    )
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Add unique constraint to prevent duplicate agent configurations per experiment
@@ -240,6 +247,12 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     final_variables: Optional[str] = None  # JSON string
     final_temperature: Optional[float] = None
     final_max_tokens: Optional[int] = None
+
+    # V2: Per-agent input mappings snapshot
+    final_input_mappings: Optional[str] = Field(
+        default=None,
+        description="JSON string of input mappings used at execution time",
+    )
 
     execution_order: int = Field(description="Order in which this agent was executed")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

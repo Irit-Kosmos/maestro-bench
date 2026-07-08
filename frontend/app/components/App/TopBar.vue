@@ -33,7 +33,8 @@ const breadcrumbs = computed(() => {
 })
 
 const pageTitle = computed(() => {
-  if (route.path === '/') return 'Dashboard'
+  if (route.path === '/')
+    return 'Dashboard'
   const last = breadcrumbs.value[breadcrumbs.value.length - 1]
   return last?.label || ''
 })
@@ -57,6 +58,5 @@ const subtitle = computed(() => (route.meta.subtitle as string) || '')
         </p>
       </div>
     </template>
-
   </UDashboardNavbar>
 </template>

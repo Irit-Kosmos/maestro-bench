@@ -28,6 +28,7 @@ class ExperimentAgentConfigResponse(BaseModel):
     max_tokens: Optional[int]
     execution_order: int
     is_active: bool
+    input_mappings: Optional[List[Dict]] = None
     created_at: datetime
 
 
