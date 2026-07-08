@@ -37,6 +37,9 @@ def _build_snapshot_responses(
             id=int(s.id) if s.id is not None else 0,
             agent_id=s.agent_id,
             agent_name_snapshot=s.agent_name_snapshot,
+            agent_team_name_snapshot=(
+                s.agent.team.name if s.agent and s.agent.team else None
+            ),
             model_name_snapshot=s.model_name_snapshot,
             model_provider_snapshot=s.model_provider_snapshot,
             prompt_name_snapshot=s.prompt_name_snapshot,
@@ -44,6 +47,7 @@ def _build_snapshot_responses(
             final_system_prompt=s.final_system_prompt,
             final_user_prompt=s.final_user_prompt,
             final_variables=s.final_variables,
+            final_input_mappings=s.final_input_mappings,
             final_temperature=s.final_temperature,
             final_max_tokens=s.final_max_tokens,
             execution_order=s.execution_order,

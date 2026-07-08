@@ -484,6 +484,27 @@ watch(() => route.params.id, () => {
           </div>
         </UCard>
 
+        <!-- Agent Execution Flow -->
+        <UCard v-if="latestExecution && latestExecution.agent_executions.length > 0">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <UIcon name="i-lucide-git-branch" class="h-6 w-6 text-primary-500" />
+                <h2 class="text-xl font-semibold text-neutral-900">
+                  Agent Execution Flow
+                </h2>
+              </div>
+              <UBadge
+                :label="`${latestExecution.agent_executions.length} agent${latestExecution.agent_executions.length > 1 ? 's' : ''}`"
+                color="info"
+                variant="soft"
+              />
+            </div>
+          </template>
+
+          <ExperimentsExecutionFlowView :agent-executions="latestExecution.agent_executions" />
+        </UCard>
+
         <!-- Dataset Configuration -->
         <UCard v-if="datasetInfo">
           <template #header>

@@ -137,6 +137,7 @@ export interface AgentExecutionSnapshot {
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string
+  final_input_mappings?: string
   final_temperature?: number
   final_max_tokens?: number
   execution_order: number

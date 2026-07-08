@@ -220,7 +220,6 @@ const tabItems = [
             <UCard
               v-for="team in agentTeams"
               :key="team.id"
-              class="hover:shadow-md transition-shadow"
             >
               <div class="space-y-4">
                 <div class="flex justify-between w-full items-start">
@@ -296,7 +295,7 @@ const tabItems = [
             <UCard
               v-for="agent in agents"
               :key="agent.id"
-              class="hover:shadow-md transition-shadow h-fit"
+              class="h-fit"
             >
               <div class="space-y-4">
                 <!-- Agent Header -->

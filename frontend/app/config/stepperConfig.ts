@@ -5,14 +5,9 @@ export const stepperItems = [
     slot: 'details',
   },
   {
-    title: 'Dataset Selection',
+    title: 'Dataset',
     icon: 'i-lucide-database',
     slot: 'dataset',
-  },
-  {
-    title: 'Dataset Sampling',
-    icon: 'i-lucide-filter',
-    slot: 'sampling',
   },
   {
     title: 'Agent Team & Configuration',

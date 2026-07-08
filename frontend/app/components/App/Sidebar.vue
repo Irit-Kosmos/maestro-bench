@@ -54,10 +54,7 @@ const items = computed(() => [
 </script>
 
 <template>
-  <UDashboardSidebar
-    collapsible
-    :ui="{ body: 'px-2' }"
-  >
+  <UDashboardSidebar collapsible>
     <template #header="{ collapsed }">
       <div class="flex items-center justify-between gap-2 min-w-0 w-full">
         <NuxtLink
@@ -83,13 +80,13 @@ const items = computed(() => [
         highlight
         color="primary"
         variant="pill"
-        class="items-center"
+        class="w-full"
       />
     </template>
 
     <template #footer="{ collapsed }">
-      <div class="flex flex-col gap-1">
-        <UDashboardSearchButton :collapsed="collapsed" label="" />
+      <div class="flex flex-col gap-1 w-full">
+        <UDashboardSearchButton :collapsed="collapsed" label="" block />
       </div>
     </template>
   </UDashboardSidebar>

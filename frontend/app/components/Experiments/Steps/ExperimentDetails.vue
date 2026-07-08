@@ -27,23 +27,21 @@ const description = computed({
 </script>
 
 <template>
-  <div class="flex flex-col justify-center">
-    <div class="max-w-md mx-auto w-full mt-4">
-      <div class="space-y-4">
+  <div class="mt-4">
+    <div class="max-w-4xl mx-auto w-full">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <UFormField label="Experiment Name" required>
           <UInput
             v-model="name"
-            size="lg"
             placeholder="e.g., 'Corrector Agent Test v2.1'"
             class="w-full"
           />
         </UFormField>
 
         <UFormField label="Description">
-          <UTextarea
+          <UInput
             v-model="description"
-            placeholder="Optional description of this experiment"
-            :rows="3"
+            placeholder="Optional description"
             class="w-full"
           />
         </UFormField>

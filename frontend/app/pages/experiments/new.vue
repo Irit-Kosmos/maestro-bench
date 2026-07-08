@@ -111,67 +111,68 @@ async function handleCancel() {
 
 <template>
   <BasePageContent>
-    <!-- Page Header -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-neutral-900">
-        Create New Experiment
-      </h1>
-      <p class="text-sm text-neutral-500 mt-1">
-        Configure your experiment with prompt version and model selection
-      </p>
+    <!-- Page Header + Stepper -->
+    <div class="md:grid md:grid-cols-[1fr_auto] md:gap-x-8 md:gap-y-6 md:items-start mb-8">
+      <div class="mb-6 md:mb-0">
+        <h1 class="text-2xl font-bold text-neutral-900">
+          Create New Experiment
+        </h1>
+        <p class="text-sm text-neutral-500 mt-1">
+          Configure your experiment with prompt version and model selection
+        </p>
+      </div>
+
+      <!-- Stepper Component -->
+      <UStepper
+        ref="stepper"
+        v-model="currentStep"
+        :items="stepperItems"
+        size="sm"
+        class="w-full"
+        :ui="{
+          root: 'md:contents',
+          header: 'md:col-start-2 md:row-start-1',
+          content: 'md:col-span-2 md:row-start-2',
+        }"
+      >
+        <!-- Step 1: Experiment Details -->
+        <template #details>
+          <ExperimentsStepsExperimentDetails
+            :experiment-details="experimentDetails"
+            @update:name="(value) => experimentDetails.name = value"
+            @update:description="(value) => experimentDetails.description = value"
+          />
+        </template>
+
+        <!-- Step 2: Dataset Selection & Sampling -->
+        <template #dataset>
+          <ExperimentsStepsDataset
+            :selected-dataset="selectedDataset"
+            :datasets="datasets"
+            :sampling-config="samplingConfig"
+            @update:selected-dataset="(value) => selectedDataset = value"
+            @update:sampling-type="(value) => samplingConfig.sampling_type = value"
+            @update:sampling-size="(value) => samplingConfig.sampling_size = value"
+            @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
+            @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
+          />
+        </template>
+
+        <!-- Step 3: Agent Team & Configuration -->
+        <template #agents>
+          <ExperimentsStepsAgentConfiguration
+            ref="agentConfigRef"
+            :agent-configurations="agentConfigurations"
+            :agent-teams="agentTeams"
+            :models="models"
+            :all-prompt-versions="allPromptVersions"
+            :dataset-headers="datasetHeaders"
+            @update-agent-config="updateAgentConfig"
+            @open-prompt-details="openPromptDetails"
+          />
+        </template>
+      </UStepper>
     </div>
-
-    <!-- Stepper Component -->
-    <UStepper
-      ref="stepper"
-      v-model="currentStep"
-      :items="stepperItems"
-      class="w-full"
-    >
-      <!-- Step 1: Experiment Details -->
-      <template #details>
-        <ExperimentsStepsExperimentDetails
-          :experiment-details="experimentDetails"
-          @update:name="(value) => experimentDetails.name = value"
-          @update:description="(value) => experimentDetails.description = value"
-        />
-      </template>
-
-      <!-- Step 2: Dataset Selection -->
-      <template #dataset>
-        <ExperimentsStepsDatasetSelection
-          :selected-dataset="selectedDataset"
-          :datasets="datasets"
-          @update:selected-dataset="(value) => selectedDataset = value"
-        />
-      </template>
-
-      <!-- Step 3: Dataset Sampling Configuration -->
-      <template #sampling>
-        <ExperimentsStepsDatasetSampling
-          :selected-dataset="selectedDataset"
-          :sampling-config="samplingConfig"
-          @update:sampling-type="(value) => samplingConfig.sampling_type = value"
-          @update:sampling-size="(value) => samplingConfig.sampling_size = value"
-          @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
-          @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
-        />
-      </template>
-
-      <!-- Step 4: Agent Team & Configuration -->
-      <template #agents>
-        <ExperimentsStepsAgentConfiguration
-          ref="agentConfigRef"
-          :agent-configurations="agentConfigurations"
-          :agent-teams="agentTeams"
-          :models="models"
-          :all-prompt-versions="allPromptVersions"
-          :dataset-headers="datasetHeaders"
-          @update-agent-config="updateAgentConfig"
-          @open-prompt-details="openPromptDetails"
-        />
-      </template>
-    </UStepper>
 
     <!-- Navigation Actions -->
     <div class="flex justify-between mt-8">

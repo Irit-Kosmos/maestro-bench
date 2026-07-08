@@ -65,9 +65,9 @@ export function useExperimentForm(
         case 0:
           return experimentDetails.value.name.trim().length > 0
         case 1:
-          return formData.value.dataset_id != null
-        case 2:
-          // Sampling step validation
+          // Dataset step: a dataset must be selected and sampling config must be valid
+          if (formData.value.dataset_id == null)
+            return false
           if (samplingConfig.value.sampling_type === 'random') {
             return samplingConfig.value.sampling_size && samplingConfig.value.sampling_size > 0
           }
@@ -77,7 +77,7 @@ export function useExperimentForm(
               && samplingConfig.value.sampling_start_row <= samplingConfig.value.sampling_end_row
           }
           return true // 'all' option is always valid
-        case 3:
+        case 2:
           // Agent configuration step validation: at least one active agent in the flow
           return Object.keys(agentConfigurations.value).length > 0
             && Object.values(agentConfigurations.value).some(config => config?.is_active !== false)

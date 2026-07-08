@@ -12,6 +12,7 @@ class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int
     agent_name_snapshot: str
+    agent_team_name_snapshot: Optional[str]
     model_name_snapshot: str
     model_provider_snapshot: str
     prompt_name_snapshot: str
@@ -19,6 +20,7 @@ class AgentExecutionSnapshotResponse(BaseModel):
     final_system_prompt: Optional[str]
     final_user_prompt: Optional[str]
     final_variables: Optional[str]
+    final_input_mappings: Optional[str]
     final_temperature: Optional[float]
     final_max_tokens: Optional[int]
     execution_order: int
