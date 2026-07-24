@@ -259,7 +259,6 @@ def build_agent_configs_from_snapshot(
 def process_pipeline_results(
     execution: ExperimentExecution,
     pipeline_results: list[PipelineResult],
-    scores: Optional[dict] = None,
     session: Optional[Session] = None,
 ) -> dict:
     """
@@ -269,7 +268,6 @@ def process_pipeline_results(
     Args:
         execution: The experiment execution
         pipeline_results: List of PipelineResult from the orchestrator
-        scores: Optional dict of {row_index: {scorer_name: ScoreResult}}
         session: Database session
 
     Returns:
@@ -293,38 +291,11 @@ def process_pipeline_results(
 
     for result in pipeline_results:
         row_data = result.to_dict()
-
-        # Attach scores if available
-        if scores and result.row_index in scores:
-            row_data["scores"] = {
-                name: {
-                    "score": sr.score,
-                    "raw_value": sr.raw_value,
-                    "details": sr.details,
-                }
-                for name, sr in scores[result.row_index].items()
-            }
-
         rows.append(row_data)
         total_tokens_in += result.total_tokens_in
         total_tokens_out += result.total_tokens_out
         total_cost += result.total_cost_usd
         total_latency += result.total_latency_ms
-
-    # Compute score averages
-    score_averages = {}
-    if scores:
-        all_scorer_names = set()
-        for row_scores in scores.values():
-            all_scorer_names.update(row_scores.keys())
-        for scorer_name in all_scorer_names:
-            vals = [
-                row_scores[scorer_name].score
-                for row_scores in scores.values()
-                if scorer_name in row_scores
-            ]
-            if vals:
-                score_averages[scorer_name] = round(sum(vals) / len(vals), 4)
 
     started_at = execution.started_at if execution.started_at.tzinfo is not None else execution.started_at.replace(tzinfo=timezone.utc)
     processing_time = (datetime.now(timezone.utc) - started_at).total_seconds()
@@ -342,7 +313,6 @@ def process_pipeline_results(
             "avg_latency_ms": round(total_latency / len(pipeline_results), 1)
             if pipeline_results
             else 0,
-            "avg_scores": score_averages,
         },
         "rows": rows,
         "configuration_used": _build_config_snapshot(execution, session),
@@ -360,7 +330,6 @@ def process_pipeline_results(
         # Store summary metrics on execution record
         execution.total_tokens = total_tokens_in + total_tokens_out
         execution.total_cost_usd = round(total_cost, 6)
-        execution.scores_summary = json.dumps(score_averages) if score_averages else None
         session.add(execution)
         session.commit()
 
@@ -369,7 +338,6 @@ def process_pipeline_results(
         "results_file_path": str(results_file_path),
         "total_rows": len(pipeline_results),
         "total_cost_usd": round(total_cost, 6),
-        "avg_scores": score_averages,
     }
 
 

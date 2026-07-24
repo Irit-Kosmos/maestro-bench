@@ -13,4 +13,3 @@ CORS_ORIGINS = [
     for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     if origin.strip()
 ]
-CONFIGS_ROOT = os.getenv("CONFIGS_ROOT", None)  # defaults to project_root/configs/

@@ -11,6 +11,7 @@ interface Props {
 
 interface Emits {
   updateAgentConfig: [agentId: number, field: string, value: any]
+  removeAgentConfig: [agentId: number]
   openPromptDetails: [promptVersionId: number]
 }
 
@@ -34,6 +35,10 @@ function updateAgentConfig(agentId: number, field: string, value: any) {
   emit('updateAgentConfig', agentId, field, value)
 }
 
+function removeAgentConfig(agentId: number) {
+  emit('removeAgentConfig', agentId)
+}
+
 function openPromptDetails(promptVersionId: number) {
   emit('openPromptDetails', promptVersionId)
 }
@@ -49,6 +54,7 @@ function openPromptDetails(promptVersionId: number) {
       :agent-configurations="agentConfigurations"
       :dataset-headers="datasetHeaders || []"
       @update-agent-config="updateAgentConfig"
+      @remove-agent-config="removeAgentConfig"
       @open-prompt-details="openPromptDetails"
     />
   </div>

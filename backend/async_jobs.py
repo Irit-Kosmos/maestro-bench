@@ -1,7 +1,7 @@
 """
 Async experiment processor.
 
-V2: Uses core engine (LiteLLM + orchestrator + scorer) instead of external MAESTRO API.
+V2: Uses core engine (LiteLLM + orchestrator) instead of external MAESTRO API.
 Experiments are dispatched as native asyncio Tasks on uvicorn's event loop.
 """
 
@@ -16,7 +16,6 @@ from db import engine
 from tables import Experiment, ExperimentExecution
 from dataset_utils import validate_dataset_file
 from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
-from core.scorer import BaseScorer, ScoreResult, create_scorer
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -40,7 +39,15 @@ def start_experiment(experiment_id: int) -> bool:
 
     task = asyncio.create_task(run_experiment_async(experiment_id))
     _running_tasks[experiment_id] = task
-    task.add_done_callback(lambda _t: _running_tasks.pop(experiment_id, None))
+
+    def _cleanup(finished: asyncio.Task, eid: int = experiment_id) -> None:
+        # Only drop the entry if it still points at this task. A re-run may have
+        # replaced it with a newer task, and a cancelled task's callback fires
+        # late — without this check it would evict the live replacement.
+        if _running_tasks.get(eid) is finished:
+            _running_tasks.pop(eid, None)
+
+    task.add_done_callback(_cleanup)
     return True
 
 
@@ -172,7 +179,7 @@ class _ExperimentProcessor:
         execution: ExperimentExecution,
         db_session: Session,
     ) -> Dict[str, Any]:
-        """Process an experiment: run pipeline + optional scoring."""
+        """Process an experiment: run the agent pipeline over the dataset."""
         from experiment_utils import (
             build_agent_configs_from_snapshot,
             process_pipeline_results,
@@ -211,10 +218,7 @@ class _ExperimentProcessor:
             total_processed += chunk_size
             print(f"[AsyncJob] Processed {total_processed} rows so far...")
 
-        # Optional scoring
-        scores = await self._run_scoring(execution, all_results, db_session)
-
-        return process_pipeline_results(execution, all_results, scores, db_session)
+        return process_pipeline_results(execution, all_results, db_session)
 
     async def _process_chunks(
         self,
@@ -308,60 +312,6 @@ class _ExperimentProcessor:
         """Run the orchestrator pipeline with concurrency limiting."""
         async with self.semaphore:
             return await run_pipeline(agent_configs, data, row_index, raw_row=raw_row)
-
-    async def _run_scoring(
-        self,
-        execution: ExperimentExecution,
-        results: list[PipelineResult],
-        db_session: Session,
-    ) -> Optional[dict]:
-        """Run scoring on pipeline results if scoring config exists."""
-        experiment = db_session.get(Experiment, execution.experiment_id)
-        if not experiment or not experiment.scoring_config:
-            return None
-
-        try:
-            scoring_configs = json.loads(experiment.scoring_config)
-            if not scoring_configs:
-                return None
-        except (json.JSONDecodeError, TypeError):
-            return None
-
-        scorers: list[tuple[BaseScorer, dict]] = []
-        for sc in scoring_configs:
-            scorer = create_scorer(sc)
-            scorers.append((scorer, sc))
-
-        # Get original dataset rows for reference columns
-        dataset_snapshot = json.loads(execution.dataset_snapshot)
-        dataset_file_path = dataset_snapshot.get("file_path")
-        if not dataset_file_path:
-            return None
-
-        # For now, scoring uses final_output vs reference_column
-        # TODO: support prediction_field extraction from structured output
-        all_scores: dict[int, dict[str, ScoreResult]] = {}
-
-        for result in results:
-            if result.error:
-                continue
-
-            row_scores = {}
-            for scorer, sc_config in scorers:
-                reference_col = sc_config.get("reference_column")
-                reference_val = ""
-                if reference_col and reference_col in result.input_data:
-                    reference_val = str(result.input_data[reference_col])
-
-                score_result = await scorer.score(
-                    prediction=result.final_output,
-                    reference=reference_val,
-                )
-                row_scores[scorer.name] = score_result
-
-            all_scores[result.row_index] = row_scores
-
-        return all_scores
 
     # ------------------------------------------------------------------
     # CSV reading helpers (unchanged from V1)

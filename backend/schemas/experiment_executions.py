@@ -38,12 +38,6 @@ class ExperimentExecutionResponse(BaseModel):
     agent_executions: List[AgentExecutionSnapshotResponse] = []
 
 
-class ExperimentExecutionUpdate(BaseModel):
-    status: Optional[str] = None
-    completed_at: Optional[datetime] = None
-    results_file_path: Optional[str] = None
-
-
 class ExperimentTrace(BaseModel):
     """Complete trace of an experiment execution — the core scientific artifact."""
 
@@ -51,7 +45,6 @@ class ExperimentTrace(BaseModel):
     agent_configs: List[AgentExecutionSnapshotResponse]
     experiment_metadata: dict
     dataset_metadata: dict
-    results_summary: dict
 
 
 # Forward reference resolution

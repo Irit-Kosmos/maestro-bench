@@ -120,7 +120,6 @@ export interface ExperimentExecution {
   // V2 metrics
   total_tokens?: number
   total_cost_usd?: number
-  scores_summary?: Record<string, number>
   agent_executions: AgentExecutionSnapshot[]
 }
 
@@ -149,7 +148,6 @@ export interface ExperimentTrace {
   agent_configs: AgentExecutionSnapshot[]
   experiment_metadata: Record<string, any>
   dataset_metadata: Record<string, any>
-  results_summary: Record<string, any> // Summary from MAESTRO results file
 }
 
 export interface Agent {

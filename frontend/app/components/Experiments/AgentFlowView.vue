@@ -15,6 +15,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   updateAgentConfig: [agentId: number, field: string, value: any]
+  removeAgentConfig: [agentId: number]
   openPromptDetails: [promptVersionId: number]
 }>()
 
@@ -124,7 +125,10 @@ function handleRemoveAgent() {
   const nodeId = selectedNodeId.value
   const agentId = Number.parseInt(nodeId.replace('agent-', ''))
   removeAgentFromFlow(nodeId)
-  emit('updateAgentConfig', agentId, 'reset', undefined)
+  // Remove the config entry entirely — reusing 'reset' with undefined would
+  // resurrect the key pointing at undefined, which then falsely counts as an
+  // active agent in form validation.
+  emit('removeAgentConfig', agentId)
 }
 
 // Handle reset

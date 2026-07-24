@@ -7,7 +7,7 @@ and latency measurement.
 """
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import litellm
@@ -26,7 +26,6 @@ class LLMResponse:
     cost_usd: float = 0.0
     latency_ms: float = 0.0
     model: str = ""
-    raw_response: Optional[dict] = field(default=None, repr=False)
 
 
 async def call_llm(
@@ -84,7 +83,6 @@ async def call_llm(
         cost_usd=cost,
         latency_ms=latency_ms,
         model=litellm_model,
-        raw_response=response.model_dump() if hasattr(response, "model_dump") else None,
     )
 
 

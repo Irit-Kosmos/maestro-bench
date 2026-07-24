@@ -67,7 +67,7 @@ function isAgentInFlow(agentId: number): boolean {
           <button
             v-for="agent in agents"
             :key="agent.id"
-            class="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-xs"
+            class="group w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-xs"
             :class="{
               'bg-primary-50 text-primary-700 cursor-default': isAgentInFlow(agent.id),
               'hover:bg-white text-neutral-700 cursor-pointer': !isAgentInFlow(agent.id),

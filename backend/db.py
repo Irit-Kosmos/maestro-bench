@@ -8,10 +8,8 @@ engine = create_engine(DATABASE_URL, echo=DB_ECHO)
 # V2 columns that may be missing from an existing DB.
 # Format: (table, column, SQL type with default)
 _V2_COLUMNS = [
-    ("experiment", "scoring_config", "TEXT DEFAULT NULL"),
     ("experimentexecution", "total_tokens", "INTEGER DEFAULT NULL"),
     ("experimentexecution", "total_cost_usd", "REAL DEFAULT NULL"),
-    ("experimentexecution", "scores_summary", "TEXT DEFAULT NULL"),
 ]
 
 

@@ -13,7 +13,7 @@ const { preview: datasetPreview, loadPreview } = useDatasetPreview()
 
 // Custom composables - pass data as parameters
 const experimentForm = useExperimentForm(agentTeams, allPromptVersions)
-const agentManagement = useAgentManagement(agentTeams, allPromptVersions, models)
+const agentManagement = useAgentManagement()
 const stepperComposable = useExperimentStepper(allPromptVersions)
 const submission = useExperimentSubmission()
 
@@ -75,6 +75,10 @@ function updateAgentConfig(agentId: number, field: string, value: any) {
   else {
     updateAgentConfiguration(agentId, field, value, agentConfigurations)
   }
+}
+
+function removeAgentConfig(agentId: number) {
+  delete agentConfigurations.value[agentId]
 }
 
 async function handleSubmit() {
@@ -168,6 +172,7 @@ async function handleCancel() {
             :all-prompt-versions="allPromptVersions"
             :dataset-headers="datasetHeaders"
             @update-agent-config="updateAgentConfig"
+            @remove-agent-config="removeAgentConfig"
             @open-prompt-details="openPromptDetails"
           />
         </template>

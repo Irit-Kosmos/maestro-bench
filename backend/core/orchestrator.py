@@ -52,7 +52,7 @@ class PipelineResult:
     """Result of running the full agent pipeline on one data row."""
 
     row_index: int
-    input_data: dict
+    input_data: dict  # Column-mapped data (mapping target -> value)
     agent_traces: list[AgentTrace] = field(default_factory=list)
     final_output: str = ""
     total_tokens_in: int = 0

@@ -14,7 +14,6 @@ from tables import (
 from schemas.experiments import (
     ExperimentCreate,
     ExperimentResponse,
-    ExperimentUpdate,
     ExperimentAgentConfigResponse,
     DatasetResponse,
 )
@@ -63,7 +62,6 @@ def _build_experiment_response(
         sampling_start_row=experiment.sampling_start_row,
         sampling_end_row=experiment.sampling_end_row,
         column_mappings=column_mappings,
-        scoring_config=json.loads(experiment.scoring_config) if experiment.scoring_config else None,
         dataset=DatasetResponse(
             id=int(dataset.id) if dataset.id is not None else 0,
             name=dataset.name,
@@ -123,9 +121,6 @@ async def create_experiment(
         sampling_end_row=exp_data.sampling_end_row,
         column_mappings=json.dumps(exp_data.column_mappings)
         if exp_data.column_mappings
-        else None,
-        scoring_config=json.dumps(exp_data.scoring_config)
-        if exp_data.scoring_config
         else None,
     )
     session.add(experiment)
@@ -205,27 +200,6 @@ def get_experiment(exp_id: int, session: Annotated[Session, Depends(get_session)
     experiment = session.get(Experiment, exp_id)
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    return _build_experiment_response(experiment, session)
-
-
-@router.put("/experiments/{exp_id}", response_model=ExperimentResponse)
-def update_experiment(
-    exp_id: int,
-    exp_update: ExperimentUpdate,
-    session: Annotated[Session, Depends(get_session)],
-):
-    """Update an experiment."""
-    experiment = session.get(Experiment, exp_id)
-    if not experiment:
-        raise HTTPException(status_code=404, detail="Experiment not found")
-
-    for field, value in exp_update.model_dump(exclude_unset=True).items():
-        setattr(experiment, field, value)
-
-    session.add(experiment)
-    session.commit()
-    session.refresh(experiment)
-
     return _build_experiment_response(experiment, session)
 
 
