@@ -30,12 +30,24 @@ This will start:
 
 ## 🔧 Configuration
 
-The project uses environment variables for configuration. Key settings include:
+### Backend Configuration
 
-- `MAESTRO_API_BASE_URL`: Base URL for MAESTRO API (default: `http://host.docker.internal:8001`)
+Copy `backend/.env.example` to `backend/.env` and configure:
+
+- `OPENAI_API_KEY`: OpenAI API key (optional)
+- `ANTHROPIC_API_KEY`: Anthropic API key (optional)
+- `MISTRAL_API_KEY`: Mistral API key (optional)
 - `API_HOST`: Backend host (default: `0.0.0.0`)
 - `API_PORT`: Backend port (default: `8000`)
 - `DATABASE_URL`: Database connection string (default: `sqlite:///./app.db`)
+- `DB_ECHO`: Enable SQL query logging (default: `false`)
+- `CORS_ORIGINS`: Allowed CORS origins (default: `http://localhost:3000`)
+
+### Frontend Configuration
+
+Copy `frontend/.env.example` to `frontend/.env` and configure:
+
+- `NUXT_PUBLIC_BACK_URL`: Backend API URL (default: `http://localhost:8000`)
 
 ## 📊 Features
 
