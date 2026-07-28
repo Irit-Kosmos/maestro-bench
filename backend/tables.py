@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Index
@@ -18,7 +18,7 @@ class Model(SQLModel, table=True):
     default_max_tokens: Optional[int] = None
 
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Prompt(SQLModel, table=True):
@@ -28,7 +28,7 @@ class Prompt(SQLModel, table=True):
     name: str = Field(index=True)  # e.g., "Language Evaluator", "Content Scorer"
     description: Optional[str] = None
     category: Optional[str] = None  # e.g., "evaluation", "generation", "analysis"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     versions: List["PromptVersion"] = Relationship(back_populates="prompt")
@@ -48,7 +48,7 @@ class PromptVersion(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_default: bool = Field(default=False)  # Default version for this prompt
     notes: Optional[str] = None  # Version notes/changelog
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     prompt: Optional[Prompt] = Relationship(back_populates="versions")
@@ -60,7 +60,7 @@ class AgentTeam(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     agents: List["Agent"] = Relationship(
@@ -82,7 +82,7 @@ class Agent(SQLModel, table=True):
     default_model_id: Optional[int] = Field(default=None, foreign_key="model.id")
 
     team_id: int = Field(foreign_key="agentteam.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     team: Optional[AgentTeam] = Relationship(back_populates="agents")
@@ -99,7 +99,7 @@ class Dataset(SQLModel, table=True):
     file_path: Optional[str] = Field(
         default=None, description="Relative path to dataset file on disk"
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     experiments: List["Experiment"] = Relationship(back_populates="dataset")
@@ -113,7 +113,7 @@ class Experiment(SQLModel, table=True):
     description: Optional[str] = None
     dataset_id: int = Field(foreign_key="dataset.id")
     status: str = Field(default="pending")  # pending, running, completed, failed
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
 
     # Dataset sampling configuration
@@ -168,7 +168,14 @@ class ExperimentAgentConfig(SQLModel, table=True):
     execution_order: int = Field(default=1)
     is_active: bool = Field(default=True)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # V2: Per-agent input mappings defining how dataset columns / previous agent outputs
+    # map to this agent's prompt variables
+    input_mappings: Optional[str] = Field(
+        default=None,
+        description="JSON string of per-agent input mappings",
+    )
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Add unique constraint to prevent duplicate agent configurations per experiment
     __table_args__ = (
@@ -189,7 +196,7 @@ class ExperimentExecution(SQLModel, table=True):
     experiment_id: int = Field(foreign_key="experiment.id")
 
     # Execution metadata
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
     status: str = Field(default="running")  # running, completed, failed, cancelled
 
@@ -199,9 +206,11 @@ class ExperimentExecution(SQLModel, table=True):
     )
 
     # Results storage
-    results_file_path: Optional[str] = (
-        None  # Path to CSV/JSON results file from MAESTRO
-    )
+    results_file_path: Optional[str] = None
+
+    # V2: Aggregated metrics
+    total_tokens: Optional[int] = None
+    total_cost_usd: Optional[float] = None
 
     # Relationships
     experiment: Optional[Experiment] = Relationship(back_populates="executions")
@@ -232,8 +241,14 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     final_temperature: Optional[float] = None
     final_max_tokens: Optional[int] = None
 
+    # V2: Per-agent input mappings snapshot
+    final_input_mappings: Optional[str] = Field(
+        default=None,
+        description="JSON string of input mappings used at execution time",
+    )
+
     execution_order: int = Field(description="Order in which this agent was executed")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     execution: Optional[ExperimentExecution] = Relationship(

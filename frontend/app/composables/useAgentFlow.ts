@@ -1,0 +1,400 @@
+import type { Edge, Node } from '@vue-flow/core'
+import type { Agent, AgentInputMapping, AgentTeam, PromptVersion } from '~/types'
+
+export interface AgentFlowNodeData {
+  agent: Agent
+  team?: AgentTeam
+  config?: Record<string, any>
+}
+
+export type InputMappingSource = 'dataset' | 'agent' | 'static'
+
+/**
+ * Composable for managing the Vue Flow agent graph state
+ */
+export function useAgentFlow(
+  agentTeams: Ref<AgentTeam[] | null | undefined>,
+  agentConfigurations: Ref<Record<number, any>>,
+  allPromptVersions: Ref<PromptVersion[] | null | undefined> = ref(null),
+) {
+  const nodes = ref<Node<AgentFlowNodeData>[]>([])
+  const edges = ref<Edge[]>([])
+  const selectedNodeId = ref<string | null>(null)
+
+  // Get all available agents grouped by team
+  const allAgentsByTeam = computed(() => {
+    const result: { team: AgentTeam, agents: Agent[] }[] = []
+    agentTeams.value?.forEach((team) => {
+      if (team.agents && team.agents.length > 0) {
+        result.push({ team, agents: [...team.agents] })
+      }
+    })
+    return result
+  })
+
+  // Get a flat list of all agents
+  const allAgents = computed(() => {
+    const agents: Agent[] = []
+    allAgentsByTeam.value.forEach(({ agents: teamAgents }) => {
+      agents.push(...teamAgents)
+    })
+    return agents
+  })
+
+  // Get all agent IDs currently in the flow
+  const flowAgentIds = computed(() => {
+    return nodes.value.map(n => Number.parseInt(n.id.replace('agent-', '')))
+  })
+
+  // Check if an agent is already in the flow
+  function isAgentInFlow(agentId: number): boolean {
+    return nodes.value.some(n => n.id === `agent-${agentId}`)
+  }
+
+  // Find a team by agent
+  function getTeamForAgent(agentId: number): AgentTeam | undefined {
+    return agentTeams.value?.find(t => t.agents?.some(a => a.id === agentId))
+  }
+
+  // Add an agent to the flow canvas
+  function addAgentToFlow(agent: Agent, position?: { x: number, y: number }) {
+    const nodeId = `agent-${agent.id}`
+
+    if (isAgentInFlow(agent.id)) {
+      return
+    }
+
+    // Initialize agent configuration with defaults
+    if (!agentConfigurations.value[agent.id]) {
+      agentConfigurations.value[agent.id] = {
+        prompt_version_id: agent.default_prompt_version_id || undefined,
+        model_id: agent.default_model_id || undefined,
+        temperature: undefined,
+        max_tokens: undefined,
+        is_active: true,
+      }
+    }
+
+    const team = getTeamForAgent(agent.id)
+
+    // Determine position - if not provided, auto-layout horizontally
+    const xPos = position?.x ?? 50 + (nodes.value.length * 250)
+    const yPos = position?.y ?? 100 + (nodes.value.length % 3) * 120
+
+    nodes.value.push({
+      id: nodeId,
+      type: 'agent',
+      position: { x: xPos, y: yPos },
+      data: {
+        agent,
+        team,
+        config: agentConfigurations.value[agent.id],
+      },
+    })
+  }
+
+  // Remove an agent from the flow
+  function removeAgentFromFlow(nodeId: string) {
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (!node)
+      return
+
+    const agentId = Number.parseInt(nodeId.replace('agent-', ''))
+
+    // Remove edges connected to this node
+    edges.value = edges.value.filter(e => e.source !== nodeId && e.target !== nodeId)
+
+    // Remove node
+    nodes.value = nodes.value.filter(n => n.id !== nodeId)
+
+    // Clean up any references to this agent from other agents' input mappings
+    Object.keys(agentConfigurations.value).forEach((key) => {
+      const otherAgentId = Number.parseInt(key)
+      if (otherAgentId === agentId)
+        return
+      const config = agentConfigurations.value[otherAgentId]
+      if (config?.input_mappings) {
+        config.input_mappings = config.input_mappings.filter(
+          (m: AgentInputMapping) => m.source !== 'agent' || m.sourceAgentId !== agentId,
+        )
+      }
+    })
+
+    // Clean up configuration
+    delete agentConfigurations.value[agentId]
+
+    // Clear selection
+    if (selectedNodeId.value === nodeId) {
+      selectedNodeId.value = null
+    }
+  }
+
+  // Update node data when configuration changes
+  function updateNodeData(agentId: number) {
+    const nodeId = `agent-${agentId}`
+    const node = nodes.value.find(n => n.id === nodeId)
+    if (node) {
+      node.data = {
+        ...node.data,
+        config: { ...agentConfigurations.value[agentId] },
+      }
+    }
+  }
+
+  // Compute execution order from the flow graph using topological sort
+  function computeExecutionOrder(): Map<number, number> {
+    const order = new Map<number, number>()
+
+    if (nodes.value.length === 0) {
+      return order
+    }
+
+    // Build adjacency lists
+    const incoming = new Map<string, Set<string>>()
+    const outgoing = new Map<string, Set<string>>()
+
+    nodes.value.forEach((node) => {
+      incoming.set(node.id, new Set())
+      outgoing.set(node.id, new Set())
+    })
+
+    edges.value.forEach((edge) => {
+      if (incoming.has(edge.target)) {
+        incoming.get(edge.target)!.add(edge.source)
+      }
+      if (outgoing.has(edge.source)) {
+        outgoing.get(edge.source)!.add(edge.target)
+      }
+    })
+
+    // Kahn's algorithm
+    const queue: string[] = []
+    const inDegree = new Map<string, number>()
+
+    nodes.value.forEach((node) => {
+      const degree = incoming.get(node.id)?.size || 0
+      inDegree.set(node.id, degree)
+      if (degree === 0) {
+        queue.push(node.id)
+      }
+    })
+
+    let currentOrder = 1
+    const processed = new Set<string>()
+
+    while (queue.length > 0) {
+      const levelSize = queue.length
+
+      for (let i = 0; i < levelSize; i++) {
+        const nodeId = queue.shift()!
+        if (processed.has(nodeId))
+          continue
+
+        const agentId = Number.parseInt(nodeId.replace('agent-', ''))
+        order.set(agentId, currentOrder)
+        processed.add(nodeId)
+
+        const neighbors = outgoing.get(nodeId) || new Set()
+        neighbors.forEach((neighborId) => {
+          const newDegree = (inDegree.get(neighborId) || 0) - 1
+          inDegree.set(neighborId, newDegree)
+          if (newDegree === 0 && !processed.has(neighborId)) {
+            queue.push(neighborId)
+          }
+        })
+      }
+
+      // Move to next order level
+      if (queue.length > 0) {
+        currentOrder++
+      }
+    }
+
+    // Handle any disconnected nodes (no edges at all) - assign them the last order + 1
+    // or if they have no edges but weren't reached, give them order 1
+    nodes.value.forEach((node) => {
+      const agentId = Number.parseInt(node.id.replace('agent-', ''))
+      if (!order.has(agentId)) {
+        // Disconnected node - check if it has any edges
+        const hasEdges = edges.value.some(e => e.source === node.id || e.target === node.id)
+        if (!hasEdges) {
+          // Truly isolated node - give it order 1 or last+1 depending on preference
+          // For isolated nodes, we can treat them as parallel, so give them all the same order
+          order.set(agentId, 1)
+        }
+        else {
+          // Part of a cycle - give it a high order
+          order.set(agentId, currentOrder + 1)
+        }
+      }
+    })
+
+    return order
+  }
+
+  // Get unique team IDs from all agents in the flow
+  function getFlowTeamIds(): number[] {
+    const teamIds = new Set<number>()
+    nodes.value.forEach((node) => {
+      const agent = node.data?.agent
+      if (agent?.team_id) {
+        teamIds.add(agent.team_id)
+      }
+    })
+    return Array.from(teamIds)
+  }
+
+  // Get agent configuration for a specific agent in the flow
+  function getAgentConfig(agentId: number): Record<string, any> | undefined {
+    return agentConfigurations.value[agentId]
+  }
+
+  // Remove input mappings for variables that are not in the current prompt
+  function cleanupInputMappings(agentId: number) {
+    if (!agentConfigurations.value[agentId])
+      return
+    const variables = getAgentPromptVariables(agentId)
+    const mappings = getInputMappings(agentId)
+    const cleaned = mappings.filter(m => variables.includes(m.variable))
+    agentConfigurations.value[agentId].input_mappings = cleaned
+  }
+
+  // Update agent configuration and sync to node
+  function updateAgentConfig(agentId: number, field: string, value: any) {
+    if (!agentConfigurations.value[agentId]) {
+      agentConfigurations.value[agentId] = {}
+    }
+
+    if (field === 'reset') {
+      agentConfigurations.value[agentId] = value
+    }
+    else {
+      agentConfigurations.value[agentId][field] = value
+    }
+
+    // Clean up stale input mappings when prompt version changes
+    if (field === 'prompt_version_id') {
+      cleanupInputMappings(agentId)
+    }
+
+    updateNodeData(agentId)
+  }
+
+  // Parse prompt version variables from JSON string to array
+  function parsePromptVariables(variablesJson: string | null | undefined): string[] {
+    if (!variablesJson)
+      return []
+    try {
+      const parsed = JSON.parse(variablesJson)
+      if (Array.isArray(parsed))
+        return parsed
+      if (typeof parsed === 'object' && parsed !== null)
+        return Object.keys(parsed)
+      return []
+    }
+    catch {
+      return []
+    }
+  }
+
+  // Get the variables required by an agent's selected prompt version
+  function getAgentPromptVariables(agentId: number): string[] {
+    const config = agentConfigurations.value[agentId]
+    if (!config?.prompt_version_id)
+      return []
+    const version = allPromptVersions.value?.find(v => v.id === config.prompt_version_id)
+    return parsePromptVariables(version?.variables)
+  }
+
+  // Get input mappings for an agent
+  function getInputMappings(agentId: number): AgentInputMapping[] {
+    return agentConfigurations.value[agentId]?.input_mappings || []
+  }
+
+  // Find mapping for a specific variable
+  function getVariableMapping(agentId: number, variable: string): AgentInputMapping | undefined {
+    return getInputMappings(agentId).find(m => m.variable === variable)
+  }
+
+  // Check if a variable has a mapping
+  function isVariableMapped(agentId: number, variable: string): boolean {
+    return getVariableMapping(agentId, variable) !== undefined
+  }
+
+  // Update or add an input mapping for a variable
+  function updateInputMapping(agentId: number, mapping: AgentInputMapping) {
+    if (!agentConfigurations.value[agentId])
+      return
+    const mappings = getInputMappings(agentId)
+    const index = mappings.findIndex(m => m.variable === mapping.variable)
+    if (index > -1) {
+      mappings[index] = mapping
+    }
+    else {
+      mappings.push(mapping)
+    }
+    agentConfigurations.value[agentId].input_mappings = mappings
+    updateNodeData(agentId)
+  }
+
+  // Remove an input mapping for a variable
+  function removeInputMapping(agentId: number, variable: string) {
+    if (!agentConfigurations.value[agentId])
+      return
+    const mappings = getInputMappings(agentId).filter(m => m.variable !== variable)
+    agentConfigurations.value[agentId].input_mappings = mappings
+    updateNodeData(agentId)
+  }
+
+  // Sync flow nodes from existing agent configurations
+  function syncFromConfigs() {
+    // Only sync if canvas is empty (preserve existing layout)
+    if (nodes.value.length > 0)
+      return
+
+    // Add nodes for all agents that have configurations
+    Object.keys(agentConfigurations.value).forEach((key) => {
+      const agentId = Number.parseInt(key)
+      const agent = allAgents.value.find(a => a.id === agentId)
+      if (agent && !isAgentInFlow(agent.id)) {
+        // Auto-layout in a grid
+        const index = nodes.value.length
+        const x = 50 + (index % 4) * 250
+        const y = 50 + Math.floor(index / 4) * 150
+        addAgentToFlow(agent, { x, y })
+      }
+    })
+  }
+
+  return {
+    // State
+    nodes,
+    edges,
+    selectedNodeId,
+
+    // Computed
+    allAgentsByTeam,
+    allAgents,
+    flowAgentIds,
+
+    // Methods
+    isAgentInFlow,
+    addAgentToFlow,
+    removeAgentFromFlow,
+    computeExecutionOrder,
+    updateNodeData,
+    getFlowTeamIds,
+    getAgentConfig,
+    updateAgentConfig,
+    syncFromConfigs,
+
+    // Input mapping helpers
+    parsePromptVariables,
+    getAgentPromptVariables,
+    getInputMappings,
+    getVariableMapping,
+    isVariableMapped,
+    updateInputMapping,
+    removeInputMapping,
+  }
+}

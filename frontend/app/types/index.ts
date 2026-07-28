@@ -52,6 +52,15 @@ export interface DatasetStats {
   experiment_count: number
 }
 
+export interface AgentInputMapping {
+  variable: string
+  source: 'dataset' | 'agent' | 'static'
+  sourceColumn?: string
+  sourceAgentId?: number
+  sourceOutput?: string
+  staticValue?: string
+}
+
 export interface AgentConfig {
   id: number
   experiment_id: number
@@ -62,6 +71,7 @@ export interface AgentConfig {
   max_tokens: number | null
   execution_order: number
   is_active: boolean
+  input_mappings?: AgentInputMapping[] | null
   created_at: string
 }
 
@@ -107,6 +117,9 @@ export interface ExperimentExecution {
   status: string
   dataset_snapshot: string
   results_file_path?: string
+  // V2 metrics
+  total_tokens?: number
+  total_cost_usd?: number
   agent_executions: AgentExecutionSnapshot[]
 }
 
@@ -123,6 +136,7 @@ export interface AgentExecutionSnapshot {
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string
+  final_input_mappings?: string
   final_temperature?: number
   final_max_tokens?: number
   execution_order: number
@@ -134,7 +148,6 @@ export interface ExperimentTrace {
   agent_configs: AgentExecutionSnapshot[]
   experiment_metadata: Record<string, any>
   dataset_metadata: Record<string, any>
-  results_summary: Record<string, any> // Summary from MAESTRO results file
 }
 
 export interface Agent {

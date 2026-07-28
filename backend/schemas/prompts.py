@@ -40,6 +40,16 @@ class PromptVersionUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class PromptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str]
+    category: Optional[str]
+    created_at: datetime
+
+
 class PromptVersionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,3 +64,7 @@ class PromptVersionResponse(BaseModel):
     notes: Optional[str]
     created_at: datetime
     prompt: Optional[PromptResponse] = None
+
+
+# Rebuild for forward references
+PromptVersionResponse.model_rebuild()

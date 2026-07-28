@@ -11,7 +11,6 @@ from tables import Experiment, ExperimentExecution, AgentExecutionSnapshot
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
     ExperimentExecutionResponse,
-    ExperimentExecutionUpdate,
     ExperimentTrace,
 )
 
@@ -37,6 +36,9 @@ def _build_snapshot_responses(
             id=int(s.id) if s.id is not None else 0,
             agent_id=s.agent_id,
             agent_name_snapshot=s.agent_name_snapshot,
+            agent_team_name_snapshot=(
+                s.agent.team.name if s.agent and s.agent.team else None
+            ),
             model_name_snapshot=s.model_name_snapshot,
             model_provider_snapshot=s.model_provider_snapshot,
             prompt_name_snapshot=s.prompt_name_snapshot,
@@ -44,6 +46,7 @@ def _build_snapshot_responses(
             final_system_prompt=s.final_system_prompt,
             final_user_prompt=s.final_user_prompt,
             final_variables=s.final_variables,
+            final_input_mappings=s.final_input_mappings,
             final_temperature=s.final_temperature,
             final_max_tokens=s.final_max_tokens,
             execution_order=s.execution_order,
@@ -116,15 +119,6 @@ def get_execution_trace(
     execution_response = _build_execution_response(execution, session)
     agent_config_responses = _build_snapshot_responses(execution_id, session)
 
-    results_summary: dict = {}
-    if execution.results_file_path and Path(execution.results_file_path).exists():
-        try:
-            with Path(execution.results_file_path).open("r") as f:
-                results_data = json.load(f)
-                results_summary = results_data.get("metadata", {})
-        except Exception as e:
-            print(f"Warning: Could not load results file: {e}")
-
     return ExperimentTrace(
         execution=execution_response,
         agent_configs=agent_config_responses,
@@ -136,29 +130,7 @@ def get_execution_trace(
             "dataset_id": experiment.dataset_id,
         },
         dataset_metadata=json.loads(execution.dataset_snapshot),
-        results_summary=results_summary,
     )
-
-
-@router.put("/executions/{execution_id}", response_model=ExperimentExecutionResponse)
-def update_execution(
-    execution_id: int,
-    update_data: ExperimentExecutionUpdate,
-    session: Annotated[Session, Depends(get_session)],
-):
-    """Update execution details — mainly for MAESTRO to report completion."""
-    execution = session.get(ExperimentExecution, execution_id)
-    if not execution:
-        raise HTTPException(status_code=404, detail="Execution not found")
-
-    for field, value in update_data.model_dump(exclude_unset=True).items():
-        setattr(execution, field, value)
-
-    session.add(execution)
-    session.commit()
-    session.refresh(execution)
-
-    return _build_execution_response(execution, session)
 
 
 @router.get("/executions/{execution_id}/results")

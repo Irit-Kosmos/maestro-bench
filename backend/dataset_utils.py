@@ -2,7 +2,6 @@
 Utility functions for dataset path handling
 """
 
-import os
 from pathlib import Path
 
 
@@ -13,10 +12,7 @@ def get_datasets_dir():
     Returns:
         Path: The datasets directory path
     """
-    # In container, datasets are mounted at /app/datasets
-    if os.path.exists("/app/datasets"):
-        return Path("/app/datasets")
-    # For local development, use relative path from backend directory
+    # datasets/ lives one level above the backend directory (alongside frontend/ and backend/)
     return Path(__file__).parent.parent / "datasets"
 
 

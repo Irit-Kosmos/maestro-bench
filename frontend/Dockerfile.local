@@ -15,4 +15,4 @@ RUN pnpm install --frozen-lockfile
 EXPOSE 3000
 
 # Start Nuxt dev server bound to all interfaces so Docker port-forwarding works
-CMD ["pnpm", "run", "dev", "--", "--host"]
+CMD ["pnpm", "nuxt", "dev", "--host", "0.0.0.0"]

@@ -4,10 +4,20 @@ import type { Dataset } from '~/types'
 interface Props {
   selectedDataset?: number
   datasets?: Dataset[] | null
+  samplingConfig: {
+    sampling_type: string
+    sampling_size?: number
+    sampling_start_row?: number
+    sampling_end_row?: number
+  }
 }
 
 interface Emits {
   'update:selectedDataset': [value: number | undefined]
+  'update:sampling-type': [value: string]
+  'update:sampling-size': [value: number | undefined]
+  'update:sampling-start-row': [value: number | undefined]
+  'update:sampling-end-row': [value: number | undefined]
 }
 
 const props = defineProps<Props>()
@@ -32,8 +42,9 @@ function togglePreview(datasetId: number) {
 </script>
 
 <template>
-  <div class="space-y-4 mt-4">
+  <div class="space-y-6 mt-4">
     <div class="max-w-4xl mx-auto w-full">
+      <!-- Dataset Selection -->
       <div class="mb-6">
         <h3 class="text-lg font-medium text-neutral-900 mb-2">
           Select Dataset
@@ -130,6 +141,28 @@ function togglePreview(datasetId: number) {
         <p class="text-neutral-600">
           Loading datasets...
         </p>
+      </div>
+
+      <!-- Sampling Configuration -->
+      <div v-if="selectedDataset" class="mt-8">
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
+          Configure Sampling
+        </h3>
+        <p class="text-sm text-neutral-600 mb-4">
+          Choose how the dataset rows should be used for this experiment.
+        </p>
+
+        <ExperimentsDatasetSamplingConfig
+          :dataset-id="selectedDataset"
+          :sampling-type="samplingConfig.sampling_type"
+          :sampling-size="samplingConfig.sampling_size"
+          :sampling-start-row="samplingConfig.sampling_start_row"
+          :sampling-end-row="samplingConfig.sampling_end_row"
+          @update:sampling-type="(value: string) => emit('update:sampling-type', value)"
+          @update:sampling-size="(value: number | undefined) => emit('update:sampling-size', value)"
+          @update:sampling-start-row="(value: number | undefined) => emit('update:sampling-start-row', value)"
+          @update:sampling-end-row="(value: number | undefined) => emit('update:sampling-end-row', value)"
+        />
       </div>
     </div>
   </div>

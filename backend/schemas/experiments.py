@@ -28,6 +28,7 @@ class ExperimentAgentConfigResponse(BaseModel):
     max_tokens: Optional[int]
     execution_order: int
     is_active: bool
+    input_mappings: Optional[List[Dict]] = None
     created_at: datetime
 
 
@@ -65,13 +66,6 @@ class ExperimentResponse(BaseModel):
     sampling_size: Optional[int] = None
     sampling_start_row: Optional[int] = None
     sampling_end_row: Optional[int] = None
-
-
-class ExperimentUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    completed_at: Optional[datetime] = None
 
 
 # Forward reference resolution

@@ -164,7 +164,12 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
       </UCard>
 
       <!-- Sample Data Table Card -->
-      <UCard v-if="sampleRows.length > 0">
+      <UCard
+        v-if="sampleRows.length > 0"
+        :ui="{
+          body: 'sm:p-2',
+        }"
+      >
         <template #header>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-table" class="h-5 w-5" />

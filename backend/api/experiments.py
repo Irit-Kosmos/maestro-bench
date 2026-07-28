@@ -7,16 +7,13 @@ from sqlmodel import Session, select
 from db import get_session
 from tables import (
     Agent,
-    AgentExecutionSnapshot,
     Dataset,
     Experiment,
     ExperimentAgentConfig,
-    ExperimentExecution,
 )
 from schemas.experiments import (
     ExperimentCreate,
     ExperimentResponse,
-    ExperimentUpdate,
     ExperimentAgentConfigResponse,
     DatasetResponse,
 )
@@ -85,6 +82,9 @@ def _build_experiment_response(
                 max_tokens=config.max_tokens,
                 execution_order=config.execution_order,
                 is_active=config.is_active,
+                input_mappings=json.loads(config.input_mappings)
+                if config.input_mappings
+                else None,
                 created_at=config.created_at,
             )
             for config in experiment_configs
@@ -128,7 +128,7 @@ async def create_experiment(
     session.refresh(experiment)
 
     # Create individual agent configurations for explicitly configured active agents
-    execution_order = 1
+    default_execution_order = 1
     if exp_data.agent_teams and exp_data.agent_configurations:
         for team_id_str in exp_data.agent_teams:
             team_id = int(team_id_str)
@@ -160,6 +160,15 @@ async def create_experiment(
                     )
                     continue
 
+                # Use frontend-provided execution_order if available, otherwise auto-increment
+                execution_order = agent_config.get("execution_order", default_execution_order)
+                if "execution_order" not in agent_config:
+                    default_execution_order += 1
+
+                # Persist per-agent input mappings if provided
+                input_mappings = agent_config.get("input_mappings")
+                input_mappings_json = json.dumps(input_mappings) if input_mappings else None
+
                 exp_agent_config = ExperimentAgentConfig(
                     experiment_id=int(experiment.id) if experiment.id is not None else 0,
                     agent_id=int(agent.id) if agent.id is not None else 0,
@@ -169,9 +178,9 @@ async def create_experiment(
                     max_tokens=agent_config.get("max_tokens"),
                     execution_order=execution_order,
                     is_active=True,
+                    input_mappings=input_mappings_json,
                 )
                 session.add(exp_agent_config)
-                execution_order += 1
 
     session.commit()
 
@@ -191,27 +200,6 @@ def get_experiment(exp_id: int, session: Annotated[Session, Depends(get_session)
     experiment = session.get(Experiment, exp_id)
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    return _build_experiment_response(experiment, session)
-
-
-@router.put("/experiments/{exp_id}", response_model=ExperimentResponse)
-def update_experiment(
-    exp_id: int,
-    exp_update: ExperimentUpdate,
-    session: Annotated[Session, Depends(get_session)],
-):
-    """Update an experiment."""
-    experiment = session.get(Experiment, exp_id)
-    if not experiment:
-        raise HTTPException(status_code=404, detail="Experiment not found")
-
-    for field, value in exp_update.model_dump(exclude_unset=True).items():
-        setattr(experiment, field, value)
-
-    session.add(experiment)
-    session.commit()
-    session.refresh(experiment)
-
     return _build_experiment_response(experiment, session)
 
 

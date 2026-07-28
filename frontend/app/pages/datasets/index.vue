@@ -4,6 +4,7 @@ import type { CreateDatasetForm, Dataset } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Datasets',
+  subtitle: 'Manage your datasets and data sources',
 })
 
 // Fetch data directly in the page
@@ -110,11 +111,9 @@ function handleCreateClick() {
 
 <template>
   <BasePageContent
-    title="Datasets"
-    subtitle="Manage your datasets and data sources"
     :loading="pending"
   >
-    <template #actions>
+    <template #before-content>
       <UButton
         variant="solid"
         color="primary"

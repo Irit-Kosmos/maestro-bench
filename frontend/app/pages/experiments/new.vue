@@ -12,19 +12,15 @@ const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { preview: datasetPreview, loadPreview } = useDatasetPreview()
 
 // Custom composables - pass data as parameters
-const experimentForm = useExperimentForm()
-const agentManagement = useAgentManagement(agentTeams, allPromptVersions, models)
-const requestPreview = useRequestPreview(models, allPromptVersions)
+const experimentForm = useExperimentForm(agentTeams, allPromptVersions)
+const agentManagement = useAgentManagement()
 const stepperComposable = useExperimentStepper(allPromptVersions)
 const submission = useExperimentSubmission()
 
 // Destructure form state
 const {
-  formData,
   experimentDetails,
   samplingConfig,
-  requestConfig,
-  selectedTeamId,
   agentConfigurations,
   selectedDataset,
   isStepValid,
@@ -32,14 +28,13 @@ const {
   prepareExperimentData,
 } = experimentForm
 
+// Ref for the agent configuration step component (to access flow view)
+const agentConfigRef = ref()
+
 // Destructure agent management
 const {
-  selectTeam: selectTeamAction,
   updateAgentConfiguration,
 } = agentManagement
-
-// Destructure column mapping functions
-// (none needed - implemented inline)
 
 // Destructure stepper state and methods
 const {
@@ -53,50 +48,15 @@ const {
   openPromptDetails,
 } = stepperComposable
 
-// Generate preview request
-const selectedTeam = agentManagement.getSelectedTeam(selectedTeamId)
-const previewRequest = requestPreview.generatePreviewRequest(
-  selectedDataset,
-  requestConfig,
-  selectedTeam,
-  agentConfigurations,
-)
-
 // Dataset headers from preview
 const datasetHeaders = computed(() => {
   return datasetPreview.value?.headers || []
 })
 
-// Watch for dataset changes to load preview and set default column mappings
+// Watch for dataset changes to load preview
 watch(selectedDataset, async (newDatasetId) => {
   if (newDatasetId) {
     await loadPreview(newDatasetId)
-    // Set some default column mappings based on common column names
-    if (requestConfig.value.columnMappings.length === 0) {
-      const defaultMappings = []
-      if (datasetHeaders.value.includes('question')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'question',
-          targetField: 'question',
-        })
-      }
-      if (datasetHeaders.value.includes('desired_answer')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'desired_answer',
-          targetField: 'reference_answer',
-        })
-      }
-      if (datasetHeaders.value.includes('student_answer')) {
-        defaultMappings.push({
-          id: crypto.randomUUID(),
-          sourceColumn: 'student_answer',
-          targetField: 'learner_answer',
-        })
-      }
-      requestConfig.value.columnMappings = defaultMappings
-    }
   }
 })
 
@@ -107,10 +67,6 @@ useSeoMeta({
 })
 
 // Handlers
-function selectTeam(teamId: number) {
-  selectTeamAction(teamId, selectedTeamId, formData, agentConfigurations)
-}
-
 function updateAgentConfig(agentId: number, field: string, value: any) {
   if (field === 'reset') {
     // Handle reset case
@@ -121,13 +77,25 @@ function updateAgentConfig(agentId: number, field: string, value: any) {
   }
 }
 
+function removeAgentConfig(agentId: number) {
+  delete agentConfigurations.value[agentId]
+}
+
 async function handleSubmit() {
   if (!formValid.value)
     return
 
   isSubmitting.value = true
   try {
-    const experimentData = prepareExperimentData()
+    // Compute execution order from the flow graph
+    const executionOrder = agentConfigRef.value?.flowViewRef
+      ? agentConfigRef.value.flowViewRef.computeExecutionOrder()
+      : new Map<number, number>()
+
+    const experimentData = prepareExperimentData({
+      agentTeams: agentTeams.value || [],
+      executionOrder,
+    })
 
     const result = await submission.handleSubmit(experimentData)
 
@@ -143,163 +111,121 @@ async function handleSubmit() {
 async function handleCancel() {
   await submission.handleCancel()
 }
-
-// Helper functions for column mapping
-function addMapping() {
-  requestConfig.value.columnMappings.push({
-    id: crypto.randomUUID(),
-    sourceColumn: '',
-    targetField: '',
-  })
-}
-
-function removeMapping(id: string) {
-  const index = requestConfig.value.columnMappings.findIndex(mapping => mapping.id === id)
-  if (index > -1) {
-    requestConfig.value.columnMappings.splice(index, 1)
-  }
-}
-
-function updateMapping(id: string, field: 'sourceColumn' | 'targetField', value: string) {
-  const mapping = requestConfig.value.columnMappings.find(m => m.id === id)
-  if (mapping) {
-    mapping[field] = value
-  }
-}
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <!-- Experiment Configuration Form with Stepper -->
-      <div class="bg-white rounded-lg shadow">
-        <div class="px-6 py-4 border-b border-neutral-200">
-          <h2 class="text-lg font-semibold text-neutral-900">
-            Create New Experiment
-          </h2>
-          <p class="text-sm text-neutral-600 mt-1">
-            Configure your experiment with prompt version and model selection
-          </p>
-        </div>
-
-        <div class="p-6">
-          <!-- Stepper Component -->
-          <UStepper
-            ref="stepper"
-            v-model="currentStep"
-            :items="stepperItems"
-            class="w-full"
-          >
-            <!-- Step 1: Experiment Details -->
-            <template #details>
-              <ExperimentsStepsExperimentDetails
-                :experiment-details="experimentDetails"
-                @update:name="(value) => experimentDetails.name = value"
-                @update:description="(value) => experimentDetails.description = value"
-              />
-            </template>
-
-            <!-- Step 2: Dataset Selection -->
-            <template #dataset>
-              <ExperimentsStepsDatasetSelection
-                :selected-dataset="selectedDataset"
-                :datasets="datasets"
-                @update:selected-dataset="(value) => selectedDataset = value"
-              />
-            </template>
-
-            <!-- Step 3: Dataset Sampling Configuration -->
-            <template #sampling>
-              <ExperimentsStepsDatasetSampling
-                :selected-dataset="selectedDataset"
-                :sampling-config="samplingConfig"
-                @update:sampling-type="(value) => samplingConfig.sampling_type = value"
-                @update:sampling-size="(value) => samplingConfig.sampling_size = value"
-                @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
-                @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
-              />
-            </template>
-
-            <!-- Step 4: Agent Team & Configuration -->
-            <template #agents>
-              <ExperimentsStepsAgentConfiguration
-                :selected-team-id="selectedTeamId"
-                :agent-configurations="agentConfigurations"
-                :agent-teams="agentTeams"
-                :models="models"
-                :all-prompt-versions="allPromptVersions"
-                @select-team="selectTeam"
-                @update-agent-config="updateAgentConfig"
-                @open-prompt-details="openPromptDetails"
-              />
-            </template>
-
-            <!-- Step 5: Request Configuration -->
-            <template #request>
-              <ExperimentsStepsRequestConfiguration
-                :selected-dataset="selectedDataset"
-                :request-config="requestConfig"
-                :preview-request="previewRequest"
-                :dataset-headers="datasetHeaders"
-                @add-column-mapping="addMapping"
-                @remove-column-mapping="removeMapping"
-                @update-column-mapping="updateMapping"
-              />
-            </template>
-          </UStepper>
-        </div>
-
-        <!-- Footer Actions -->
-        <div class="px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-          <div class="flex justify-between">
-            <div class="flex space-x-3">
-              <UButton
-                variant="ghost"
-                @click="handleCancel"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                v-if="stepper?.hasPrev"
-                variant="outline"
-                icon="i-lucide-chevron-left"
-                @click="prevStep"
-              >
-                Previous
-              </UButton>
-            </div>
-
-            <div class="flex space-x-3">
-              <UButton
-                v-if="stepper?.hasNext"
-                variant="solid"
-                icon-trailing="i-lucide-chevron-right"
-                :disabled="!isStepValid(currentStep)"
-                @click="nextStep"
-              >
-                Next
-              </UButton>
-              <UButton
-                v-else
-                variant="solid"
-                color="primary"
-                icon="i-lucide-play"
-                :disabled="!formValid"
-                :loading="isSubmitting"
-                @click="handleSubmit"
-              >
-                Create & Start Experiment
-              </UButton>
-            </div>
-          </div>
-        </div>
+  <BasePageContent>
+    <!-- Page Header + Stepper -->
+    <div class="md:grid md:grid-cols-[1fr_auto] md:gap-x-8 md:gap-y-6 md:items-start mb-8">
+      <div class="mb-6 md:mb-0">
+        <h1 class="text-2xl font-bold text-neutral-900">
+          Create New Experiment
+        </h1>
+        <p class="text-sm text-neutral-500 mt-1">
+          Configure your experiment with prompt version and model selection
+        </p>
       </div>
 
-      <!-- Prompt Details Modal -->
-      <ExperimentsPromptDetailsModal
-        v-model:is-open="showPromptDetailsModal"
-        :prompt-version-details="selectedPromptVersionForDetails"
-      />
+      <!-- Stepper Component -->
+      <UStepper
+        ref="stepper"
+        v-model="currentStep"
+        :items="stepperItems"
+        size="sm"
+        class="w-full"
+        :ui="{
+          root: 'md:contents',
+          header: 'md:col-start-2 md:row-start-1',
+          content: 'md:col-span-2 md:row-start-2',
+        }"
+      >
+        <!-- Step 1: Experiment Details -->
+        <template #details>
+          <ExperimentsStepsExperimentDetails
+            :experiment-details="experimentDetails"
+            @update:name="(value) => experimentDetails.name = value"
+            @update:description="(value) => experimentDetails.description = value"
+          />
+        </template>
+
+        <!-- Step 2: Dataset Selection & Sampling -->
+        <template #dataset>
+          <ExperimentsStepsDataset
+            :selected-dataset="selectedDataset"
+            :datasets="datasets"
+            :sampling-config="samplingConfig"
+            @update:selected-dataset="(value) => selectedDataset = value"
+            @update:sampling-type="(value) => samplingConfig.sampling_type = value"
+            @update:sampling-size="(value) => samplingConfig.sampling_size = value"
+            @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
+            @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
+          />
+        </template>
+
+        <!-- Step 3: Agent Team & Configuration -->
+        <template #agents>
+          <ExperimentsStepsAgentConfiguration
+            ref="agentConfigRef"
+            :agent-configurations="agentConfigurations"
+            :agent-teams="agentTeams"
+            :models="models"
+            :all-prompt-versions="allPromptVersions"
+            :dataset-headers="datasetHeaders"
+            @update-agent-config="updateAgentConfig"
+            @remove-agent-config="removeAgentConfig"
+            @open-prompt-details="openPromptDetails"
+          />
+        </template>
+      </UStepper>
     </div>
-  </div>
+
+    <!-- Navigation Actions -->
+    <div class="flex justify-between mt-8">
+      <div class="flex space-x-3">
+        <UButton
+          variant="ghost"
+          @click="handleCancel"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          v-if="stepper?.hasPrev"
+          variant="outline"
+          icon="i-lucide-chevron-left"
+          @click="prevStep"
+        >
+          Previous
+        </UButton>
+      </div>
+
+      <div class="flex space-x-3">
+        <UButton
+          v-if="stepper?.hasNext"
+          variant="solid"
+          icon-trailing="i-lucide-chevron-right"
+          :disabled="!isStepValid(currentStep)"
+          @click="nextStep"
+        >
+          Next
+        </UButton>
+        <UButton
+          v-else
+          variant="solid"
+          color="primary"
+          icon="i-lucide-play"
+          :disabled="!formValid"
+          :loading="isSubmitting"
+          @click="handleSubmit"
+        >
+          Create & Start Experiment
+        </UButton>
+      </div>
+    </div>
+
+    <!-- Prompt Details Modal -->
+    <ExperimentsPromptDetailsModal
+      v-model:is-open="showPromptDetailsModal"
+      :prompt-version-details="selectedPromptVersionForDetails"
+    />
+  </BasePageContent>
 </template>

@@ -305,7 +305,7 @@ watch(() => route.params.id, () => {
 
 <template>
   <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="pb-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex justify-center items-center py-12">
         <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
@@ -422,6 +422,28 @@ watch(() => route.params.id, () => {
               </div>
             </div>
           </div>
+          <!-- V2 Metrics: Tokens, Cost -->
+          <div v-if="latestExecution?.total_tokens || latestExecution?.total_cost_usd" class="mt-6 pt-6 border-t border-neutral-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div v-if="latestExecution.total_tokens">
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Total Tokens
+                </dt>
+                <dd class="text-lg font-semibold text-neutral-900">
+                  {{ latestExecution.total_tokens.toLocaleString() }}
+                </dd>
+              </div>
+              <div v-if="latestExecution.total_cost_usd !== undefined && latestExecution.total_cost_usd !== null">
+                <dt class="text-sm font-medium text-neutral-500 mb-2">
+                  Total Cost
+                </dt>
+                <dd class="text-lg font-semibold text-neutral-900">
+                  ${{ latestExecution.total_cost_usd.toFixed(4) }}
+                </dd>
+              </div>
+            </div>
+          </div>
+
           <!-- Results File Info -->
           <div v-if="latestExecution?.results_file_path" class="mt-6 pt-6 border-t border-neutral-200">
             <div class="flex items-center justify-between">
@@ -445,6 +467,27 @@ watch(() => route.params.id, () => {
               </UButton>
             </div>
           </div>
+        </UCard>
+
+        <!-- Agent Execution Flow -->
+        <UCard v-if="latestExecution && latestExecution.agent_executions.length > 0">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <UIcon name="i-lucide-git-branch" class="h-6 w-6 text-primary-500" />
+                <h2 class="text-xl font-semibold text-neutral-900">
+                  Agent Execution Flow
+                </h2>
+              </div>
+              <UBadge
+                :label="`${latestExecution.agent_executions.length} agent${latestExecution.agent_executions.length > 1 ? 's' : ''}`"
+                color="info"
+                variant="soft"
+              />
+            </div>
+          </template>
+
+          <ExperimentsExecutionFlowView :agent-executions="latestExecution.agent_executions" />
         </UCard>
 
         <!-- Dataset Configuration -->
@@ -862,6 +905,12 @@ watch(() => route.params.id, () => {
                   variant="subtle"
                   class="capitalize"
                 />
+                <div v-if="execution.total_tokens" class="text-sm text-neutral-600">
+                  {{ execution.total_tokens.toLocaleString() }} tokens
+                </div>
+                <div v-if="execution.total_cost_usd" class="text-sm text-neutral-600">
+                  ${{ execution.total_cost_usd.toFixed(4) }}
+                </div>
                 <div class="text-sm text-neutral-600">
                   {{ execution.agent_executions?.length || 0 }} agents
                 </div>

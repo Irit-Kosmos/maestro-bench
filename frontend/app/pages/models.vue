@@ -4,6 +4,7 @@ import type { Model } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Models',
+  subtitle: 'Manage available AI models for your experiments',
 })
 
 // Fetch data directly in the page
@@ -300,12 +301,10 @@ watch(() => showDeleteModal.value, (newValue) => {
 
 <template>
   <BasePageContent
-    title="AI Models"
-    subtitle="Manage available AI models for your experiments"
     :loading="pending"
     :error="error ? 'Failed to load models' : null"
   >
-    <template #actions>
+    <template #before-content>
       <UButton
         variant="solid"
         color="primary"

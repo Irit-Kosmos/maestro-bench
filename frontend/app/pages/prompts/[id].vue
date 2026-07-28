@@ -348,7 +348,7 @@ async function deleteVersion(versionId: number) {
 
 <template>
   <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div>
       <!-- Loading state -->
       <div v-if="pending" class="flex justify-center py-12">
         <USkeleton class="h-8 w-8 rounded-full" />
