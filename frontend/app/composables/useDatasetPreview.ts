@@ -49,18 +49,6 @@ export function useDatasetPreview() {
   }
 
   /**
-   * Load dataset preview by dataset object (if it has file_path)
-   */
-  async function loadPreviewFromDataset(dataset: Dataset) {
-    if (!dataset.file_path) {
-      state.error = 'Dataset has no file path'
-      return
-    }
-
-    await loadPreview(dataset.id)
-  }
-
-  /**
    * Clear preview state
    */
   function clearPreview() {
@@ -141,7 +129,6 @@ export function useDatasetPreview() {
 
     // Actions
     loadPreview,
-    loadPreviewFromDataset,
     clearPreview,
     canPreview,
     getFileExtension,

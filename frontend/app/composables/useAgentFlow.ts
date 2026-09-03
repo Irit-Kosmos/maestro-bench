@@ -17,8 +17,9 @@ export function useAgentFlow(
   agentConfigurations: Ref<Record<number, any>>,
   allPromptVersions: Ref<PromptVersion[] | null | undefined> = ref(null),
 ) {
-  const nodes = ref<Node<AgentFlowNodeData>[]>([])
-  const edges = ref<Edge[]>([])
+  // Cast avoids TS "excessively deep" instantiation on Vue Flow's Node type
+  const nodes = ref([]) as Ref<Node<AgentFlowNodeData>[]>
+  const edges = ref([]) as Ref<Edge[]>
   const selectedNodeId = ref<string | null>(null)
 
   // Get all available agents grouped by team
@@ -93,12 +94,11 @@ export function useAgentFlow(
     })
   }
 
-  // Remove an agent from the flow
+  // Remove an agent from the flow and drop its configuration.
+  // Safe to call when the node has already been removed from the canvas
+  // (e.g. by Vue Flow's Delete/Backspace shortcut): the config cleanup must
+  // still happen, otherwise the orphaned entry keeps blocking form validation.
   function removeAgentFromFlow(nodeId: string) {
-    const node = nodes.value.find(n => n.id === nodeId)
-    if (!node)
-      return
-
     const agentId = Number.parseInt(nodeId.replace('agent-', ''))
 
     // Remove edges connected to this node
@@ -133,7 +133,7 @@ export function useAgentFlow(
   function updateNodeData(agentId: number) {
     const nodeId = `agent-${agentId}`
     const node = nodes.value.find(n => n.id === nodeId)
-    if (node) {
+    if (node?.data) {
       node.data = {
         ...node.data,
         config: { ...agentConfigurations.value[agentId] },
@@ -242,11 +242,6 @@ export function useAgentFlow(
       }
     })
     return Array.from(teamIds)
-  }
-
-  // Get agent configuration for a specific agent in the flow
-  function getAgentConfig(agentId: number): Record<string, any> | undefined {
-    return agentConfigurations.value[agentId]
   }
 
   // Remove input mappings for variables that are not in the current prompt
@@ -382,9 +377,7 @@ export function useAgentFlow(
     addAgentToFlow,
     removeAgentFromFlow,
     computeExecutionOrder,
-    updateNodeData,
     getFlowTeamIds,
-    getAgentConfig,
     updateAgentConfig,
     syncFromConfigs,
 

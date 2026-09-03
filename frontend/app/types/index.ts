@@ -1,4 +1,4 @@
-// Core types for the MAESTRO experiment system with complete traceability
+// Core types for the MAESTRO-bench API
 
 export interface Model {
   id: number
@@ -61,20 +61,6 @@ export interface AgentInputMapping {
   staticValue?: string
 }
 
-export interface AgentConfig {
-  id: number
-  experiment_id: number
-  agent_id: number
-  prompt_version_id: number | null
-  model_id: number | null
-  temperature: number | null
-  max_tokens: number | null
-  execution_order: number
-  is_active: boolean
-  input_mappings?: AgentInputMapping[] | null
-  created_at: string
-}
-
 export interface Experiment {
   id: number
   name: string
@@ -102,12 +88,6 @@ export interface ExperimentResults {
   processing_time?: number
 }
 
-export interface ExperimentStats {
-  total: number
-  completed: number
-  running: number
-}
-
 // New traceability types
 export interface ExperimentExecution {
   id: number
@@ -117,7 +97,7 @@ export interface ExperimentExecution {
   status: string
   dataset_snapshot: string
   results_file_path?: string
-  // V2 metrics
+  // Aggregated metrics
   total_tokens?: number
   total_cost_usd?: number
   agent_executions: AgentExecutionSnapshot[]
@@ -143,11 +123,9 @@ export interface AgentExecutionSnapshot {
   created_at: string
 }
 
-export interface ExperimentTrace {
-  execution: ExperimentExecution
-  agent_configs: AgentExecutionSnapshot[]
-  experiment_metadata: Record<string, any>
-  dataset_metadata: Record<string, any>
+export interface ProviderStatus {
+  provider: string
+  configured: boolean
 }
 
 export interface Agent {
@@ -220,6 +198,7 @@ export interface ExperimentAgentConfig {
   max_tokens: number | null
   execution_order: number
   is_active: boolean
+  input_mappings?: AgentInputMapping[] | null
   created_at: string
   agent?: Agent
   prompt_version?: PromptVersion

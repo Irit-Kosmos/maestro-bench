@@ -1,14 +1,27 @@
-.idea
+# IDE / tooling
+.idea/
+.vscode/*
+!.vscode/settings.json
+.claude/
+.DS_Store
+
+# Python
 __pycache__/
+*.py[cod]
+.venv/
+venv/
+.ruff_cache/
+
+# Environment files
 .env
 .env.local
 .env.*.local
+
+# Logs
 *.log
 
-backend/results
-
-# Database files
-backend/app.db
+# Local data
+backend/results/
 *.db
 *.sqlite
 *.sqlite3

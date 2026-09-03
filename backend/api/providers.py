@@ -4,18 +4,15 @@ API router for LLM provider status.
 
 from fastapi import APIRouter
 
-from core.llm import check_provider_available
+from core.llm import SUPPORTED_PROVIDERS, check_provider_available
 
-router = APIRouter(prefix="/api/providers", tags=["providers"])
-
-KNOWN_PROVIDERS = ["openai", "anthropic", "mistral"]
+router = APIRouter(tags=["providers"])
 
 
-@router.get("")
-async def list_providers():
-    """List all known providers and whether their API key is configured."""
-    results = []
-    for provider in KNOWN_PROVIDERS:
-        available = await check_provider_available(provider)
-        results.append({"provider": provider, "configured": available})
-    return results
+@router.get("/providers")
+def list_providers():
+    """List supported providers and whether their API key is configured."""
+    return [
+        {"provider": provider, "configured": check_provider_available(provider)}
+        for provider in SUPPORTED_PROVIDERS
+    ]

@@ -10,9 +10,7 @@ withDefaults(defineProps<Props>(), {
   layout: 'grid',
 })
 
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString()
-}
+const { formatDate } = useUIHelpers()
 </script>
 
 <template>

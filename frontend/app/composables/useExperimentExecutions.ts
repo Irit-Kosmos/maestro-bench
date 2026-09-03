@@ -1,4 +1,4 @@
-import type { ExperimentExecution, ExperimentTrace } from '~/types'
+import type { ExperimentExecution } from '~/types'
 
 /**
  * Composable for managing experiment executions and their detailed configurations
@@ -18,33 +18,7 @@ export function useExperimentExecutions() {
     }
   }
 
-  // Fetch detailed execution with configuration
-  const fetchExecutionDetails = async (executionId: number) => {
-    try {
-      const response = await $api(`/executions/${executionId}`)
-      return { success: true, data: response as ExperimentExecution }
-    }
-    catch (error) {
-      console.error('Error fetching execution details:', error)
-      return { success: false, error }
-    }
-  }
-
-  // Fetch complete scientific trace of an execution
-  const fetchExecutionTrace = async (executionId: number) => {
-    try {
-      const response = await $api(`/executions/${executionId}/trace`)
-      return { success: true, data: response as ExperimentTrace }
-    }
-    catch (error) {
-      console.error('Error fetching execution trace:', error)
-      return { success: false, error }
-    }
-  }
-
   return {
     fetchExperimentExecutions,
-    fetchExecutionDetails,
-    fetchExecutionTrace,
   }
 }

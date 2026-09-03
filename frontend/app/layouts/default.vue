@@ -4,7 +4,7 @@ const router = useRouter()
 const shortcutsOpen = ref(false)
 
 const pageTitle = computed(() => {
-  return (route.meta.title as string) || 'MAESTRO Bench'
+  return (route.meta.title as string) || 'MAESTRO-bench'
 })
 
 useHead({

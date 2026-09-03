@@ -1,74 +1,30 @@
 """
-Shared utilities for experiment processing.
-Contains functions used by both sync and async experiment processors.
-
-V2: Uses core engine (LiteLLM + orchestrator) instead of external MAESTRO API.
+Shared utilities for experiment processing: dataset sampling, execution
+snapshots and results serialization.
 """
 
 import json
-import pandas as pd
-from datetime import datetime, timezone
-from typing import Optional
+import logging
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pandas as pd
 from sqlmodel import Session, select
 
+from core.orchestrator import AgentConfig, PipelineResult
+from dataset_utils import validate_dataset_file
 from tables import (
+    Agent,
+    AgentExecutionSnapshot,
+    Dataset,
     Experiment,
     ExperimentAgentConfig,
-    Agent,
-    Dataset,
     ExperimentExecution,
-    AgentExecutionSnapshot,
-    PromptVersion,
     Model,
+    PromptVersion,
 )
-from dataset_utils import validate_dataset_file
-from core.orchestrator import AgentConfig, PipelineResult
 
-
-def apply_column_mappings(
-    dataset_row: dict, column_mappings_json: Optional[str]
-) -> dict:
-    """
-    Apply column mappings to transform dataset columns into expected prompt variables.
-
-    Supports both V1 format (JSON list of {sourceColumn, targetField}) and
-    V2 format (simple dict of source → target, stored as JSON string).
-    """
-    if not column_mappings_json:
-        return dataset_row.copy()
-
-    try:
-        column_mappings = json.loads(column_mappings_json)
-
-        # V2 format: simple dict
-        if isinstance(column_mappings, dict):
-            mapped_data = {}
-            for source, target in column_mappings.items():
-                if source in dataset_row:
-                    mapped_data[target] = dataset_row[source]
-            return mapped_data
-
-        # V1 format: list of {sourceColumn, targetField}
-        if isinstance(column_mappings, list):
-            mapped_data = {}
-            for mapping in column_mappings:
-                if (
-                    isinstance(mapping, dict)
-                    and "sourceColumn" in mapping
-                    and "targetField" in mapping
-                ):
-                    source_column = mapping["sourceColumn"]
-                    target_field = mapping["targetField"]
-                    if source_column in dataset_row:
-                        mapped_data[target_field] = dataset_row[source_column]
-            return mapped_data
-
-        return dataset_row.copy()
-
-    except (json.JSONDecodeError, KeyError, TypeError) as e:
-        print(f"[ExperimentUtils] Error applying column mappings: {e}")
-        return dataset_row.copy()
+logger = logging.getLogger(__name__)
 
 
 def apply_dataset_sampling(
@@ -113,7 +69,7 @@ def create_execution_snapshot(
     """Create an immutable snapshot of the experiment configuration at execution time."""
     experiment = session.get(Experiment, experiment_id)
     if not experiment:
-        raise Exception(f"Experiment {experiment_id} not found")
+        raise ValueError(f"Experiment {experiment_id} not found")
 
     dataset = session.get(Dataset, experiment.dataset_id)
     dataset_snapshot = (
@@ -189,8 +145,11 @@ def create_execution_snapshot(
         session.add(agent_snapshot)
 
     session.commit()
-    print(
-        f"[ExperimentUtils] Created execution snapshot {execution.id} for experiment {experiment_id} with {len(agent_configs)} agent configs"
+    logger.info(
+        "Created execution snapshot %s for experiment %s with %d agent configs",
+        execution.id,
+        experiment_id,
+        len(agent_configs),
     )
     return execution
 
@@ -198,10 +157,7 @@ def create_execution_snapshot(
 def build_agent_configs_from_snapshot(
     execution: ExperimentExecution, session: Session
 ) -> list[AgentConfig]:
-    """
-    Build core.orchestrator.AgentConfig list from execution snapshots.
-    Replaces the old build_maestro_request_payload().
-    """
+    """Build core.orchestrator.AgentConfig list from execution snapshots."""
     agent_snapshots = session.exec(
         select(AgentExecutionSnapshot)
         .where(AgentExecutionSnapshot.execution_id == execution.id)
@@ -259,11 +215,10 @@ def build_agent_configs_from_snapshot(
 def process_pipeline_results(
     execution: ExperimentExecution,
     pipeline_results: list[PipelineResult],
-    session: Optional[Session] = None,
+    session: Session | None = None,
 ) -> dict:
     """
     Process pipeline results and save them to disk.
-    Replaces the old process_maestro_results().
 
     Args:
         execution: The experiment execution
@@ -276,7 +231,7 @@ def process_pipeline_results(
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")[:-3]
     results_file_path = (
         results_dir
         / f"experiment_{execution.experiment_id}_execution_{execution.id}_{timestamp}_results.json"
@@ -297,8 +252,8 @@ def process_pipeline_results(
         total_cost += result.total_cost_usd
         total_latency += result.total_latency_ms
 
-    started_at = execution.started_at if execution.started_at.tzinfo is not None else execution.started_at.replace(tzinfo=timezone.utc)
-    processing_time = (datetime.now(timezone.utc) - started_at).total_seconds()
+    started_at = execution.started_at if execution.started_at.tzinfo is not None else execution.started_at.replace(tzinfo=UTC)
+    processing_time = (datetime.now(UTC) - started_at).total_seconds()
 
     complete_results = {
         "execution_id": execution.id,
@@ -317,13 +272,13 @@ def process_pipeline_results(
         "rows": rows,
         "configuration_used": _build_config_snapshot(execution, session),
         "maestro_bench_version": "2.0.0",
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": datetime.now(UTC).isoformat(),
     }
 
     with open(results_file_path, "w") as f:
         json.dump(complete_results, f, indent=2, default=str)
 
-    print(f"[ExperimentUtils] Results saved to {results_file_path}")
+    logger.info("Results saved to %s", results_file_path)
 
     if session:
         execution.results_file_path = str(results_file_path)
@@ -342,7 +297,7 @@ def process_pipeline_results(
 
 
 def _build_config_snapshot(
-    execution: ExperimentExecution, session: Optional[Session]
+    execution: ExperimentExecution, session: Session | None
 ) -> dict:
     """Build the configuration snapshot for the results file."""
     if not session:

@@ -60,34 +60,6 @@ export function useStandardToast() {
     })
   }
 
-  function showLoadError(entityName: string, error?: string) {
-    toast.add({
-      title: 'Error',
-      description: error || `Failed to load ${entityName.toLowerCase()}. Please try again.`,
-      color: 'error',
-      icon: 'i-lucide:alert-circle',
-    })
-  }
-
-  // Generic messages
-  function showComingSoon(feature: string) {
-    toast.add({
-      title: 'Coming Soon',
-      description: `${feature} feature coming soon!`,
-      color: 'info',
-      icon: 'i-lucide:info',
-    })
-  }
-
-  function showNotFound(entityName: string) {
-    toast.add({
-      title: 'Not Found',
-      description: `${entityName} not found.`,
-      color: 'error',
-      icon: 'i-lucide:search-x',
-    })
-  }
-
   return {
     showCreateSuccess,
     showUpdateSuccess,
@@ -95,8 +67,5 @@ export function useStandardToast() {
     showCreateError,
     showUpdateError,
     showDeleteError,
-    showLoadError,
-    showComingSoon,
-    showNotFound,
   }
 }

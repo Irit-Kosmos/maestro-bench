@@ -1,37 +1,46 @@
+import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from config import API_HOST, API_PORT, CORS_ORIGINS
-from db import init_db
+
 from api import (
-    datasets,
-    experiments,
     agent_teams,
     agents,
+    datasets,
     experiment_executions,
-    prompts,
+    experiments,
     models,
+    prompts,
     providers,
 )
+from config import API_HOST, API_PORT, CORS_ORIGINS
+from db import init_db
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+API_VERSION = "2.0.0"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: initialize DB on startup."""
     init_db()
-    print("Database tables initialized")
-
-    print("MAESTRO-bench V2 API started (standalone mode)")
+    logger.info("Database tables initialized")
+    logger.info("MAESTRO-bench API started")
     yield
 
 
 app = FastAPI(
     title="MAESTRO-bench API",
-    description="Standalone experiment benchmarking platform with direct LLM provider access",
-    version="2.0.0",
+    description="Experiment benchmarking platform for multi-agent LLM pipelines",
+    version=API_VERSION,
     lifespan=lifespan,
 )
 
@@ -43,7 +52,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Existing routers
 app.include_router(datasets.router)
 app.include_router(experiments.router)
 app.include_router(agent_teams.router)
@@ -51,8 +59,6 @@ app.include_router(agents.router)
 app.include_router(experiment_executions.router)
 app.include_router(prompts.router)
 app.include_router(models.router)
-
-# V2 routers
 app.include_router(providers.router)
 
 
@@ -60,9 +66,8 @@ app.include_router(providers.router)
 def health_check():
     return {
         "status": "healthy",
-        "version": "2.0.0",
-        "mode": "standalone",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": API_VERSION,
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 

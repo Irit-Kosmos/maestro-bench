@@ -28,7 +28,7 @@ const isOpen = computed({
             <h3 class="text-base font-semibold leading-6 text-neutral-900">
               Prompt Details: {{ promptVersionDetails?.prompt?.name }} v{{ promptVersionDetails?.version }}
             </h3>
-            <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isOpen = false" />
+            <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="() => { isOpen = false }" />
           </div>
         </template>
 
@@ -40,7 +40,7 @@ const isOpen = computed({
 
         <template #footer>
           <div class="flex justify-end">
-            <UButton color="neutral" variant="solid" @click="isOpen = false">
+            <UButton color="neutral" variant="solid" @click="() => { isOpen = false }">
               Close
             </UButton>
           </div>

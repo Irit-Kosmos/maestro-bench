@@ -63,12 +63,12 @@ const items = computed(() => [
         >
           <img
             src="/MAESTRO-bench.png"
-            alt="MAESTRO Bench"
+            alt="MAESTRO-bench"
             width="28"
             height="28"
             class="shrink-0"
           >
-          <span class="text-sm pt-1 font-semibold text-neutral-700 truncate">MAESTRO Bench</span>
+          <span class="text-sm pt-1 font-semibold text-neutral-700 truncate">MAESTRO-bench</span>
         </NuxtLink>
       </div>
     </template>

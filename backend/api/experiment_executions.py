@@ -1,18 +1,18 @@
 import json
 from pathlib import Path
-from typing import Annotated, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from db import get_session
-from tables import Experiment, ExperimentExecution, AgentExecutionSnapshot
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
     ExperimentExecutionResponse,
     ExperimentTrace,
 )
+from tables import AgentExecutionSnapshot, Experiment, ExperimentExecution
 
 router = APIRouter(tags=["experiment-executions"])
 
@@ -24,7 +24,7 @@ router = APIRouter(tags=["experiment-executions"])
 
 def _build_snapshot_responses(
     execution_id: int, session: Session
-) -> List[AgentExecutionSnapshotResponse]:
+) -> list[AgentExecutionSnapshotResponse]:
     """Return AgentExecutionSnapshotResponse list for a given execution."""
     snapshots = session.exec(
         select(AgentExecutionSnapshot).where(
@@ -78,7 +78,7 @@ def _build_execution_response(
 
 @router.get(
     "/experiments/{experiment_id}/executions",
-    response_model=List[ExperimentExecutionResponse],
+    response_model=list[ExperimentExecutionResponse],
 )
 def get_experiment_executions(
     experiment_id: int, session: Annotated[Session, Depends(get_session)]

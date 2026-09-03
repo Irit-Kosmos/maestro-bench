@@ -6,14 +6,25 @@ Provides a unified async interface to call any LLM provider
 and latency measurement.
 """
 
+import os
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 import litellm
 
 # Suppress LiteLLM's verbose logging by default
 litellm.suppress_debug_info = True
+
+# Providers supported out of the box: LiteLLM model prefix (None = no prefix)
+# and the environment variable holding the API key.
+SUPPORTED_PROVIDERS: dict[str, dict] = {
+    "openai": {"prefix": None, "api_key_env": "OPENAI_API_KEY"},
+    "anthropic": {"prefix": None, "api_key_env": "ANTHROPIC_API_KEY"},
+    "mistral": {"prefix": "mistral", "api_key_env": "MISTRAL_API_KEY"},
+    "groq": {"prefix": "groq", "api_key_env": "GROQ_API_KEY"},
+    "together": {"prefix": "together_ai", "api_key_env": "TOGETHER_API_KEY"},
+    "deepseek": {"prefix": "deepseek", "api_key_env": "DEEPSEEK_API_KEY"},
+}
 
 
 @dataclass
@@ -33,7 +44,7 @@ async def call_llm(
     provider: str,
     messages: list[dict],
     temperature: float = 0.0,
-    max_tokens: Optional[int] = None,
+    max_tokens: int | None = None,
 ) -> LLMResponse:
     """
     Call an LLM via LiteLLM.
@@ -71,7 +82,7 @@ async def call_llm(
     # Cost estimation via LiteLLM
     try:
         cost = litellm.completion_cost(completion_response=response)
-    except Exception:
+    except Exception:  # noqa: BLE001 - unknown models raise assorted LiteLLM errors
         cost = 0.0
 
     content = response.choices[0].message.content or ""
@@ -90,48 +101,23 @@ def _resolve_model_id(model: str, provider: str) -> str:
     """
     Resolve to the LiteLLM model identifier.
 
-    LiteLLM expects a prefix for some providers:
-    - OpenAI models: just the model name (e.g. "gpt-4o")
-    - Anthropic: just the model name (e.g. "claude-sonnet-4-20250514")
-    - Mistral: "mistral/<model>" (e.g. "mistral/mistral-medium-2505")
-
-    See: https://docs.litellm.ai/docs/providers
+    LiteLLM expects a "<prefix>/<model>" format for some providers
+    (e.g. "mistral/mistral-medium-2505") and the bare model name for others
+    (OpenAI, Anthropic). See: https://docs.litellm.ai/docs/providers
     """
-    provider_lower = provider.lower()
-
-    # Providers that need a prefix
-    prefixed_providers = {
-        "mistral": "mistral",
-        "groq": "groq",
-        "together": "together_ai",
-        "deepseek": "deepseek",
-        "ollama": "ollama",
-    }
-
-    prefix = prefixed_providers.get(provider_lower)
+    spec = SUPPORTED_PROVIDERS.get(provider.lower())
+    prefix = spec["prefix"] if spec else None
     if prefix and not model.startswith(f"{prefix}/"):
         return f"{prefix}/{model}"
-
     return model
 
 
-async def check_provider_available(provider: str) -> bool:
+def check_provider_available(provider: str) -> bool:
     """
     Check if a provider's API key is configured.
     Returns True if the key env var is set (doesn't validate the key).
     """
-    import os
-
-    key_env_vars = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "mistral": "MISTRAL_API_KEY",
-        "groq": "GROQ_API_KEY",
-        "together": "TOGETHER_API_KEY",
-        "deepseek": "DEEPSEEK_API_KEY",
-    }
-
-    env_var = key_env_vars.get(provider.lower())
-    if not env_var:
+    spec = SUPPORTED_PROVIDERS.get(provider.lower())
+    if not spec:
         return False
-    return bool(os.getenv(env_var))
+    return bool(os.getenv(spec["api_key_env"]))

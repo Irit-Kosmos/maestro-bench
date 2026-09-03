@@ -2,9 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+
 from db import get_session
-from tables import Agent
 from schemas.agent_teams import AgentCreate, AgentUpdate
+from tables import Agent
 
 router = APIRouter(tags=["agents"])
 

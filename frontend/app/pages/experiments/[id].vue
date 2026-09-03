@@ -348,7 +348,7 @@ watch(() => route.params.id, () => {
               variant="outline"
               color="error"
               icon="i-lucide:trash-2"
-              @click="showDeleteDialog = true"
+              @click="() => { showDeleteDialog = true }"
             >
               Delete
             </UButton>
@@ -920,7 +920,7 @@ watch(() => route.params.id, () => {
                   color="neutral"
                   icon="i-lucide-download"
                   size="xs"
-                  @click="downloadResultsFile(execution.id)"
+                  @click="() => { downloadResultsFile(execution.id) }"
                 >
                   Download
                 </UButton>
@@ -976,7 +976,7 @@ watch(() => route.params.id, () => {
           <UButton
             variant="outline"
             color="neutral"
-            @click="showDeleteDialog = false"
+            @click="() => { showDeleteDialog = false }"
           >
             Cancel
           </UButton>

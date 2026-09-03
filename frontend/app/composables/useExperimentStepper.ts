@@ -41,10 +41,6 @@ export function useExperimentStepper(allPromptVersions: Ref<any[] | null | undef
     }
   }
 
-  function closePromptDetails() {
-    showPromptDetailsModal.value = false
-  }
-
   return {
     // State
     currentStep,
@@ -53,14 +49,9 @@ export function useExperimentStepper(allPromptVersions: Ref<any[] | null | undef
     showPromptDetailsModal,
     selectedPromptVersionForDetails,
 
-    // Computed
-    canGoNext,
-    canGoPrev,
-
     // Methods
     nextStep,
     prevStep,
     openPromptDetails,
-    closePromptDetails,
   }
 }

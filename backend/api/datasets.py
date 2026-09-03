@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
-from typing import Annotated, Dict, Any
+from typing import Annotated, Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from db import get_session
-from tables import Dataset, Experiment
 from dataset_utils import get_dataset_file_path, validate_dataset_file
+from db import get_session
 from schemas.datasets import DatasetCreate
+from tables import Dataset, Experiment
 
 router = APIRouter(tags=["datasets"])
 
@@ -22,7 +22,7 @@ _PREVIEW_ROWS = 5
 # ---------------------------------------------------------------------------
 
 
-def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> Dict[str, Any]:
+def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> dict[str, Any]:
     """
     Read headers, row count, and optionally sample rows from a dataset file.
     Uses streaming / partial reads to avoid loading the full file into memory.
@@ -84,8 +84,10 @@ def _resolve_dataset_file(dataset: Dataset) -> Path:
         raise HTTPException(status_code=400, detail="Dataset has no file path")
     try:
         return validate_dataset_file(dataset.file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +105,12 @@ def create_dataset(
     dataset_data: DatasetCreate,
     session: Annotated[Session, Depends(get_session)],
 ):
+    if dataset_data.file_path:
+        try:
+            get_dataset_file_path(dataset_data.file_path)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
     dataset = Dataset(
         name=dataset_data.name,
         description=dataset_data.description,
@@ -138,7 +146,7 @@ def get_dataset_preview(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Error reading dataset file: {e}")
+        raise HTTPException(500, f"Error reading dataset file: {e}") from e
 
 
 @router.get("/datasets/{dataset_id}/info")
@@ -162,7 +170,7 @@ def get_dataset_info(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Error reading dataset file: {e}")
+        raise HTTPException(500, f"Error reading dataset file: {e}") from e
 
 
 @router.get("/datasets/{dataset_id}/stats", response_model=dict)
@@ -193,12 +201,16 @@ def get_dataset_stats(
 @router.delete("/datasets/{dataset_id}", status_code=204)
 def delete_dataset(dataset_id: int, session: Annotated[Session, Depends(get_session)]):
     dataset = session.get(Dataset, dataset_id)
-    if not dataset or dataset.file_path is None:
+    if not dataset:
         raise HTTPException(404, "Dataset not found")
 
-    file_path = get_dataset_file_path(dataset.file_path)
-    if file_path.exists():
-        file_path.unlink()
+    if dataset.file_path:
+        try:
+            file_path = get_dataset_file_path(dataset.file_path)
+        except ValueError:
+            file_path = None
+        if file_path and file_path.is_file():
+            file_path.unlink()
 
     session.delete(dataset)
     session.commit()

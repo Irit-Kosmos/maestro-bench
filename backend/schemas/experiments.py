@@ -3,16 +3,17 @@ Request and response models for experiments API
 """
 
 from __future__ import annotations
-from typing import List, Optional, Dict
-from pydantic import BaseModel
+
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class DatasetResponse(BaseModel):
     id: int
     name: str
-    description: Optional[str]
-    file_path: Optional[str]
+    description: str | None
+    file_path: str | None
     created_at: datetime
 
 
@@ -22,50 +23,46 @@ class ExperimentAgentConfigResponse(BaseModel):
     id: int
     experiment_id: int
     agent_id: int
-    prompt_version_id: Optional[int]
-    model_id: Optional[int]
-    temperature: Optional[float]
-    max_tokens: Optional[int]
+    prompt_version_id: int | None
+    model_id: int | None
+    temperature: float | None
+    max_tokens: int | None
     execution_order: int
     is_active: bool
-    input_mappings: Optional[List[Dict]] = None
+    input_mappings: list[dict] | None = None
     created_at: datetime
 
 
 class ExperimentCreate(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     dataset_id: int
-    agent_teams: Optional[List[str]] = []
-    agent_configurations: Optional[dict] = {}
+    agent_teams: list[str] | None = []
+    agent_configurations: dict | None = {}
 
     # Dataset sampling configuration
-    sampling_type: Optional[str] = None  # 'all', 'random', 'range'
-    sampling_size: Optional[int] = None
-    sampling_start_row: Optional[int] = None
-    sampling_end_row: Optional[int] = None
-
-    # Column mapping configuration
-    column_mappings: Optional[List[Dict[str, str]]] = None
+    sampling_type: str | None = None  # 'all', 'random', 'range'
+    sampling_size: int | None = None
+    sampling_start_row: int | None = None
+    sampling_end_row: int | None = None
 
 
 class ExperimentResponse(BaseModel):
     id: int
     name: str
-    description: Optional[str]
+    description: str | None
     dataset_id: int
     status: str
     created_at: datetime
-    completed_at: Optional[datetime]
-    dataset: Optional[DatasetResponse] = None
-    experiment_configs: List[ExperimentAgentConfigResponse] = []
-    column_mappings: Optional[List[Dict[str, str]]] = None
+    completed_at: datetime | None
+    dataset: DatasetResponse | None = None
+    experiment_configs: list[ExperimentAgentConfigResponse] = []
 
     # Dataset sampling configuration
-    sampling_type: Optional[str] = None
-    sampling_size: Optional[int] = None
-    sampling_start_row: Optional[int] = None
-    sampling_end_row: Optional[int] = None
+    sampling_type: str | None = None
+    sampling_size: int | None = None
+    sampling_start_row: int | None = None
+    sampling_end_row: int | None = None
 
 
 # Forward reference resolution

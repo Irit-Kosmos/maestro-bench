@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam } from '~/types'
+import type { Agent, AgentTeam, Model, PromptVersion } from '~/types'
 
 interface Props {
   open?: boolean
   agent?: Agent | null
   availableTeams?: readonly AgentTeam[]
-  availablePromptVersions?: readonly any[]
-  availableModels?: readonly any[]
+  availablePromptVersions?: readonly PromptVersion[]
+  availableModels?: readonly Model[]
 }
 
 interface Emits {

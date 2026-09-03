@@ -2,14 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+
 from db import get_session
-from tables import AgentTeam, Agent
 from schemas.agent_teams import (
+    AgentResponse,
     AgentTeamCreate,
     AgentTeamUpdate,
     AgentTeamWithAgents,
-    AgentResponse,
 )
+from tables import Agent, AgentTeam
 
 router = APIRouter(tags=["agent-teams"])
 

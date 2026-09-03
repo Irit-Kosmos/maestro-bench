@@ -1,25 +1,27 @@
 import json
-from typing import Annotated, List
+import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+import async_jobs
 from db import get_session
+from schemas.experiments import (
+    DatasetResponse,
+    ExperimentAgentConfigResponse,
+    ExperimentCreate,
+    ExperimentResponse,
+)
 from tables import (
     Agent,
     Dataset,
     Experiment,
     ExperimentAgentConfig,
 )
-from schemas.experiments import (
-    ExperimentCreate,
-    ExperimentResponse,
-    ExperimentAgentConfigResponse,
-    DatasetResponse,
-)
-import async_jobs
 
 router = APIRouter(tags=["experiments"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +32,7 @@ router = APIRouter(tags=["experiments"])
 def _build_experiment_response(
     experiment: Experiment,
     session: Session,
-    experiment_configs: List[ExperimentAgentConfig] | None = None,
+    experiment_configs: list[ExperimentAgentConfig] | None = None,
 ) -> ExperimentResponse:
     """Build a fully-populated ExperimentResponse from an ORM Experiment."""
     dataset = session.get(Dataset, experiment.dataset_id) if experiment.dataset_id else None
@@ -41,13 +43,6 @@ def _build_experiment_response(
                 ExperimentAgentConfig.experiment_id == experiment.id
             )
         ).all()
-
-    column_mappings = None
-    if experiment.column_mappings:
-        try:
-            column_mappings = json.loads(experiment.column_mappings)
-        except (json.JSONDecodeError, TypeError):
-            pass
 
     return ExperimentResponse(
         id=int(experiment.id) if experiment.id is not None else 0,
@@ -61,7 +56,6 @@ def _build_experiment_response(
         sampling_size=experiment.sampling_size,
         sampling_start_row=experiment.sampling_start_row,
         sampling_end_row=experiment.sampling_end_row,
-        column_mappings=column_mappings,
         dataset=DatasetResponse(
             id=int(dataset.id) if dataset.id is not None else 0,
             name=dataset.name,
@@ -97,7 +91,7 @@ def _build_experiment_response(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/experiments", response_model=List[ExperimentResponse])
+@router.get("/experiments", response_model=list[ExperimentResponse])
 def list_experiments(session: Annotated[Session, Depends(get_session)]):
     """Get all experiments"""
     experiments = session.exec(
@@ -119,9 +113,6 @@ async def create_experiment(
         sampling_size=exp_data.sampling_size,
         sampling_start_row=exp_data.sampling_start_row,
         sampling_end_row=exp_data.sampling_end_row,
-        column_mappings=json.dumps(exp_data.column_mappings)
-        if exp_data.column_mappings
-        else None,
     )
     session.add(experiment)
     session.commit()
@@ -140,7 +131,7 @@ async def create_experiment(
                     continue
 
                 if not agent_config.get("is_active", True):
-                    print(f"Skipping inactive agent {agent.id} ({agent.name})")
+                    logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
                     continue
 
                 prompt_version_id = (
@@ -148,15 +139,15 @@ async def create_experiment(
                     or agent.default_prompt_version_id
                 )
                 if not prompt_version_id:
-                    print(
-                        f"Warning: Agent {agent.id} ({agent.name}) has no prompt version, skipping"
+                    logger.warning(
+                        "Agent %s (%s) has no prompt version, skipping", agent.id, agent.name
                     )
                     continue
 
                 model_id = agent_config.get("model_id") or agent.default_model_id
                 if not model_id:
-                    print(
-                        f"Warning: Agent {agent.id} ({agent.name}) has no model, skipping"
+                    logger.warning(
+                        "Agent %s (%s) has no model, skipping", agent.id, agent.name
                     )
                     continue
 
@@ -187,9 +178,9 @@ async def create_experiment(
     experiment_id = int(experiment.id) if experiment.id is not None else 0
     try:
         async_jobs.start_experiment(experiment_id)
-        print(f"[API] Experiment {experiment_id} dispatched")
-    except Exception as e:
-        print(f"[API] Failed to start experiment {experiment_id}: {e}")
+        logger.info("Experiment %s dispatched", experiment_id)
+    except Exception:
+        logger.exception("Failed to start experiment %s", experiment_id)
 
     return _build_experiment_response(experiment, session)
 
@@ -213,15 +204,6 @@ def delete_experiment(exp_id: int, session: Annotated[Session, Depends(get_sessi
     session.delete(experiment)
     session.commit()
     return {"message": "Experiment deleted successfully"}
-
-
-@router.get("/experiments/{experiment_id}/status")
-def get_experiment_status(experiment_id: int):
-    """Get the current in-memory task status of an experiment."""
-    return {
-        "experiment_id": experiment_id,
-        "task_status": async_jobs.get_task_status(experiment_id),
-    }
 
 
 @router.post("/experiments/{experiment_id}/cancel")
@@ -263,4 +245,4 @@ async def rerun_experiment(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to start experiment re-run: {e}"
-        )
+        ) from e

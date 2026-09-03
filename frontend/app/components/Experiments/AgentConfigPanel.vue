@@ -6,7 +6,7 @@ interface Props {
   config: Record<string, any> | undefined
   models: Model[]
   allPromptVersions: PromptVersion[]
-  datasetHeaders: string[]
+  datasetHeaders: readonly string[]
   upstreamAgents: Agent[]
 }
 

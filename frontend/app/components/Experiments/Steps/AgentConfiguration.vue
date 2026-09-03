@@ -6,7 +6,7 @@ interface Props {
   agentTeams?: AgentTeam[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
-  datasetHeaders?: string[]
+  datasetHeaders?: readonly string[]
 }
 
 interface Emits {

@@ -5,6 +5,9 @@ services:
       dockerfile: Dockerfile.local
     ports:
       - "3000:3000"
+    environment:
+      # URL the browser uses to reach the backend
+      - NUXT_PUBLIC_BACK_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -19,15 +22,17 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env
+      # LLM provider API keys; copy backend/.env.example to backend/.env
+      - path: ./backend/.env
+        required: false
     environment:
       - API_HOST=0.0.0.0
       - API_PORT=8000
       - DATABASE_URL=sqlite:///./app.db
+      - CORS_ORIGINS=http://localhost:3000
     volumes:
       - ./backend:/app
       - ./datasets:/datasets
-      - ./configs:/app/../configs
     networks:
       - maestro-network
     command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

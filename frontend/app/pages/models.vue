@@ -10,6 +10,8 @@ definePageMeta({
 // Fetch data directly in the page
 const { data: models, pending, error, refresh } = await useMyLazyFetch<Model[]>('/models')
 
+const availableProviders = computed(() => [...new Set((models.value ?? []).map(m => m.provider))].sort())
+
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
 const { selectedProviders, searchQuery, filterModels, toggleProvider, updateSearch, clearFilters } = useModelFilters()
@@ -319,6 +321,7 @@ watch(() => showDeleteModal.value, (newValue) => {
     <!-- Filters -->
     <div class="mb-6">
       <ModelsFilters
+        :providers="availableProviders"
         :selected-providers="[...selectedProviders]"
         :search-query="searchQuery"
         :total-count="models?.length || 0"

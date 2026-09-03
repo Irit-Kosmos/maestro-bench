@@ -35,17 +35,9 @@ export function useUIHelpers() {
     return `${minutes > 0 ? `${minutes}m ` : ''}${secs}s`
   }
 
-  // Truncate text with ellipsis
-  function truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength)
-      return text
-    return `${text.substring(0, maxLength - 3)}...`
-  }
-
   return {
     getStatusColor,
     formatDate,
     formatDuration,
-    truncateText,
   }
 }

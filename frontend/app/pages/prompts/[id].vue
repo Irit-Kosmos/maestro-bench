@@ -384,7 +384,7 @@ async function deleteVersion(versionId: number) {
             <UButton
               variant="outline"
               icon="i-lucide-edit"
-              @click="showEditPromptModal = true"
+              @click="() => { showEditPromptModal = true }"
             >
               Edit Prompt
             </UButton>
@@ -392,7 +392,7 @@ async function deleteVersion(versionId: number) {
               variant="solid"
               color="primary"
               icon="i-lucide-plus"
-              @click="showCreateVersionModal = true"
+              @click="() => { showCreateVersionModal = true }"
             >
               New Version
             </UButton>
@@ -429,7 +429,7 @@ async function deleteVersion(versionId: number) {
                 variant="solid"
                 color="primary"
                 icon="i-lucide-plus"
-                @click="showCreateVersionModal = true"
+                @click="() => { showCreateVersionModal = true }"
               >
                 Create First Version
               </UButton>
@@ -544,7 +544,7 @@ async function deleteVersion(versionId: number) {
                 type="button"
                 variant="outline"
                 :disabled="updatingPrompt"
-                @click="showEditPromptModal = false"
+                @click="() => { showEditPromptModal = false }"
               >
                 Cancel
               </UButton>
@@ -634,7 +634,7 @@ async function deleteVersion(versionId: number) {
                 type="button"
                 variant="outline"
                 :disabled="creatingVersion"
-                @click="showCreateVersionModal = false"
+                @click="() => { showCreateVersionModal = false }"
               >
                 Cancel
               </UButton>
@@ -724,7 +724,7 @@ async function deleteVersion(versionId: number) {
                 type="button"
                 variant="outline"
                 :disabled="updatingVersion"
-                @click="showEditVersionModal = false"
+                @click="() => { showEditVersionModal = false }"
               >
                 Cancel
               </UButton>
@@ -769,7 +769,7 @@ async function deleteVersion(versionId: number) {
             <div class="flex justify-end space-x-3">
               <UButton
                 variant="outline"
-                @click="showDeleteConfirmModal = false"
+                @click="() => { showDeleteConfirmModal = false }"
               >
                 Cancel
               </UButton>

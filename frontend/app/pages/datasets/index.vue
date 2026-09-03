@@ -23,6 +23,9 @@ useSeoMeta({
 // State
 const isSubmitting = ref(false)
 const showCreateModal = ref(false)
+const showDeleteModal = ref(false)
+const isDeleting = ref(false)
+const datasetToDelete = ref<Dataset | null>(null)
 
 // Table configuration
 const columns = [
@@ -53,7 +56,7 @@ const actions = [
     icon: 'i-lucide-trash-2',
     variant: 'ghost' as const,
     color: 'error' as const,
-    handler: (dataset: Dataset) => handleDeleteDataset(dataset.id),
+    handler: (dataset: Dataset) => confirmDelete(dataset),
   },
 ]
 
@@ -86,17 +89,31 @@ async function handleViewDataset(id: number) {
   await navigateTo(`/datasets/${id}`)
 }
 
-async function handleDeleteDataset(id: number) {
-  // TODO: Add confirmation dialog
-  const result = await deleteDataset(id)
+function confirmDelete(dataset: Dataset) {
+  datasetToDelete.value = dataset
+  showDeleteModal.value = true
+}
 
-  if (result.success) {
-    showDeleteSuccess('Dataset')
-    // Refresh the datasets list
-    await refresh()
+async function handleDeleteDataset() {
+  if (!datasetToDelete.value)
+    return
+
+  isDeleting.value = true
+  try {
+    const result = await deleteDataset(datasetToDelete.value.id)
+
+    if (result.success) {
+      showDeleteSuccess('Dataset')
+      showDeleteModal.value = false
+      datasetToDelete.value = null
+      await refresh()
+    }
+    else {
+      showDeleteError('Dataset', typeof result.error === 'string' ? result.error : undefined)
+    }
   }
-  else {
-    showDeleteError('Dataset', typeof result.error === 'string' ? result.error : undefined)
+  finally {
+    isDeleting.value = false
   }
 }
 
@@ -159,6 +176,17 @@ function handleCreateClick() {
     <DatasetsCreateDatasetModal
       v-model:open="showCreateModal"
       @submit="handleCreateDataset"
+    />
+
+    <!-- Delete Confirmation Modal -->
+    <BaseConfirmDialog
+      v-model:open="showDeleteModal"
+      title="Delete Dataset"
+      :message="`Are you sure you want to delete &quot;${datasetToDelete?.name}&quot;? The dataset file will be removed from disk. This action cannot be undone.`"
+      confirm-label="Delete Dataset"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="handleDeleteDataset"
     />
   </BasePageContent>
 </template>

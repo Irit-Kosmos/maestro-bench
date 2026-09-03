@@ -7,7 +7,6 @@ as context to subsequent agents. Collects per-agent traces
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from core.llm import LLMResponse, call_llm
 from core.prompt_renderer import build_messages
@@ -19,16 +18,16 @@ class AgentConfig:
 
     name: str
     team_name: str
-    system_prompt: Optional[str]
-    user_prompt: Optional[str]
+    system_prompt: str | None
+    user_prompt: str | None
     variables: list[str]  # variable names this agent expects
     model: str
     provider: str
     temperature: float = 0.0
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     execution_order: int = 1
-    input_mappings: Optional[list[dict]] = None
-    agent_id: Optional[int] = None
+    input_mappings: list[dict] | None = None
+    agent_id: int | None = None
 
 
 @dataclass
@@ -44,7 +43,7 @@ class AgentTrace:
     tokens_out: int = 0
     cost_usd: float = 0.0
     latency_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -52,14 +51,14 @@ class PipelineResult:
     """Result of running the full agent pipeline on one data row."""
 
     row_index: int
-    input_data: dict  # Column-mapped data (mapping target -> value)
+    input_data: dict  # Dataset row (column name -> value)
     agent_traces: list[AgentTrace] = field(default_factory=list)
     final_output: str = ""
     total_tokens_in: int = 0
     total_tokens_out: int = 0
     total_cost_usd: float = 0.0
     total_latency_ms: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict:
         """Serialize to dict for JSON storage."""
@@ -126,8 +125,8 @@ def _safe_serialize(value):
 
 def _resolve_agent_context(
     agent: AgentConfig,
-    base_context: dict,
-    raw_row: dict,
+    shared_context: dict,
+    row: dict,
     agent_outputs: dict,
 ) -> dict:
     """
@@ -135,10 +134,11 @@ def _resolve_agent_context(
 
     If the agent has explicit input_mappings, use them to map dataset columns,
     previous agent outputs, or static values to prompt variables.
-    Otherwise fall back to the full shared context for backward compatibility.
+    Otherwise fall back to the full shared context (dataset row + all previous
+    agent outputs).
     """
     if not agent.input_mappings:
-        return base_context
+        return shared_context
 
     resolved: dict = {}
     for mapping in agent.input_mappings:
@@ -149,7 +149,7 @@ def _resolve_agent_context(
 
         if source == "dataset":
             column = mapping.get("sourceColumn")
-            resolved[variable] = raw_row.get(column) if column else None
+            resolved[variable] = row.get(column) if column else None
         elif source == "agent":
             source_agent_id = mapping.get("sourceAgentId")
             output_field = mapping.get("sourceOutput", "output")
@@ -163,34 +163,29 @@ def _resolve_agent_context(
 
 async def run_pipeline(
     agents: list[AgentConfig],
-    data: dict,
+    row: dict,
     row_index: int = 0,
-    raw_row: Optional[dict] = None,
 ) -> PipelineResult:
     """
-    Execute a sequential agent pipeline on a single data row.
+    Execute a sequential agent pipeline on a single dataset row.
 
     Each agent receives:
-    - Variables from the original data row (via column mappings)
-    - Outputs from all previous agents as {{ agent_name_output }}
-    - Explicit per-agent input mappings when configured
+    - Explicit per-agent input mappings when configured, or
+    - The full dataset row plus outputs from all previous agents
+      as {{ AgentName_output }}
 
     Args:
         agents: Ordered list of agent configurations
-        data: Mapped data from the dataset row (variable_name → value)
+        row: Dataset row (column name → value)
         row_index: Index of this row in the dataset
-        raw_row: Original unmapped dataset row for explicit dataset mappings
 
     Returns:
         PipelineResult with all agent traces and aggregated metrics
     """
-    if raw_row is None:
-        raw_row = data
+    result = PipelineResult(row_index=row_index, input_data=row)
 
-    result = PipelineResult(row_index=row_index, input_data=data)
-
-    # Shared context: starts with data variables, accumulates agent outputs
-    context = {k: v for k, v in data.items()}
+    # Shared context: starts with the row, accumulates agent outputs
+    context = dict(row)
 
     # Keep track of agent outputs by agent id for explicit mappings
     agent_outputs: dict = {}
@@ -200,7 +195,7 @@ async def run_pipeline(
 
     for agent in sorted_agents:
         # Resolve this agent's private variable context
-        agent_context = _resolve_agent_context(agent, context, raw_row, agent_outputs)
+        agent_context = _resolve_agent_context(agent, context, row, agent_outputs)
 
         trace = await _execute_agent(agent, agent_context)
         result.agent_traces.append(trace)
@@ -261,7 +256,7 @@ async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:
             latency_ms=llm_response.latency_ms,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any agent failure is recorded in the trace
         return AgentTrace(
             agent_name=agent.name,
             model=agent.model,

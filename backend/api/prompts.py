@@ -2,15 +2,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+
 from db import get_session
-from tables import Prompt, PromptVersion
 from schemas.prompts import (
     PromptCreate,
     PromptUpdate,
     PromptVersionCreate,
-    PromptVersionUpdate,
     PromptVersionResponse,
+    PromptVersionUpdate,
 )
+from tables import Prompt, PromptVersion
 
 router = APIRouter(tags=["prompts"])
 

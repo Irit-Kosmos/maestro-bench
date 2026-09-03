@@ -31,11 +31,6 @@ export function useModelFilters() {
     })
   }
 
-  // Update filter methods
-  const updateProviders = (providers: string[]) => {
-    selectedProviders.value = providers
-  }
-
   const toggleProvider = (provider: string) => {
     const index = selectedProviders.value.indexOf(provider)
     if (index > -1) {
@@ -55,29 +50,12 @@ export function useModelFilters() {
     searchQuery.value = ''
   }
 
-  // Computed filter counts
-  const getFilterCounts = (models: Model[]) => {
-    if (!models)
-      return {}
-
-    const counts: Record<string, number> = {}
-
-    // Count by provider
-    models.forEach((model) => {
-      counts[model.provider] = (counts[model.provider] || 0) + 1
-    })
-
-    return counts
-  }
-
   return {
     selectedProviders: readonly(selectedProviders),
     searchQuery: readonly(searchQuery),
     filterModels,
-    updateProviders,
     toggleProvider,
     updateSearch,
     clearFilters,
-    getFilterCounts,
   }
 }

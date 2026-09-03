@@ -94,7 +94,7 @@ watch(() => showCreateModal.value, (newValue) => {
         color="primary"
         icon="i-lucide:plus"
         size="lg"
-        @click="showCreateModal = true"
+        @click="() => { showCreateModal = true }"
       >
         Create Prompt
       </UButton>
@@ -112,7 +112,7 @@ watch(() => showCreateModal.value, (newValue) => {
         color="primary"
         icon="i-lucide:plus"
         size="lg"
-        @click="showCreateModal = true"
+        @click="() => { showCreateModal = true }"
       >
         Create Your First Prompt
       </UButton>
@@ -168,7 +168,7 @@ watch(() => showCreateModal.value, (newValue) => {
                 type="button"
                 variant="outline"
                 :disabled="isCreating"
-                @click="showCreateModal = false"
+                @click="() => { showCreateModal = false }"
               >
                 Cancel
               </UButton>

@@ -7,9 +7,14 @@ and previous agent outputs.
 """
 
 import re
-from typing import Optional
 
-from jinja2 import BaseLoader, Environment, TemplateSyntaxError, UndefinedError, Undefined
+from jinja2 import (
+    BaseLoader,
+    Environment,
+    TemplateSyntaxError,
+    Undefined,
+    UndefinedError,
+)
 
 
 class _LenientUndefined(Undefined):
@@ -101,8 +106,8 @@ def _convert_legacy_placeholders(template: str, variables: dict) -> str:
 
 
 def build_messages(
-    system_prompt: Optional[str],
-    user_prompt: Optional[str],
+    system_prompt: str | None,
+    user_prompt: str | None,
     variables: dict,
 ) -> list[dict]:
     """

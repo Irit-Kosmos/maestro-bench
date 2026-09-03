@@ -120,8 +120,8 @@ export function useExperimentForm(
       .map(([id]) => Number.parseInt(id))
   }
 
-  // Check whether every variable of every active agent is mapped, either via global
-  // column_mappings or per-agent input_mappings. Empty variable lists count as satisfied.
+  // Check whether every variable of every active agent is mapped via its
+  // input_mappings. Empty variable lists count as satisfied.
   function areAllVariablesMapped(): boolean {
     const activeIds = getActiveAgentIds()
     if (activeIds.length === 0)
@@ -211,7 +211,6 @@ export function useExperimentForm(
       sampling_size: samplingConfig.value.sampling_size,
       sampling_start_row: samplingConfig.value.sampling_start_row,
       sampling_end_row: samplingConfig.value.sampling_end_row,
-      column_mappings: [],
     }
   }
 
@@ -228,7 +227,6 @@ export function useExperimentForm(
     formValid,
 
     // Methods
-    getActiveAgentConfigurations,
     prepareExperimentData,
   }
 }

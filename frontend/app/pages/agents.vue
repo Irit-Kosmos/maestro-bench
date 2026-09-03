@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam } from '~/types'
+import type { Agent, AgentTeam, Model, PromptVersion } from '~/types'
 
 // Composables
 const toast = useToast()
@@ -9,8 +9,8 @@ const { createAgent, updateAgent, deleteAgent } = useAgents()
 // Fetch data directly in the page
 const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
-const { data: allPromptVersions, pending: _promptVersionsPending } = await useMyLazyFetch<any[]>('/prompt-versions')
-const { data: models, pending: _modelsPending } = await useMyLazyFetch<any[]>('/models')
+const { data: allPromptVersions, pending: _promptVersionsPending } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
+const { data: models, pending: _modelsPending } = await useMyLazyFetch<Model[]>('/models')
 
 // Page meta
 definePageMeta({
@@ -179,7 +179,7 @@ const tabItems = [
         variant="outline"
         color="neutral"
         icon="i-lucide:users-round"
-        @click="showCreateTeamModal = true"
+        @click="() => { showCreateTeamModal = true }"
       >
         Create Team
       </UButton>
@@ -188,7 +188,7 @@ const tabItems = [
         color="primary"
         icon="i-lucide:user-plus"
         size="lg"
-        @click="showCreateAgentModal = true"
+        @click="() => { showCreateAgentModal = true }"
       >
         Create Agent
       </UButton>
@@ -284,7 +284,7 @@ const tabItems = [
               variant="solid"
               color="primary"
               icon="i-lucide:user-plus"
-              @click="showCreateAgentModal = true"
+              @click="() => { showCreateAgentModal = true }"
             >
               Create Your First Agent
             </UButton>
@@ -361,16 +361,16 @@ const tabItems = [
     <!-- Create Team Modal -->
     <AgentsCreateTeamModal
       v-model:open="showCreateTeamModal"
-      :available-agents="agents as any"
+      :available-agents="agents ?? []"
       @submit="handleCreateTeam"
     />
 
     <!-- Create Agent Modal -->
     <AgentsCreateAgentModal
       v-model:open="showCreateAgentModal"
-      :available-teams="agentTeams as any"
-      :available-prompt-versions="allPromptVersions as any"
-      :available-models="models as any"
+      :available-teams="agentTeams ?? []"
+      :available-prompt-versions="allPromptVersions ?? []"
+      :available-models="models ?? []"
       @submit="handleCreateAgent"
     />
 
@@ -378,9 +378,9 @@ const tabItems = [
     <AgentsEditAgentModal
       v-model:open="showEditAgentModal"
       :agent="selectedAgent"
-      :available-teams="agentTeams as any"
-      :available-prompt-versions="allPromptVersions as any"
-      :available-models="models as any"
+      :available-teams="agentTeams ?? []"
+      :available-prompt-versions="allPromptVersions ?? []"
+      :available-models="models ?? []"
       @submit="handleUpdateAgent"
     />
 

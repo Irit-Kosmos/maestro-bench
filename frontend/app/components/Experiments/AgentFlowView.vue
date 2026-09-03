@@ -8,7 +8,7 @@ interface Props {
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   agentConfigurations: Record<number, any>
-  datasetHeaders?: string[]
+  datasetHeaders?: readonly string[]
 }
 
 const props = defineProps<Props>()
@@ -47,12 +47,25 @@ const {
 } = flow
 
 // Vue Flow instance
-const { fitView, onInit } = useVueFlow()
+const { fitView, onInit, onNodesChange } = useVueFlow()
 
 onInit(() => {
   // Auto-populate canvas from existing agent configurations
   syncFromConfigs()
   fitView()
+})
+
+// Nodes removed by Vue Flow itself (Delete/Backspace on a selected node) must
+// also drop their configuration, otherwise the form keeps waiting for an agent
+// that is no longer on the canvas.
+onNodesChange((changes) => {
+  changes.forEach((change) => {
+    if (change.type !== 'remove')
+      return
+    const agentId = Number.parseInt(change.id.replace('agent-', ''))
+    removeAgentFromFlow(change.id)
+    emit('removeAgentConfig', agentId)
+  })
 })
 
 // Also sync when agentConfigurations changes (e.g., switching from card view)

@@ -1,21 +1,32 @@
 """
 Async experiment processor.
 
-V2: Uses core engine (LiteLLM + orchestrator) instead of external MAESTRO API.
-Experiments are dispatched as native asyncio Tasks on uvicorn's event loop.
+Experiments are dispatched as native asyncio Tasks on uvicorn's event loop
+and run through the core pipeline engine (LiteLLM + orchestrator).
 """
 
 import asyncio
 import json
+import logging
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+from typing import Any
+
 import pandas as pd
-from datetime import datetime, timezone
-from typing import Optional, AsyncGenerator, Dict, Any
 from sqlmodel import Session, select
 
-from db import engine
-from tables import Experiment, ExperimentExecution
-from dataset_utils import validate_dataset_file
 from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
+from dataset_utils import validate_dataset_file
+from db import engine
+from experiment_utils import (
+    apply_dataset_sampling,
+    build_agent_configs_from_snapshot,
+    create_execution_snapshot,
+    process_pipeline_results,
+)
+from tables import Experiment, ExperimentExecution
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -28,7 +39,7 @@ DEFAULT_MAX_CONCURRENT = 2
 # Task registry — maps experiment_id → running asyncio.Task
 # ---------------------------------------------------------------------------
 
-_running_tasks: Dict[int, asyncio.Task] = {}
+_running_tasks: dict[int, asyncio.Task] = {}
 
 
 def start_experiment(experiment_id: int) -> bool:
@@ -51,16 +62,6 @@ def start_experiment(experiment_id: int) -> bool:
     return True
 
 
-def get_task_status(experiment_id: int) -> str:
-    """Return the in-memory status of an experiment task."""
-    task = _running_tasks.get(experiment_id)
-    if task is None:
-        return "not_running"
-    if task.done():
-        return "failed" if task.exception() else "completed"
-    return "running"
-
-
 def cancel_experiment(experiment_id: int) -> bool:
     """Cancel a running experiment task."""
     task = _running_tasks.get(experiment_id)
@@ -77,25 +78,23 @@ def cancel_experiment(experiment_id: int) -> bool:
 
 async def run_experiment_async(experiment_id: int) -> None:
     """Top-level coroutine that runs an experiment end-to-end."""
-    print(f"[AsyncJob] Starting experiment {experiment_id}")
+    logger.info("Starting experiment %s", experiment_id)
 
     try:
         with Session(engine) as db_session:
             experiment = db_session.get(Experiment, experiment_id)
             if not experiment:
-                print(f"[AsyncJob] Experiment {experiment_id} not found")
+                logger.warning("Experiment %s not found", experiment_id)
                 return
 
-            print(f"[AsyncJob] Found experiment: {experiment.name}")
+            logger.info("Found experiment: %s", experiment.name)
             experiment.status = "running"
             db_session.add(experiment)
             db_session.commit()
 
             # Create immutable execution snapshot
-            from experiment_utils import create_execution_snapshot
-
             execution = create_execution_snapshot(experiment_id, db_session)
-            print(f"[AsyncJob] Created execution snapshot {execution.id}")
+            logger.info("Created execution snapshot %s", execution.id)
 
             # Run the experiment pipeline
             processor = _ExperimentProcessor(
@@ -107,28 +106,23 @@ async def run_experiment_async(experiment_id: int) -> None:
             )
 
             execution.status = "completed"
-            execution.completed_at = datetime.now(timezone.utc)
+            execution.completed_at = datetime.now(UTC)
             experiment.status = "completed"
-            experiment.completed_at = datetime.now(timezone.utc)
+            experiment.completed_at = datetime.now(UTC)
 
             db_session.add(execution)
             db_session.add(experiment)
             db_session.commit()
 
-            print(
-                f"[AsyncJob] Experiment {experiment_id} completed: {results_summary}"
-            )
+            logger.info("Experiment %s completed: %s", experiment_id, results_summary)
 
     except asyncio.CancelledError:
-        print(f"[AsyncJob] Experiment {experiment_id} cancelled")
+        logger.info("Experiment %s cancelled", experiment_id)
         await _mark_experiment_failed(experiment_id, "cancelled")
         raise
 
     except Exception as e:
-        print(f"[AsyncJob] Error in experiment {experiment_id}: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error in experiment %s", experiment_id)
         await _mark_experiment_failed(experiment_id, str(e))
 
 
@@ -150,15 +144,13 @@ async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
 
                 for exc in running_executions:
                     exc.status = "failed"
-                    exc.completed_at = datetime.now(timezone.utc)
+                    exc.completed_at = datetime.now(UTC)
                     db_session.add(exc)
 
                 db_session.commit()
-                print(
-                    f"[AsyncJob] Marked experiment {experiment_id} as failed: {error_msg}"
-                )
-    except Exception as e:
-        print(f"[AsyncJob] Failed to mark experiment as failed: {e}")
+                logger.info("Marked experiment %s as failed: %s", experiment_id, error_msg)
+    except Exception:
+        logger.exception("Failed to mark experiment %s as failed", experiment_id)
 
 
 # ---------------------------------------------------------------------------
@@ -178,19 +170,14 @@ class _ExperimentProcessor:
         self,
         execution: ExperimentExecution,
         db_session: Session,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process an experiment: run the agent pipeline over the dataset."""
-        from experiment_utils import (
-            build_agent_configs_from_snapshot,
-            process_pipeline_results,
-        )
-
         # Build agent configs from execution snapshot
         agent_configs = build_agent_configs_from_snapshot(execution, db_session)
         if not agent_configs:
             raise ValueError("No agent configurations found in execution snapshot")
 
-        print(f"[AsyncJob] Pipeline has {len(agent_configs)} agents")
+        logger.info("Pipeline has %d agents", len(agent_configs))
 
         # Load dataset
         dataset_snapshot = json.loads(execution.dataset_snapshot)
@@ -200,10 +187,6 @@ class _ExperimentProcessor:
         if not dataset_file_path:
             raise ValueError("Dataset file path not found in snapshot")
 
-        # Get column mappings from experiment
-        experiment = db_session.get(Experiment, execution.experiment_id)
-        column_mappings_json = experiment.column_mappings if experiment else None
-
         # Process all rows
         all_results: list[PipelineResult] = []
         total_processed = 0
@@ -212,11 +195,10 @@ class _ExperimentProcessor:
             dataset_file_path,
             sampling_config,
             agent_configs,
-            column_mappings_json,
         ):
             all_results.extend(chunk_results)
             total_processed += chunk_size
-            print(f"[AsyncJob] Processed {total_processed} rows so far...")
+            logger.info("Processed %d rows so far...", total_processed)
 
         return process_pipeline_results(execution, all_results, db_session)
 
@@ -225,11 +207,8 @@ class _ExperimentProcessor:
         dataset_file_path: str,
         sampling_config: dict,
         agent_configs: list[AgentConfig],
-        column_mappings_json: Optional[str],
     ) -> AsyncGenerator[tuple, None]:
         """Yield (chunk_results, chunk_size) for each processed chunk."""
-        from experiment_utils import apply_dataset_sampling
-
         dataset_full_path = validate_dataset_file(dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")
 
@@ -250,13 +229,10 @@ class _ExperimentProcessor:
         chunk_number = 0
         async for chunk_df in chunk_iter:
             chunk_number += 1
-            print(
-                f"[AsyncJob] Processing chunk {chunk_number} ({len(chunk_df)} rows)"
-            )
+            logger.info("Processing chunk %d (%d rows)", chunk_number, len(chunk_df))
             chunk_results = await self._process_chunk(
                 chunk_df,
                 agent_configs,
-                column_mappings_json,
                 chunk_number,
             )
             yield chunk_results, len(chunk_df)
@@ -265,21 +241,15 @@ class _ExperimentProcessor:
         self,
         chunk_df: pd.DataFrame,
         agent_configs: list[AgentConfig],
-        column_mappings_json: Optional[str],
         chunk_number: int,
     ) -> list[PipelineResult]:
         """Process a chunk of rows concurrently via the orchestrator."""
-        from experiment_utils import apply_column_mappings
-
         tasks = []
         for idx, (_, row) in enumerate(chunk_df.iterrows()):
             row_index = idx + ((chunk_number - 1) * self.chunk_size) + 1
-            row_dict = row.to_dict()
-            mapped_data = apply_column_mappings(row_dict, column_mappings_json)
-
             tasks.append(
                 self._run_pipeline_with_semaphore(
-                    agent_configs, mapped_data, row_index, raw_row=row_dict
+                    agent_configs, row.to_dict(), row_index
                 )
             )
 
@@ -289,7 +259,7 @@ class _ExperimentProcessor:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 row_index = i + ((chunk_number - 1) * self.chunk_size) + 1
-                print(f"[AsyncJob] Row {row_index} error: {result}")
+                logger.error("Row %d error: %s", row_index, result)
                 pipeline_results.append(
                     PipelineResult(
                         row_index=row_index,
@@ -305,16 +275,15 @@ class _ExperimentProcessor:
     async def _run_pipeline_with_semaphore(
         self,
         agent_configs: list[AgentConfig],
-        data: dict,
+        row: dict,
         row_index: int,
-        raw_row: Optional[dict] = None,
     ) -> PipelineResult:
         """Run the orchestrator pipeline with concurrency limiting."""
         async with self.semaphore:
-            return await run_pipeline(agent_configs, data, row_index, raw_row=raw_row)
+            return await run_pipeline(agent_configs, row, row_index)
 
     # ------------------------------------------------------------------
-    # CSV reading helpers (unchanged from V1)
+    # CSV reading helpers
     # ------------------------------------------------------------------
 
     async def _read_csv_chunks(
@@ -324,7 +293,7 @@ class _ExperimentProcessor:
             yield chunk
 
     async def _read_csv_range_chunks(
-        self, file_path, start_row: int, end_row: Optional[int]
+        self, file_path, start_row: int, end_row: int | None
     ) -> AsyncGenerator[pd.DataFrame, None]:
         nrows = None if end_row is None else (end_row - start_row)
         skiprows = list(range(1, start_row + 1)) if start_row > 0 else None

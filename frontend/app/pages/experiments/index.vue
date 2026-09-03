@@ -179,7 +179,7 @@ async function handleCreateExperiment() {
           <UButton
             variant="outline"
             color="neutral"
-            @click="showDeleteDialog = false"
+            @click="() => { showDeleteDialog = false }"
           >
             Cancel
           </UButton>

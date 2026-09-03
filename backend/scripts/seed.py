@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
 Seed script for development/testing.
-Creates prompts, models, agent teams, agents, and a sample dataset.
+Creates prompts, models, agent teams, agents, and the sample datasets.
+
+WARNING: this wipes all existing models, prompts, agent teams, agents and
+datasets before re-inserting them.
 
 Usage (from the backend/ directory):
-    python scripts/seed.py
+    uv run python scripts/seed.py          # asks for confirmation
+    uv run python scripts/seed.py --yes    # no confirmation
 """
 
 import json
@@ -15,14 +19,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlmodel import Session, delete
+
 from db import engine, init_db
-from tables import Model, Prompt, PromptVersion, AgentTeam, Agent, Dataset
+from tables import Agent, AgentTeam, Dataset, Model, Prompt, PromptVersion
 
 
 def seed_data() -> None:
     """Create initial data for development/testing."""
 
     init_db()
+
+    if "--yes" not in sys.argv:
+        answer = input(
+            "This will DELETE all models, prompts, agent teams, agents and datasets. Continue? [y/N] "
+        )
+        if answer.strip().lower() not in ("y", "yes"):
+            print("Aborted.")
+            return
 
     with Session(engine) as session:
         # ------------------------------------------------------------------
@@ -243,19 +256,33 @@ Your response must be in the same language as the query!""",
         )
 
         # ------------------------------------------------------------------
-        # 5. Sample dataset
+        # 5. Sample datasets (files live in the top-level datasets/ directory)
         # ------------------------------------------------------------------
         print("Creating datasets...")
         session.add(
             Dataset(
                 name="Mohler",
-                description="Mohler dataset",
+                description="Mohler short-answer grading dataset (Mohler et al., 2011)",
                 file_path="mohler_dataset.csv",
+            )
+        )
+        session.add(
+            Dataset(
+                name="Mohler (score gap > 2)",
+                description="Subset of the Mohler dataset where the two graders disagree by more than 2 points",
+                file_path="diff_gt_2_mohler_dataset.csv",
+            )
+        )
+        session.add(
+            Dataset(
+                name="French answers (sample)",
+                description="Tiny synthetic French dataset for smoke-testing prompts",
+                file_path="french_answers.csv",
             )
         )
 
         session.commit()
-        print("\nClean architecture successfully seeded!")
+        print("\nDatabase successfully seeded!")
 
 
 if __name__ == "__main__":

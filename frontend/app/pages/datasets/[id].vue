@@ -148,7 +148,7 @@ watch(() => route.params.id, () => {
               color="error"
               icon="i-lucide:trash-2"
               size="sm"
-              @click="showDeleteDialog = true"
+              @click="() => { showDeleteDialog = true }"
             >
               Delete
             </UButton>
@@ -295,7 +295,7 @@ watch(() => route.params.id, () => {
           <UButton
             variant="outline"
             color="neutral"
-            @click="showDeleteDialog = false"
+            @click="() => { showDeleteDialog = false }"
           >
             Cancel
           </UButton>

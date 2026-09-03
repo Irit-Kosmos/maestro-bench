@@ -17,8 +17,9 @@ const props = defineProps<ExecutionFlowViewProps>()
 // Vue Flow instance
 const { fitView } = useVueFlow()
 
-const nodes = ref<Node[]>([])
-const edges = ref<Edge[]>([])
+// Casts avoid TS "excessively deep" instantiation on Vue Flow types
+const nodes = ref([]) as Ref<Node[]>
+const edges = ref([]) as Ref<Edge[]>
 
 function parseInputMappings(snapshot: AgentExecutionSnapshot): AgentInputMapping[] {
   if (!snapshot.final_input_mappings)
@@ -122,8 +123,8 @@ function buildFlow(executions: AgentExecutionSnapshot[]) {
   })
   const sortedOrders = [...orderGroups.keys()].sort((a, b) => a - b)
   for (let i = 0; i < sortedOrders.length - 1; i++) {
-    const currentOrder = sortedOrders[i]
-    const nextOrder = sortedOrders[i + 1]
+    const currentOrder = sortedOrders[i]!
+    const nextOrder = sortedOrders[i + 1]!
     const currentGroup = orderGroups.get(currentOrder)!
     const nextGroup = orderGroups.get(nextOrder)!
     currentGroup.forEach((sourceSnapshot) => {

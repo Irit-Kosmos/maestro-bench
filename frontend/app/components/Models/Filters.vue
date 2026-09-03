@@ -1,5 +1,7 @@
 <script setup lang="ts">
 interface Props {
+  /** Providers offered as quick filters (derived from the models list) */
+  providers?: string[]
   selectedProviders?: string[]
   searchQuery?: string
   totalCount?: number
@@ -13,6 +15,7 @@ interface Emits {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  providers: () => [],
   selectedProviders: () => [],
   searchQuery: '',
   totalCount: 0,
@@ -20,9 +23,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<Emits>()
-
-// Provider list for quick filters
-const providers = ['openai', 'anthropic', 'mistral', 'google', 'meta']
 
 // Local reactive values
 const localProviders = ref([...props.selectedProviders])
@@ -74,7 +74,7 @@ const hasActiveFilters = computed(() => {
         <UInput
           :model-value="localSearch"
           placeholder="Search models..."
-          icon="i-heroicons-magnifying-glass"
+          icon="i-lucide-search"
           class="w-full"
           @update:model-value="handleSearchChange"
         />
@@ -84,7 +84,7 @@ const hasActiveFilters = computed(() => {
         v-if="hasActiveFilters"
         variant="outline"
         color="neutral"
-        icon="i-heroicons-x-mark"
+        icon="i-lucide-x"
         @click="clearAllFilters"
       >
         Clear Filters

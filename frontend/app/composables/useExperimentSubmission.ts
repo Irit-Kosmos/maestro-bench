@@ -12,7 +12,7 @@ export function useExperimentSubmission() {
       if (result.success) {
         toast.add({
           title: 'Success',
-          description: 'Experiment created successfully with modern configuration!',
+          description: 'Experiment created successfully!',
           color: 'success',
           icon: 'i-lucide:check-circle',
         })

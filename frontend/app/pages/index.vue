@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam, Dataset, Experiment } from '~/types'
-
-interface ProviderStatus {
-  provider: string
-  configured: boolean
-}
+import type { Agent, AgentTeam, Dataset, Experiment, ProviderStatus } from '~/types'
 
 definePageMeta({
   title: 'Dashboard',
@@ -15,7 +10,7 @@ const { data: experiments, pending: experimentsPending, refresh: refreshExperime
 const { data: datasets, pending: datasetsPending, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { data: agentTeams, pending: teamsPending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
-const { data: providers, pending: providersPending } = await useMyLazyFetch<ProviderStatus[]>('/api/providers')
+const { data: providers, pending: providersPending } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 
 const { getStatusColor, formatDate } = useUIHelpers()
 

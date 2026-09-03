@@ -2,9 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+
 from db import get_session
-from tables import Model as ModelTable
 from schemas.models import ModelCreate, ModelUpdate
+from tables import Model as ModelTable
 
 router = APIRouter(tags=["models"])
 

@@ -4,16 +4,13 @@ export default defineNuxtConfig({
     head: {
       title: 'MAESTRO-bench',
     },
-    pageTransition: { name: 'page', mode: 'out-in' },
   },
   devtools: { enabled: true },
 
   modules: [
     '@nuxt/ui',
-    '@nuxt/eslint',
     '@nuxt/icon',
     '@nuxt/fonts',
-    '@vueuse/nuxt',
   ],
 
   fonts: {
@@ -37,7 +34,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      BACK_URL: '',
+      // Override with NUXT_PUBLIC_BACK_URL
+      BACK_URL: 'http://localhost:8000',
     },
   },
 
