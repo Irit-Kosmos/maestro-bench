@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const router = useRouter()
-const shortcutsOpen = ref(false)
+const shortcutsOpen = useShortcutsOverlay()
 
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
@@ -43,10 +43,11 @@ defineShortcuts({
 </script>
 
 <template>
-  <UDashboardGroup>
+  <!-- px + local storage: the sidebar keeps the width you dragged it to -->
+  <UDashboardGroup unit="px" storage="local" storage-key="maestro">
     <AppSidebar />
 
-    <UDashboardPanel id="main">
+    <UDashboardPanel id="main" :ui="{ body: 'p-4 sm:px-8 sm:py-6' }">
       <template #header>
         <AppTopBar />
       </template>

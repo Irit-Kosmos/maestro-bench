@@ -16,9 +16,13 @@ const loading = ref(true)
 const showDeleteDialog = ref(false)
 
 // Computed
+const { formatDate, formatRelativeDate } = useUIHelpers()
+
 const pageTitle = computed(() => {
   return dataset.value ? dataset.value.name : 'Loading...'
 })
+
+useBreadcrumbLabel(() => dataset.value?.name)
 
 // Set page title
 useSeoMeta({
@@ -115,180 +119,93 @@ watch(() => route.params.id, () => {
 
 <template>
   <div class="min-h-screen">
-    <div class="max-w-7xl mx-auto pb-6">
+    <div class="pb-6">
       <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-12">
-        <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
-      </div>
+      <BaseLoadingState v-if="loading" />
 
       <!-- Dataset Details -->
-      <div v-else-if="dataset" class="space-y-6">
-        <!-- Dataset Header -->
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-neutral-900">
-              {{ dataset.name }}
-            </h1>
-            <p class="mt-2 text-neutral-600">
-              {{ dataset.description }}
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
-            <UButton
-              variant="outline"
-              color="neutral"
-              icon="i-lucide:edit"
-              size="sm"
-              disabled
-            >
-              Edit
-            </UButton>
-            <UButton
-              variant="outline"
-              color="error"
-              icon="i-lucide:trash-2"
-              size="sm"
-              @click="() => { showDeleteDialog = true }"
-            >
-              Delete
-            </UButton>
-          </div>
+      <div v-else-if="dataset" class="flex flex-col gap-5">
+        <!-- Edit isn't available yet, so it isn't shown as a dead button -->
+        <AppPageActions>
+          <UDropdownMenu
+            :items="[{ label: 'Delete dataset', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+            :content="{ align: 'end' }"
+          >
+            <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+          </UDropdownMenu>
+        </AppPageActions>
+
+        <div>
+          <h1 class="text-xl font-semibold text-highlighted text-balance">
+            {{ dataset.name }}
+          </h1>
+          <p v-if="dataset.description" class="mt-0.5 text-sm text-muted max-w-prose">
+            {{ dataset.description }}
+          </p>
         </div>
-        <!-- Overview Card -->
-        <UCard>
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Overview
-            </h2>
-          </template>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <dt class="text-sm font-medium text-neutral-500">
-                Created
-              </dt>
-              <dd class="mt-1 text-sm text-neutral-900">
-                {{ new Date(dataset.created_at).toLocaleDateString() }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500">
-                File Path
-              </dt>
-              <dd class="mt-1 text-sm text-neutral-900 font-mono truncate" :title="dataset.file_path">
-                {{ dataset.file_path || 'No file uploaded' }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500">
-                File Type
-              </dt>
-              <dd class="mt-1 text-sm text-neutral-900">
-                {{ dataset.file_path ? dataset.file_path.split('.').pop()?.toUpperCase() || 'Unknown' : 'N/A' }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-sm font-medium text-neutral-500">
-                Status
-              </dt>
-              <dd class="mt-1 text-sm text-neutral-900">
-                <UBadge
-                  :color="dataset.file_path ? 'success' : 'warning'"
-                  variant="subtle"
-                >
-                  {{ dataset.file_path ? 'Ready' : 'Pending Upload' }}
-                </UBadge>
-              </dd>
-            </div>
+        <!-- Properties -->
+        <dl class="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+          <div>
+            <dt class="text-xs text-muted">
+              Created
+            </dt>
+            <dd class="mt-0.5 text-highlighted tabular-nums" :title="formatDate(dataset.created_at)">
+              {{ formatRelativeDate(dataset.created_at) }}
+            </dd>
           </div>
-        </UCard>
-
-        <!-- Dataset Preview -->
-        <UCard v-if="dataset.file_path">
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Dataset Preview
-            </h2>
-          </template>
-
-          <DatasetsPreview :dataset-id="dataset.id" />
-        </UCard>
-
-        <!-- Upload Section -->
-        <UCard v-else>
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Upload Dataset File
-            </h2>
-          </template>
-
-          <div class="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center">
-            <UIcon name="i-lucide:upload" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-neutral-900 mb-2">
-              Upload Your Dataset
-            </h3>
-            <p class="text-neutral-500 mb-4">
-              Drag and drop your dataset file here, or click to browse
-            </p>
-            <UButton variant="solid" color="primary" disabled>
-              <UIcon name="i-lucide:upload" class="w-4 h-4 mr-2" />
-              Upload File (Coming Soon)
-            </UButton>
+          <div class="min-w-0">
+            <dt class="text-xs text-muted">
+              File
+            </dt>
+            <dd class="mt-0.5 text-highlighted font-mono text-xs leading-5 truncate max-w-xs" :title="dataset.file_path || undefined">
+              {{ dataset.file_path || 'No file' }}
+            </dd>
           </div>
-        </UCard>
-
-        <!-- Usage Information -->
-        <UCard>
-          <template #header>
-            <h2 class="text-lg font-semibold text-neutral-900">
-              Usage in Experiments
-            </h2>
-          </template>
-
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-neutral-600">
-                This dataset has been used in
-                <span class="font-semibold text-neutral-900">
-                  {{ datasetStats?.experiment_count ?? 0 }}
-                </span> experiments.
-              </p>
-              <p v-if="!datasetStats" class="text-xs text-neutral-500 mt-1">
-                Loading experiment count...
-              </p>
-            </div>
-            <UButton
-              variant="outline"
-              color="neutral"
-              size="sm"
-              disabled
-            >
-              View Experiments
-            </UButton>
+          <div>
+            <dt class="text-xs text-muted">
+              Used in
+            </dt>
+            <dd class="mt-0.5 text-highlighted tabular-nums">
+              <template v-if="datasetStats">
+                {{ datasetStats.experiment_count }} experiment{{ datasetStats.experiment_count === 1 ? '' : 's' }}
+              </template>
+              <template v-else>
+                —
+              </template>
+            </dd>
           </div>
-        </UCard>
+        </dl>
+
+        <USeparator />
+
+        <!-- Preview -->
+        <DatasetsPreview v-if="dataset.file_path" :dataset-id="dataset.id" />
+
+        <BaseEmptyState
+          v-else
+          icon="i-lucide-file-x"
+          title="No file attached"
+          message="This dataset has no file yet. Create a new dataset with a CSV or JSON file to use it in experiments."
+          action-label="New dataset"
+          action-to="/datasets"
+        />
       </div>
 
       <!-- Error State -->
-      <div v-else class="text-center py-12">
-        <UIcon name="i-lucide:alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h3 class="text-lg font-medium text-neutral-900 mb-2">
-          Dataset Not Found
-        </h3>
-        <p class="text-neutral-500 mb-4">
-          The dataset you're looking for doesn't exist.
-        </p>
-        <UButton to="/datasets" variant="solid" color="primary">
-          Return to Datasets
-        </UButton>
-      </div>
+      <BaseErrorState
+        v-else
+        title="Dataset not found"
+        message="It may have been deleted. Pick another one from the list."
+        action-label="Back to datasets"
+        action-to="/datasets"
+      />
     </div>
 
     <!-- Delete Confirmation Dialog -->
     <UModal
       v-model:open="showDeleteDialog"
-      title="Delete Dataset"
-      :description="`Are you sure you want to delete &quot;${dataset?.name}&quot;? This action cannot be undone.`"
+      :title="`Delete “${dataset?.name}”?`"
+      description="The dataset file is removed from disk. Experiments that used it keep their results. This can’t be undone."
     >
       <template #footer>
         <div class="flex w-full gap-2 justify-end">
@@ -304,7 +221,7 @@ watch(() => route.params.id, () => {
             color="error"
             @click="handleDeleteDataset"
           >
-            Delete
+            Delete dataset
           </UButton>
         </div>
       </template>

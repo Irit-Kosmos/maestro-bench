@@ -2,16 +2,22 @@
 interface Props {
   title?: string
   message?: string
+  /** Alias of `message` */
+  description?: string
   icon?: string
+  /** No button unless a label is given */
   actionLabel?: string
+  actionIcon?: string
   actionTo?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'No items found',
-  message: 'Get started by creating your first item.',
-  icon: 'i-lucide:folder-open',
-  actionLabel: 'Create Item',
+  message: undefined,
+  description: undefined,
+  icon: 'i-lucide-folder-open',
+  actionLabel: undefined,
+  actionIcon: 'i-lucide-plus',
   actionTo: undefined,
 })
 
@@ -19,35 +25,41 @@ const emit = defineEmits<{
   action: []
 }>()
 
-function handleAction() {
-  if (props.actionTo) {
-    navigateTo(props.actionTo)
-  }
-  else {
+defineSlots<{
+  default?: any
+}>()
+
+const text = computed(() => props.message ?? props.description)
+
+function onAction() {
+  if (!props.actionTo)
     emit('action')
-  }
 }
 </script>
 
 <template>
-  <div class="text-center py-12">
-    <UIcon :name="icon" class="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-    <h3 class="text-lg font-medium text-neutral-900 mb-2">
+  <div class="flex flex-col items-center text-center py-16 px-4">
+    <div class="flex items-center justify-center size-10 rounded-lg bg-elevated ring ring-default mb-4">
+      <UIcon :name="icon" class="size-5 text-muted" aria-hidden="true" />
+    </div>
+    <h3 class="text-sm font-semibold text-highlighted text-balance">
       {{ title }}
     </h3>
-    <p class="text-neutral-500 mb-6">
-      {{ message }}
+    <p v-if="text" class="mt-1 max-w-sm text-sm text-muted text-pretty">
+      {{ text }}
     </p>
-    <UButton
-      v-if="actionLabel"
-      :to="actionTo"
-      variant="solid"
-      color="primary"
-      icon="i-lucide:plus"
-      size="lg"
-      @click="handleAction"
-    >
-      {{ actionLabel }}
-    </UButton>
+    <div v-if="$slots.default || actionLabel" class="mt-5 flex items-center gap-2">
+      <slot>
+        <UButton
+          :to="actionTo"
+          color="primary"
+          :icon="actionIcon"
+          size="sm"
+          @click="onAction"
+        >
+          {{ actionLabel }}
+        </UButton>
+      </slot>
+    </div>
   </div>
 </template>

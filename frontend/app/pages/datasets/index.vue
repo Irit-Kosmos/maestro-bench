@@ -12,6 +12,7 @@ const { data: datasets, pending, refresh } = await useMyLazyFetch<Dataset[]>('/d
 
 // Composables
 const { createDataset, deleteDataset } = useDatasets()
+const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 // Page meta
@@ -31,7 +32,7 @@ const datasetToDelete = ref<Dataset | null>(null)
 const columns = [
   {
     key: 'name',
-    label: 'Dataset Name',
+    label: 'Dataset',
   },
   {
     key: 'description',
@@ -45,10 +46,8 @@ const columns = [
 
 const actions = [
   {
-    label: 'View',
-    icon: 'i-lucide-eye',
-    variant: 'ghost' as const,
-    color: 'neutral' as const,
+    label: 'Open',
+    icon: 'i-lucide-arrow-up-right',
     handler: (dataset: Dataset) => handleViewDataset(dataset.id),
   },
   {
@@ -132,13 +131,12 @@ function handleCreateClick() {
   >
     <template #before-content>
       <UButton
-        variant="solid"
         color="primary"
-        icon="i-lucide:plus"
-        size="lg"
+        icon="i-lucide-plus"
+        size="sm"
         @click="handleCreateClick"
       >
-        Create Dataset
+        New dataset
       </UButton>
     </template>
 
@@ -149,14 +147,15 @@ function handleCreateClick() {
         :columns="columns"
         :actions="actions"
         :loading="pending"
-        title="All Datasets"
+        :row-to="(dataset: Dataset) => `/datasets/${dataset.id}`"
+        item-name="dataset"
         searchable
         @refresh="handleRefresh"
       >
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-neutral-500">
-            {{ new Date(row.original.created_at).toLocaleDateString() }}
+          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.created_at)">
+            {{ formatRelativeDate(row.original.created_at) }}
           </span>
         </template>
       </BaseDataTable>
@@ -166,9 +165,9 @@ function handleCreateClick() {
     <BaseEmptyState
       v-else-if="!pending"
       title="No datasets yet"
-      message="Get started by creating your first dataset for experiments."
-      icon="i-lucide:database"
-      action-label="Create Your First Dataset"
+      message="Upload a CSV or JSON file. Each row becomes one input for your experiments."
+      icon="i-lucide-database"
+      action-label="New dataset"
       @action="handleCreateClick"
     />
 

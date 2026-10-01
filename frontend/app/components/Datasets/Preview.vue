@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
 
 interface Props {
   datasetId?: number | null
@@ -60,7 +61,10 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
   return displayHeaders.value.map(header => ({
     accessorKey: header.key,
     header: header.label,
-    cell: ({ row }) => formatCellValue(row.getValue(header.key)),
+    cell: ({ row }) => {
+      const value = formatCellValue(row.getValue(header.key))
+      return h('span', { title: value }, value)
+    },
   }))
 })
 
@@ -81,142 +85,76 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div>
     <!-- Loading State -->
-    <UCard v-if="loading">
-      <div class="flex items-center justify-center py-8">
-        <USkeleton class="h-8 w-8 rounded-full" />
-        <USkeleton class="ml-3 h-4 w-48" />
-      </div>
-    </UCard>
+    <div v-if="loading" class="flex flex-col gap-3">
+      <USkeleton class="h-4 w-56" />
+      <USkeleton class="h-40 w-full" />
+    </div>
 
     <!-- Error State -->
-    <UCard v-else-if="error" class="border-red-200 bg-red-50/50">
-      <div class="flex items-center">
-        <UIcon name="i-lucide-alert-circle" class="h-5 w-5 text-red-500" />
-        <span class="ml-2 text-red-800 font-medium">Failed to load preview</span>
-      </div>
-      <p class="mt-2 text-red-700">
-        {{ error }}
-      </p>
-    </UCard>
+    <UAlert
+      v-else-if="error"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-alert"
+      title="Couldn’t load the preview"
+      :description="String(error)"
+      :actions="datasetId ? [{ label: 'Try again', color: 'error', variant: 'outline', onClick: () => { loadPreview(datasetId!) } }] : undefined"
+    />
 
     <!-- Preview Content -->
-    <div v-else-if="preview" class="space-y-6">
-      <!-- File Info Card -->
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-file-text" class="h-5 w-5" />
-            <h3 class="text-lg font-semibold">
-              Dataset Information
-            </h3>
-          </div>
-        </template>
+    <div v-else-if="preview" class="flex flex-col gap-5">
+      <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted tabular-nums">
+        <UBadge
+          :label="fileInfo?.type || 'Unknown'"
+          :color="getFileTypeBadgeColor(fileInfo?.type || '')"
+          variant="soft"
+          size="sm"
+        />
+        <span><span class="font-medium text-highlighted">{{ (fileInfo?.rows || 0).toLocaleString('en-US') }}</span> rows</span>
+        <span aria-hidden="true">·</span>
+        <span><span class="font-medium text-highlighted">{{ fileInfo?.columns || 0 }}</span> columns</span>
+      </p>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-neutral-600 mb-1">File Type</span>
-            <UBadge
-              :label="fileInfo?.type || 'Unknown'"
-              :color="getFileTypeBadgeColor(fileInfo?.type || '')"
-              variant="soft"
-              class="w-fit"
-            />
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-neutral-600 mb-1">Total Rows</span>
-            <span class="text-lg font-semibold">{{ fileInfo?.rows || 0 }}</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-neutral-600 mb-1">Columns</span>
-            <span class="text-lg font-semibold">{{ fileInfo?.columns || 0 }}</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-medium text-neutral-600 mb-1">Preview Sample</span>
-            <span class="text-lg font-semibold">{{ sampleRows.length }} rows</span>
-          </div>
-        </div>
-      </UCard>
-
-      <!-- Column Headers Card -->
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-columns" class="h-5 w-5" />
-            <h4 class="text-lg font-semibold">
-              Column Headers
-            </h4>
-            <UBadge :label="displayHeaders.length.toString()" color="neutral" variant="soft" />
-          </div>
-        </template>
-
-        <div class="flex flex-wrap gap-2">
+      <section aria-labelledby="columns-title">
+        <h3 id="columns-title" class="text-xs font-medium text-muted mb-2">
+          Columns
+        </h3>
+        <div class="flex flex-wrap gap-1.5">
           <UBadge
             v-for="header in displayHeaders"
             :key="header.key"
             :label="header.label"
-            color="primary"
-            variant="subtle"
-            class="text-xs"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            class="font-mono"
           />
         </div>
-      </UCard>
+      </section>
 
-      <!-- Sample Data Table Card -->
-      <UCard
-        v-if="sampleRows.length > 0"
-        :ui="{
-          body: 'sm:p-2',
-        }"
-      >
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-table" class="h-5 w-5" />
-            <h4 class="text-lg font-semibold">
-              Sample Data
-            </h4>
-            <UBadge
-              :label="`First ${sampleRows.length} rows`"
-              color="info"
-              variant="soft"
-            />
-          </div>
-        </template>
-
-        <UTable
-          :data="sampleRows"
-          :columns="tableColumns"
-          :ui="{
-            td: 'max-w-xs truncate p-3',
-            base: 'overflow-hidden',
-          }"
-          class="overflow-x-auto"
-        />
-      </UCard>
-
-      <!-- No Sample Data Card -->
-      <UCard v-else>
-        <div class="text-center py-8">
-          <UIcon name="i-lucide-database" class="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-          <p class="text-neutral-600">
-            No sample data available
-          </p>
-        </div>
-      </UCard>
-    </div>
-
-    <!-- No Preview Available -->
-    <UCard v-else>
-      <div class="text-center py-12">
-        <UIcon name="i-lucide-file-search" class="mx-auto h-16 w-16 text-neutral-400 mb-4" />
-        <h3 class="text-lg font-medium text-neutral-900 mb-2">
-          No preview available
+      <section v-if="sampleRows.length > 0" aria-labelledby="sample-title">
+        <h3 id="sample-title" class="text-xs font-medium text-muted mb-2">
+          First {{ sampleRows.length }} rows
         </h3>
-        <p class="text-neutral-600">
-          Select a dataset to view its contents and structure
-        </p>
-      </div>
-    </UCard>
+        <div class="rounded-lg border border-default overflow-hidden">
+          <UTable
+            :data="sampleRows"
+            :columns="tableColumns"
+            :ui="{
+              thead: 'bg-muted/60',
+              th: 'px-3 py-2 text-xs font-medium text-muted font-mono',
+              td: 'max-w-xs truncate px-3 py-2 text-sm text-toned',
+            }"
+            class="overflow-x-auto"
+          />
+        </div>
+      </section>
+
+      <p v-else class="text-sm text-muted">
+        This file has no rows yet.
+      </p>
+    </div>
   </div>
 </template>

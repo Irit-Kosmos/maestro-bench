@@ -8,11 +8,17 @@ interface Props {
 
 defineProps<Props>()
 
+const emit = defineEmits<{
+  refresh: []
+}>()
+
+const { formatDate, formatRelativeDate } = useUIHelpers()
+
 // Table configuration
 const columns = [
   {
     key: 'name',
-    label: 'Prompt Name',
+    label: 'Prompt',
   },
   {
     key: 'category',
@@ -27,31 +33,17 @@ const columns = [
     label: 'Created',
   },
 ]
-
-const actions = [
-  {
-    label: 'View',
-    icon: 'i-lucide-eye',
-    variant: 'ghost' as const,
-    color: 'neutral' as const,
-    handler: (prompt: Prompt) => handleViewPrompt(prompt.id),
-  },
-]
-
-// Methods
-async function handleViewPrompt(id: number) {
-  await navigateTo(`/prompts/${id}`)
-}
 </script>
 
 <template>
   <BaseDataTable
     :data="data"
     :columns="columns"
-    :actions="actions"
     :loading="loading"
-    title="All Prompts"
+    :row-to="(prompt: Prompt) => `/prompts/${prompt.id}`"
+    item-name="prompt"
     searchable
+    @refresh="emit('refresh')"
   >
     <!-- Custom cell for category -->
     <template #category-cell="{ row }">
@@ -62,22 +54,20 @@ async function handleViewPrompt(id: number) {
       >
         {{ row.original.category }}
       </UBadge>
-      <span v-else class="text-neutral-400 text-sm">
-        No category
-      </span>
+      <span v-else class="text-dimmed text-sm">—</span>
     </template>
 
     <!-- Custom cell for created_at -->
     <template #created_at-cell="{ row }">
-      <span class="text-sm text-neutral-500">
-        {{ new Date(row.original.created_at).toLocaleDateString() }}
+      <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.created_at)">
+        {{ formatRelativeDate(row.original.created_at) }}
       </span>
     </template>
 
     <!-- Custom cell for description -->
     <template #description-cell="{ row }">
-      <span class="text-sm text-neutral-600">
-        {{ row.original.description || 'No description' }}
+      <span class="block max-w-md truncate text-sm text-toned" :title="row.original.description || undefined">
+        {{ row.original.description || '—' }}
       </span>
     </template>
   </BaseDataTable>

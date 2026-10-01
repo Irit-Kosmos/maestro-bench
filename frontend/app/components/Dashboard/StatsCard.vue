@@ -3,30 +3,36 @@ interface Props {
   title: string
   value: string | number
   icon: string
-  iconColor?: string
+  /** Secondary line under the value, e.g. a breakdown */
+  detail?: string
   loading?: boolean
   href?: string
 }
 
 withDefaults(defineProps<Props>(), {
-  iconColor: 'text-neutral-400',
+  detail: undefined,
   loading: false,
+  href: undefined,
 })
 </script>
 
 <template>
+  <!-- Hover is instant on purpose: it fires too often to be animated -->
   <NuxtLink
     :to="href"
-    class="group flex flex-col gap-3 px-5 py-4 border border-neutral-200 rounded-lg bg-white hover:border-neutral-300 hover:bg-neutral-50/50 transition-all duration-150"
+    class="group flex flex-col gap-2 px-4 py-3.5 rounded-lg border border-default bg-default outline-none hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-primary"
     :class="{ 'pointer-events-none': !href }"
   >
-    <div class="flex items-center justify-between">
-      <span class="text-xs font-medium text-neutral-400 uppercase tracking-wider">{{ title }}</span>
-      <UIcon :name="icon" class="size-4" :class="iconColor" />
+    <div class="flex items-center gap-1.5 text-muted">
+      <UIcon :name="icon" class="size-3.5" aria-hidden="true" />
+      <span class="text-xs font-medium">{{ title }}</span>
     </div>
-    <div class="text-3xl font-semibold text-neutral-900 tabular-nums leading-none">
-      <span v-if="loading" class="inline-block w-12 h-7 bg-neutral-100 rounded animate-pulse" />
+    <div class="text-2xl font-semibold text-highlighted tabular-nums leading-none">
+      <USkeleton v-if="loading" class="h-6 w-10" />
       <span v-else>{{ value }}</span>
     </div>
+    <p v-if="detail && !loading" class="text-xs text-muted tabular-nums truncate">
+      {{ detail }}
+    </p>
   </NuxtLink>
 </template>

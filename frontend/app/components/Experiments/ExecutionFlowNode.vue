@@ -98,7 +98,7 @@ function getVariableSourceColor(variable: string): 'neutral' | 'info' | 'warning
 
 <template>
   <div
-    class="execution-flow-node rounded-lg border-2 transition-all duration-200 min-w-[200px]"
+    class="execution-flow-node rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-150 min-w-[200px]"
     :class="{
       'border-primary-500 bg-white shadow-lg': isSelected,
       'border-neutral-200 bg-white shadow-sm': !isSelected,

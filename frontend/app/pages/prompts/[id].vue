@@ -12,6 +12,8 @@ const toast = useToast()
 // Fetch prompt details
 const { data: prompt, refresh, pending, error } = await useMyLazyFetch<Prompt>(`/prompts/${promptId}`)
 
+useBreadcrumbLabel(() => prompt.value?.name)
+
 // Page meta
 useSeoMeta({
   title: computed(() => prompt.value ? `${prompt.value.name} - Prompts` : 'Prompt Details'),
@@ -350,9 +352,7 @@ async function deleteVersion(versionId: number) {
   <div class="min-h-screen">
     <div>
       <!-- Loading state -->
-      <div v-if="pending" class="flex justify-center py-12">
-        <USkeleton class="h-8 w-8 rounded-full" />
-      </div>
+      <BaseLoadingState v-if="pending" />
 
       <!-- Error state -->
       <div v-else-if="error" class="text-center py-12">
@@ -370,33 +370,33 @@ async function deleteVersion(versionId: number) {
 
       <!-- Main content -->
       <div v-else-if="prompt">
-        <!-- Page Header -->
-        <div class="flex justify-between items-center mb-8">
-          <div>
-            <h1 class="text-2xl font-bold text-neutral-900">
-              {{ prompt.name }}
-            </h1>
-            <p class="text-neutral-500 mt-1">
-              {{ prompt.description || 'Manage versions and configurations for this prompt' }}
-            </p>
-          </div>
-          <div class="flex items-center space-x-3">
-            <UButton
-              variant="outline"
-              icon="i-lucide-edit"
-              @click="() => { showEditPromptModal = true }"
-            >
-              Edit Prompt
-            </UButton>
-            <UButton
-              variant="solid"
-              color="primary"
-              icon="i-lucide-plus"
-              @click="() => { showCreateVersionModal = true }"
-            >
-              New Version
-            </UButton>
-          </div>
+        <AppPageActions>
+          <UButton
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-pencil"
+            size="sm"
+            @click="() => { showEditPromptModal = true }"
+          >
+            Edit
+          </UButton>
+          <UButton
+            color="primary"
+            icon="i-lucide-plus"
+            size="sm"
+            @click="() => { showCreateVersionModal = true }"
+          >
+            New version
+          </UButton>
+        </AppPageActions>
+
+        <div class="mb-6">
+          <h1 class="text-xl font-semibold text-highlighted text-balance">
+            {{ prompt.name }}
+          </h1>
+          <p v-if="prompt.description" class="mt-0.5 text-sm text-muted max-w-prose">
+            {{ prompt.description }}
+          </p>
         </div>
 
         <!-- Versions Section -->

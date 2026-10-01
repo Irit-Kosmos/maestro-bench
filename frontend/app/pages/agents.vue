@@ -33,15 +33,6 @@ const showDeleteAgentModal = ref(false)
 const selectedAgent = ref<any>(null)
 
 // Handlers
-function handleConfigureTeam(teamId: number) {
-  toast.add({
-    title: 'Coming Soon',
-    description: `Team configuration coming soon! (Team: ${teamId})`,
-    color: 'info',
-    icon: 'i-lucide:info',
-  })
-}
-
 function handleEditAgent(agent: any) {
   selectedAgent.value = agent
   showEditAgentModal.value = true
@@ -156,18 +147,20 @@ function getTeamName(teamId: number) {
 }
 
 // Tab items for Nuxt UI UTabs
-const tabItems = [
+const tabItems = computed(() => [
   {
-    label: 'Agent Teams',
-    icon: 'i-lucide:users',
+    label: 'Teams',
+    icon: 'i-lucide-users',
     slot: 'teams',
+    badge: agentTeams.value?.length ? { label: String(agentTeams.value.length), color: 'neutral' as const, variant: 'soft' as const } : undefined,
   },
   {
-    label: 'Individual Agents',
-    icon: 'i-lucide:user',
+    label: 'Agents',
+    icon: 'i-lucide-bot',
     slot: 'agents',
+    badge: agents.value?.length ? { label: String(agents.value.length), color: 'neutral' as const, variant: 'soft' as const } : undefined,
   },
-]
+])
 </script>
 
 <template>
@@ -178,183 +171,130 @@ const tabItems = [
       <UButton
         variant="outline"
         color="neutral"
-        icon="i-lucide:users-round"
+        icon="i-lucide-users-round"
+        size="sm"
         @click="() => { showCreateTeamModal = true }"
       >
-        Create Team
+        New team
       </UButton>
       <UButton
-        variant="solid"
         color="primary"
-        icon="i-lucide:user-plus"
-        size="lg"
+        icon="i-lucide-plus"
+        size="sm"
         @click="() => { showCreateAgentModal = true }"
       >
-        Create Agent
+        New agent
       </UButton>
     </template>
 
     <!-- Tabs -->
-    <UTabs :items="tabItems" class="w-full">
+    <UTabs
+      :items="tabItems"
+      variant="link"
+      size="sm"
+      :ui="{ root: 'gap-4', list: 'w-full justify-start', trigger: 'grow-0' }"
+    >
       <!-- Agent Teams Tab -->
       <template #teams>
-        <div class="space-y-6">
-          <!-- Loading State -->
-          <div v-if="pending" class="flex justify-center items-center py-12">
-            <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
-          </div>
+        <BaseLoadingState v-if="pending" />
 
-          <!-- Empty State -->
-          <div v-else-if="!agentTeams || agentTeams.length === 0" class="text-center py-12">
-            <UIcon name="i-lucide:users" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-neutral-900 mb-2">
-              No Agent Teams Found
+        <BaseEmptyState
+          v-else-if="!agentTeams || agentTeams.length === 0"
+          icon="i-lucide-users"
+          title="No teams yet"
+          message="A team groups the agents that run together in an experiment."
+          action-label="New team"
+          @action="() => { showCreateTeamModal = true }"
+        />
+
+        <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <section
+            v-for="team in agentTeams"
+            :key="team.id"
+            class="rounded-lg border border-default p-4"
+          >
+            <h3 class="text-sm font-semibold text-highlighted">
+              {{ team.name }}
             </h3>
-            <p class="text-neutral-500 mb-4">
-              No agent teams have been configured yet. Create your first team to get started.
+            <p v-if="team.description" class="mt-0.5 text-sm text-muted text-pretty">
+              {{ team.description }}
             </p>
-          </div>
-
-          <!-- Agent Teams Grid -->
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <UCard
-              v-for="team in agentTeams"
-              :key="team.id"
-            >
-              <div class="space-y-4">
-                <div class="flex justify-between w-full items-start">
-                  <div class="flex-1 ">
-                    <div class="flex justify-between w-full">
-                      <h3 class="text-lg font-semibold flex-1 text-neutral-900">
-                        {{ team.name }}
-                      </h3>
-
-                      <UButton
-                        variant="ghost"
-                        size="sm"
-                        icon="i-lucide:settings"
-                        @click="() => handleConfigureTeam(team.id)"
-                      />
-                    </div>
-                    <p class="text-sm text-neutral-600 mt-1">
-                      {{ team.description }}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 class="text-sm font-medium text-neutral-700 mb-2">
-                    Agents:
-                  </h4>
-                  <div class="flex flex-wrap gap-2">
-                    <UBadge
-                      v-for="agent in team.agents"
-                      :key="agent.id"
-                      color="info"
-                      variant="outline"
-                    >
-                      {{ agent.name }}
-                    </UBadge>
-                  </div>
-                </div>
-              </div>
-            </UCard>
-          </div>
+            <div class="mt-3 flex flex-wrap items-center gap-1.5">
+              <span class="text-xs text-muted me-1">{{ team.agents?.length ?? 0 }} agent{{ team.agents?.length === 1 ? '' : 's' }}</span>
+              <UBadge
+                v-for="agent in team.agents"
+                :key="agent.id"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                icon="i-lucide-bot"
+              >
+                {{ agent.name }}
+              </UBadge>
+            </div>
+          </section>
         </div>
       </template>
 
       <!-- Individual Agents Tab -->
       <template #agents>
-        <div class="space-y-6">
-          <!-- Loading State -->
-          <div v-if="agentsPending" class="flex justify-center items-center py-12">
-            <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
-          </div>
+        <BaseLoadingState v-if="agentsPending" />
 
-          <!-- Empty State -->
-          <div v-else-if="!agents || agents.length === 0" class="text-center py-12">
-            <UIcon name="i-lucide:user" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-            <h3 class="text-lg font-medium text-neutral-900 mb-2">
-              No Agents Found
-            </h3>
-            <p class="text-neutral-500 mb-4">
-              No agents have been created yet. Create your first agent to get started.
-            </p>
-            <UButton
-              variant="solid"
-              color="primary"
-              icon="i-lucide:user-plus"
-              @click="() => { showCreateAgentModal = true }"
-            >
-              Create Your First Agent
-            </UButton>
-          </div>
+        <BaseEmptyState
+          v-else-if="!agents || agents.length === 0"
+          icon="i-lucide-bot"
+          title="No agents yet"
+          message="An agent pairs a prompt version with a model. Add one, then put it in a team."
+          action-label="New agent"
+          @action="() => { showCreateAgentModal = true }"
+        />
 
-          <!-- Agents Grid -->
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <UCard
-              v-for="agent in agents"
-              :key="agent.id"
-              class="h-fit"
-            >
-              <div class="space-y-4">
-                <!-- Agent Header -->
-                <div class="flex justify-between items-start">
-                  <div class="flex items-center flex-1 space-x-3">
-                    <div class="flex flex-1 justify-between">
-                      <h3 class="text-lg font-semibold text-neutral-900">
-                        {{ agent.name }}
-                      </h3>
-                      <div class="flex gap-2">
-                        <UButton
-                          variant="ghost"
-                          size="sm"
-                          icon="i-lucide:edit"
-                          @click="() => handleEditAgent(agent)"
-                        />
-                        <UButton
-                          variant="ghost"
-                          size="sm"
-                          color="error"
-                          icon="i-lucide:trash"
-                          @click="() => handleDeleteAgentClick(agent)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Agent Details -->
-                <div class="space-y-3">
-                  <div v-if="agent.description" class="text-sm text-neutral-600">
-                    {{ agent.description }}
-                  </div>
-
-                  <div class="grid grid-cols-1 gap-4 text-sm">
-                    <div>
-                      <span class="font-medium text-neutral-700">Team:</span>
-                      <p class="text-neutral-600">
-                        {{ getTeamName(agent.team_id) }}
-                      </p>
-                    </div>
-                    <div v-if="agent.default_prompt_version">
-                      <span class="font-medium text-neutral-700">Default Prompt:</span>
-                      <p class="text-neutral-600 text-xs">
-                        {{ agent.default_prompt_version.prompt?.name || 'Unknown' }} v{{ agent.default_prompt_version.version }}
-                      </p>
-                    </div>
-                    <div v-if="agent.default_model">
-                      <span class="font-medium text-neutral-700">Default Model:</span>
-                      <p class="text-neutral-600 text-xs">
-                        {{ agent.default_model.name }} ({{ agent.default_model.provider }})
-                      </p>
-                    </div>
-                  </div>
-                </div>
+        <ul v-else class="rounded-lg border border-default divide-y divide-default">
+          <li
+            v-for="agent in agents"
+            :key="agent.id"
+            class="flex items-center gap-4 px-4 py-3"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline gap-2 min-w-0">
+                <h3 class="truncate text-sm font-medium text-highlighted">
+                  {{ agent.name }}
+                </h3>
+                <span class="shrink-0 text-xs text-muted">{{ getTeamName(agent.team_id) }}</span>
               </div>
-            </UCard>
-          </div>
-        </div>
+              <p v-if="agent.description" class="mt-0.5 truncate text-sm text-muted" :title="agent.description">
+                {{ agent.description }}
+              </p>
+            </div>
+
+            <div class="hidden md:flex flex-col items-end gap-0.5 shrink-0 text-xs text-toned">
+              <span v-if="agent.default_prompt_version" class="inline-flex items-center gap-1">
+                <UIcon name="i-lucide-message-square-text" class="size-3 text-muted" aria-hidden="true" />
+                {{ agent.default_prompt_version.prompt?.name || 'Unknown' }} v{{ agent.default_prompt_version.version }}
+              </span>
+              <span v-if="agent.default_model" class="inline-flex items-center gap-1">
+                <UIcon name="i-lucide-cpu" class="size-3 text-muted" aria-hidden="true" />
+                {{ agent.default_model.name }}
+              </span>
+            </div>
+
+            <UDropdownMenu
+              :items="[
+                { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => handleEditAgent(agent) },
+                { label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => handleDeleteAgentClick(agent) },
+              ]"
+              :content="{ align: 'end' }"
+            >
+              <UButton
+                icon="i-lucide-ellipsis"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="`Actions for ${agent.name}`"
+              />
+            </UDropdownMenu>
+          </li>
+        </ul>
       </template>
     </UTabs>
 

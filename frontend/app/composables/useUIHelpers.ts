@@ -26,6 +26,25 @@ export function useUIHelpers() {
     })
   }
 
+  // Short relative date for lists ("5m ago", "3d ago", then "Mar 4"); pair with formatDate in a title
+  function formatRelativeDate(dateString: string): string {
+    const date = new Date(dateString)
+    const seconds = Math.round((Date.now() - date.getTime()) / 1000)
+    if (seconds < 60)
+      return 'Just now'
+    const minutes = Math.round(seconds / 60)
+    if (minutes < 60)
+      return `${minutes}m ago`
+    const hours = Math.round(minutes / 60)
+    if (hours < 24)
+      return `${hours}h ago`
+    const days = Math.round(hours / 24)
+    if (days < 7)
+      return `${days}d ago`
+    const sameYear = date.getFullYear() === new Date().getFullYear()
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' })
+  }
+
   // Format duration in seconds to human readable
   function formatDuration(seconds: number): string {
     if (seconds < 0)
@@ -38,6 +57,7 @@ export function useUIHelpers() {
   return {
     getStatusColor,
     formatDate,
+    formatRelativeDate,
     formatDuration,
   }
 }

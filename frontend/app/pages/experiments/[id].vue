@@ -25,6 +25,8 @@ const pageTitle = computed(() => {
   return experiment.value ? experiment.value.name : 'Loading...'
 })
 
+useBreadcrumbLabel(() => experiment.value?.name)
+
 // Set page title and meta
 useSeoMeta({
   title: pageTitle,
@@ -45,6 +47,18 @@ const statusColor = computed(() => {
     case 'pending': return 'warning'
     default: return 'neutral'
   }
+})
+
+// How the dataset rows were picked, so "3 rows" reads as a deliberate sample
+const samplingLabel = computed(() => {
+  const exp = experiment.value
+  if (!exp)
+    return ''
+  if (exp.sampling_type === 'random')
+    return `Random sample of ${exp.sampling_size ?? '?'}`
+  if (exp.sampling_type === 'range')
+    return `Rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
+  return 'All dataset rows'
 })
 
 // Latest execution for configuration display
@@ -307,52 +321,40 @@ watch(() => route.params.id, () => {
   <div class="min-h-screen">
     <div class="pb-6">
       <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-12">
-        <UIcon name="i-lucide:loader-2" class="w-8 h-8 animate-spin text-primary-500" />
-      </div>
+      <BaseLoadingState v-if="loading" />
 
       <!-- Experiment Details -->
       <div v-else-if="experiment" class="space-y-4">
-        <!-- Header with Actions -->
-        <div class="flex justify-between items-center">
-          <div>
-            <h1 class="text-2xl font-bold text-neutral-900">
-              {{ experiment.name }}
-            </h1>
-            <p class="text-neutral-500 mt-1">
-              Experiment ID: {{ experiment.id }}
-            </p>
-          </div>
-          <div class="flex gap-3">
+        <!-- Actions live in the top bar; Back is the breadcrumb -->
+        <AppPageActions>
+          <UTooltip text="Create a new execution with the same configuration">
             <UButton
               variant="outline"
               color="neutral"
-              icon="i-lucide:arrow-left"
-              @click="$router.go(-1)"
+              icon="i-lucide-play"
+              size="sm"
+              :loading="isRerunning"
+              :disabled="!experiment || experiment.status === 'running'"
+              @click="handleRerunExperiment"
             >
-              Back
+              {{ experiment?.status === 'running' ? 'Running…' : 'Re-run' }}
             </UButton>
-            <UTooltip text="Create a new execution with the same configuration">
-              <UButton
-                variant="outline"
-                color="primary"
-                icon="i-lucide:play"
-                :loading="isRerunning"
-                :disabled="!experiment || experiment.status === 'running'"
-                @click="handleRerunExperiment"
-              >
-                {{ experiment?.status === 'running' ? 'Running...' : 'Re-run' }}
-              </UButton>
-            </UTooltip>
-            <UButton
-              variant="outline"
-              color="error"
-              icon="i-lucide:trash-2"
-              @click="() => { showDeleteDialog = true }"
-            >
-              Delete
-            </UButton>
-          </div>
+          </UTooltip>
+          <UDropdownMenu
+            :items="[{ label: 'Delete experiment', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+            :content="{ align: 'end' }"
+          >
+            <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+          </UDropdownMenu>
+        </AppPageActions>
+
+        <div>
+          <h1 class="text-xl font-semibold text-highlighted text-balance">
+            {{ experiment.name }}
+          </h1>
+          <p class="mt-0.5 text-sm text-muted tabular-nums">
+            Experiment #{{ experiment.id }}
+          </p>
         </div>
 
         <!-- Overview Card -->
@@ -375,7 +377,7 @@ watch(() => route.params.id, () => {
             </div>
           </template>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             <div>
               <dt class="text-sm font-medium text-neutral-500 mb-2">
                 Created
@@ -391,6 +393,17 @@ watch(() => route.params.id, () => {
               <dd class="text-lg font-semibold text-neutral-900">
                 {{ experiment.dataset?.name || 'Unknown' }}
               </dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-neutral-500 mb-2">
+                Rows
+              </dt>
+              <dd class="text-lg font-semibold text-neutral-900">
+                <UIRowCount :rows="latestExecution?.row_count ?? experiment.row_count" />
+              </dd>
+              <div class="text-xs text-neutral-500 mt-1">
+                {{ samplingLabel }}
+              </div>
             </div>
             <div>
               <dt class="text-sm font-medium text-neutral-500 mb-2">

@@ -90,33 +90,24 @@ watch(() => showCreateModal.value, (newValue) => {
   >
     <template #before-content>
       <UButton
-        variant="solid"
         color="primary"
-        icon="i-lucide:plus"
-        size="lg"
+        icon="i-lucide-plus"
+        size="sm"
         @click="() => { showCreateModal = true }"
       >
-        Create Prompt
+        New prompt
       </UButton>
     </template>
 
     <!-- Empty State -->
     <BaseEmptyState
       v-if="!prompts || prompts.length === 0"
-      icon="i-lucide:message-square-text"
-      title="No Prompts Found"
-      description="Create your first prompt to get started with prompt versioning"
-    >
-      <UButton
-        variant="solid"
-        color="primary"
-        icon="i-lucide:plus"
-        size="lg"
-        @click="() => { showCreateModal = true }"
-      >
-        Create Your First Prompt
-      </UButton>
-    </BaseEmptyState>
+      icon="i-lucide-message-square-text"
+      title="No prompts yet"
+      message="Prompts are versioned, so you can change one and compare results across versions."
+      action-label="New prompt"
+      @action="() => { showCreateModal = true }"
+    />
 
     <!-- Prompts Table -->
     <PromptsTable

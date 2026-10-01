@@ -79,6 +79,9 @@ export interface Experiment {
   sampling_size?: number
   sampling_start_row?: number
   sampling_end_row?: number
+
+  // Dataset rows processed by the latest execution that has results
+  row_count?: number | null
 }
 
 export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -97,6 +100,8 @@ export interface ExperimentExecution {
   status: string
   dataset_snapshot: string
   results_file_path?: string
+  // Dataset rows processed; null until the results file exists
+  row_count?: number | null
   // Aggregated metrics
   total_tokens?: number
   total_cost_usd?: number
@@ -204,3 +209,4 @@ export interface ExperimentAgentConfig {
   prompt_version?: PromptVersion
   model?: Model
 }
+

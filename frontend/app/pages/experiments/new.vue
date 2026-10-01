@@ -111,6 +111,22 @@ async function handleSubmit() {
 async function handleCancel() {
   await submission.handleCancel()
 }
+
+// ⌘↵ advances, and creates on the last step, without leaving the keyboard
+defineShortcuts({
+  meta_enter: {
+    usingInput: true,
+    handler: () => {
+      if (stepper.value?.hasNext) {
+        if (isStepValid.value(currentStep.value))
+          nextStep()
+      }
+      else if (formValid.value && !isSubmitting.value) {
+        handleSubmit()
+      }
+    },
+  },
+})
 </script>
 
 <template>
@@ -118,11 +134,11 @@ async function handleCancel() {
     <!-- Page Header + Stepper -->
     <div class="md:grid md:grid-cols-[1fr_auto] md:gap-x-8 md:gap-y-6 md:items-start mb-8">
       <div class="mb-6 md:mb-0">
-        <h1 class="text-2xl font-bold text-neutral-900">
-          Create New Experiment
+        <h1 class="text-xl font-semibold text-highlighted">
+          New experiment
         </h1>
-        <p class="text-sm text-neutral-500 mt-1">
-          Configure your experiment with prompt version and model selection
+        <p class="text-sm text-muted mt-0.5">
+          Name it, pick a dataset, then choose the prompt and model for each agent.
         </p>
       </div>
 
@@ -142,6 +158,7 @@ async function handleCancel() {
         <!-- Step 1: Experiment Details -->
         <template #details>
           <ExperimentsStepsExperimentDetails
+            class="enter-soft"
             :experiment-details="experimentDetails"
             @update:name="(value) => experimentDetails.name = value"
             @update:description="(value) => experimentDetails.description = value"
@@ -151,6 +168,7 @@ async function handleCancel() {
         <!-- Step 2: Dataset Selection & Sampling -->
         <template #dataset>
           <ExperimentsStepsDataset
+            class="enter-soft"
             :selected-dataset="selectedDataset"
             :datasets="datasets"
             :sampling-config="samplingConfig"
@@ -166,6 +184,7 @@ async function handleCancel() {
         <template #agents>
           <ExperimentsStepsAgentConfiguration
             ref="agentConfigRef"
+            class="enter-soft"
             :agent-configurations="agentConfigurations"
             :agent-teams="agentTeams"
             :models="models"
@@ -180,45 +199,45 @@ async function handleCancel() {
     </div>
 
     <!-- Navigation Actions -->
-    <div class="flex justify-between mt-8">
-      <div class="flex space-x-3">
-        <UButton
-          variant="ghost"
-          @click="handleCancel"
-        >
-          Cancel
-        </UButton>
+    <div class="flex items-center justify-between gap-3 mt-8 pt-4 border-t border-default">
+      <UButton
+        variant="ghost"
+        color="neutral"
+        @click="handleCancel"
+      >
+        Cancel
+      </UButton>
+
+      <div class="flex items-center gap-2">
         <UButton
           v-if="stepper?.hasPrev"
           variant="outline"
+          color="neutral"
           icon="i-lucide-chevron-left"
           @click="prevStep"
         >
-          Previous
+          Back
         </UButton>
-      </div>
-
-      <div class="flex space-x-3">
-        <UButton
-          v-if="stepper?.hasNext"
-          variant="solid"
-          icon-trailing="i-lucide-chevron-right"
-          :disabled="!isStepValid(currentStep)"
-          @click="nextStep"
-        >
-          Next
-        </UButton>
-        <UButton
-          v-else
-          variant="solid"
-          color="primary"
-          icon="i-lucide-play"
-          :disabled="!formValid"
-          :loading="isSubmitting"
-          @click="handleSubmit"
-        >
-          Create & Start Experiment
-        </UButton>
+        <UTooltip v-if="stepper?.hasNext" text="Next step" :kbds="['meta', 'enter']">
+          <UButton
+            trailing-icon="i-lucide-chevron-right"
+            :disabled="!isStepValid(currentStep)"
+            @click="nextStep"
+          >
+            Next
+          </UButton>
+        </UTooltip>
+        <UTooltip v-else text="Create and start" :kbds="['meta', 'enter']">
+          <UButton
+            color="primary"
+            icon="i-lucide-play"
+            :disabled="!formValid"
+            :loading="isSubmitting"
+            @click="handleSubmit"
+          >
+            Create and start
+          </UButton>
+        </UTooltip>
       </div>
     </div>
 

@@ -1,62 +1,54 @@
 <script setup lang="ts">
 const route = useRoute()
+const labels = useBreadcrumbLabels()
+
+const labelMap: Record<string, { label: string, icon: string }> = {
+  experiments: { label: 'Experiments', icon: 'i-lucide-flask-conical' },
+  datasets: { label: 'Datasets', icon: 'i-lucide-database' },
+  agents: { label: 'Agents', icon: 'i-lucide-bot' },
+  prompts: { label: 'Prompts', icon: 'i-lucide-message-square-text' },
+  models: { label: 'Models', icon: 'i-lucide-cpu' },
+  new: { label: 'New', icon: 'i-lucide-plus' },
+}
 
 const breadcrumbs = computed(() => {
+  if (route.path === '/')
+    return [{ label: 'Dashboard', icon: 'i-lucide-layout-dashboard' }]
+
   const paths = route.path.split('/').filter(Boolean)
   const items: { label: string, to?: string, icon?: string }[] = []
-
-  const labelMap: Record<string, { label: string, icon: string }> = {
-    experiments: { label: 'Experiments', icon: 'i-lucide-flask-conical' },
-    datasets: { label: 'Datasets', icon: 'i-lucide-database' },
-    agents: { label: 'Agents', icon: 'i-lucide-bot' },
-    prompts: { label: 'Prompts', icon: 'i-lucide-message-square-text' },
-    models: { label: 'Models', icon: 'i-lucide-cpu' },
-    new: { label: 'New', icon: 'i-lucide-plus' },
-  }
 
   let currentPath = ''
   for (const segment of paths) {
     currentPath += `/${segment}`
     const mapped = labelMap[segment]
-    if (mapped) {
-      items.push({ label: mapped.label, to: currentPath, icon: items.length === 0 ? mapped.icon : undefined })
-    }
-    else if (/^\d+$/.test(segment)) {
-      items.push({ label: `#${segment}`, to: currentPath })
-    }
-    else {
-      items.push({ label: segment, to: currentPath })
-    }
+    const label = labels.value[currentPath]
+      ?? mapped?.label
+      ?? (/^\d+$/.test(segment) ? `#${segment}` : segment)
+    items.push({ label, to: currentPath, icon: items.length === 0 ? mapped?.icon : undefined })
   }
+
+  // The current page is not a link to itself
+  const last = items[items.length - 1]
+  if (last)
+    last.to = undefined
 
   return items
 })
-
-const pageTitle = computed(() => {
-  if (route.path === '/')
-    return 'Dashboard'
-  const last = breadcrumbs.value[breadcrumbs.value.length - 1]
-  return last?.label || ''
-})
-
-const subtitle = computed(() => (route.meta.subtitle as string) || '')
 </script>
 
 <template>
-  <UDashboardNavbar :title="breadcrumbs.length <= 1 && !subtitle ? pageTitle : undefined">
-    <template v-if="breadcrumbs.length > 1" #left>
-      <UBreadcrumb :items="breadcrumbs" />
+  <UDashboardNavbar :ui="{ root: 'sm:px-4 gap-3', left: 'min-w-0' }">
+    <template #left>
+      <UBreadcrumb
+        :items="breadcrumbs"
+        :ui="{ list: 'min-w-0', item: 'min-w-0', link: 'text-sm min-w-0', linkLabel: 'truncate max-w-[40ch]' }"
+      />
     </template>
 
-    <template v-else-if="subtitle" #left>
-      <div>
-        <h1 class="text-lg font-semibold">
-          {{ pageTitle }}
-        </h1>
-        <p class="text-sm text-neutral-500">
-          {{ subtitle }}
-        </p>
-      </div>
+    <template #right>
+      <!-- Pages teleport their primary actions here (see BasePageContent) -->
+      <div id="page-actions" class="flex items-center gap-2" />
     </template>
   </UDashboardNavbar>
 </template>
