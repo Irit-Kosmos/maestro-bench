@@ -27,9 +27,10 @@ const description = computed({
 </script>
 
 <template>
-  <div class="mt-6 max-w-xl flex flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <UFormField label="Name" required>
       <UInput
+        id="experiment-name"
         v-model="name"
         placeholder="e.g. Corrector agent test v2.1"
         class="w-full"

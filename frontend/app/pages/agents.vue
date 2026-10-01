@@ -4,7 +4,7 @@ import type { Agent, AgentTeam, Model, PromptVersion } from '~/types'
 // Composables
 const toast = useToast()
 const { createTeam } = useAgentTeams()
-const { createAgent, updateAgent, deleteAgent } = useAgents()
+const { createAgent, deleteAgent } = useAgents()
 
 // Fetch data directly in the page
 const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
@@ -15,7 +15,7 @@ const { data: models, pending: _modelsPending } = await useMyLazyFetch<Model[]>(
 // Page meta
 definePageMeta({
   title: 'Agents',
-  subtitle: 'Manage your AI agents and organize them into teams',
+  subtitle: 'Edit agents in place and organize them into teams',
 })
 
 useSeoMeta({
@@ -26,19 +26,39 @@ useSeoMeta({
 // Modal states
 const showCreateTeamModal = ref(false)
 const showCreateAgentModal = ref(false)
-const showEditAgentModal = ref(false)
 const showDeleteAgentModal = ref(false)
 
-// Agent details modal
-const selectedAgent = ref<any>(null)
+// Agent targeted by the delete confirmation
+const selectedAgent = ref<Agent | null>(null)
 
-// Handlers
-function handleEditAgent(agent: any) {
-  selectedAgent.value = agent
-  showEditAgentModal.value = true
+// Rows currently expanded into their editor
+const openAgentIds = ref(new Set<number>())
+
+function isOpen(id: number) {
+  return openAgentIds.value.has(id)
 }
 
-function handleDeleteAgentClick(agent: any) {
+function setOpen(id: number, open: boolean) {
+  const next = new Set(openAgentIds.value)
+  if (open)
+    next.add(id)
+  else
+    next.delete(id)
+  openAgentIds.value = next
+}
+
+// Agents grouped under their team (the /agents payload carries the prompt and model details)
+const teamGroups = computed(() => (agentTeams.value ?? []).map(team => ({
+  ...team,
+  agents: (agents.value ?? []).filter(agent => agent.team_id === team.id),
+})))
+
+async function refreshAll() {
+  await Promise.all([refreshAgents(), refreshTeams()]) // Teams include their agents
+}
+
+// Handlers
+function handleDeleteAgentClick(agent: Agent) {
   selectedAgent.value = agent
   showDeleteAgentModal.value = true
 }
@@ -73,44 +93,12 @@ async function handleCreateAgent(data: any) {
       color: 'success',
       icon: 'i-lucide:check',
     })
-    await refreshAgents()
-    await refreshTeams() // Also refresh teams as they include agents
+    await refreshAll()
   }
   else {
     toast.add({
       title: 'Error',
       description: result.error || 'Failed to create agent',
-      color: 'error',
-      icon: 'i-lucide:x',
-    })
-  }
-}
-
-async function handleUpdateAgent(data: any) {
-  const result = await updateAgent(data.id, {
-    name: data.name,
-    description: data.description,
-    default_prompt_version_id: data.default_prompt_version_id,
-    default_model_id: data.default_model_id,
-    team_id: data.team_id,
-  })
-
-  if (result.success) {
-    toast.add({
-      title: 'Success',
-      description: 'Agent updated successfully',
-      color: 'success',
-      icon: 'i-lucide:check',
-    })
-    showEditAgentModal.value = false
-    selectedAgent.value = null
-    await refreshAgents()
-    await refreshTeams() // Also refresh teams as they include agents
-  }
-  else {
-    toast.add({
-      title: 'Error',
-      description: result.error || 'Failed to update agent',
       color: 'error',
       icon: 'i-lucide:x',
     })
@@ -127,9 +115,9 @@ async function handleDeleteAgent(agentId: number) {
       icon: 'i-lucide:check',
     })
     showDeleteAgentModal.value = false
+    setOpen(agentId, false)
     selectedAgent.value = null
-    await refreshAgents()
-    await refreshTeams() // Also refresh teams as they include agents
+    await refreshAll()
   }
   else {
     toast.add({
@@ -140,27 +128,6 @@ async function handleDeleteAgent(agentId: number) {
     })
   }
 }
-
-function getTeamName(teamId: number) {
-  const team = agentTeams.value?.find(t => t.id === teamId)
-  return team?.name || 'Unknown Team'
-}
-
-// Tab items for Nuxt UI UTabs
-const tabItems = computed(() => [
-  {
-    label: 'Teams',
-    icon: 'i-lucide-users',
-    slot: 'teams',
-    badge: agentTeams.value?.length ? { label: String(agentTeams.value.length), color: 'neutral' as const, variant: 'soft' as const } : undefined,
-  },
-  {
-    label: 'Agents',
-    icon: 'i-lucide-bot',
-    slot: 'agents',
-    badge: agents.value?.length ? { label: String(agents.value.length), color: 'neutral' as const, variant: 'soft' as const } : undefined,
-  },
-])
 </script>
 
 <template>
@@ -187,116 +154,54 @@ const tabItems = computed(() => [
       </UButton>
     </template>
 
-    <!-- Tabs -->
-    <UTabs
-      :items="tabItems"
-      variant="link"
-      size="sm"
-      :ui="{ root: 'gap-4', list: 'w-full justify-start', trigger: 'grow-0' }"
-    >
-      <!-- Agent Teams Tab -->
-      <template #teams>
-        <BaseLoadingState v-if="pending" />
+    <BaseEmptyState
+      v-if="!agentTeams?.length && !agents?.length"
+      icon="i-lucide-bot"
+      title="No agents yet"
+      message="An agent pairs a prompt version with a model. Agents run together in a team."
+      action-label="New team"
+      @action="() => { showCreateTeamModal = true }"
+    />
 
-        <BaseEmptyState
-          v-else-if="!agentTeams || agentTeams.length === 0"
-          icon="i-lucide-users"
-          title="No teams yet"
-          message="A team groups the agents that run together in an experiment."
-          action-label="New team"
-          @action="() => { showCreateTeamModal = true }"
-        />
-
-        <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <section
-            v-for="team in agentTeams"
-            :key="team.id"
-            class="rounded-lg border border-default p-4"
-          >
-            <h3 class="text-sm font-semibold text-highlighted">
+    <div v-else class="space-y-8">
+      <section
+        v-for="team in teamGroups"
+        :key="team.id"
+        :aria-labelledby="`team-${team.id}`"
+      >
+        <header class="mb-2 px-1">
+          <div class="flex items-baseline gap-2">
+            <h2 :id="`team-${team.id}`" class="text-sm font-semibold text-highlighted">
               {{ team.name }}
-            </h3>
-            <p v-if="team.description" class="mt-0.5 text-sm text-muted text-pretty">
-              {{ team.description }}
-            </p>
-            <div class="mt-3 flex flex-wrap items-center gap-1.5">
-              <span class="text-xs text-muted me-1">{{ team.agents?.length ?? 0 }} agent{{ team.agents?.length === 1 ? '' : 's' }}</span>
-              <UBadge
-                v-for="agent in team.agents"
-                :key="agent.id"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-bot"
-              >
-                {{ agent.name }}
-              </UBadge>
-            </div>
-          </section>
-        </div>
-      </template>
+            </h2>
+            <span class="text-xs text-muted tabular-nums">
+              {{ team.agents.length }} agent{{ team.agents.length === 1 ? '' : 's' }}
+            </span>
+          </div>
+          <p v-if="team.description" class="mt-0.5 text-sm text-muted text-pretty">
+            {{ team.description }}
+          </p>
+        </header>
 
-      <!-- Individual Agents Tab -->
-      <template #agents>
-        <BaseLoadingState v-if="agentsPending" />
-
-        <BaseEmptyState
-          v-else-if="!agents || agents.length === 0"
-          icon="i-lucide-bot"
-          title="No agents yet"
-          message="An agent pairs a prompt version with a model. Add one, then put it in a team."
-          action-label="New agent"
-          @action="() => { showCreateAgentModal = true }"
-        />
-
-        <ul v-else class="rounded-lg border border-default divide-y divide-default">
-          <li
-            v-for="agent in agents"
-            :key="agent.id"
-            class="flex items-center gap-4 px-4 py-3"
-          >
-            <div class="min-w-0 flex-1">
-              <div class="flex items-baseline gap-2 min-w-0">
-                <h3 class="truncate text-sm font-medium text-highlighted">
-                  {{ agent.name }}
-                </h3>
-                <span class="shrink-0 text-xs text-muted">{{ getTeamName(agent.team_id) }}</span>
-              </div>
-              <p v-if="agent.description" class="mt-0.5 truncate text-sm text-muted" :title="agent.description">
-                {{ agent.description }}
-              </p>
-            </div>
-
-            <div class="hidden md:flex flex-col items-end gap-0.5 shrink-0 text-xs text-toned">
-              <span v-if="agent.default_prompt_version" class="inline-flex items-center gap-1">
-                <UIcon name="i-lucide-message-square-text" class="size-3 text-muted" aria-hidden="true" />
-                {{ agent.default_prompt_version.prompt?.name || 'Unknown' }} v{{ agent.default_prompt_version.version }}
-              </span>
-              <span v-if="agent.default_model" class="inline-flex items-center gap-1">
-                <UIcon name="i-lucide-cpu" class="size-3 text-muted" aria-hidden="true" />
-                {{ agent.default_model.name }}
-              </span>
-            </div>
-
-            <UDropdownMenu
-              :items="[
-                { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => handleEditAgent(agent) },
-                { label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => handleDeleteAgentClick(agent) },
-              ]"
-              :content="{ align: 'end' }"
-            >
-              <UButton
-                icon="i-lucide-ellipsis"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :aria-label="`Actions for ${agent.name}`"
-              />
-            </UDropdownMenu>
+        <ul v-if="team.agents.length" class="overflow-hidden rounded-lg border border-default divide-y divide-default">
+          <li v-for="agent in team.agents" :key="agent.id">
+            <AgentsRow
+              :open="isOpen(agent.id)"
+              :agent="agent"
+              :teams="agentTeams ?? []"
+              :prompt-versions="allPromptVersions ?? []"
+              :models="models ?? []"
+              @update:open="setOpen(agent.id, $event)"
+              @saved="refreshAll"
+              @delete="handleDeleteAgentClick"
+            />
           </li>
         </ul>
-      </template>
-    </UTabs>
+        <p v-else class="rounded-lg border border-dashed border-default px-4 py-3 text-sm text-muted">
+          No agents in this team yet.
+        </p>
+      </section>
+    </div>
 
     <!-- Create Team Modal -->
     <AgentsCreateTeamModal
@@ -312,16 +217,6 @@ const tabItems = computed(() => [
       :available-prompt-versions="allPromptVersions ?? []"
       :available-models="models ?? []"
       @submit="handleCreateAgent"
-    />
-
-    <!-- Edit Agent Modal -->
-    <AgentsEditAgentModal
-      v-model:open="showEditAgentModal"
-      :agent="selectedAgent"
-      :available-teams="agentTeams ?? []"
-      :available-prompt-versions="allPromptVersions ?? []"
-      :available-models="models ?? []"
-      @submit="handleUpdateAgent"
     />
 
     <!-- Delete Agent Modal -->

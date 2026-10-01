@@ -16,6 +16,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   updateAgentConfig: [agentId: number, field: string, value: any]
   removeAgentConfig: [agentId: number]
+  addAgent: [agentId: number]
   openPromptDetails: [promptVersionId: number]
 }>()
 
@@ -42,7 +43,6 @@ const {
   updateAgentConfig: flowUpdateAgentConfig,
   syncFromConfigs,
   updateInputMapping,
-  removeInputMapping,
   getInputMappings,
 } = flow
 
@@ -118,6 +118,7 @@ function onEdgeClick(event: any) {
 // Add agent from palette
 function handleAddAgent(agent: Agent) {
   addAgentToFlow(agent)
+  emit('addAgent', agent.id)
   nextTick(() => {
     fitView({ padding: 0.2 })
   })
@@ -170,14 +171,6 @@ function handleUpdateInputMapping(mapping: any) {
   if (!selectedAgent.value)
     return
   updateInputMapping(selectedAgent.value.id, mapping)
-  emit('updateAgentConfig', selectedAgent.value.id, 'input_mappings', getInputMappings(selectedAgent.value.id))
-}
-
-// Handle input mapping removal from config panel
-function handleRemoveInputMapping(variable: string) {
-  if (!selectedAgent.value)
-    return
-  removeInputMapping(selectedAgent.value.id, variable)
   emit('updateAgentConfig', selectedAgent.value.id, 'input_mappings', getInputMappings(selectedAgent.value.id))
 }
 
@@ -283,8 +276,8 @@ defineExpose({
         :upstream-agents="upstreamAgents"
         @update-config="handleUpdateConfig"
         @update-input-mapping="handleUpdateInputMapping"
-        @remove-input-mapping="handleRemoveInputMapping"
         @remove="handleRemoveAgent"
+        @close="selectedNodeId = null"
         @reset="handleResetAgent"
         @open-prompt-details="handleOpenPromptDetails"
       />

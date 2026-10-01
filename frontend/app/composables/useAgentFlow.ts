@@ -341,22 +341,28 @@ export function useAgentFlow(
     updateNodeData(agentId)
   }
 
-  // Sync flow nodes from existing agent configurations
+  // Sync flow nodes from existing agent configurations.
+  // Agents are laid out left to right in run order and chained, so the graph opens
+  // as the same sequence the list showed.
   function syncFromConfigs() {
     // Only sync if canvas is empty (preserve existing layout)
     if (nodes.value.length > 0)
       return
 
-    // Add nodes for all agents that have configurations
-    Object.keys(agentConfigurations.value).forEach((key) => {
-      const agentId = Number.parseInt(key)
-      const agent = allAgents.value.find(a => a.id === agentId)
-      if (agent && !isAgentInFlow(agent.id)) {
-        // Auto-layout in a grid
-        const index = nodes.value.length
-        const x = 50 + (index % 4) * 250
-        const y = 50 + Math.floor(index / 4) * 150
-        addAgentToFlow(agent, { x, y })
+    const ordered = Object.keys(agentConfigurations.value)
+      .map(key => allAgents.value.find(a => a.id === Number.parseInt(key)))
+      .filter((agent): agent is Agent => !!agent)
+      .sort((a, b) =>
+        (agentConfigurations.value[a.id]?.execution_order ?? Number.POSITIVE_INFINITY)
+        - (agentConfigurations.value[b.id]?.execution_order ?? Number.POSITIVE_INFINITY)
+        || a.id - b.id)
+
+    ordered.forEach((agent, index) => {
+      addAgentToFlow(agent, { x: 50 + index * 260, y: 100 })
+      if (index > 0) {
+        const source = `agent-${ordered[index - 1]!.id}`
+        const target = `agent-${agent.id}`
+        edges.value.push({ id: `e-${source}-${target}`, source, target, animated: true })
       }
     })
   }

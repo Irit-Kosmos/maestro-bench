@@ -1,4 +1,4 @@
-import type { AgentInputMapping, AgentTeam, CreateExperimentForm, PromptVersion } from '~/types'
+import type { AgentConfiguration, AgentInputMapping, AgentTeam, CreateExperimentForm, PromptVersion } from '~/types'
 
 interface ExperimentDetails {
   name: string
@@ -10,16 +10,6 @@ interface SamplingConfig {
   sampling_size?: number
   sampling_start_row?: number
   sampling_end_row?: number
-}
-
-interface AgentConfiguration {
-  prompt_version_id?: number
-  model_id?: number
-  temperature?: number
-  max_tokens?: number
-  is_active?: boolean
-  execution_order?: number
-  input_mappings?: AgentInputMapping[]
 }
 
 /**
@@ -58,51 +48,19 @@ export function useExperimentForm(
     },
   })
 
-  // Step validation
-  const isStepValid = computed(() => {
-    return (step: number) => {
-      switch (step) {
-        case 0:
-          return experimentDetails.value.name.trim().length > 0
-        case 1:
-          // Dataset step: a dataset must be selected and sampling config must be valid
-          if (formData.value.dataset_id == null)
-            return false
-          if (samplingConfig.value.sampling_type === 'random') {
-            return samplingConfig.value.sampling_size && samplingConfig.value.sampling_size > 0
-          }
-          if (samplingConfig.value.sampling_type === 'range') {
-            return samplingConfig.value.sampling_start_row
-              && samplingConfig.value.sampling_end_row
-              && samplingConfig.value.sampling_start_row <= samplingConfig.value.sampling_end_row
-          }
-          return true // 'all' option is always valid
-        case 2:
-          // Agent configuration step validation: at least one active agent in the flow
-          return Object.keys(agentConfigurations.value).length > 0
-            && Object.values(agentConfigurations.value).some(config => config?.is_active !== false)
-        default:
-          return false
-      }
-    }
-  })
+  // Validity of each section of the form
+  const detailsValid = computed(() => experimentDetails.value.name.trim().length > 0)
 
-  // Parse prompt version variables from JSON string to array
-  function parsePromptVariables(variablesJson: string | null | undefined): string[] {
-    if (!variablesJson)
-      return []
-    try {
-      const parsed = JSON.parse(variablesJson)
-      if (Array.isArray(parsed))
-        return parsed
-      if (typeof parsed === 'object' && parsed !== null)
-        return Object.keys(parsed)
-      return []
-    }
-    catch {
-      return []
-    }
-  }
+  const datasetValid = computed(() => {
+    if (formData.value.dataset_id == null)
+      return false
+    const { sampling_type, sampling_size, sampling_start_row, sampling_end_row } = samplingConfig.value
+    if (sampling_type === 'random')
+      return !!sampling_size && sampling_size > 0
+    if (sampling_type === 'range')
+      return !!sampling_start_row && !!sampling_end_row && sampling_start_row <= sampling_end_row
+    return true // 'all' is always valid
+  })
 
   // Get variables required by an agent's selected prompt version
   function getAgentPromptVariables(agentId: number): string[] {
@@ -120,43 +78,28 @@ export function useExperimentForm(
       .map(([id]) => Number.parseInt(id))
   }
 
-  // Check whether every variable of every active agent is mapped via its
-  // input_mappings. Empty variable lists count as satisfied.
-  function areAllVariablesMapped(): boolean {
+  // The backend silently skips an agent without a prompt version or a model, so an experiment
+  // is only valid when every active agent has both and maps every variable of its prompt.
+  function areAgentsReady(): boolean {
     const activeIds = getActiveAgentIds()
     if (activeIds.length === 0)
       return false
 
     return activeIds.every((agentId) => {
-      const variables = getAgentPromptVariables(agentId)
-      if (variables.length === 0)
-        return true
+      const config = agentConfigurations.value[agentId]
+      if (!config?.prompt_version_id || !config.model_id)
+        return false
 
-      const inputMappings = agentConfigurations.value[agentId]?.input_mappings || []
-      return variables.every(variable =>
-        inputMappings.some((m: AgentInputMapping) => m.variable === variable),
+      const inputMappings = config.input_mappings || []
+      return getAgentPromptVariables(agentId).every(variable =>
+        inputMappings.some((m: AgentInputMapping) => m.variable === variable && isMappingComplete(m)),
       )
     })
   }
 
-  const formValid = computed(() => {
-    const basicValid = experimentDetails.value.name.trim()
-      && formData.value.dataset_id != null
+  const agentsValid = computed(() => areAgentsReady())
 
-    if (!basicValid)
-      return false
-
-    // Agent configuration validation: at least one active agent in the flow
-    const agentValid = Object.keys(agentConfigurations.value).length > 0
-      && Object.values(agentConfigurations.value).some(config => config?.is_active !== false)
-
-    if (!agentValid)
-      return false
-
-    // Mapping validation: every prompt variable of every active agent must be mapped
-    // via per-agent input_mappings in the node view.
-    return areAllVariablesMapped()
-  })
+  const formValid = computed(() => detailsValid.value && datasetValid.value && agentsValid.value)
 
   // Helper to get active agent configurations
   const getActiveAgentConfigurations = () => {
@@ -223,7 +166,9 @@ export function useExperimentForm(
     selectedDataset,
 
     // Computed
-    isStepValid,
+    detailsValid,
+    datasetValid,
+    agentsValid,
     formValid,
 
     // Methods

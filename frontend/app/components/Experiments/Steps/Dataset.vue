@@ -42,18 +42,11 @@ function togglePreview(datasetId: number) {
 </script>
 
 <template>
-  <div class="mt-6 flex flex-col gap-8">
+  <div class="flex flex-col gap-8">
     <!-- Dataset Selection -->
-    <section aria-labelledby="dataset-step-title" class="max-w-3xl">
-      <h3 id="dataset-step-title" class="text-sm font-semibold text-highlighted">
-        Dataset
-      </h3>
-      <p class="mt-0.5 mb-3 text-sm text-muted">
-        Each row is one input for the agents. Open a preview to check the columns.
-      </p>
-
+    <div>
       <!-- Native radios: arrow keys move the selection, and the checked dot doesn't rely on color -->
-      <div v-if="datasets && datasets.length > 0" role="radiogroup" aria-labelledby="dataset-step-title" class="flex flex-col gap-2">
+      <div v-if="datasets && datasets.length > 0" role="radiogroup" aria-labelledby="dataset-title" class="flex flex-col gap-2">
         <div
           v-for="dataset in datasets"
           :key="dataset.id"
@@ -109,10 +102,10 @@ function togglePreview(datasetId: number) {
       />
 
       <BaseLoadingState v-else message="Loading datasets…" />
-    </section>
+    </div>
 
     <!-- Sampling Configuration -->
-    <section v-if="selectedDataset" aria-labelledby="sampling-step-title" class="enter-soft max-w-3xl">
+    <section v-if="selectedDataset" aria-labelledby="sampling-step-title" class="enter-soft">
       <h3 id="sampling-step-title" class="text-sm font-semibold text-highlighted">
         Sampling
       </h3>

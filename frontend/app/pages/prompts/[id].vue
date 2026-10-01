@@ -445,10 +445,12 @@ async function deleteVersion(versionId: number) {
               >
                 <!-- Collapsible Header -->
                 <UButton
-                  class="w-full group p-6 text-left border-0 bg-white hover:bg-neutral-50"
+                  class="w-full group p-6 text-left border-0 bg-white hover:bg-neutral-50 active:bg-neutral-100"
                   variant="ghost"
+                  color="neutral"
                   :ui="{
-                    base: 'justify-between items-center',
+                    // Full-width row: the global press scale would visibly shrink it
+                    base: 'justify-between items-center not-disabled:not-aria-disabled:active:scale-100',
                     trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform duration-200',
                   }"
                   trailing-icon="i-lucide-chevron-down"

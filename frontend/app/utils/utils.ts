@@ -1,3 +1,5 @@
+import type { AgentInputMapping } from '~/types'
+
 // Helper function to parse variables string to array
 export function parseVariables(variablesString: string): string[] {
   if (!variablesString)
@@ -10,6 +12,34 @@ export function parseVariables(variablesString: string): string[] {
     console.warn('Failed to parse variables:', error)
     return []
   }
+}
+
+// Variable names of a prompt version ("variables" is a JSON array, or an object keyed by name)
+export function parsePromptVariables(variablesJson: string | null | undefined): string[] {
+  if (!variablesJson)
+    return []
+  try {
+    const parsed = JSON.parse(variablesJson)
+    if (Array.isArray(parsed))
+      return parsed
+    if (typeof parsed === 'object' && parsed !== null)
+      return Object.keys(parsed)
+    return []
+  }
+  catch {
+    return []
+  }
+}
+
+// A mapping only counts once its source is fully chosen (a column, an agent or some text)
+export function isMappingComplete(mapping: AgentInputMapping | undefined): boolean {
+  if (!mapping)
+    return false
+  if (mapping.source === 'dataset')
+    return !!mapping.sourceColumn
+  if (mapping.source === 'agent')
+    return mapping.sourceAgentId !== undefined
+  return mapping.source === 'static'
 }
 
 // Helper function to stringify variables array to string

@@ -61,6 +61,17 @@ export interface AgentInputMapping {
   staticValue?: string
 }
 
+// Per-agent settings chosen while creating an experiment
+export interface AgentConfiguration {
+  prompt_version_id?: number
+  model_id?: number
+  temperature?: number
+  max_tokens?: number
+  is_active?: boolean
+  execution_order?: number
+  input_mappings?: AgentInputMapping[]
+}
+
 export interface Experiment {
   id: number
   name: string
