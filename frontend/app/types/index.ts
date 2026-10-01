@@ -210,3 +210,102 @@ export interface ExperimentAgentConfig {
   model?: Model
 }
 
+// Analyses
+export type AnalysisValueType = 'numeric' | 'categorical'
+
+export interface AnalysisConfig {
+  truth_column: string
+  output_path: string
+  value_type: AnalysisValueType
+  metrics: string[]
+  ignore_case: boolean
+  n_boot: number
+  confidence: number
+  seed: number
+}
+
+export interface AnalysisRunRef {
+  execution_id: number
+  agent_name: string
+  label?: string | null
+}
+
+export interface Analysis {
+  id: number
+  name: string
+  description?: string | null
+  config: AnalysisConfig
+  runs: AnalysisRunRef[]
+  created_at: string
+  updated_at: string
+}
+
+export interface AnalysisForm {
+  name: string
+  description?: string | null
+  config: AnalysisConfig
+  runs: AnalysisRunRef[]
+}
+
+export interface MetricInfo {
+  key: string
+  label: string
+  kind: AnalysisValueType
+  description: string
+  lower_is_better: boolean
+}
+
+export interface MetricValue {
+  value: number | null
+  ci_low: number | null
+  ci_high: number | null
+  undefined_reason: string | null
+}
+
+export interface ExcludedRow {
+  row_index: number | null
+  dataset_row_id: number | null
+  reason: string
+}
+
+export interface AnalysisRunResult {
+  execution_id: number
+  agent_name: string
+  label: string
+  status: 'ok' | 'missing' | 'unavailable'
+  error?: string | null
+  experiment_id?: number | null
+  experiment_name?: string | null
+  n_valid: number
+  n_total: number
+  coverage: number | null
+  metrics: Record<string, MetricValue>
+  exclusions: Record<string, number>
+  excluded_rows: ExcludedRow[]
+  warnings: string[]
+  points?: { pred: number, truth: number, row_index: number | null }[] | null
+  confusion?: { labels: string[], matrix: number[][] } | null
+}
+
+export interface AnalysisResult {
+  metrics: MetricInfo[]
+  runs: AnalysisRunResult[]
+  warnings: string[]
+}
+
+export interface ExecutionFields {
+  execution_id: number
+  columns: string[]
+  agents: { name: string, model: string | null, execution_order: number, paths: string[] }[]
+}
+
+export interface AvailableExecution {
+  execution_id: number
+  experiment_id: number
+  experiment_name: string
+  dataset_name: string | null
+  started_at: string
+  completed_at: string | null
+  row_count: number | null
+  agents: { name: string, model: string }[]
+}

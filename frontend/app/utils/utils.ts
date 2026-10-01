@@ -19,6 +19,11 @@ export function stringifyVariables(variablesArray: string[]): string {
   return JSON.stringify(variablesArray)
 }
 
+// Format an analysis metric value (3 decimals, "—" when undefined)
+export function formatMetric(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : value.toFixed(3)
+}
+
 // Below this many rows, metrics are too noisy to compare: flag the run instead of hiding it
 export const SMALL_SAMPLE_ROWS = 30
 

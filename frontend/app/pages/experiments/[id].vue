@@ -70,6 +70,13 @@ const latestExecution = computed(() => {
   )[0]
 })
 
+// Latest execution that produced results, for the Analyze shortcut
+const latestCompletedExecution = computed(() => {
+  return [...executions.value]
+    .filter(e => e.status === 'completed' && e.results_file_path)
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0] ?? null
+})
+
 // Configuration accordion items
 const configurationItems = computed(() => {
   if (!latestExecution.value || !latestExecution.value.agent_executions)
@@ -338,6 +345,17 @@ watch(() => route.params.id, () => {
               @click="handleRerunExperiment"
             >
               {{ experiment?.status === 'running' ? 'Running…' : 'Re-run' }}
+            </UButton>
+          </UTooltip>
+          <UTooltip :text="latestCompletedExecution ? 'Compare this execution to a ground-truth column' : 'Available once an execution has completed'">
+            <UButton
+              color="primary"
+              icon="i-lucide-chart-column"
+              size="sm"
+              :disabled="!latestCompletedExecution"
+              :to="latestCompletedExecution ? { path: '/analyses/new', query: { execution: latestCompletedExecution.id, name: experiment.name } } : undefined"
+            >
+              Analyze
             </UButton>
           </UTooltip>
           <UDropdownMenu

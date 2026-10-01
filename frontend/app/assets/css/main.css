@@ -58,3 +58,23 @@ h1, h2, h3, h4, h5, h6 {
   scrollbar-width: thin;
   scrollbar-color: var(--color-neutral-300) transparent;
 }
+
+/* Charts (Unovis). Single-series charts: one hue, recessive axes. */
+.viz-root {
+  --viz-series-1: #2a78d6;
+  --viz-text-secondary: #52514e;
+  --vis-font-family: var(--font-sans);
+  --vis-color-main: var(--viz-series-1);
+  --vis-axis-grid-color: #ecebe8;
+  --vis-axis-tick-color: #ecebe8;
+  --vis-axis-domain-color: #d8d7d3;
+  --vis-axis-tick-label-color: var(--viz-text-secondary);
+  --vis-axis-label-color: var(--viz-text-secondary);
+  /* Boxplot drawn as a confidence interval: whiskers only */
+  --vis-boxplot-fill-opacity: 0;
+  --vis-boxplot-stroke-width: 0;
+  --vis-boxplot-median-stroke-width: 0;
+  --vis-boxplot-whisker-stroke-color: #0b0b0b;
+  --vis-boxplot-whisker-stroke-width: 1.5px;
+  --vis-scatter-fill-opacity: 0.45;
+}

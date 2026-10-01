@@ -21,6 +21,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     items: [
       { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', kbds: ['G', 'H'], onSelect: () => navigate('/') },
       { label: 'Experiments', icon: 'i-lucide-flask-conical', kbds: ['G', 'E'], onSelect: () => navigate('/experiments') },
+      { label: 'Analyses', icon: 'i-lucide-chart-column', kbds: ['G', 'N'], onSelect: () => navigate('/analyses') },
       { label: 'Datasets', icon: 'i-lucide-database', kbds: ['G', 'D'], onSelect: () => navigate('/datasets') },
       { label: 'Agents', icon: 'i-lucide-bot', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
       { label: 'Prompts', icon: 'i-lucide-message-square-text', kbds: ['G', 'P'], onSelect: () => navigate('/prompts') },
@@ -33,6 +34,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     label: 'Actions',
     items: [
       { label: 'New Experiment', icon: 'i-lucide-plus', suffix: 'Create a new experiment', onSelect: () => navigate('/experiments/new') },
+      { label: 'New Analysis', icon: 'i-lucide-plus', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
     ],
   })
 

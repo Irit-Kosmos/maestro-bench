@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam, Dataset, Experiment, ProviderStatus } from '~/types'
+import type { Agent, AgentTeam, Analysis, Dataset, Experiment, ProviderStatus } from '~/types'
 
 definePageMeta({
   title: 'Dashboard',
 })
 
 const { data: experiments, pending: experimentsPending, refresh: refreshExperiments } = await useMyLazyFetch<Experiment[]>('/experiments')
+const { data: analyses, pending: analysesPending, refresh: refreshAnalyses } = await useMyLazyFetch<Analysis[]>('/analyses')
 const { data: datasets, pending: datasetsPending, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { data: agentTeams, pending: teamsPending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
@@ -17,7 +18,7 @@ const isRefreshing = ref(false)
 async function refresh() {
   isRefreshing.value = true
   try {
-    await Promise.all([refreshExperiments(), refreshDatasets(), refreshTeams(), refreshAgents()])
+    await Promise.all([refreshExperiments(), refreshAnalyses(), refreshDatasets(), refreshTeams(), refreshAgents()])
   }
   finally {
     isRefreshing.value = false
@@ -79,7 +80,7 @@ const configuredProviders = computed(() => (providers.value || []).filter(p => p
     </AppPageActions>
 
     <!-- Stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <DashboardStatsCard
         title="Experiments"
         :value="experiments?.length ?? 0"
@@ -87,6 +88,14 @@ const configuredProviders = computed(() => (providers.value || []).filter(p => p
         icon="i-lucide-flask-conical"
         :loading="experimentsPending"
         href="/experiments"
+      />
+      <DashboardStatsCard
+        title="Analyses"
+        :value="analyses?.length ?? 0"
+        detail="Executions vs ground truth"
+        icon="i-lucide-chart-column"
+        :loading="analysesPending"
+        href="/analyses"
       />
       <DashboardStatsCard
         title="Datasets"

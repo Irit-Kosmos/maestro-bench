@@ -5,6 +5,7 @@ const shortcuts = [
   { section: 'Navigation', items: [
     { keys: ['G', 'H'], label: 'Go to Dashboard' },
     { keys: ['G', 'E'], label: 'Go to Experiments' },
+    { keys: ['G', 'N'], label: 'Go to Analyses' },
     { keys: ['G', 'D'], label: 'Go to Datasets' },
     { keys: ['G', 'A'], label: 'Go to Agents' },
     { keys: ['G', 'P'], label: 'Go to Prompts' },
@@ -12,7 +13,7 @@ const shortcuts = [
   ] },
   { section: 'Actions', items: [
     { keys: ['meta', 'K'], label: 'Open command palette' },
-    { keys: ['C'], label: 'Create new (context-aware)' },
+    { keys: ['C'], label: 'New experiment (new analysis on Analyses)' },
     { keys: ['['], label: 'Collapse or expand the sidebar' },
     { keys: ['?'], label: 'Show keyboard shortcuts' },
   ] },

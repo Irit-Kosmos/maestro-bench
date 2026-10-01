@@ -4,6 +4,7 @@ const labels = useBreadcrumbLabels()
 
 const labelMap: Record<string, { label: string, icon: string }> = {
   experiments: { label: 'Experiments', icon: 'i-lucide-flask-conical' },
+  analyses: { label: 'Analyses', icon: 'i-lucide-chart-column' },
   datasets: { label: 'Datasets', icon: 'i-lucide-database' },
   agents: { label: 'Agents', icon: 'i-lucide-bot' },
   prompts: { label: 'Prompts', icon: 'i-lucide-message-square-text' },

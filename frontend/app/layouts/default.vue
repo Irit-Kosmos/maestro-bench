@@ -22,6 +22,9 @@ defineShortcuts({
   'g-e': () => {
     router.push('/experiments')
   },
+  'g-n': () => {
+    router.push('/analyses')
+  },
   'g-d': () => {
     router.push('/datasets')
   },
@@ -34,10 +37,9 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
+  // Create from anywhere: an analysis on analysis pages, an experiment otherwise
   'c': () => {
-    if (route.path.startsWith('/experiments')) {
-      router.push('/experiments/new')
-    }
+    router.push(route.path.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
   },
 })
 </script>
