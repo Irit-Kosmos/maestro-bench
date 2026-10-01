@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from db import get_session
+from results_files import execution_row_count
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
     ExperimentExecutionResponse,
@@ -67,6 +68,7 @@ def _build_execution_response(
         status=execution.status,
         dataset_snapshot=execution.dataset_snapshot,
         results_file_path=execution.results_file_path,
+        row_count=execution_row_count(execution),
         agent_executions=_build_snapshot_responses(execution.id, session),
     )
 

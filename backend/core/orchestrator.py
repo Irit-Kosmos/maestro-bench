@@ -8,6 +8,7 @@ as context to subsequent agents. Collects per-agent traces
 
 from dataclasses import dataclass, field
 
+from core.json_output import parse_json_output, strip_markdown_fences
 from core.llm import LLMResponse, call_llm
 from core.prompt_renderer import build_messages
 
@@ -52,6 +53,8 @@ class PipelineResult:
 
     row_index: int
     input_data: dict  # Dataset row (column name -> value)
+    # 0-based position of the row in the dataset file, stable across sampling
+    dataset_row_id: int | None = None
     agent_traces: list[AgentTrace] = field(default_factory=list)
     final_output: str = ""
     total_tokens_in: int = 0
@@ -64,6 +67,7 @@ class PipelineResult:
         """Serialize to dict for JSON storage."""
         return {
             "row_index": self.row_index,
+            "dataset_row_id": self.dataset_row_id,
             "input_data": {k: _safe_serialize(v) for k, v in self.input_data.items()},
             "agents": [
                 {
@@ -71,7 +75,7 @@ class PipelineResult:
                     "model": t.model,
                     "provider": t.provider,
                     "messages_sent": t.messages_sent,
-                    "output": _try_parse_json(t.output),
+                    "output": parse_json_output(t.output),
                     "tokens_in": t.tokens_in,
                     "tokens_out": t.tokens_out,
                     "cost_usd": t.cost_usd,
@@ -80,7 +84,7 @@ class PipelineResult:
                 }
                 for t in self.agent_traces
             ],
-            "final_output": _try_parse_json(self.final_output),
+            "final_output": parse_json_output(self.final_output),
             "totals": {
                 "tokens_in": self.total_tokens_in,
                 "tokens_out": self.total_tokens_out,
@@ -89,27 +93,6 @@ class PipelineResult:
             },
             "error": self.error,
         }
-
-
-def _strip_markdown_fences(text: str) -> str:
-    """Remove markdown code fences (```json ... ```) wrapping LLM output."""
-    import re
-
-    stripped = text.strip()
-    m = re.match(r"^```(?:\w*)\n(.*?)```$", stripped, re.DOTALL)
-    if m:
-        return m.group(1).strip()
-    return text
-
-
-def _try_parse_json(text: str):
-    """Try to parse text as JSON; return parsed object or original string."""
-    import json
-
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        return text
 
 
 def _safe_serialize(value):
@@ -165,6 +148,7 @@ async def run_pipeline(
     agents: list[AgentConfig],
     row: dict,
     row_index: int = 0,
+    dataset_row_id: int | None = None,
 ) -> PipelineResult:
     """
     Execute a sequential agent pipeline on a single dataset row.
@@ -177,12 +161,15 @@ async def run_pipeline(
     Args:
         agents: Ordered list of agent configurations
         row: Dataset row (column name → value)
-        row_index: Index of this row in the dataset
+        row_index: 1-based position of this row in the processed sample
+        dataset_row_id: 0-based position of this row in the dataset file
 
     Returns:
         PipelineResult with all agent traces and aggregated metrics
     """
-    result = PipelineResult(row_index=row_index, input_data=row)
+    result = PipelineResult(
+        row_index=row_index, input_data=row, dataset_row_id=dataset_row_id
+    )
 
     # Shared context: starts with the row, accumulates agent outputs
     context = dict(row)
@@ -249,7 +236,7 @@ async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:
             model=llm_response.model,
             provider=agent.provider,
             messages_sent=messages,
-            output=_strip_markdown_fences(llm_response.content),
+            output=strip_markdown_fences(llm_response.content),
             tokens_in=llm_response.tokens_in,
             tokens_out=llm_response.tokens_out,
             cost_usd=llm_response.cost_usd,

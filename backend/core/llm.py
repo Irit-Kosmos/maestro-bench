@@ -6,11 +6,16 @@ Provides a unified async interface to call any LLM provider
 and latency measurement.
 """
 
+import asyncio
+import logging
 import os
+import random
 import time
 from dataclasses import dataclass
 
 import litellm
+
+logger = logging.getLogger(__name__)
 
 # Suppress LiteLLM's verbose logging by default
 litellm.suppress_debug_info = True
@@ -25,6 +30,69 @@ SUPPORTED_PROVIDERS: dict[str, dict] = {
     "together": {"prefix": "together_ai", "api_key_env": "TOGETHER_API_KEY"},
     "deepseek": {"prefix": "deepseek", "api_key_env": "DEEPSEEK_API_KEY"},
 }
+
+
+# Transient provider errors worth retrying (429, timeouts, 5xx)
+RETRYABLE_ERRORS: tuple[type[Exception], ...] = (
+    litellm.RateLimitError,
+    litellm.Timeout,
+    litellm.APIConnectionError,
+    litellm.ServiceUnavailableError,
+    litellm.InternalServerError,
+)
+
+LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "6"))
+LLM_RETRY_BASE_DELAY = float(os.getenv("LLM_RETRY_BASE_DELAY", "1.0"))
+LLM_RETRY_MAX_DELAY = float(os.getenv("LLM_RETRY_MAX_DELAY", "60.0"))
+
+
+class _RateLimiter:
+    """
+    Spaces out request starts to at most `rps` per second.
+
+    Shared by every experiment calling the same provider, since provider
+    quotas apply per API key rather than per experiment.
+    """
+
+    def __init__(self, rps: float):
+        self.interval = 1.0 / rps
+        self._next_slot = 0.0
+
+    async def acquire(self) -> None:
+        # No await between reading and booking the slot, so this is atomic
+        # on a single event loop.
+        now = time.monotonic()
+        slot = max(now, self._next_slot)
+        self._next_slot = slot + self.interval
+        if slot > now:
+            await asyncio.sleep(slot - now)
+
+
+_rate_limiters: dict[str, _RateLimiter | None] = {}
+
+
+def _get_rate_limiter(provider: str) -> _RateLimiter | None:
+    """Return the provider's limiter, configured by e.g. MISTRAL_MAX_RPS."""
+    key = provider.lower()
+    if key not in _rate_limiters:
+        rps = os.getenv(f"{key.upper()}_MAX_RPS")
+        _rate_limiters[key] = _RateLimiter(float(rps)) if rps else None
+    return _rate_limiters[key]
+
+
+def _retry_delay(error: Exception, attempt: int) -> float:
+    """Honor the provider's Retry-After header, else exponential backoff."""
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None) or {}
+    retry_after = headers.get("retry-after")
+    if retry_after:
+        try:
+            return min(float(retry_after), LLM_RETRY_MAX_DELAY)
+        except ValueError:
+            pass  # HTTP-date form, fall back to backoff
+    backoff = min(LLM_RETRY_BASE_DELAY * 2**attempt, LLM_RETRY_MAX_DELAY)
+    # Full jitter so concurrent rows don't retry in lockstep
+    return random.uniform(backoff / 2, backoff)
 
 
 @dataclass
@@ -70,8 +138,29 @@ async def call_llm(
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
 
-    start = time.perf_counter()
-    response = await litellm.acompletion(**kwargs)
+    rate_limiter = _get_rate_limiter(provider)
+    for attempt in range(LLM_MAX_RETRIES + 1):
+        if rate_limiter:
+            await rate_limiter.acquire()
+        # Latency covers the successful attempt only, not retries and waits
+        start = time.perf_counter()
+        try:
+            response = await litellm.acompletion(**kwargs)
+        except RETRYABLE_ERRORS as e:
+            if attempt == LLM_MAX_RETRIES:
+                raise
+            delay = _retry_delay(e, attempt)
+            logger.warning(
+                "%s on %s, retry %d/%d in %.1fs",
+                type(e).__name__,
+                litellm_model,
+                attempt + 1,
+                LLM_MAX_RETRIES,
+                delay,
+            )
+            await asyncio.sleep(delay)
+        else:
+            break
     latency_ms = (time.perf_counter() - start) * 1000
 
     # Extract usage

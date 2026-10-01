@@ -80,7 +80,7 @@ const editFormValid = computed(() => {
 const columns = [
   {
     key: 'name',
-    label: 'Model Name',
+    label: 'Model',
   },
   {
     key: 'provider',
@@ -106,8 +106,8 @@ const actions = [
     handler: (model: Model) => editModel(model),
   },
   {
-    label: 'Toggle',
-    icon: 'i-lucide-toggle-left',
+    label: (model: Model) => model.is_active ? 'Deactivate' : 'Activate',
+    icon: 'i-lucide-power',
     variant: 'ghost' as const,
     color: 'neutral' as const,
     handler: (model: Model) => handleToggleStatus(model),
@@ -308,13 +308,12 @@ watch(() => showDeleteModal.value, (newValue) => {
   >
     <template #before-content>
       <UButton
-        variant="solid"
         color="primary"
-        icon="i-lucide:plus"
-        size="lg"
+        icon="i-lucide-plus"
+        size="sm"
         @click="handleCreateClick"
       >
-        Add Model
+        Add model
       </UButton>
     </template>
 
@@ -365,8 +364,8 @@ watch(() => showDeleteModal.value, (newValue) => {
       v-else-if="!pending && (!models || models.length === 0)"
       title="No models yet"
       message="Start by adding your first AI model"
-      icon="i-lucide:cpu"
-      action-label="Add Model"
+      icon="i-lucide-cpu"
+      action-label="Add model"
       @action="handleCreateClick"
     />
 
@@ -376,7 +375,8 @@ watch(() => showDeleteModal.value, (newValue) => {
       title="No models match your filters"
       message="Try adjusting your search or filter criteria"
       icon="i-lucide:search-x"
-      action-label="Clear Filters"
+      action-label="Clear filters"
+      action-icon="i-lucide-x"
       @action="clearFilters"
     />
 

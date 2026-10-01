@@ -10,9 +10,15 @@ definePageMeta({
 // Fetch data directly in the page
 const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[]>('/experiments')
 
+// Quick test runs (a handful of rows) crowd the list; hide them on demand, remembered per browser
+const hideSmallRuns = useCookie<boolean>('experiments-hide-small-runs', { default: () => false })
+const visibleExperiments = computed(() =>
+  (experiments.value ?? []).filter(exp => !hideSmallRuns.value || !isSmallSample(exp.row_count)),
+)
+
 // Composables
 const { deleteExperiment } = useExperiments()
-const { formatDate } = useUIHelpers()
+const { formatDate, formatRelativeDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
 const experimentId = ref<number | null>(null)
@@ -28,12 +34,15 @@ const columns = [
   {
     key: 'name',
     label: 'Experiment',
-    formatter: (value: string, row: Experiment) => `${value} (ID: ${row.id})`,
   },
   {
     key: 'dataset',
     label: 'Dataset',
     formatter: (_: any, row: Experiment) => row.dataset?.name || 'Unknown',
+  },
+  {
+    key: 'row_count',
+    label: 'Rows',
   },
   {
     key: 'status',
@@ -47,10 +56,8 @@ const columns = [
 
 const actions = [
   {
-    label: 'View',
-    icon: 'i-lucide-eye',
-    variant: 'ghost' as const,
-    color: 'neutral' as const,
+    label: 'Open',
+    icon: 'i-lucide-arrow-up-right',
     handler: (experiment: Experiment) => handleViewExperiment(experiment.id),
   },
   {
@@ -120,37 +127,54 @@ async function handleCreateExperiment() {
     :loading="pending"
   >
     <template #before-content>
-      <UButton
-        variant="solid"
-        color="primary"
-        icon="i-lucide:plus"
-        size="lg"
-        @click="handleCreateExperiment"
-      >
-        Create Experiment
-      </UButton>
+      <UTooltip text="New experiment" :kbds="['C']">
+        <UButton
+          color="primary"
+          icon="i-lucide-plus"
+          size="sm"
+          @click="handleCreateExperiment"
+        >
+          New experiment
+        </UButton>
+      </UTooltip>
     </template>
 
     <!-- Experiments Table -->
     <div v-if="experiments && experiments.length > 0">
       <BaseDataTable
-        :data="[...(experiments || [])]"
+        :data="visibleExperiments"
+        :total-count="experiments.length"
         :columns="columns"
         :actions="actions"
         :loading="pending"
-        title="All Experiments"
+        :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
+        :row-hint="(exp: Experiment) => `#${exp.id}`"
+        item-name="experiment"
         searchable
         @refresh="refresh"
       >
+        <template #toolbar>
+          <USwitch
+            v-model="hideSmallRuns"
+            size="sm"
+            :label="`Hide runs under ${SMALL_SAMPLE_ROWS} rows`"
+            :ui="{ label: 'text-xs font-normal text-muted' }"
+          />
+        </template>
+
         <!-- Custom cell for status -->
         <template #status-cell="{ row }">
           <UIStatusBadge :status="row.original.status" />
         </template>
 
+        <template #row_count-cell="{ row }">
+          <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
+        </template>
+
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-neutral-500">
-            {{ formatDate(row.original.created_at) }}
+          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.created_at)">
+            {{ formatRelativeDate(row.original.created_at) }}
           </span>
         </template>
       </BaseDataTable>
@@ -160,17 +184,17 @@ async function handleCreateExperiment() {
     <BaseEmptyState
       v-else-if="!pending"
       title="No experiments yet"
-      message="Get started by creating your first experiment to test your agent teams."
-      icon="i-lucide:flask-conical"
-      action-label="Create Your First Experiment"
+      message="An experiment runs an agent team over a dataset, so you can compare outputs and analyze them."
+      icon="i-lucide-flask-conical"
+      action-label="New experiment"
       action-to="/experiments/new"
       @action="handleCreateExperiment"
     />
 
-    <UModal v-model:open="showDeleteDialog" title="Delete Experiment">
+    <UModal v-model:open="showDeleteDialog" title="Delete experiment?">
       <template #body>
-        <p class="text-neutral-600">
-          Are you sure you want to delete this experiment? This action cannot be undone.
+        <p class="text-sm text-toned">
+          This deletes the experiment and all of its executions. This can’t be undone.
         </p>
       </template>
 
@@ -189,7 +213,7 @@ async function handleCreateExperiment() {
             :loading="isDeleting"
             @click="confirmDelete"
           >
-            Delete
+            Delete experiment
           </UButton>
         </div>
       </template>

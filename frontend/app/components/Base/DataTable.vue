@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { h, resolveComponent } from 'vue'
 
 interface Column {
@@ -11,7 +11,7 @@ interface Column {
 }
 
 interface Action {
-  label: string
+  label: string | ((item: any) => string)
   icon?: string
   variant?: 'solid' | 'outline' | 'ghost'
   color?: 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
@@ -29,6 +29,15 @@ interface Props {
   emptyMessage?: string
   searchable?: boolean
   actionTo?: string
+  /** Makes every row a link: the first column becomes the row's link, the whole row is clickable */
+  rowTo?: (item: any) => string
+  /** Muted text next to the first column, e.g. an id */
+  rowHint?: (item: any) => string | undefined
+  /** Noun used in the count, e.g. "experiment" → "12 experiments" */
+  itemName?: string
+  itemNamePlural?: string
+  /** Total before page-level filters, so the count reads "4 of 41" */
+  totalCount?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -37,6 +46,11 @@ const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   emptyMessage: 'No data available',
   searchable: false,
+  rowTo: undefined,
+  rowHint: undefined,
+  itemName: undefined,
+  itemNamePlural: undefined,
+  totalCount: undefined,
 })
 
 const emit = defineEmits<{
@@ -44,9 +58,16 @@ const emit = defineEmits<{
 }>()
 
 const UButton = resolveComponent('UButton')
+const UDropdownMenu = resolveComponent('UDropdownMenu')
+const NuxtLink = resolveComponent('NuxtLink')
+
+const slots = useSlots()
+// Every slot but the toolbar goes to UTable (custom cells, headers)
+const tableSlots = computed(() => Object.fromEntries(Object.entries(slots).filter(([name]) => name !== 'toolbar')))
 
 // State
 const searchQuery = ref('')
+const searchInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('searchInput')
 
 // Computed
 const filteredData = computed(() => {
@@ -57,22 +78,57 @@ const filteredData = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return props.data.filter((item) => {
     return props.columns.some((column) => {
-      const value = item[column.key]
+      const value = column.formatter ? column.formatter(item[column.key], item) : item[column.key]
       return String(value).toLowerCase().includes(query)
     })
   })
 })
 
+const countLabel = computed(() => {
+  if (!props.itemName)
+    return ''
+  const total = props.totalCount ?? props.data.length
+  const shown = filteredData.value.length
+  const noun = total === 1 ? props.itemName : (props.itemNamePlural ?? `${props.itemName}s`)
+  return shown === total ? `${total} ${noun}` : `${shown} of ${total} ${noun}`
+})
+
 const hasActions = computed(() => props.actions.length > 0)
+
+function renderValue(col: Column, value: any, row: any) {
+  return col.formatter ? col.formatter(value, row) : value
+}
+
+function menuItems(row: any): DropdownMenuItem[] {
+  return props.actions
+    .filter(action => action.show ? action.show(row) : true)
+    .map(action => ({
+      label: typeof action.label === 'function' ? action.label(row) : action.label,
+      icon: action.icon,
+      color: action.color === 'error' ? 'error' : undefined,
+      onSelect: () => action.handler(row),
+    }))
+}
 
 // Convert our column format to UTable format
 const tableColumns = computed<TableColumn<any>[]>(() => {
-  const cols: TableColumn<any>[] = props.columns.map(col => ({
+  const cols: TableColumn<any>[] = props.columns.map((col, index) => ({
     accessorKey: col.key,
     header: col.label,
     cell: ({ row }) => {
-      const value = row.getValue(col.key)
-      return col.formatter ? col.formatter(value, row.original) : value
+      const value = renderValue(col, row.getValue(col.key), row.original)
+      if (index !== 0 || !props.rowTo)
+        return value
+
+      // Stretched link: the ::after covers the row, so the whole row is one target
+      const hint = props.rowHint?.(row.original)
+      return h(NuxtLink, {
+        to: props.rowTo(row.original),
+        class: 'flex items-baseline gap-2 min-w-0 font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary',
+      }, () => [
+        h('span', { class: 'truncate' }, value),
+        hint ? h('span', { class: 'shrink-0 text-xs font-normal text-dimmed tabular-nums' }, hint) : null,
+      ])
     },
     meta: {
       class: {
@@ -81,33 +137,28 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     },
   }))
 
-  // Add actions column if we have actions
   if (hasActions.value) {
     cols.push({
       id: 'actions',
-      header: 'Actions',
+      header: () => h('span', { class: 'sr-only' }, 'Actions'),
       cell: ({ row }) => {
-        return h(
-          'div',
-          { class: 'flex items-center gap-2' },
-          props.actions
-            .filter(action => action.show ? action.show(row.original) : true)
-            .map(action =>
-              h(UButton, {
-                key: action.label,
-                variant: action.variant || 'ghost',
-                color: action.color || 'neutral',
-                size: action.size || 'sm',
-                icon: action.icon,
-                onClick: () => action.handler(row.original),
-              }, () => action.label),
-            ),
-        )
+        const items = menuItems(row.original)
+        if (!items.length)
+          return null
+        return h(UDropdownMenu, { items, content: { align: 'end' } }, () =>
+          h(UButton, {
+            'icon': 'i-lucide-ellipsis',
+            'color': 'neutral',
+            'variant': 'ghost',
+            'size': 'sm',
+            'class': 'relative z-1',
+            'aria-label': 'Row actions',
+          }))
       },
       meta: {
         class: {
-          th: 'w-32', // Fixed width for actions header
-          td: 'w-32', // Fixed width for actions cells
+          th: 'w-12',
+          td: 'w-12 text-right',
         },
       },
     })
@@ -116,6 +167,12 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
   return cols
 })
 
+if (props.searchable) {
+  defineShortcuts({
+    '/': () => searchInput.value?.inputRef?.focus(),
+  })
+}
+
 // Methods
 function handleRefresh() {
   emit('refresh')
@@ -123,47 +180,58 @@ function handleRefresh() {
 </script>
 
 <template>
-  <div class="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-    <!-- Table Header -->
-    <div v-if="title || searchable" class="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900">
-      <div class="flex justify-between items-center">
-        <div>
-          <h3 v-if="title" class="text-sm font-semibold text-neutral-700 dark:text-neutral-300 tracking-wide">
-            {{ title }}
-          </h3>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Search -->
-          <UInput
-            v-if="searchable"
-            v-model="searchQuery"
-            placeholder="Search..."
-            icon="i-lucide-search"
-            size="sm"
-            variant="ghost"
-            class="w-56"
-          />
-          <!-- Refresh Button -->
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-refresh-cw"
-            size="sm"
-            :loading="loading"
-            @click="handleRefresh"
-          />
-        </div>
-      </div>
+  <div class="rounded-lg border border-default overflow-hidden">
+    <!-- Toolbar -->
+    <div class="flex items-center gap-2 px-2 h-11 border-b border-default">
+      <UInput
+        v-if="searchable"
+        ref="searchInput"
+        v-model="searchQuery"
+        placeholder="Filter…"
+        icon="i-lucide-search"
+        size="sm"
+        variant="none"
+        aria-label="Filter rows"
+        class="flex-1 max-w-sm"
+        @keydown.esc="searchQuery = ''"
+      >
+        <template v-if="!searchQuery" #trailing>
+          <UKbd value="/" size="sm" />
+        </template>
+      </UInput>
+      <h3 v-else-if="title" class="px-2 text-sm font-medium text-highlighted">
+        {{ title }}
+      </h3>
+
+      <!-- Page-specific filters -->
+      <slot name="toolbar" />
+
+      <span v-if="countLabel" class="ms-auto text-xs text-muted tabular-nums">
+        {{ countLabel }}
+      </span>
+      <UTooltip text="Refresh">
+        <UButton
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-refresh-cw"
+          size="sm"
+          aria-label="Refresh"
+          :loading="loading"
+          :class="!countLabel && 'ms-auto'"
+          @click="handleRefresh"
+        />
+      </UTooltip>
     </div>
 
     <!-- Empty State -->
     <div v-if="!loading && filteredData.length === 0" class="p-6">
       <BaseEmptyState
-        :title="searchQuery ? 'No results found' : 'No data available'"
-        :message="searchQuery ? `No items match &quot;${searchQuery}&quot;` : emptyMessage"
+        :title="searchQuery ? 'No matching rows' : 'Nothing here yet'"
+        :message="searchQuery ? `Nothing matches “${searchQuery}”. Try another term or clear the filter.` : emptyMessage"
         :icon="searchQuery ? 'i-lucide-search-x' : 'i-lucide-folder-open'"
-        :action-label="undefined"
-        :action-to="props.actionTo"
+        :action-label="searchQuery ? 'Clear filter' : undefined"
+        action-icon="i-lucide-x"
+        @action="searchQuery = ''"
       />
     </div>
 
@@ -175,9 +243,15 @@ function handleRefresh() {
       :loading="loading"
       :empty="emptyMessage"
       class="min-w-full"
+      :ui="{
+        thead: 'bg-muted/60',
+        th: 'px-4 py-2 text-xs font-medium text-muted',
+        tr: rowTo ? 'relative hover:bg-elevated/50' : '',
+        td: 'px-4 py-2.5 text-sm text-toned',
+      }"
     >
       <!-- Forward all dynamic slots to UTable -->
-      <template v-for="(_, slotName) in $slots" :key="slotName" #[slotName]="slotProps">
+      <template v-for="(_, slotName) in tableSlots" :key="slotName" #[slotName]="slotProps">
         <slot :name="slotName" v-bind="slotProps" />
       </template>
     </UTable>

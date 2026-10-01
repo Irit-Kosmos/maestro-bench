@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const router = useRouter()
-const shortcutsOpen = ref(false)
+const shortcutsOpen = useShortcutsOverlay()
 
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
@@ -22,6 +22,9 @@ defineShortcuts({
   'g-e': () => {
     router.push('/experiments')
   },
+  'g-n': () => {
+    router.push('/analyses')
+  },
   'g-d': () => {
     router.push('/datasets')
   },
@@ -34,19 +37,19 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
+  // Create from anywhere: an analysis on analysis pages, an experiment otherwise
   'c': () => {
-    if (route.path.startsWith('/experiments')) {
-      router.push('/experiments/new')
-    }
+    router.push(route.path.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
   },
 })
 </script>
 
 <template>
-  <UDashboardGroup>
+  <!-- px + local storage: the sidebar keeps the width you dragged it to -->
+  <UDashboardGroup unit="px" storage="local" storage-key="maestro">
     <AppSidebar />
 
-    <UDashboardPanel id="main">
+    <UDashboardPanel id="main" :ui="{ body: 'p-4 sm:px-8 sm:py-6' }">
       <template #header>
         <AppTopBar />
       </template>

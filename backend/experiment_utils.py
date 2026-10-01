@@ -5,6 +5,7 @@ snapshots and results serialization.
 
 import json
 import logging
+import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -49,7 +50,9 @@ def apply_dataset_sampling(
         sampling_size = sampling_config.get("sampling_size")
         if sampling_size and sampling_size > 0:
             sample_size = min(sampling_size, len(df))
-            return df.sample(n=sample_size)
+            return df.sample(
+                n=sample_size, random_state=sampling_config.get("sampling_seed")
+            )
         return df
     elif sampling_type == "range":
         start_row = sampling_config.get("sampling_start_row")
@@ -84,6 +87,11 @@ def create_execution_snapshot(
                     "sampling_size": experiment.sampling_size,
                     "sampling_start_row": experiment.sampling_start_row,
                     "sampling_end_row": experiment.sampling_end_row,
+                    # Drawn per execution and recorded so the sample can be
+                    # reproduced and compared row by row with other runs
+                    "sampling_seed": secrets.randbelow(2**32)
+                    if experiment.sampling_type == "random"
+                    else None,
                 },
             }
         )

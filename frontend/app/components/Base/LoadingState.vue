@@ -5,28 +5,27 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  message: 'Loading...',
+  message: 'Loading…',
   size: 'md',
 })
 
 const sizeClasses = {
-  sm: 'w-6 h-6',
-  md: 'w-8 h-8',
-  lg: 'w-12 h-12',
+  sm: 'size-4',
+  md: 'size-5',
+  lg: 'size-6',
 }
 </script>
 
 <template>
-  <div class="flex justify-center items-center py-12">
-    <div class="text-center">
-      <UIcon
-        name="i-lucide:loader-2"
-        class="animate-spin text-primary-500 mx-auto mb-2"
-        :class="sizeClasses[size]"
-      />
-      <p class="text-neutral-500 text-sm">
-        {{ message }}
-      </p>
-    </div>
+  <div class="flex justify-center items-center gap-2 py-16" role="status">
+    <UIcon
+      name="i-lucide-loader-circle"
+      class="animate-spin text-muted"
+      :class="sizeClasses[size]"
+      aria-hidden="true"
+    />
+    <p class="text-sm text-muted">
+      {{ message }}
+    </p>
   </div>
 </template>

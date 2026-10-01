@@ -4,6 +4,48 @@
 @theme static {
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
   --font-display: 'Space Grotesk', system-ui, sans-serif;
+
+  /* Motion vocabulary: reuse these, never invent parallel curves */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+:root {
+  /* Shared by the sidebar header and the page navbar so both rows align */
+  --ui-header-height: 3.25rem;
+}
+
+/* Paint the canvas so overscroll never shows a different surface */
+html {
+  background-color: var(--ui-bg);
+}
+
+/* On phones, top-bar actions shrink to their icon so the breadcrumb keeps room; screen readers keep the label */
+@media (width < 40rem) {
+  #page-actions :is(button, a):has(> [data-slot="leadingIcon"]) {
+    font-size: 0;
+    gap: 0;
+  }
+}
+
+/*
+ * Entrance for content that swaps in place (e.g. stepper steps), so it doesn't teleport.
+ * Occasional, so it can afford 200ms; reduced motion keeps the fade and drops the movement.
+ */
+.enter-soft {
+  transition: opacity 200ms var(--ease-out), translate 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter-soft {
+    transition: opacity 150ms ease;
+    translate: none;
+  }
 }
 
 /* Headings use Space Grotesk */
@@ -15,4 +57,24 @@ h1, h2, h3, h4, h5, h6 {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-neutral-300) transparent;
+}
+
+/* Charts (Unovis). Single-series charts: one hue, recessive axes. */
+.viz-root {
+  --viz-series-1: #2a78d6;
+  --viz-text-secondary: #52514e;
+  --vis-font-family: var(--font-sans);
+  --vis-color-main: var(--viz-series-1);
+  --vis-axis-grid-color: #ecebe8;
+  --vis-axis-tick-color: #ecebe8;
+  --vis-axis-domain-color: #d8d7d3;
+  --vis-axis-tick-label-color: var(--viz-text-secondary);
+  --vis-axis-label-color: var(--viz-text-secondary);
+  /* Boxplot drawn as a confidence interval: whiskers only */
+  --vis-boxplot-fill-opacity: 0;
+  --vis-boxplot-stroke-width: 0;
+  --vis-boxplot-median-stroke-width: 0;
+  --vis-boxplot-whisker-stroke-color: #0b0b0b;
+  --vis-boxplot-whisker-stroke-width: 1.5px;
+  --vis-scatter-fill-opacity: 0.45;
 }

@@ -7,44 +7,37 @@ interface Props {
   actionTo?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  message: 'Something went wrong. Please try again.',
-  title: 'Error',
-  icon: 'i-lucide:alert-circle',
-  actionLabel: 'Go Back',
+withDefaults(defineProps<Props>(), {
+  message: 'Something went wrong. Check that the backend is running, then try again.',
+  title: 'Couldn’t load this page',
+  icon: 'i-lucide-circle-alert',
+  actionLabel: 'Back to dashboard',
   actionTo: '/',
 })
 
-const emit = defineEmits<{
-  action: []
-}>()
-
-function handleAction() {
-  if (props.actionTo) {
-    navigateTo(props.actionTo)
-  }
-  else {
-    emit('action')
-  }
+function retry() {
+  reloadNuxtApp()
 }
 </script>
 
 <template>
-  <div class="text-center py-12">
-    <UIcon :name="icon" class="w-12 h-12 text-red-500 mx-auto mb-4" />
-    <h3 class="text-lg font-medium text-neutral-900 mb-2">
+  <div class="flex flex-col items-center text-center py-16 px-4" role="alert">
+    <div class="flex items-center justify-center size-10 rounded-lg bg-error/10 mb-4">
+      <UIcon :name="icon" class="size-5 text-error" aria-hidden="true" />
+    </div>
+    <h3 class="text-sm font-semibold text-highlighted">
       {{ title }}
     </h3>
-    <p class="text-neutral-500 mb-4">
+    <p class="mt-1 max-w-sm text-sm text-muted text-pretty">
       {{ message }}
     </p>
-    <UButton
-      :to="actionTo"
-      variant="solid"
-      color="primary"
-      @click="handleAction"
-    >
-      {{ actionLabel }}
-    </UButton>
+    <div class="mt-5 flex items-center gap-2">
+      <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-rotate-cw" @click="retry">
+        Try again
+      </UButton>
+      <UButton :to="actionTo" color="neutral" variant="ghost" size="sm">
+        {{ actionLabel }}
+      </UButton>
+    </div>
   </div>
 </template>

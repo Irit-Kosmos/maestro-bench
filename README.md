@@ -26,6 +26,11 @@ engine is specific to education.
 - **Executions and traces** – every run stores a snapshot of the configuration
   actually used, per-agent messages/outputs, token counts, cost and latency,
   and produces a downloadable JSON results file.
+- **Analyses** – compare one or more executions to a ground-truth dataset column:
+  RMSE, MAE, bias, Pearson and Spearman correlations for numeric outputs;
+  accuracy, macro F1, Cohen's κ and quadratic weighted κ for labels. Every
+  metric comes with a bootstrap confidence interval and the share of rows that
+  could be used.
 
 ## Architecture
 
@@ -122,6 +127,40 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
    change.
 6. **Results** – open an experiment to inspect its executions and per-agent
    traces, or download the full JSON results file.
+7. **Analyses** – click **Analyze** on an experiment (or create one from the
+   Analyses page), pick the dataset column holding the ground truth and the
+   path to the prediction in the agent's JSON output (e.g. `score`), choose
+   numeric or categorical metrics, and add other executions to compare.
+   Analyses are saved as configurations and recomputed from the results files
+   each time they are opened. Rows that cannot be used (agent error, output not
+   JSON, path missing, invalid value, missing ground truth) are excluded and
+   reported, never counted as 0.
+
+   The same computation is available without saving through
+   `POST /analyses/compute`, for scripts and notebooks:
+
+   ```python
+   import httpx
+
+   result = httpx.post("http://localhost:8000/analyses/compute", json={
+       "config": {
+           "truth_column": "score_avg",
+           "output_path": "score",
+           "value_type": "numeric",
+           "metrics": ["rmse", "mae", "pearson", "spearman", "bias"],
+       },
+       "runs": [{"execution_id": 1, "agent_name": "Corrector"}],
+   }).json()
+   ```
+
+   New metrics are plain functions registered in `backend/analysis/metrics.py`.
+
+## Tests
+
+```bash
+cd backend
+uv run pytest
+```
 
 ## Configuration
 
@@ -130,6 +169,8 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 | Variable | Default | Description |
 |---|---|---|
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | – | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY` are also recognised. |
+| `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
+| `<PROVIDER>_MAX_RPS` | – | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
 | `DATABASE_URL` | `sqlite:///./app.db` | SQLAlchemy connection string. |
 | `DB_ECHO` | `false` | Log SQL statements. |

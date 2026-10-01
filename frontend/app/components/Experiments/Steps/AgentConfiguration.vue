@@ -1,61 +1,368 @@
 <script setup lang="ts">
-import type { AgentTeam, Model, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, AgentTeam, Model, PromptVersion } from '~/types'
 
-interface Props {
-  agentConfigurations: Record<number, any>
+// Agents of the experiment. The backend runs them one after another and returns the last one's output,
+// so the default view is an ordered list. The graph is kept for those who prefer to wire agents visually.
+const props = defineProps<{
   agentTeams?: AgentTeam[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   datasetHeaders?: readonly string[]
-}
+}>()
 
-interface Emits {
-  updateAgentConfig: [agentId: number, field: string, value: any]
-  removeAgentConfig: [agentId: number]
+const emit = defineEmits<{
   openPromptDetails: [promptVersionId: number]
-}
+}>()
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const configurations = defineModel<Record<number, AgentConfiguration>>('agentConfigurations', { required: true })
 
-// Get agent management data from props
-const agentTeams = computed(() => props.agentTeams || [])
-const models = computed(() => props.models || [])
-const allPromptVersions = computed(() => props.allPromptVersions || [])
+const toast = useToast()
 
-// Ref for the flow view component (exposed to parent for computeExecutionOrder)
-const flowViewRef = ref()
+const models = computed(() => props.models ?? [])
+const promptVersions = computed(() => props.allPromptVersions ?? [])
+const datasetHeaders = computed(() => props.datasetHeaders ?? [])
 
-// Expose flow view ref so parent can call computeExecutionOrder
-defineExpose({
-  flowViewRef,
+const pipeline = useAgentPipeline({
+  agentTeams: computed(() => props.agentTeams),
+  configurations,
+  promptVersions,
+  datasetHeaders,
+})
+const { items } = pipeline
+
+const view = ref<'list' | 'graph'>('list')
+const flowViewRef = ref<{ computeExecutionOrder: () => Map<number, number> } | null>(null)
+
+// One agent has nothing to order or wire: the graph is only offered from two
+watch(() => items.value.length, (count) => {
+  if (count < 2 && view.value === 'graph')
+    view.value = 'list'
 })
 
-function updateAgentConfig(agentId: number, field: string, value: any) {
-  emit('updateAgentConfig', agentId, field, value)
+// Run order for submission: the graph's topological order, or simply the list's
+function getExecutionOrder() {
+  if (view.value === 'graph' && flowViewRef.value)
+    return flowViewRef.value.computeExecutionOrder()
+  return new Map(items.value.map(item => [item.agent.id, item.position]))
 }
 
-function removeAgentConfig(agentId: number) {
-  emit('removeAgentConfig', agentId)
+defineExpose({ getExecutionOrder })
+
+// --- View switch ---
+
+function showView(next: 'list' | 'graph') {
+  if (next === view.value)
+    return
+  if (next === 'list' && flowViewRef.value) {
+    // The list has one order: connected agents keep theirs, unconnected ones follow the list
+    const order = flowViewRef.value.computeExecutionOrder()
+    const hasTies = new Set(order.values()).size < order.size
+    pipeline.applyOrder(order)
+    if (hasTies) {
+      toast.add({
+        title: 'Agents now run in list order',
+        description: 'Agents that were not connected to each other run one after another.',
+        icon: 'i-lucide-info',
+      })
+    }
+  }
+  view.value = next
 }
 
-function openPromptDetails(promptVersionId: number) {
-  emit('openPromptDetails', promptVersionId)
+// --- Adding agents ---
+
+const pickerItems = computed<any[]>(() => (props.agentTeams ?? []).flatMap((team) => {
+  const available = (team.agents ?? []).filter(agent => !pipeline.addedIds.value.has(agent.id))
+  if (available.length === 0)
+    return []
+  return [
+    { type: 'label' as const, label: team.name },
+    ...available.map(agent => ({ label: agent.name, value: agent.id })),
+  ]
+}))
+
+const hasAgents = computed(() => (props.agentTeams ?? []).some(team => (team.agents?.length ?? 0) > 0))
+const allAdded = computed(() => hasAgents.value && pickerItems.value.length === 0)
+
+const openIds = ref(new Set<number>())
+
+function setOpen(id: number, value: boolean) {
+  const next = new Set(openIds.value)
+  if (value)
+    next.add(id)
+  else
+    next.delete(id)
+  openIds.value = next
 }
+
+function addAgent(agent: Agent) {
+  pipeline.add(agent)
+  // A new agent is what the eyes are on: open it and fold the others. A lone agent is already a form.
+  openIds.value = new Set([agent.id])
+}
+
+// The menu is only a way to add: it never keeps a selection
+const picked = ref<number>()
+
+function addById(id: number | undefined) {
+  const agent = id === undefined ? undefined : pipeline.catalog.value.get(id)?.agent
+  if (agent)
+    addAgent(agent)
+  nextTick(() => {
+    picked.value = undefined
+  })
+}
+
+// The agents of a team, as the first-time choice
+const teamGroups = computed(() => (props.agentTeams ?? [])
+  .filter(team => (team.agents?.length ?? 0) > 0)
+  .map(team => ({ team, agents: team.agents })))
+
+function defaultSummary(agent: Agent) {
+  const version = promptVersions.value.find(v => v.id === agent.default_prompt_version_id)
+  const model = models.value.find(m => m.id === agent.default_model_id)
+  return [
+    version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null,
+    model?.name,
+  ].filter(Boolean).join(' · ')
+}
+
+// --- Reordering ---
+
+const listRef = ref<HTMLElement | null>(null)
+const announcement = ref('')
+
+async function move(agentId: number, delta: -1 | 1) {
+  if (!pipeline.move(agentId, delta))
+    return
+  const item = items.value.find(i => i.agent.id === agentId)
+  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
+  // Reordering re-inserts the row, which drops focus: put it back on the button that was used
+  await nextTick()
+  const buttons = [delta, -delta].map(d => listRef.value?.querySelector<HTMLButtonElement>(`[data-move="${agentId}:${d}"]`))
+  buttons.find(button => button && !button.disabled)?.focus()
+}
+
+function removeAgent(agent: Agent) {
+  const name = agent.name
+  pipeline.remove(agent.id)
+  announcement.value = `${name} removed`
+}
+
+// --- Keeping mappings in step with the dataset ---
+
+watch(datasetHeaders, () => {
+  // The graph owns the order while it is shown, so only fill in what it can't break
+  if (view.value === 'graph')
+    pipeline.autoMapAll()
+  else
+    pipeline.syncAll()
+}, { immediate: true })
+
+// Coming back to this step: open the agents that still need something
+onMounted(() => {
+  if (items.value.length > 1) {
+    openIds.value = new Set(items.value.filter(item => pipeline.issuesOf(item.agent.id).length > 0).map(item => item.agent.id))
+  }
+})
+
+// Graph events
+function onGraphUpdate(agentId: number, field: string) {
+  if (field === 'prompt_version_id' || field === 'reset')
+    nextTick(() => pipeline.autoMap(agentId))
+}
+
+const description = computed(() => {
+  if (items.value.length === 0)
+    return 'Choose the agent to run on each row. You can add more afterwards to chain them.'
+  if (items.value.length === 1)
+    return 'Set its prompt and model, and where each variable of the prompt gets its value.'
+  return view.value === 'list'
+    ? 'Agents run from top to bottom and can read the output of the ones above. The last agent\'s output is the result.'
+    : 'Connect agents to set the order they run in. The last one\'s output is the result.'
+})
+
+const problems = computed(() => items.value
+  .map(item => ({ item, issues: pipeline.issuesOf(item.agent.id) }))
+  .filter(entry => entry.issues.length > 0))
 </script>
 
 <template>
-  <div class="space-y-6">
-    <ExperimentsAgentFlowView
-      ref="flowViewRef"
-      :agent-teams="agentTeams"
-      :models="models"
-      :all-prompt-versions="allPromptVersions"
-      :agent-configurations="agentConfigurations"
-      :dataset-headers="datasetHeaders || []"
-      @update-agent-config="updateAgentConfig"
-      @remove-agent-config="removeAgentConfig"
-      @open-prompt-details="openPromptDetails"
-    />
-  </div>
+  <ExperimentsSection id="agents" title="Agents" :description="description">
+    <template v-if="items.length > 0" #actions>
+      <!-- Concentric radii: 8px outer, 2px padding, 6px inner -->
+      <div v-if="items.length > 1" role="group" aria-label="View" class="inline-flex rounded-lg border border-default p-0.5">
+        <UButton
+          size="xs"
+          :variant="view === 'list' ? 'soft' : 'ghost'"
+          :color="view === 'list' ? 'primary' : 'neutral'"
+          icon="i-lucide-list-ordered"
+          class="rounded-md"
+          :aria-pressed="view === 'list'"
+          @click="showView('list')"
+        >
+          List
+        </UButton>
+        <UButton
+          size="xs"
+          :variant="view === 'graph' ? 'soft' : 'ghost'"
+          :color="view === 'graph' ? 'primary' : 'neutral'"
+          icon="i-lucide-git-branch"
+          class="rounded-md"
+          :aria-pressed="view === 'graph'"
+          @click="showView('graph')"
+        >
+          Graph
+        </UButton>
+      </div>
+
+      <USelectMenu
+        v-if="view === 'list' && !allAdded"
+        v-model="picked"
+        value-key="value"
+        :items="pickerItems"
+        :ui="{ content: 'min-w-60' }"
+        icon="i-lucide-plus"
+        placeholder="Add an agent"
+        :search-input="{ placeholder: 'Search agents…' }"
+        class="w-48"
+        aria-label="Add an agent"
+        @update:model-value="(id) => addById(id as number | undefined)"
+      />
+    </template>
+
+    <!-- Nothing chosen yet -->
+    <div v-if="items.length === 0">
+      <div v-if="hasAgents" class="flex flex-col gap-4">
+        <div v-for="group in teamGroups" :key="group.team.id">
+          <h3 class="mb-1.5 text-xs font-medium text-muted">
+            {{ group.team.name }}
+          </h3>
+          <ul class="flex flex-col gap-2">
+            <li v-for="agent in group.agents" :key="agent.id">
+              <!-- Native button: a full-width row shouldn't inherit the press scale of UButton -->
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                @click="addAgent(agent)"
+              >
+                <UIcon name="i-lucide-bot" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
+                  <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
+                </span>
+                <span v-if="defaultSummary(agent)" class="hidden shrink-0 text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
+                <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <BaseEmptyState
+        v-else-if="agentTeams"
+        icon="i-lucide-bot"
+        title="No agents yet"
+        message="Create an agent first, then come back to create the experiment."
+        action-label="New agent"
+        action-to="/agents"
+      />
+
+      <BaseLoadingState v-else message="Loading agents…" />
+    </div>
+
+    <div v-else class="flex flex-col gap-4">
+      <!-- List view -->
+      <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
+        <!-- Only the move transition is defined: rows that are added or removed appear and leave instantly -->
+        <TransitionGroup
+          v-if="items.length > 1"
+          tag="div"
+          move-class="agent-row-move"
+          class="divide-y divide-default overflow-hidden rounded-lg border border-default"
+        >
+          <ExperimentsAgentListItem
+            v-for="item in items"
+            :key="item.agent.id"
+            :item="item"
+            :count="items.length"
+            :models="models"
+            :prompt-versions="promptVersions"
+            :dataset-headers="datasetHeaders"
+            :upstream-agents="pipeline.upstreamOf(item.agent.id)"
+            :issues="pipeline.issuesOf(item.agent.id)"
+            :open="openIds.has(item.agent.id)"
+            @update:open="(value: boolean) => setOpen(item.agent.id, value)"
+            @update="(field, value) => pipeline.update(item.agent.id, field, value)"
+            @set-mapping="mapping => pipeline.setMapping(item.agent.id, mapping)"
+            @open-prompt-details="id => emit('openPromptDetails', id)"
+            @move="delta => move(item.agent.id, delta)"
+            @remove="removeAgent(item.agent)"
+            @reset="pipeline.reset(item.agent.id)"
+          />
+        </TransitionGroup>
+
+        <div v-else>
+          <ExperimentsAgentListItem
+            v-for="item in items"
+            :key="item.agent.id"
+            :item="item"
+            :count="1"
+            :models="models"
+            :prompt-versions="promptVersions"
+            :dataset-headers="datasetHeaders"
+            :upstream-agents="[]"
+            :issues="pipeline.issuesOf(item.agent.id)"
+            @update="(field, value) => pipeline.update(item.agent.id, field, value)"
+            @set-mapping="mapping => pipeline.setMapping(item.agent.id, mapping)"
+            @open-prompt-details="id => emit('openPromptDetails', id)"
+            @remove="removeAgent(item.agent)"
+            @reset="pipeline.reset(item.agent.id)"
+          />
+        </div>
+
+        <!-- What still blocks "Create and start", in words -->
+        <ul v-if="problems.length > 0" class="flex flex-col gap-1 text-sm text-warning" aria-label="To fix before creating">
+          <li v-for="entry in problems" :key="entry.item.agent.id" class="flex items-start gap-1.5">
+            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>
+              <template v-if="items.length > 1">{{ entry.item.agent.name }}: </template>{{ entry.issues.join(' · ') }}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Graph view -->
+      <ExperimentsAgentFlowView
+        v-else
+        ref="flowViewRef"
+        :agent-teams="agentTeams"
+        :models="models"
+        :all-prompt-versions="promptVersions"
+        :agent-configurations="configurations"
+        :dataset-headers="datasetHeaders"
+        @update-agent-config="onGraphUpdate"
+        @remove-agent-config="id => pipeline.remove(id)"
+        @add-agent="id => nextTick(() => pipeline.autoMap(id))"
+        @open-prompt-details="id => emit('openPromptDetails', id)"
+      />
+
+      <p class="sr-only" role="status">
+        {{ announcement }}
+      </p>
+    </div>
+  </ExperimentsSection>
 </template>
+
+<style scoped>
+/* Reordering: the rows slide to their new place so you can follow the one you moved */
+.agent-row-move {
+  transition: transform 200ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-row-move {
+    transition: none;
+  }
+}
+</style>

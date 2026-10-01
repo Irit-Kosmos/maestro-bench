@@ -17,11 +17,11 @@ defineSlots<{
 </script>
 
 <template>
-  <div class="max-w-[350]">
-    <!-- Before Content Slot -->
-    <div v-if="$slots['before-content']" class="flex items-center justify-end gap-2 mb-4">
+  <div>
+    <!-- Page actions live in the top bar, next to the breadcrumb, like the rest of the shell -->
+    <AppPageActions v-if="$slots['before-content']">
       <slot name="before-content" />
-    </div>
+    </AppPageActions>
 
     <!-- Loading State -->
     <BaseLoadingState v-if="loading" />
