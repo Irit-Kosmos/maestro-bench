@@ -3,7 +3,7 @@
 
 @theme static {
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Geist', system-ui, sans-serif;
 
   /* Motion vocabulary: reuse these, never invent parallel curves */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -48,7 +48,7 @@ html {
   }
 }
 
-/* Headings use Space Grotesk */
+/* Headings use Geist */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
