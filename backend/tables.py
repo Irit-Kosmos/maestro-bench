@@ -250,3 +250,22 @@ class AgentExecutionSnapshot(SQLModel, table=True):
         back_populates="agent_snapshots"
     )
     agent: Agent | None = Relationship()
+
+
+class Analysis(SQLModel, table=True):
+    """
+    A saved comparison of executions against a ground-truth column.
+
+    Only the configuration is stored; metrics are recomputed from the
+    (immutable) results files each time the analysis is opened.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    description: str | None = None
+    config: str = Field(description="JSON analysis configuration")
+    runs: str = Field(
+        description="JSON list of {execution_id, agent_name, label} to compare"
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

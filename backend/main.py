@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api import (
     agent_teams,
     agents,
+    analyses,
     datasets,
     experiment_executions,
     experiments,
@@ -60,6 +61,7 @@ app.include_router(experiment_executions.router)
 app.include_router(prompts.router)
 app.include_router(models.router)
 app.include_router(providers.router)
+app.include_router(analyses.router)
 
 
 @app.get("/health")

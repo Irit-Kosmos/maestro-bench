@@ -36,6 +36,8 @@ class ExperimentExecutionResponse(BaseModel):
     status: str
     dataset_snapshot: str
     results_file_path: str | None
+    # Dataset rows processed; None until the results file exists
+    row_count: int | None = None
     agent_executions: list[AgentExecutionSnapshotResponse] = []
 
 

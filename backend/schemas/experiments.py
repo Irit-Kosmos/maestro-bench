@@ -64,6 +64,9 @@ class ExperimentResponse(BaseModel):
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
 
+    # Dataset rows processed by the latest execution that has results
+    row_count: int | None = None
+
 
 # Forward reference resolution
 ExperimentResponse.model_rebuild()

@@ -3,10 +3,11 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 import async_jobs
 from db import get_session
+from results_files import execution_row_count
 from schemas.experiments import (
     DatasetResponse,
     ExperimentAgentConfigResponse,
@@ -18,6 +19,7 @@ from tables import (
     Dataset,
     Experiment,
     ExperimentAgentConfig,
+    ExperimentExecution,
 )
 
 router = APIRouter(tags=["experiments"])
@@ -44,6 +46,15 @@ def _build_experiment_response(
             )
         ).all()
 
+    latest_with_results = session.exec(
+        select(ExperimentExecution)
+        .where(
+            ExperimentExecution.experiment_id == experiment.id,
+            col(ExperimentExecution.results_file_path).is_not(None),
+        )
+        .order_by(col(ExperimentExecution.started_at).desc())
+    ).first()
+
     return ExperimentResponse(
         id=int(experiment.id) if experiment.id is not None else 0,
         name=experiment.name,
@@ -56,6 +67,9 @@ def _build_experiment_response(
         sampling_size=experiment.sampling_size,
         sampling_start_row=experiment.sampling_start_row,
         sampling_end_row=experiment.sampling_end_row,
+        row_count=execution_row_count(latest_with_results)
+        if latest_with_results
+        else None,
         dataset=DatasetResponse(
             id=int(dataset.id) if dataset.id is not None else 0,
             name=dataset.name,
