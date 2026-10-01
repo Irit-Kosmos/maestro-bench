@@ -10,6 +10,7 @@ const labelMap: Record<string, { label: string, icon: string }> = {
   agents: { label: 'Agents', icon: 'i-lucide-bot' },
   prompts: { label: 'Prompts', icon: 'i-lucide-message-square-text' },
   models: { label: 'Models', icon: 'i-lucide-cpu' },
+  settings: { label: 'Settings', icon: 'i-lucide-settings' },
   new: { label: 'New', icon: 'i-lucide-plus' },
 }
 

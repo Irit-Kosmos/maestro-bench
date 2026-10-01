@@ -28,6 +28,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       { label: 'Agents', icon: 'i-lucide-bot', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
       { label: 'Prompts', icon: 'i-lucide-message-square-text', kbds: ['G', 'P'], onSelect: () => navigate('/prompts') },
       { label: 'Models', icon: 'i-lucide-cpu', kbds: ['G', 'M'], onSelect: () => navigate('/models') },
+      { label: 'Settings', icon: 'i-lucide-settings', kbds: ['G', 'S'], onSelect: () => navigate('/settings') },
     ],
   })
 

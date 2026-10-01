@@ -41,6 +41,9 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
+  'g-s': () => {
+    router.push('/settings')
+  },
   // Instant on purpose: a keyboard action should never wait on an animation
   't': toggleTheme,
   // Create from anywhere: an analysis on analysis pages, an experiment otherwise

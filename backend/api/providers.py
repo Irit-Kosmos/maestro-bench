@@ -11,8 +11,12 @@ router = APIRouter(tags=["providers"])
 
 @router.get("/providers")
 def list_providers():
-    """List supported providers and whether their API key is configured."""
+    """List supported providers, whether their API key is configured, and where it is set."""
     return [
-        {"provider": provider, "configured": check_provider_available(provider)}
-        for provider in SUPPORTED_PROVIDERS
+        {
+            "provider": provider,
+            "configured": check_provider_available(provider),
+            "api_key_env": spec["api_key_env"],
+        }
+        for provider, spec in SUPPORTED_PROVIDERS.items()
     ]

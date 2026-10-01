@@ -30,6 +30,7 @@ const sections: { label?: string, items: NavItem[] }[] = [
       { label: 'Agents', icon: 'i-lucide-bot', to: '/agents', kbds: ['G', 'A'] },
       { label: 'Prompts', icon: 'i-lucide-message-square-text', to: '/prompts', kbds: ['G', 'P'] },
       { label: 'Models', icon: 'i-lucide-cpu', to: '/models', kbds: ['G', 'M'] },
+      { label: 'Settings', icon: 'i-lucide-settings', to: '/settings', kbds: ['G', 'S'] },
     ],
   },
 ]

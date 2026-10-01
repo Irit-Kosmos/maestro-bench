@@ -72,3 +72,46 @@ export function parseApiDate(dateString: string): Date {
   const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString)
   return new Date(hasTimeZone ? dateString : `${dateString.replace(' ', 'T')}Z`)
 }
+
+// "$0.42", "$12.30", "<$0.01" for a run too cheap to show, "—" while unknown
+export function formatCost(usd: number | null | undefined): string {
+  if (usd === null || usd === undefined)
+    return '—'
+  if (usd > 0 && usd < 0.01)
+    return '<$0.01'
+  return `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// "842", "12.4k", "3.1M"
+export function formatTokens(tokens: number | null | undefined): string {
+  if (tokens === null || tokens === undefined)
+    return '—'
+  return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tokens)
+}
+
+// "42s", "2m 14s", "1h 05m": a run's length at a glance, never fractions of a second
+export function formatElapsed(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || seconds < 0)
+    return '—'
+  const total = Math.round(seconds)
+  if (total < 60)
+    return `${total}s`
+  const minutes = Math.floor(total / 60)
+  if (minutes < 60)
+    return `${minutes}m ${String(total % 60).padStart(2, '0')}s`
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  mistral: 'Mistral',
+  groq: 'Groq',
+  together: 'Together AI',
+  deepseek: 'DeepSeek',
+}
+
+// "together" -> "Together AI"; unknown providers get capitalized
+export function providerLabel(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1)
+}

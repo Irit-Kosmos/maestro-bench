@@ -151,6 +151,39 @@ export interface AgentExecutionSnapshot {
 export interface ProviderStatus {
   provider: string
   configured: boolean
+  /** Environment variable the backend reads the API key from */
+  api_key_env: string
+}
+
+// Dashboard: recent runs with what their latest execution produced, and the last days' activity
+export interface DashboardExperiment {
+  id: number
+  name: string
+  status: ExperimentStatus
+  created_at: string
+  batch_id: number | null
+  batch_name: string | null
+  dataset_name: string | null
+  /** Distinct models of the pipeline, in execution order */
+  models: string[]
+  row_count: number | null
+  duration_seconds: number | null
+  total_tokens: number | null
+  total_cost_usd: number | null
+}
+
+export interface DashboardActivity {
+  days: number
+  experiments: number
+  total_tokens: number
+  total_cost_usd: number
+  /** Experiments pending or running right now */
+  active: number
+}
+
+export interface Dashboard {
+  activity: DashboardActivity
+  recent_experiments: DashboardExperiment[]
 }
 
 export interface Agent {

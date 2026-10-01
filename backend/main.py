@@ -11,6 +11,7 @@ from api import (
     agents,
     analyses,
     batches,
+    dashboard,
     datasets,
     experiment_executions,
     experiments,
@@ -64,6 +65,7 @@ app.include_router(models.router)
 app.include_router(providers.router)
 app.include_router(analyses.router)
 app.include_router(batches.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")
