@@ -11,6 +11,7 @@ const config = computed(() => {
     case 'completed': return { icon: 'i-lucide-circle-check', class: 'text-success' }
     case 'running': return { icon: 'i-lucide-loader-circle', class: 'text-info motion-safe:animate-spin' }
     case 'failed': return { icon: 'i-lucide-circle-x', class: 'text-error' }
+    case 'partial': return { icon: 'i-lucide-circle-alert', class: 'text-warning' }
     default: return { icon: 'i-lucide-circle-dashed', class: 'text-warning' }
   }
 })

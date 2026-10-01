@@ -261,6 +261,17 @@ watch(() => route.params.id, () => {
     <div v-else-if="experiment" class="mx-auto flex max-w-5xl flex-col gap-8">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
+        <UTooltip text="Run this setup with other models, prompts or temperatures">
+          <UButton
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-split"
+            size="sm"
+            :to="{ path: '/experiments/new', query: { from: experiment.id } }"
+          >
+            Vary…
+          </UButton>
+        </UTooltip>
         <UTooltip text="Create a new execution with the same configuration">
           <UButton
             variant="outline"
@@ -305,6 +316,12 @@ watch(() => route.params.id, () => {
         </div>
         <p class="mt-0.5 text-sm text-muted tabular-nums">
           Experiment #{{ experiment.id }} · Created {{ formatDate(experiment.created_at) }}
+        </p>
+        <p v-if="experiment.batch_id" class="mt-1 text-sm text-muted">
+          Part of batch
+          <NuxtLink :to="`/batches/${experiment.batch_id}`" class="text-toned underline-offset-2 hover:underline">
+            {{ experiment.batch_name }}
+          </NuxtLink>
         </p>
         <p v-if="experiment.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ experiment.description }}

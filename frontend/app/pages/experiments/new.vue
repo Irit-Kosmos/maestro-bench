@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AgentTeam, Dataset, Model, PromptVersion } from '~/types'
+import type { AgentTeam, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
 
 // Fetch data directly in the page
 const { data: agentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
@@ -33,6 +33,60 @@ const {
 
 const isSubmitting = ref(false)
 
+// --- Starting from an existing experiment: ?from=<id> copies its setup ---
+
+const route = useRoute()
+const fromId = Number(route.query.from)
+const sourceId = Number.isFinite(fromId) && fromId > 0 ? fromId : null
+const { data: sourceExperiment } = sourceId
+  ? await useMyLazyFetch<Experiment>(`/experiments/${sourceId}`)
+  : { data: ref<Experiment | null>(null) }
+
+// --- Variations: more than none makes it a batch ---
+
+// A batch is an experiment with at least one variation. The current setup is one of its runs,
+// except when it was copied from an experiment that is still unchanged: that one already exists.
+const variationDrafts = ref<VariationDraft[]>([])
+const batchMode = computed(() => variationDrafts.value.length > 0)
+const variations = computed(() => resolveVariations(variationDrafts.value, agentConfigurations.value))
+const skipBase = computed(() => batchMode.value && !!sourceExperiment.value
+  && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value) === experimentSignature(sourceExperiment.value))
+const experimentCount = computed(() => variationCount(variations.value, skipBase.value))
+const variationsValid = computed(() =>
+  !batchMode.value
+  || (variationDrafts.value.every(draft => draft.extras.length > 0)
+    && variationIssues(variationDrafts.value).length === 0
+    && experimentCount.value > 0),
+)
+const showConfirmBatch = ref(false)
+
+const sourceCopied = ref(false)
+watch([sourceExperiment, agentTeams], ([source, teams]) => {
+  if (sourceCopied.value || !source || !teams)
+    return
+  sourceCopied.value = true
+
+  experimentDetails.value.name = source.batch_name || source.name
+  selectedDataset.value = source.dataset_id
+  samplingConfig.value = {
+    sampling_type: source.sampling_type || 'all',
+    sampling_size: source.sampling_size ?? undefined,
+    sampling_start_row: source.sampling_start_row ?? undefined,
+    sampling_end_row: source.sampling_end_row ?? undefined,
+  }
+  agentConfigurations.value = Object.fromEntries((source.experiment_configs ?? [])
+    .filter(config => config.is_active)
+    .map(config => [config.agent_id, {
+      prompt_version_id: config.prompt_version_id ?? undefined,
+      model_id: config.model_id ?? undefined,
+      temperature: config.temperature ?? undefined,
+      max_tokens: config.max_tokens ?? undefined,
+      is_active: true,
+      execution_order: config.execution_order,
+      input_mappings: config.input_mappings ?? [],
+    }]))
+}, { immediate: true })
+
 // Ref for the agent configuration section (to read the run order)
 const agentConfigRef = ref()
 
@@ -46,7 +100,7 @@ watch(selectedDataset, async (newDatasetId) => {
   if (newDatasetId) {
     await loadPreview(newDatasetId)
   }
-})
+}, { immediate: true })
 
 // Page meta
 useSeoMeta({
@@ -81,7 +135,7 @@ const summaryRows = computed(() => {
   return [
     {
       id: 'details' as const,
-      label: 'Name',
+      label: batchMode.value ? 'Batch name' : 'Name',
       value: experimentDetails.value.name.trim() || 'Required',
       done: detailsValid.value,
     },
@@ -103,6 +157,17 @@ const summaryRows = computed(() => {
       done: agentsValid.value,
       attention: agents.length > 0 && !agentsValid.value,
     },
+    {
+      id: 'variations' as const,
+      label: 'Variations',
+      value: !batchMode.value
+        ? 'None, runs a single experiment'
+        : experimentCount.value > 0
+          ? `${experimentCount.value} ${experimentCount.value === 1 ? 'experiment' : 'experiments'}`
+          : 'Add a value to each variation',
+      done: variationsValid.value,
+      attention: batchMode.value && !variationsValid.value,
+    },
   ]
 })
 
@@ -119,7 +184,7 @@ function scrollParentOf(el: HTMLElement) {
   return null
 }
 
-function jumpTo(id: 'details' | 'dataset' | 'agents') {
+function jumpTo(id: 'details' | 'dataset' | 'agents' | 'variations') {
   const section = document.getElementById(id)
   const scroller = section && scrollParentOf(section)
   if (section && scroller) {
@@ -133,8 +198,21 @@ function jumpTo(id: 'details' | 'dataset' | 'agents') {
 
 // --- Handlers ---
 
-async function handleSubmit() {
-  if (!formValid.value || isSubmitting.value)
+const canSubmit = computed(() => formValid.value && variationsValid.value)
+
+// A large batch is a lot of paid runs at once: ask first
+function handleSubmit() {
+  if (!canSubmit.value || isSubmitting.value)
+    return
+  if (batchMode.value && experimentCount.value > BATCH_CONFIRM_THRESHOLD)
+    showConfirmBatch.value = true
+  else
+    submit()
+}
+
+async function submit() {
+  showConfirmBatch.value = false
+  if (!canSubmit.value || isSubmitting.value)
     return
 
   isSubmitting.value = true
@@ -147,7 +225,20 @@ async function handleSubmit() {
       executionOrder,
     })
 
-    await submission.handleSubmit(experimentData)
+    if (batchMode.value) {
+      const { name, description, ...config } = experimentData
+      await submission.handleBatchSubmit({
+        name,
+        description,
+        base_experiment_id: sourceId ?? undefined,
+        config,
+        variations: variations.value,
+        skip_base_point: skipBase.value,
+      }, experimentCount.value)
+    }
+    else {
+      await submission.handleSubmit(experimentData)
+    }
   }
   finally {
     isSubmitting.value = false
@@ -163,7 +254,7 @@ defineShortcuts({
   meta_enter: {
     usingInput: true,
     handler: () => {
-      if (formValid.value)
+      if (canSubmit.value)
         handleSubmit()
       else if (firstIncomplete.value)
         jumpTo(firstIncomplete.value)
@@ -177,10 +268,19 @@ defineShortcuts({
     <div class="mx-auto max-w-6xl pb-6">
       <div class="mb-8">
         <h1 class="text-xl font-semibold text-highlighted">
-          New experiment
+          {{ batchMode ? 'New batch' : 'New experiment' }}
         </h1>
         <p class="text-sm text-muted mt-0.5">
-          Name it, pick a dataset, then choose the agents to run.
+          <template v-if="sourceExperiment">
+            Copied from
+            <NuxtLink :to="`/experiments/${sourceExperiment.id}`" class="text-toned underline-offset-2 hover:underline">
+              {{ sourceExperiment.name }}
+            </NuxtLink>.
+            Add a variation to run it with other models, prompts or temperatures.
+          </template>
+          <template v-else>
+            Name it, pick a dataset, then choose the agents to run.
+          </template>
         </p>
       </div>
 
@@ -189,6 +289,7 @@ defineShortcuts({
           <ExperimentsSection id="details" title="Details">
             <ExperimentsStepsExperimentDetails
               :experiment-details="experimentDetails"
+              :batch="batchMode"
               @update:name="(value) => experimentDetails.name = value"
               @update:description="(value) => experimentDetails.description = value"
             />
@@ -220,11 +321,21 @@ defineShortcuts({
             :dataset-headers="datasetHeaders"
             @open-prompt-details="openPromptDetails"
           />
+
+          <ExperimentsStepsVariations
+            v-model:variations="variationDrafts"
+            :items="pipeline.items.value"
+            :models="models"
+            :prompt-versions="allPromptVersions"
+            :count="experimentCount"
+            :skipped-origin="skipBase ? sourceExperiment?.name : null"
+          />
         </div>
 
         <ExperimentsSummary
           :rows="summaryRows"
-          :can-submit="formValid"
+          :can-submit="canSubmit"
+          :submit-label="batchMode ? (experimentCount > 0 ? `Start ${experimentCount} ${experimentCount === 1 ? 'experiment' : 'experiments'}` : 'Start batch') : 'Create and start'"
           :submitting="isSubmitting"
           @jump="jumpTo"
           @submit="handleSubmit"
@@ -232,6 +343,25 @@ defineShortcuts({
         />
       </div>
     </div>
+
+    <UModal v-model:open="showConfirmBatch" title="Start this batch?">
+      <template #body>
+        <p class="text-sm text-toned text-pretty">
+          This starts <span class="font-medium tabular-nums">{{ experimentCount }}</span> experiments at once, each one running the whole sample.
+          Check the number of rows and the models first: it can be a lot of API calls.
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton variant="outline" color="neutral" @click="() => { showConfirmBatch = false }">
+            Not yet
+          </UButton>
+          <UButton :loading="isSubmitting" @click="submit">
+            Start {{ experimentCount }} experiments
+          </UButton>
+        </div>
+      </template>
+    </UModal>
 
     <!-- Prompt Details Modal -->
     <ExperimentsPromptDetailsModal

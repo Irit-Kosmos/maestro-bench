@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Experiment } from '~/types'
+import type { Batch, Experiment } from '~/types'
 
 // Page meta
 definePageMeta({
@@ -12,8 +12,26 @@ const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[
 
 // Quick test runs (a handful of rows) crowd the list; hide them on demand, remembered per browser
 const hideSmallRuns = useCookie<boolean>('experiments-hide-small-runs', { default: () => false })
+const route = useRoute()
+const { data: batches } = await useMyLazyFetch<Batch[]>('/batches')
+
+// ?batch=<id> narrows the list to one batch's experiments
+const ALL_BATCHES = 0
+const batchFilter = computed({
+  get: () => Number(route.query.batch) || ALL_BATCHES,
+  set: (id: number) => navigateTo({ path: '/experiments', query: id === ALL_BATCHES ? {} : { batch: id } }, { replace: true }),
+})
+const batchItems = computed(() => [
+  { label: 'All experiments', value: ALL_BATCHES },
+  ...(batches.value ?? []).map(batch => ({ label: batch.name, value: batch.id })),
+])
+
+// Looking at one batch means looking at all of it, so small runs are only hidden in the full list
 const visibleExperiments = computed(() =>
-  (experiments.value ?? []).filter(exp => !hideSmallRuns.value || !isSmallSample(exp.row_count)),
+  (experiments.value ?? []).filter(exp => batchFilter.value === ALL_BATCHES
+    ? !hideSmallRuns.value || !isSmallSample(exp.row_count)
+    : exp.batch_id === batchFilter.value,
+  ),
 )
 
 // Composables
@@ -39,6 +57,11 @@ const columns = [
     key: 'dataset',
     label: 'Dataset',
     formatter: (_: any, row: Experiment) => row.dataset?.name || 'Unknown',
+  },
+  {
+    key: 'batch_name',
+    label: 'Batch',
+    formatter: (_: any, row: Experiment) => row.batch_name || '',
   },
   {
     key: 'row_count',
@@ -154,6 +177,19 @@ async function handleCreateExperiment() {
         @refresh="refresh"
       >
         <template #toolbar>
+          <USelectMenu
+            v-if="batchItems.length > 1"
+            v-model="batchFilter"
+            value-key="value"
+            :items="batchItems"
+            :search-input="{ placeholder: 'Search batches…' }"
+            icon="i-lucide-split"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            class="w-44"
+            aria-label="Filter by batch"
+          />
           <USwitch
             v-model="hideSmallRuns"
             size="sm"
@@ -165,6 +201,20 @@ async function handleCreateExperiment() {
         <!-- Custom cell for status -->
         <template #status-cell="{ row }">
           <UIStatusBadge :status="row.original.status" />
+        </template>
+
+        <template #batch_name-cell="{ row }">
+          <!-- Above the row's stretched link, so it opens the batch instead of the experiment -->
+          <NuxtLink
+            v-if="row.original.batch_id"
+            :to="`/batches/${row.original.batch_id}`"
+            class="relative z-1 inline-flex max-w-48 items-center gap-1 rounded text-sm text-toned outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary"
+            :title="`Open batch ${row.original.batch_name}`"
+          >
+            <UIcon name="i-lucide-split" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+            <span class="truncate">{{ row.original.batch_name }}</span>
+          </NuxtLink>
+          <span v-else class="text-dimmed">—</span>
         </template>
 
         <template #row_count-cell="{ row }">

@@ -22,6 +22,9 @@ defineShortcuts({
   'g-e': () => {
     router.push('/experiments')
   },
+  'g-b': () => {
+    router.push('/batches')
+  },
   'g-n': () => {
     router.push('/analyses')
   },

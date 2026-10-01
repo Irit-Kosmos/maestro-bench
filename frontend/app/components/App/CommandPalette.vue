@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { CommandPaletteGroup } from '@nuxt/ui'
-import type { Dataset, Experiment, Prompt } from '~/types'
+import type { Batch, Dataset, Experiment, Prompt } from '~/types'
 
 const { data: experiments } = await useMyLazyFetch<Experiment[]>('/experiments')
+const { data: batches } = await useMyLazyFetch<Batch[]>('/batches')
 const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { data: prompts } = await useMyLazyFetch<Prompt[]>('/prompts')
 
@@ -21,6 +22,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     items: [
       { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', kbds: ['G', 'H'], onSelect: () => navigate('/') },
       { label: 'Experiments', icon: 'i-lucide-flask-conical', kbds: ['G', 'E'], onSelect: () => navigate('/experiments') },
+      { label: 'Batches', icon: 'i-lucide-split', kbds: ['G', 'B'], onSelect: () => navigate('/batches') },
       { label: 'Analyses', icon: 'i-lucide-chart-column', kbds: ['G', 'N'], onSelect: () => navigate('/analyses') },
       { label: 'Datasets', icon: 'i-lucide-database', kbds: ['G', 'D'], onSelect: () => navigate('/datasets') },
       { label: 'Agents', icon: 'i-lucide-bot', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
@@ -47,6 +49,19 @@ const groups = computed<CommandPaletteGroup[]>(() => {
         icon: 'i-lucide-flask-conical',
         suffix: exp.description || undefined,
         onSelect: () => navigate(`/experiments/${exp.id}`),
+      })),
+    })
+  }
+
+  if (batches.value?.length) {
+    items.push({
+      id: 'batches',
+      label: 'Batches',
+      items: batches.value.slice(0, 20).map(batch => ({
+        label: batch.name,
+        icon: 'i-lucide-split',
+        suffix: `${batch.experiments.length} experiments`,
+        onSelect: () => navigate(`/batches/${batch.id}`),
       })),
     })
   }

@@ -14,9 +14,11 @@ from sqlmodel import Session, select
 
 from core.orchestrator import AgentConfig, PipelineResult
 from dataset_utils import validate_dataset_file
+from schemas.experiments import ExperimentCreate
 from tables import (
     Agent,
     AgentExecutionSnapshot,
+    Batch,
     Dataset,
     Experiment,
     ExperimentAgentConfig,
@@ -66,6 +68,104 @@ def apply_dataset_sampling(
         return df
 
 
+def add_experiment(
+    session: Session,
+    exp_data: ExperimentCreate,
+    *,
+    name: str | None = None,
+    agent_overrides: dict[int, dict] | None = None,
+    batch_id: int | None = None,
+    variant: str | None = None,
+) -> Experiment:
+    """Add an experiment and its agent configurations to the session.
+
+    Flushes but does not commit, so that a caller creating several experiments
+    can make them all-or-nothing. ``agent_overrides`` replaces fields of the
+    submitted configuration of an agent (how a batch varies its experiments).
+    """
+    experiment = Experiment(
+        name=name or exp_data.name,
+        description=exp_data.description,
+        dataset_id=exp_data.dataset_id,
+        sampling_type=exp_data.sampling_type,
+        sampling_size=exp_data.sampling_size,
+        sampling_start_row=exp_data.sampling_start_row,
+        sampling_end_row=exp_data.sampling_end_row,
+        batch_id=batch_id,
+        variant=variant,
+    )
+    session.add(experiment)
+    session.flush()
+    experiment_id = int(experiment.id) if experiment.id is not None else 0
+
+    # Create individual agent configurations for explicitly configured active agents
+    default_execution_order = 1
+    if exp_data.agent_teams and exp_data.agent_configurations:
+        for team_id_str in exp_data.agent_teams:
+            team_id = int(team_id_str)
+            agents = session.exec(select(Agent).where(Agent.team_id == team_id)).all()
+
+            for agent in agents:
+                agent_config = exp_data.agent_configurations.get(str(agent.id))
+                if not agent_config:
+                    continue
+                if agent_overrides and agent.id in agent_overrides:
+                    agent_config = {**agent_config, **agent_overrides[agent.id]}
+
+                if not agent_config.get("is_active", True):
+                    logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
+                    continue
+
+                prompt_version_id = (
+                    agent_config.get("prompt_version_id")
+                    or agent.default_prompt_version_id
+                )
+                if not prompt_version_id:
+                    logger.warning(
+                        "Agent %s (%s) has no prompt version, skipping",
+                        agent.id,
+                        agent.name,
+                    )
+                    continue
+
+                model_id = agent_config.get("model_id") or agent.default_model_id
+                if not model_id:
+                    logger.warning(
+                        "Agent %s (%s) has no model, skipping", agent.id, agent.name
+                    )
+                    continue
+
+                # Use frontend-provided execution_order if available, otherwise auto-increment
+                execution_order = agent_config.get(
+                    "execution_order", default_execution_order
+                )
+                if "execution_order" not in agent_config:
+                    default_execution_order += 1
+
+                # Persist per-agent input mappings if provided
+                input_mappings = agent_config.get("input_mappings")
+                input_mappings_json = (
+                    json.dumps(input_mappings) if input_mappings else None
+                )
+
+                session.add(
+                    ExperimentAgentConfig(
+                        experiment_id=experiment_id,
+                        agent_id=int(agent.id) if agent.id is not None else 0,
+                        prompt_version_id=prompt_version_id,
+                        model_id=model_id,
+                        temperature=agent_config.get("temperature"),
+                        max_tokens=agent_config.get("max_tokens"),
+                        execution_order=execution_order,
+                        is_active=True,
+                        input_mappings=input_mappings_json,
+                    )
+                )
+
+    session.flush()
+    return experiment
+
+
 def create_execution_snapshot(
     experiment_id: int, session: Session
 ) -> ExperimentExecution:
@@ -75,6 +175,18 @@ def create_execution_snapshot(
         raise ValueError(f"Experiment {experiment_id} not found")
 
     dataset = session.get(Dataset, experiment.dataset_id)
+
+    # Drawn per execution and recorded so the sample can be reproduced and compared
+    # row by row with other runs. The experiments of a batch share the batch's seed,
+    # so that they are all compared on the same rows.
+    sampling_seed = None
+    if experiment.sampling_type == "random":
+        batch = session.get(Batch, experiment.batch_id) if experiment.batch_id else None
+        sampling_seed = (
+            batch.sampling_seed
+            if batch is not None and batch.sampling_seed is not None
+            else secrets.randbelow(2**32)
+        )
     dataset_snapshot = (
         json.dumps(
             {
@@ -87,11 +199,7 @@ def create_execution_snapshot(
                     "sampling_size": experiment.sampling_size,
                     "sampling_start_row": experiment.sampling_start_row,
                     "sampling_end_row": experiment.sampling_end_row,
-                    # Drawn per execution and recorded so the sample can be
-                    # reproduced and compared row by row with other runs
-                    "sampling_seed": secrets.randbelow(2**32)
-                    if experiment.sampling_type == "random"
-                    else None,
+                    "sampling_seed": sampling_seed,
                 },
             }
         )
@@ -143,9 +251,10 @@ def create_execution_snapshot(
             final_system_prompt=prompt_version.system_prompt,
             final_user_prompt=prompt_version.user_prompt,
             final_variables=prompt_version.variables,
+            # An explicit 0 is a real choice, not "use the model's default"
             final_temperature=agent_config.temperature
-            or model.default_temperature
-            or 0.0,
+            if agent_config.temperature is not None
+            else (model.default_temperature or 0.0),
             final_max_tokens=agent_config.max_tokens or model.default_max_tokens,
             final_input_mappings=agent_config.input_mappings,
             execution_order=agent_config.execution_order,
