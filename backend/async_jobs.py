@@ -244,12 +244,14 @@ class _ExperimentProcessor:
         chunk_number: int,
     ) -> list[PipelineResult]:
         """Process a chunk of rows concurrently via the orchestrator."""
+        # The DataFrame index is the row's position in the dataset file
+        dataset_row_ids = [int(label) for label in chunk_df.index]
         tasks = []
         for idx, (_, row) in enumerate(chunk_df.iterrows()):
             row_index = idx + ((chunk_number - 1) * self.chunk_size) + 1
             tasks.append(
                 self._run_pipeline_with_semaphore(
-                    agent_configs, row.to_dict(), row_index
+                    agent_configs, row.to_dict(), row_index, dataset_row_ids[idx]
                 )
             )
 
@@ -264,6 +266,7 @@ class _ExperimentProcessor:
                     PipelineResult(
                         row_index=row_index,
                         input_data={},
+                        dataset_row_id=dataset_row_ids[i],
                         error=str(result),
                     )
                 )
@@ -277,10 +280,11 @@ class _ExperimentProcessor:
         agent_configs: list[AgentConfig],
         row: dict,
         row_index: int,
+        dataset_row_id: int,
     ) -> PipelineResult:
         """Run the orchestrator pipeline with concurrency limiting."""
         async with self.semaphore:
-            return await run_pipeline(agent_configs, row, row_index)
+            return await run_pipeline(agent_configs, row, row_index, dataset_row_id)
 
     # ------------------------------------------------------------------
     # CSV reading helpers
@@ -303,6 +307,8 @@ class _ExperimentProcessor:
             skiprows=skiprows,
             nrows=nrows,
         ):
+            # Skipped rows restart the index at 0; shift it back to file positions
+            chunk.index = chunk.index + start_row
             yield chunk
 
     async def _dataframe_to_chunks(
