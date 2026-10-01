@@ -169,6 +169,8 @@ uv run pytest
 | Variable | Default | Description |
 |---|---|---|
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | – | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY` are also recognised. |
+| `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
+| `<PROVIDER>_MAX_RPS` | – | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
 | `DATABASE_URL` | `sqlite:///./app.db` | SQLAlchemy connection string. |
 | `DB_ECHO` | `false` | Log SQL statements. |
