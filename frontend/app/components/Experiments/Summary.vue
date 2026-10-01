@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // What the experiment will be, and what is still missing. Each row jumps to its section.
 interface Row {
-  id: 'details' | 'dataset' | 'agents'
+  id: 'details' | 'dataset' | 'agents' | 'variations'
   label: string
   /** What is set, or what is missing */
   value: string
@@ -10,11 +10,15 @@ interface Row {
   attention?: boolean
 }
 
-defineProps<{
+withDefaults(defineProps<{
   rows: Row[]
   canSubmit: boolean
   submitting: boolean
-}>()
+  /** What the button says: "Create and start" for one experiment, more for a batch */
+  submitLabel?: string
+}>(), {
+  submitLabel: 'Create and start',
+})
 
 const emit = defineEmits<{
   jump: [id: Row['id']]
@@ -56,7 +60,7 @@ const emit = defineEmits<{
     </ul>
 
     <div class="flex flex-col gap-2 p-4">
-      <UTooltip :text="canSubmit ? 'Create and start' : 'Complete the sections above first'" :kbds="canSubmit ? ['meta', 'enter'] : undefined">
+      <UTooltip :text="canSubmit ? submitLabel : 'Complete the sections above first'" :kbds="canSubmit ? ['meta', 'enter'] : undefined">
         <UButton
           block
           icon="i-lucide-play"
@@ -65,7 +69,7 @@ const emit = defineEmits<{
           aria-keyshortcuts="Meta+Enter Control+Enter"
           @click="emit('submit')"
         >
-          Create and start
+          {{ submitLabel }}
         </UButton>
       </UTooltip>
       <UButton block color="neutral" variant="ghost" @click="emit('cancel')">

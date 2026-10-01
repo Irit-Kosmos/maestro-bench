@@ -17,18 +17,11 @@ interface Point {
   row: number | null
 }
 
-// Deterministic jitter so overlapping integer scores stay visible and the
-// cloud does not move on re-render
-function jitter(i: number, salt: number): number {
-  const s = Math.sin((i + 1) * 12.9898 + salt * 78.233) * 43758.5453
-  return (s - Math.floor(s) - 0.5) * 0.24
-}
-
-const points = computed<Point[]>(() => (props.run.points ?? []).map((p, i) => ({
+const points = computed<Point[]>(() => (props.run.points ?? []).map(p => ({
   truth: p.truth,
   pred: p.pred,
-  x: p.truth + jitter(i, 1),
-  y: p.pred + jitter(i, 2),
+  x: p.truth,
+  y: p.pred,
   row: p.row_index,
 })))
 

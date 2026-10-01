@@ -19,6 +19,7 @@ const sections: { label?: string, items: NavItem[] }[] = [
     items: [
       { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/', kbds: ['G', 'H'] },
       { label: 'Experiments', icon: 'i-lucide-flask-conical', to: '/experiments', kbds: ['G', 'E'] },
+      { label: 'Batches', icon: 'i-lucide-split', to: '/batches', kbds: ['G', 'B'] },
       { label: 'Analyses', icon: 'i-lucide-chart-column', to: '/analyses', kbds: ['G', 'N'] },
       { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', kbds: ['G', 'D'] },
     ],

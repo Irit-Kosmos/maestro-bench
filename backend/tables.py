@@ -105,6 +105,28 @@ class Dataset(SQLModel, table=True):
     experiments: list["Experiment"] = Relationship(back_populates="dataset")
 
 
+class Batch(SQLModel, table=True):
+    """A group of experiments generated from one base configuration.
+
+    The experiments of a batch are ordinary, independent experiments: the batch
+    only records how they were generated and keeps them together.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    description: str | None = None
+    # Experiment the batch was derived from. Not part of the batch itself.
+    base_experiment_id: int | None = Field(default=None, foreign_key="experiment.id")
+    variations: str = Field(
+        default="[]",
+        description="JSON list of {agent_id, field, values} axes (cartesian product)",
+    )
+    # Seed of the random sample, shared by the batch's experiments so that they
+    # all run on the same dataset rows
+    sampling_seed: int | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class Experiment(SQLModel, table=True):
     """An experiment configuration using a dataset and agent teams"""
 
@@ -115,6 +137,11 @@ class Experiment(SQLModel, table=True):
     status: str = Field(default="pending")  # pending, running, completed, failed
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
+
+    # Batch membership: the experiment's coordinates in the batch's grid, as
+    # {"<agent_id>": {"<field>": value}}
+    batch_id: int | None = Field(default=None, foreign_key="batch.id", index=True)
+    variant: str | None = None
 
     # Dataset sampling configuration
     sampling_type: str | None = Field(

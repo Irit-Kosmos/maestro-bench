@@ -11,6 +11,7 @@ export function useUIHelpers() {
       running: 'info' as const,
       completed: 'success' as const,
       failed: 'error' as const,
+      partial: 'warning' as const,
     }
     return colors[status] || 'neutral'
   }

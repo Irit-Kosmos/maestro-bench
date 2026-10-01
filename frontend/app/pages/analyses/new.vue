@@ -13,15 +13,22 @@ const { createAnalysis, computeAnalysis } = useAnalyses()
 const { showCreateSuccess, showCreateError } = useStandardToast()
 const toast = useToast()
 
-// ?execution=<id>&name=<experiment name> pre-fills from an experiment page
+// ?execution=<id>&name=<experiment name> pre-fills from an experiment page,
+// ?executions=<id>,<id>&name=<batch name> from a batch
 const executionId = Number(route.query.execution)
+const executionIds = String(route.query.executions ?? '')
+  .split(',')
+  .map(Number)
+  .filter(id => Number.isInteger(id) && id > 0)
 const form = ref<AnalysisForm>({
   name: route.query.name ? `${route.query.name} analysis` : '',
   description: null,
   config: structuredClone(DEFAULT_ANALYSIS_CONFIG),
-  runs: Number.isFinite(executionId) && executionId > 0
-    ? [{ execution_id: executionId, agent_name: '', label: null }]
-    : [],
+  runs: executionIds.length > 0
+    ? executionIds.map(id => ({ execution_id: id, agent_name: '', label: null }))
+    : Number.isFinite(executionId) && executionId > 0
+      ? [{ execution_id: executionId, agent_name: '', label: null }]
+      : [],
 })
 
 const preview = ref<AnalysisResult | null>(null)

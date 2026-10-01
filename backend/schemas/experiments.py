@@ -67,6 +67,12 @@ class ExperimentResponse(BaseModel):
     # Dataset rows processed by the latest execution that has results
     row_count: int | None = None
 
+    # Batch the experiment belongs to, and its coordinates in the batch's grid
+    # ({agent_id: {field: value}})
+    batch_id: int | None = None
+    batch_name: str | None = None
+    variant: dict[int, dict] | None = None
+
 
 # Forward reference resolution
 ExperimentResponse.model_rebuild()

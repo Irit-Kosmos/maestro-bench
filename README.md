@@ -23,6 +23,11 @@ engine is specific to education.
 - **Experiments** – a visual flow editor to chain agents, map dataset columns and
   previous agent outputs to prompt variables, and pick a sampling strategy
   (all rows, random sample, row range).
+- **Batches** – run one setup with several models, prompt versions or
+  temperatures at once. From an experiment, "Vary…" copies its configuration;
+  you pick the values to try per agent, and one experiment starts per
+  combination. The batch page follows them together and opens the analysis
+  editor pre-filled with its executions.
 - **Executions and traces** – every run stores a snapshot of the configuration
   actually used, per-agent messages/outputs, token counts, cost and latency,
   and produces a downloadable JSON results file.
@@ -125,9 +130,19 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
    a previous agent's output or a static value, choose a sampling strategy and
    launch. The experiment starts immediately; reload the page to see its status
    change.
-6. **Results** – open an experiment to inspect its executions and per-agent
+6. **Batches** – to try other models, prompt versions or temperatures on a
+   setup that works, open its experiment and click **Vary…**. The form is
+   pre-filled; add a variation (an agent, the field to change and the values to
+   try). One experiment is created per combination, all started at once and
+   grouped in a batch: the experiment you started from is not rerun. A prompt
+   version can only be tried if the agent's input mappings cover its variables.
+   With a random sample, all the experiments of a batch run on the same rows. Past 10 experiments you are asked to confirm, and 50 is the maximum. Deleting
+   a batch keeps its experiments. Providers' rate limits apply across the whole
+   batch (see `<PROVIDER>_MAX_RPS` below), so runs on the same provider share
+   its quota.
+7. **Results** – open an experiment to inspect its executions and per-agent
    traces, or download the full JSON results file.
-7. **Analyses** – click **Analyze** on an experiment (or create one from the
+8. **Analyses** – click **Analyze** on an experiment (or create one from the
    Analyses page), pick the dataset column holding the ground truth and the
    path to the prediction in the agent's JSON output (e.g. `score`), choose
    numeric or categorical metrics, and add other executions to compare.

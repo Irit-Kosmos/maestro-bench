@@ -93,9 +93,18 @@ export interface Experiment {
 
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
+
+  // Batch the experiment belongs to, and its coordinates in the batch's grid ({ [agentId]: { [field]: value } })
+  batch_id?: number | null
+  batch_name?: string | null
+  variant?: Record<string, Record<string, number>> | null
+
+  // The agents' configuration, as submitted
+  experiment_configs?: ExperimentAgentConfig[]
 }
 
-export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed'
+// 'partial' only exists for batches: some experiments completed, others failed
+export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'partial'
 
 export interface ExperimentResults {
   total_questions?: number
@@ -319,4 +328,74 @@ export interface AvailableExecution {
   completed_at: string | null
   row_count: number | null
   agents: { name: string, model: string }[]
+}
+
+// --- Batches: experiments generated from one base configuration by varying agent fields ---
+
+export type VariationField = 'model_id' | 'prompt_version_id' | 'temperature'
+
+/** One axis of a batch's grid, as submitted: every value that runs, the base configuration's included */
+export interface Variation {
+  agent_id: number
+  field: VariationField
+  /** A temperature of null is the model's own default */
+  values: (number | null)[]
+}
+
+/** One axis as edited in the form: only what is added to the base configuration's value */
+export interface VariationDraft {
+  agent_id: number
+  field: VariationField
+  extras: number[]
+}
+
+export interface BatchVariationValue {
+  value: number | null
+  label: string
+}
+
+export interface BatchVariation {
+  agent_id: number
+  agent_name: string
+  field: VariationField
+  values: BatchVariationValue[]
+}
+
+export interface BatchCoordinate {
+  agent_id: number
+  field: VariationField
+  value: number | null
+  label: string
+}
+
+export interface BatchExperiment {
+  id: number
+  name: string
+  status: ExperimentStatus
+  coordinates: BatchCoordinate[]
+  created_at: string
+  execution_id: number | null
+  execution_status: string | null
+  started_at: string | null
+  completed_at: string | null
+  duration_seconds: number | null
+  row_count: number | null
+  total_tokens: number | null
+  total_cost_usd: number | null
+  agent_names: string[]
+}
+
+export interface Batch {
+  id: number
+  name: string
+  description: string | null
+  created_at: string
+  base_experiment_id: number | null
+  base_experiment_name: string | null
+  dataset_id: number | null
+  dataset_name: string | null
+  variations: BatchVariation[]
+  status: ExperimentStatus
+  counts: Record<string, number>
+  experiments: BatchExperiment[]
 }

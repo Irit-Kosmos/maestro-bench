@@ -1,8 +1,11 @@
+import { apiErrorMessage } from '~/composables/useAnalyses'
+
 /**
  * Composable for handling experiment submission
  */
 export function useExperimentSubmission() {
   const { createExperiment } = useExperiments()
+  const { createBatch } = useBatches()
   const toast = useToast()
 
   async function handleSubmit(experimentData: any) {
@@ -41,12 +44,35 @@ export function useExperimentSubmission() {
     }
   }
 
+  // One experiment per combination of the variations, started together
+  async function handleBatchSubmit(batch: Parameters<typeof createBatch>[0], experimentCount: number) {
+    const result = await createBatch(batch)
+    if (result.success) {
+      toast.add({
+        title: 'Batch started',
+        description: `${experimentCount} experiments are running.`,
+        color: 'success',
+        icon: 'i-lucide:check-circle',
+      })
+      await navigateTo(`/batches/${result.data.id}`)
+      return { success: true }
+    }
+    toast.add({
+      title: 'Error',
+      description: apiErrorMessage(result.error) ?? 'Failed to create the batch. Please try again.',
+      color: 'error',
+      icon: 'i-lucide:alert-circle',
+    })
+    return { success: false, error: result.error }
+  }
+
   async function handleCancel() {
     await navigateTo('/')
   }
 
   return {
     handleSubmit,
+    handleBatchSubmit,
     handleCancel,
   }
 }

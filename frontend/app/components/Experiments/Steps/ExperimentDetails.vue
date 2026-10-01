@@ -4,6 +4,8 @@ interface Props {
     name: string
     description: string
   }
+  /** Naming a batch: its experiments get this name plus what varies */
+  batch?: boolean
 }
 
 interface Emits {
@@ -28,11 +30,15 @@ const description = computed({
 
 <template>
   <div class="flex flex-col gap-4">
-    <UFormField label="Name" required>
+    <UFormField
+      :label="batch ? 'Batch name' : 'Name'"
+      :hint="batch ? 'Each experiment is named after it, plus what varies' : undefined"
+      required
+    >
       <UInput
         id="experiment-name"
         v-model="name"
-        placeholder="e.g. Corrector agent test v2.1"
+        :placeholder="batch ? 'e.g. Corrector, model comparison' : 'e.g. Corrector agent test v2.1'"
         class="w-full"
         autofocus
       />
