@@ -54,7 +54,7 @@ async function handleConfirm() {
               <UIcon name="i-lucide:alert-triangle" class="w-6 h-6 text-error" />
             </div>
             <div>
-              <h2 class="text-lg font-semibold text-neutral-900">
+              <h2 class="text-lg font-semibold text-highlighted">
                 Delete Agent
               </h2>
             </div>
@@ -62,9 +62,9 @@ async function handleConfirm() {
         </template>
 
         <div class="space-y-4">
-          <p class="text-sm text-neutral-600">
+          <p class="text-sm text-toned">
             Are you sure you want to delete the agent
-            <span class="font-semibold text-neutral-900">"{{ agent?.name }}"</span>?
+            <span class="font-semibold text-highlighted">"{{ agent?.name }}"</span>?
           </p>
 
           <div class="bg-error-50 border border-error-200 rounded-md p-3">

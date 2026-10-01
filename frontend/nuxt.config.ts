@@ -28,8 +28,11 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2024-11-27',
 
-  ui: {
-    colorMode: false,
+  // Follows the OS until the user picks a side; the choice persists in localStorage
+  colorMode: {
+    preference: 'system',
+    fallback: 'light',
+    storageKey: 'maestro-color-mode',
   },
 
   runtimeConfig: {

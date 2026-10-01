@@ -154,7 +154,7 @@ const confidenceItems = [
         <h3 class="font-semibold">
           Executions
         </h3>
-        <p class="text-sm text-neutral-500">
+        <p class="text-sm text-muted">
           Each execution is compared to the ground truth independently; pick the agent whose output holds the prediction.
         </p>
       </div>
@@ -162,7 +162,7 @@ const confidenceItems = [
       <div
         v-for="(run, index) in form.runs"
         :key="index"
-        class="space-y-3 p-3 rounded-md border border-neutral-200"
+        class="space-y-3 p-3 rounded-md border border-default"
       >
         <div class="flex items-end gap-2">
           <UFormField label="Execution" class="flex-1 min-w-0">

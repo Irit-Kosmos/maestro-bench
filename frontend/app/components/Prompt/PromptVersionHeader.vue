@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const headerClasses = computed(() => {
   const sizeClass = props.size === 'sm' ? 'text-sm' : props.size === 'lg' ? 'text-xl' : 'text-lg'
-  return `${sizeClass} font-medium text-neutral-900`
+  return `${sizeClass} font-medium text-highlighted`
 })
 </script>
 
@@ -49,7 +49,7 @@ const headerClasses = computed(() => {
       </div>
     </div>
     <div v-if="createdAt" class="flex items-center space-x-4">
-      <span class="text-sm text-neutral-500">
+      <span class="text-sm text-muted">
         {{ parseApiDate(createdAt).toLocaleDateString() }}
       </span>
     </div>

@@ -16,6 +16,7 @@ const shortcuts = [
     { keys: ['meta', 'K'], label: 'Open command palette' },
     { keys: ['C'], label: 'New experiment (new analysis on Analyses)' },
     { keys: ['['], label: 'Collapse or expand the sidebar' },
+    { keys: ['T'], label: 'Switch between light and dark' },
     { keys: ['?'], label: 'Show keyboard shortcuts' },
   ] },
 ]

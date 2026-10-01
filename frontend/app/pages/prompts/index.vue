@@ -154,7 +154,7 @@ watch(() => showCreateModal.value, (newValue) => {
               />
             </UFormField>
 
-            <div class="flex justify-end gap-2 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end gap-2 pt-4 border-t border-default">
               <UButton
                 type="button"
                 variant="outline"

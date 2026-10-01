@@ -95,7 +95,7 @@ function exportCsv() {
             <h3 class="font-semibold">
               Metrics
             </h3>
-            <p class="text-sm text-neutral-500">
+            <p class="text-sm text-muted">
               Value [{{ confidencePct }}% bootstrap CI, {{ config.n_boot }} resamples]
             </p>
           </div>
@@ -114,7 +114,7 @@ function exportCsv() {
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="text-left text-neutral-500 border-b border-neutral-200">
+            <tr class="text-left text-muted border-b border-default">
               <th class="py-2 pr-4 font-medium">
                 Run
               </th>
@@ -136,15 +136,15 @@ function exportCsv() {
             <tr
               v-for="run in okRuns"
               :key="`${run.execution_id}-${run.agent_name}`"
-              class="border-b border-neutral-100 last:border-0 align-top"
+              class="border-b border-muted last:border-0 align-top"
             >
               <td class="py-2 pr-4">
-                <div class="font-medium text-neutral-900">
+                <div class="font-medium text-highlighted">
                   {{ run.label }}
                 </div>
                 <NuxtLink
                   :to="`/experiments/${run.experiment_id}`"
-                  class="text-xs text-neutral-500 hover:text-primary-600"
+                  class="text-xs text-muted hover:text-primary"
                 >
                   Execution #{{ run.execution_id }} · {{ run.agent_name }}
                 </NuxtLink>
@@ -180,7 +180,7 @@ function exportCsv() {
                           <div class="font-medium">
                             {{ EXCLUSION_LABELS[reason] ?? reason }} ({{ rows.length }})
                           </div>
-                          <div class="text-xs text-neutral-500 break-words">
+                          <div class="text-xs text-muted break-words">
                             Rows {{ rows.join(', ') }}
                           </div>
                         </div>
@@ -191,7 +191,7 @@ function exportCsv() {
                 <div
                   v-for="line in exclusionSummary(run)"
                   :key="line"
-                  class="text-xs text-neutral-500"
+                  class="text-xs text-muted"
                 >
                   {{ line }}
                 </div>
@@ -202,13 +202,13 @@ function exportCsv() {
                 class="py-2 pr-4 whitespace-nowrap tabular-nums"
               >
                 <template v-if="run.metrics[m.key]?.value !== null && run.metrics[m.key]?.value !== undefined">
-                  <span class="font-medium text-neutral-900">{{ formatMetric(run.metrics[m.key]!.value) }}</span>
-                  <span v-if="run.metrics[m.key]!.ci_low !== null" class="text-neutral-500">
+                  <span class="font-medium text-highlighted">{{ formatMetric(run.metrics[m.key]!.value) }}</span>
+                  <span v-if="run.metrics[m.key]!.ci_low !== null" class="text-muted">
                     [{{ formatMetric(run.metrics[m.key]!.ci_low) }}, {{ formatMetric(run.metrics[m.key]!.ci_high) }}]
                   </span>
                 </template>
                 <UTooltip v-else :text="run.metrics[m.key]?.undefined_reason ?? 'Undefined'">
-                  <span class="text-neutral-400">—</span>
+                  <span class="text-dimmed">—</span>
                 </UTooltip>
               </td>
             </tr>
@@ -222,7 +222,7 @@ function exportCsv() {
         <h3 class="font-semibold">
           Comparison
         </h3>
-        <p class="text-sm text-neutral-500">
+        <p class="text-sm text-muted">
           Bars show the value, whiskers the {{ confidencePct }}% confidence interval
         </p>
       </template>
@@ -242,17 +242,17 @@ function exportCsv() {
         <h3 class="font-semibold">
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
-        <p v-if="config.value_type === 'numeric'" class="text-sm text-neutral-500">
+        <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
           Points are jittered to show overlapping values; dashed line is y = x
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <div v-for="run in okRuns" :key="`${run.execution_id}-${run.agent_name}`">
-          <h4 class="text-sm font-semibold text-neutral-800 mb-2 truncate">
+          <h4 class="text-sm font-semibold text-highlighted mb-2 truncate">
             {{ run.label }}
           </h4>
           <template v-if="run.n_valid === 0">
-            <p class="text-sm text-neutral-500 py-8 text-center">
+            <p class="text-sm text-muted py-8 text-center">
               No usable rows
             </p>
           </template>

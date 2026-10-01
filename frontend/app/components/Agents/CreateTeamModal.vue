@@ -93,7 +93,7 @@ watch(() => props.open, (newValue) => {
     <template #content>
       <UCard>
         <template #header>
-          <h2 class="text-lg font-semibold text-neutral-900">
+          <h2 class="text-lg font-semibold text-highlighted">
             Create New Agent Team
           </h2>
         </template>
@@ -102,29 +102,29 @@ watch(() => props.open, (newValue) => {
           <!-- Basic Information -->
           <div class="space-y-4">
             <div>
-              <label for="team-name" class="block text-sm font-medium text-neutral-700 mb-1">
+              <label for="team-name" class="block text-sm font-medium text-default mb-1">
                 Team Name
               </label>
-              <input
+              <UInput
                 id="team-name"
                 v-model="formData.name"
                 type="text"
                 required
-                class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full"
                 placeholder="Enter team name (e.g., 'Math Assessment Team')"
-              >
+              />
             </div>
 
             <div>
-              <label for="team-description" class="block text-sm font-medium text-neutral-700 mb-1">
+              <label for="team-description" class="block text-sm font-medium text-default mb-1">
                 Description
               </label>
-              <textarea
+              <UTextarea
                 id="team-description"
                 v-model="formData.description"
-                rows="3"
+                :rows="3"
                 required
-                class="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full"
                 placeholder="Describe what this team does..."
               />
             </div>
@@ -132,16 +132,16 @@ watch(() => props.open, (newValue) => {
 
           <!-- Agent Selection -->
           <div class="space-y-4">
-            <h3 class="text-md font-medium text-neutral-900">
+            <h3 class="text-md font-medium text-highlighted">
               Select Agents (Optional)
             </h3>
-            <p class="text-sm text-neutral-600">
+            <p class="text-sm text-toned">
               You can add agents to this team now or later. Teams can start empty.
             </p>
 
-            <div v-if="availableAgents.length === 0" class="text-center py-8 border-2 border-dashed border-neutral-300 rounded-lg">
-              <UIcon name="i-lucide:users" class="w-8 h-8 text-neutral-400 mx-auto mb-2" />
-              <p class="text-sm text-neutral-500">
+            <div v-if="availableAgents.length === 0" class="text-center py-8 border-2 border-dashed border-accented rounded-lg">
+              <UIcon name="i-lucide:users" class="w-8 h-8 text-dimmed mx-auto mb-2" />
+              <p class="text-sm text-muted">
                 No agents available. Create agents first.
               </p>
             </div>
@@ -150,7 +150,7 @@ watch(() => props.open, (newValue) => {
               <div
                 v-for="agent in availableAgents"
                 :key="agent.id"
-                class="flex items-start space-x-3 p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 cursor-pointer"
+                class="flex items-start space-x-3 p-3 border border-default rounded-lg hover:bg-muted cursor-pointer"
                 @click="toggleAgent(agent.id)"
               >
                 <input
@@ -158,13 +158,13 @@ watch(() => props.open, (newValue) => {
                   v-model="formData.agent_ids"
                   type="checkbox"
                   :value="agent.id"
-                  class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded pointer-events-none"
+                  class="mt-1 size-4 accent-(--ui-primary) pointer-events-none"
                 >
                 <div class="flex-1 pointer-events-none">
-                  <h4 class="text-sm font-medium text-neutral-900">
+                  <h4 class="text-sm font-medium text-highlighted">
                     {{ agent.name }}
                   </h4>
-                  <p class="text-sm text-neutral-600">
+                  <p class="text-sm text-toned">
                     {{ agent.description }}
                   </p>
                 </div>
@@ -173,7 +173,7 @@ watch(() => props.open, (newValue) => {
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
+          <div class="flex gap-3 justify-end pt-4 border-t border-default">
             <UButton
               type="button"
               variant="outline"

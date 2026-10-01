@@ -99,7 +99,6 @@ const groups = computed<CommandPaletteGroup[]>(() => {
 <template>
   <UDashboardSearch
     :groups="groups"
-    :color-mode="false"
     placeholder="Search or jump to..."
     :fuse="{ fuseOptions: { threshold: 0.3, keys: ['label', 'suffix'] }, resultLimit: 10 }"
   />

@@ -2,6 +2,7 @@
 const route = useRoute()
 const router = useRouter()
 const shortcutsOpen = useShortcutsOverlay()
+const { toggle: toggleTheme } = useTheme()
 
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
@@ -40,6 +41,8 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
+  // Instant on purpose: a keyboard action should never wait on an animation
+  't': toggleTheme,
   // Create from anywhere: an analysis on analysis pages, an experiment otherwise
   'c': () => {
     router.push(route.path.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')

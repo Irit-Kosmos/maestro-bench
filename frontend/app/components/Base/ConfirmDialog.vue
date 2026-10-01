@@ -33,17 +33,17 @@ const variantConfig = computed(() => {
     error: {
       color: 'error' as const,
       icon: 'i-lucide-alert-triangle',
-      iconColor: 'text-red-500',
+      iconColor: 'text-error',
     },
     warning: {
       color: 'warning' as const,
       icon: 'i-lucide-alert-circle',
-      iconColor: 'text-yellow-500',
+      iconColor: 'text-warning',
     },
     info: {
       color: 'primary' as const,
       icon: 'i-lucide-info',
-      iconColor: 'text-blue-500',
+      iconColor: 'text-info',
     },
   }
   return configs[props.variant]
@@ -66,14 +66,14 @@ function handleCancel() {
         <template #header>
           <div class="flex items-center gap-3">
             <UIcon :name="variantConfig.icon" :class="variantConfig.iconColor" class="h-6 w-6" />
-            <h3 class="text-lg font-semibold text-neutral-900">
+            <h3 class="text-lg font-semibold text-highlighted">
               {{ title }}
             </h3>
           </div>
         </template>
 
         <div class="py-4">
-          <p class="text-neutral-600">
+          <p class="text-toned">
             {{ message }}
           </p>
         </div>

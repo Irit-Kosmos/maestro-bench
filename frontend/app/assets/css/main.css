@@ -56,25 +56,76 @@ h1, h2, h3, h4, h5, h6 {
 /* Smooth scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-neutral-300) transparent;
+  scrollbar-color: var(--ui-border-accented) transparent;
 }
 
-/* Charts (Unovis). Single-series charts: one hue, recessive axes. */
-.viz-root {
+/*
+ * Charts (Unovis). Single-series charts: one hue, recessive axes.
+ * Unovis injects its own :root variables after ours, so these use `html:root` to win.
+ * Neutrals are mixed from the theme's text and surface colors, so grid and axes sit at
+ * the same perceived strength in light and dark; only the data hues need two values
+ * (dark surfaces want lighter marks).
+ */
+html:root {
   --viz-series-1: #2a78d6;
-  --viz-text-secondary: #52514e;
+  --viz-grid: color-mix(in oklab, var(--ui-text) 7%, var(--ui-bg));
+  --viz-axis: color-mix(in oklab, var(--ui-text) 22%, var(--ui-bg));
+  --viz-reference: color-mix(in oklab, var(--ui-text) 45%, var(--ui-bg));
+  --viz-empty-cell: color-mix(in oklab, var(--ui-text) 6%, var(--ui-bg));
+
   --vis-font-family: var(--font-sans);
   --vis-color-main: var(--viz-series-1);
-  --vis-axis-grid-color: #ecebe8;
-  --vis-axis-tick-color: #ecebe8;
-  --vis-axis-domain-color: #d8d7d3;
-  --vis-axis-tick-label-color: var(--viz-text-secondary);
-  --vis-axis-label-color: var(--viz-text-secondary);
+  --vis-color0: var(--viz-series-1);
+  --vis-axis-grid-color: var(--viz-grid);
+  --vis-axis-tick-color: var(--viz-axis);
+  --vis-axis-domain-color: var(--viz-axis);
+  --vis-axis-tick-label-color: var(--ui-text-toned);
+  --vis-axis-label-color: var(--ui-text-toned);
   /* Boxplot drawn as a confidence interval: whiskers only */
   --vis-boxplot-fill-opacity: 0;
   --vis-boxplot-stroke-width: 0;
   --vis-boxplot-median-stroke-width: 0;
-  --vis-boxplot-whisker-stroke-color: #0b0b0b;
+  --vis-boxplot-whisker-stroke-color: var(--ui-text-highlighted);
   --vis-boxplot-whisker-stroke-width: 1.5px;
   --vis-scatter-fill-opacity: 0.45;
+  --vis-heatmap-label-color: var(--ui-text-toned);
+  --vis-heatmap-cell-fill-color: var(--viz-empty-cell);
+
+  /* The tooltip is portalled to <body>, outside any chart wrapper, so it lives on :root */
+  --vis-tooltip-background-color: var(--ui-bg-elevated);
+  --vis-tooltip-border-color: var(--ui-border);
+  --vis-tooltip-text-color: var(--ui-text-highlighted);
+  --vis-tooltip-shadow-color: rgb(0 0 0 / 0.12);
+}
+
+html:root.dark {
+  --viz-series-1: #6da7ec;
+  --vis-scatter-fill-opacity: 0.6;
+  --vis-tooltip-shadow-color: rgb(0 0 0 / 0.5);
+}
+
+/* Vue Flow ships a light-only theme; point its chrome at the same tokens */
+.vue-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  overflow: hidden;
+}
+
+.vue-flow__controls-button {
+  background: var(--ui-bg);
+  border-bottom-color: var(--ui-border);
+  fill: var(--ui-text-toned);
+
+  &:hover {
+    background: var(--ui-bg-elevated);
+  }
+}
+
+.vue-flow__edge-path {
+  stroke: var(--ui-border-accented);
+}
+
+.vue-flow__edge.selected .vue-flow__edge-path {
+  stroke: var(--ui-primary);
 }

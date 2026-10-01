@@ -352,7 +352,7 @@ watch(() => showDeleteModal.value, (newValue) => {
 
         <!-- Custom cell for description -->
         <template #description-cell="{ row }">
-          <span class="text-sm text-neutral-600">
+          <span class="text-sm text-toned">
             {{ row.original.description || 'No description' }}
           </span>
         </template>
@@ -449,7 +449,7 @@ watch(() => showDeleteModal.value, (newValue) => {
           </UFormField>
 
           <div class="flex items-center justify-between">
-            <label class="text-sm font-medium text-neutral-700">Active</label>
+            <label class="text-sm font-medium text-default">Active</label>
             <USwitch
               v-model="createForm.is_active"
             />
@@ -521,7 +521,7 @@ watch(() => showDeleteModal.value, (newValue) => {
           </UFormField>
 
           <div class="flex items-center justify-between">
-            <label class="text-sm font-medium text-neutral-700">Active</label>
+            <label class="text-sm font-medium text-default">Active</label>
             <USwitch
               v-model="editForm.is_active"
             />

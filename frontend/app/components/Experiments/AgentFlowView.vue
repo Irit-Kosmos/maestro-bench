@@ -208,7 +208,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex h-[500px] border border-neutral-200 rounded-lg overflow-hidden bg-neutral-50">
+  <div class="flex h-[500px] border border-default rounded-lg overflow-hidden bg-muted">
     <!-- Agent Palette Sidebar -->
     <ExperimentsAgentPalette
       :agent-teams="allAgentsByTeam.map(g => g.team)"
@@ -236,7 +236,7 @@ defineExpose({
         </template>
 
         <!-- Background grid -->
-        <VueFlowBackground pattern-color="#e5e7eb" :gap="20" />
+        <VueFlowBackground pattern-color="var(--ui-border)" :gap="20" />
 
         <!-- Controls (zoom, fit view, etc.) -->
         <VueFlowControls />
@@ -246,11 +246,11 @@ defineExpose({
           v-if="nodes.length === 0"
           class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
         >
-          <UIcon name="i-lucide-git-branch" class="w-12 h-12 text-neutral-300 mb-4" />
-          <p class="text-sm font-medium text-neutral-500 mb-1">
+          <UIcon name="i-lucide-git-branch" class="w-12 h-12 text-dimmed mb-4" />
+          <p class="text-sm font-medium text-muted mb-1">
             Build Your Agent Flow
           </p>
-          <p class="text-xs text-neutral-400 text-center max-w-xs">
+          <p class="text-xs text-dimmed text-center max-w-xs">
             Click agents from the sidebar to add them to the canvas. Connect them with edges to define execution order.
           </p>
         </div>

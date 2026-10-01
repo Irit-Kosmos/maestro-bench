@@ -95,7 +95,7 @@ const hasActiveFilters = computed(() => {
     <div class="flex flex-col md:flex-row md:items-center gap-4">
       <!-- Multi-Select Provider Tags -->
       <div class="flex flex-wrap gap-2 md:flex-1">
-        <span class="text-sm font-medium text-neutral-700 self-center mr-2 whitespace-nowrap">Providers:</span>
+        <span class="text-sm font-medium text-default self-center mr-2 whitespace-nowrap">Providers:</span>
         <UButton
           v-for="provider in providers"
           :key="provider"
@@ -110,7 +110,7 @@ const hasActiveFilters = computed(() => {
 
       <!-- Results Count -->
       <div class="flex gap-4 flex-wrap md:flex-nowrap items-center">
-        <div v-if="totalCount > 0" class="text-sm text-neutral-600 whitespace-nowrap ml-auto">
+        <div v-if="totalCount > 0" class="text-sm text-toned whitespace-nowrap ml-auto">
           {{ filteredCount }} of {{ totalCount }} models
         </div>
       </div>

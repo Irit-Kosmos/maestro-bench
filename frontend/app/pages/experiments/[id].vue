@@ -487,11 +487,11 @@ watch(() => route.params.id, () => {
 
     <!-- Error State -->
     <div v-else class="text-center py-12">
-      <UIcon name="i-lucide:alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-neutral-900 mb-2">
+      <UIcon name="i-lucide:alert-circle" class="w-12 h-12 text-error mx-auto mb-4" />
+      <h3 class="text-lg font-medium text-highlighted mb-2">
         Experiment Not Found
       </h3>
-      <p class="text-neutral-500 mb-4">
+      <p class="text-muted mb-4">
         The experiment you're looking for doesn't exist.
       </p>
       <UButton to="/" variant="solid" color="primary">
@@ -502,7 +502,7 @@ watch(() => route.params.id, () => {
     <!-- Delete Confirmation Modal -->
     <UModal v-model:open="showDeleteDialog" title="Delete Experiment">
       <template #body>
-        <p class="text-neutral-600">
+        <p class="text-toned">
           Are you sure you want to delete "{{ experiment?.name }}"? This action cannot be undone.
         </p>
       </template>

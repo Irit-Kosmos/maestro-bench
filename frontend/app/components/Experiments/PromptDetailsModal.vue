@@ -25,7 +25,7 @@ const isOpen = computed({
       <UCard class="overflow-auto max-h-[80vh]">
         <template #header>
           <div class="flex items-center justify-between">
-            <h3 class="text-base font-semibold leading-6 text-neutral-900">
+            <h3 class="text-base font-semibold leading-6 text-highlighted">
               Prompt Details: {{ promptVersionDetails?.prompt?.name }} v{{ promptVersionDetails?.version }}
             </h3>
             <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="() => { isOpen = false }" />

@@ -50,10 +50,10 @@ const triggers = {
 <template>
   <div class="viz-root">
     <div class="flex items-baseline justify-between mb-2">
-      <h4 class="text-sm font-semibold text-neutral-800">
+      <h4 class="text-sm font-semibold text-highlighted">
         {{ metric.label }}
       </h4>
-      <span v-if="metric.lower_is_better" class="text-xs text-neutral-500">lower is better</span>
+      <span v-if="metric.lower_is_better" class="text-xs text-muted">lower is better</span>
     </div>
     <VisXYContainer v-if="hasValues" :data="bars" :height="200" :padding="{ top: 8 }">
       <VisGroupedBar
@@ -80,7 +80,7 @@ const triggers = {
       <VisAxis type="y" :num-ticks="4" />
       <VisTooltip :triggers="triggers" />
     </VisXYContainer>
-    <p v-else class="text-sm text-neutral-500 py-8 text-center">
+    <p v-else class="text-sm text-muted py-8 text-center">
       Undefined for every run
     </p>
   </div>

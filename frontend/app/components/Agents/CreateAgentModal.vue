@@ -113,7 +113,7 @@ watch(() => props.open, (newValue) => {
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
-          <h2 class="text-lg font-semibold text-neutral-900">
+          <h2 class="text-lg font-semibold text-highlighted">
             Create New Agent
           </h2>
         </template>
@@ -180,7 +180,7 @@ watch(() => props.open, (newValue) => {
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
+          <div class="flex gap-3 justify-end pt-4 border-t border-default">
             <UButton
               type="button"
               variant="outline"

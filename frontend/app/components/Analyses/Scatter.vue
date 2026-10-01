@@ -43,7 +43,7 @@ const triggers = {
         :data="diagonal"
         :x="(d: { x: number }) => d.x"
         :y="(d: { y: number }) => d.y"
-        color="#a3a29d"
+        color="var(--viz-reference)"
         :line-width="1"
         :line-dash-array="[4, 4]"
       />

@@ -53,7 +53,7 @@ function handleCancel() {
       <UCard class="w-full">
         <template #header>
           <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-neutral-900">
+            <h3 class="text-lg font-semibold text-highlighted">
               {{ modalTitle }}
             </h3>
             <UButton

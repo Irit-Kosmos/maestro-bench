@@ -156,7 +156,7 @@ async function confirmDelete() {
 
     <UModal v-model:open="showDeleteDialog" title="Delete Analysis">
       <template #body>
-        <p class="text-neutral-600">
+        <p class="text-toned">
           Delete this analysis? Executions and their results are not affected.
         </p>
       </template>

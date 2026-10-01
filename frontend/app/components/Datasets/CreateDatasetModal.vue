@@ -89,7 +89,7 @@ watch(() => props.open, (newValue) => {
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
-          <h2 class="text-lg font-semibold text-neutral-900">
+          <h2 class="text-lg font-semibold text-highlighted">
             Create New Dataset
           </h2>
         </template>
@@ -128,7 +128,7 @@ watch(() => props.open, (newValue) => {
                   placeholder="Enter file path (e.g., /path/to/dataset.csv)"
                 />
                 <template #help>
-                  <span class="text-xs text-neutral-500">
+                  <span class="text-xs text-muted">
                     You can specify a file path or upload a file later
                   </span>
                 </template>
@@ -137,7 +137,7 @@ watch(() => props.open, (newValue) => {
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-neutral-200">
+          <div class="flex gap-3 justify-end pt-4 border-t border-default">
             <UButton
               type="button"
               variant="outline"

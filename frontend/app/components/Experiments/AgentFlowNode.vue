@@ -73,8 +73,8 @@ const modelDisplay = computed(() => {
   <div
     class="agent-node rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-150 min-w-[180px]"
     :class="{
-      'border-primary-500 bg-white shadow-lg': isSelected,
-      'border-neutral-200 bg-white shadow-sm': !isSelected,
+      'border-primary bg-default shadow-lg': isSelected,
+      'border-default bg-default shadow-sm': !isSelected,
       'opacity-60': !isActive,
     }"
   >
@@ -82,7 +82,7 @@ const modelDisplay = computed(() => {
     <VueFlowHandle
       type="target"
       position="left"
-      class="!w-3 !h-3 !bg-primary-500 !border-2 !border-white"
+      class="!w-3 !h-3 !bg-primary !border-2 !border-[var(--ui-bg)]"
     />
 
     <!-- Node content -->
@@ -90,28 +90,28 @@ const modelDisplay = computed(() => {
       <!-- Header -->
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
-          <div class="font-medium text-sm text-neutral-900 truncate">
+          <div class="font-medium text-sm text-highlighted truncate">
             {{ agentName }}
           </div>
-          <div v-if="teamName" class="text-xs text-neutral-500 truncate mt-0.5">
+          <div v-if="teamName" class="text-xs text-muted truncate mt-0.5">
             {{ teamName }}
           </div>
         </div>
         <div
           class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-          :class="isActive ? 'bg-green-500' : 'bg-neutral-300'"
+          :class="isActive ? 'bg-success' : 'bg-accented'"
         />
       </div>
 
       <!-- Config summary -->
-      <div class="mt-2 pt-2 border-t border-neutral-100 space-y-1.5">
-        <div class="flex items-center gap-1 text-xs text-neutral-500">
+      <div class="mt-2 pt-2 border-t border-muted space-y-1.5">
+        <div class="flex items-center gap-1 text-xs text-muted">
           <UIcon name="i-lucide-message-square" class="w-3 h-3 flex-shrink-0" />
           <span class="truncate" :title="promptDisplay">
             {{ promptDisplay }}
           </span>
         </div>
-        <div class="flex items-center gap-1 text-xs text-neutral-500">
+        <div class="flex items-center gap-1 text-xs text-muted">
           <UIcon name="i-lucide-brain-circuit" class="w-3 h-3 flex-shrink-0" />
           <span class="truncate" :title="modelDisplay">
             {{ modelDisplay }}
@@ -138,7 +138,7 @@ const modelDisplay = computed(() => {
     <VueFlowHandle
       type="source"
       position="right"
-      class="!w-3 !h-3 !bg-primary-500 !border-2 !border-white"
+      class="!w-3 !h-3 !bg-primary !border-2 !border-[var(--ui-bg)]"
     />
   </div>
 </template>

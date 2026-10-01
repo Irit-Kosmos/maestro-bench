@@ -118,7 +118,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 <template>
   <div class="space-y-6">
     <!-- Loading State -->
-    <div v-if="loading" class="flex items-center gap-2 text-neutral-600">
+    <div v-if="loading" class="flex items-center gap-2 text-toned">
       <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
       <span class="text-sm">Loading dataset information...</span>
     </div>
@@ -138,24 +138,24 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="text-center">
-            <div class="text-2xl font-bold text-primary-600">
+            <div class="text-2xl font-bold text-primary">
               {{ datasetInfo.total_rows }}
             </div>
-            <div class="text-sm text-neutral-500">
+            <div class="text-sm text-muted">
               Total Rows
             </div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-primary-600">
+            <div class="text-2xl font-bold text-primary">
               {{ datasetInfo.total_columns }}
             </div>
-            <div class="text-sm text-neutral-500">
+            <div class="text-sm text-muted">
               Columns
             </div>
           </div>
           <div class="text-center">
             <UBadge :label="datasetInfo.file_type.toUpperCase()" variant="subtle" color="info" />
-            <div class="text-sm text-neutral-500 mt-1">
+            <div class="text-sm text-muted mt-1">
               File Type
             </div>
           </div>
@@ -189,7 +189,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
               @update:model-value="updateSamplingSize"
             />
             <template #help>
-              <span class="text-xs text-neutral-500">
+              <span class="text-xs text-muted">
                 Enter the number of rows to randomly sample (max: {{ maxRows }})
               </span>
             </template>
@@ -230,7 +230,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             </UFormField>
           </div>
 
-          <p class="text-xs text-neutral-500">
+          <p class="text-xs text-muted">
             Specify the row range to use (1-based indexing). Both start and end rows are inclusive.
           </p>
         </div>
@@ -239,8 +239,8 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 
     <!-- No Dataset Selected -->
     <div v-else class="text-center py-8">
-      <UIcon name="i-lucide-info" class="w-8 h-8 text-neutral-400 mx-auto mb-2" />
-      <p class="text-sm text-neutral-500">
+      <UIcon name="i-lucide-info" class="w-8 h-8 text-dimmed mx-auto mb-2" />
+      <p class="text-sm text-muted">
         Select a dataset to configure sampling options
       </p>
     </div>

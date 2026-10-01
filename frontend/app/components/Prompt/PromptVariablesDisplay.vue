@@ -31,7 +31,7 @@ function updateValue(value: string[]) {
 
 <template>
   <div>
-    <label class="block text-sm font-medium text-neutral-700 mb-3">
+    <label class="block text-sm font-medium text-default mb-3">
       Variables
     </label>
     <UInputTags

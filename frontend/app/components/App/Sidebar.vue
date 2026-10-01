@@ -187,28 +187,32 @@ defineShortcuts({
     </template>
 
     <template #footer="{ collapsed: isCollapsed }">
-      <UTooltip
-        text="Keyboard shortcuts"
-        :kbds="['?']"
-        :disabled="!isCollapsed"
-        :content="{ side: 'right' }"
-      >
-        <UButton
-          icon="i-lucide-keyboard"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          :block="!isCollapsed"
-          :aria-label="isCollapsed ? 'Keyboard shortcuts' : undefined"
-          :class="isCollapsed ? 'mx-auto' : 'justify-start text-muted'"
-          @click="() => { shortcutsOpen = true }"
+      <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
+        <UTooltip
+          text="Keyboard shortcuts"
+          :kbds="['?']"
+          :disabled="!isCollapsed"
+          :content="{ side: 'right' }"
         >
-          <template v-if="!isCollapsed">
-            <span class="flex-1 text-start">Shortcuts</span>
-            <UKbd value="?" size="sm" />
-          </template>
-        </UButton>
-      </UTooltip>
+          <UButton
+            icon="i-lucide-keyboard"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :block="!isCollapsed"
+            :aria-label="isCollapsed ? 'Keyboard shortcuts' : undefined"
+            :class="isCollapsed ? '' : 'flex-1 justify-start text-muted'"
+            @click="() => { shortcutsOpen = true }"
+          >
+            <template v-if="!isCollapsed">
+              <span class="flex-1 text-start">Shortcuts</span>
+              <UKbd value="?" size="sm" />
+            </template>
+          </UButton>
+        </UTooltip>
+
+        <AppThemeToggle :collapsed="isCollapsed" />
+      </div>
     </template>
   </UDashboardSidebar>
 </template>

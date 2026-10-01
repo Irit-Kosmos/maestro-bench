@@ -356,11 +356,11 @@ async function deleteVersion(versionId: number) {
 
       <!-- Error state -->
       <div v-else-if="error" class="text-center py-12">
-        <UIcon name="i-lucide-alert-circle" class="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h2 class="text-xl font-semibold text-neutral-900 mb-2">
+        <UIcon name="i-lucide-alert-circle" class="w-12 h-12 text-error mx-auto mb-4" />
+        <h2 class="text-xl font-semibold text-highlighted mb-2">
           Error Loading Prompt
         </h2>
-        <p class="text-neutral-600 mb-4">
+        <p class="text-toned mb-4">
           Unable to load prompt details. Please try again.
         </p>
         <UButton variant="outline" @click="() => refresh()">
@@ -400,12 +400,12 @@ async function deleteVersion(versionId: number) {
         </div>
 
         <!-- Versions Section -->
-        <div class="bg-white rounded-lg shadow">
-          <div class="px-6 py-4 border-b border-neutral-200">
-            <h2 class="text-xl font-semibold text-neutral-900">
+        <div class="bg-default rounded-lg shadow">
+          <div class="px-6 py-4 border-b border-default">
+            <h2 class="text-xl font-semibold text-highlighted">
               Prompt Versions
             </h2>
-            <p class="text-neutral-600 text-sm mt-1">
+            <p class="text-toned text-sm mt-1">
               Manage different versions of this prompt with their configurations
             </p>
           </div>
@@ -418,11 +418,11 @@ async function deleteVersion(versionId: number) {
 
             <!-- No versions -->
             <div v-else-if="!versions || versions.length === 0" class="text-center py-8">
-              <UIcon name="i-lucide-file-text" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-              <h3 class="text-lg font-medium text-neutral-900 mb-2">
+              <UIcon name="i-lucide-file-text" class="w-12 h-12 text-dimmed mx-auto mb-4" />
+              <h3 class="text-lg font-medium text-highlighted mb-2">
                 No versions yet
               </h3>
-              <p class="text-neutral-600 mb-4">
+              <p class="text-toned mb-4">
                 Create the first version of this prompt to get started.
               </p>
               <UButton
@@ -440,12 +440,12 @@ async function deleteVersion(versionId: number) {
               <UCollapsible
                 v-for="version in sortedVersions"
                 :key="version.id"
-                class="border border-neutral-200 rounded-lg overflow-hidden"
+                class="border border-default rounded-lg overflow-hidden"
                 :default-open="version.is_default"
               >
                 <!-- Collapsible Header -->
                 <UButton
-                  class="w-full group p-6 text-left border-0 bg-white hover:bg-neutral-50 active:bg-neutral-100"
+                  class="w-full group p-6 text-left border-0 bg-default hover:bg-muted active:bg-elevated"
                   variant="ghost"
                   color="neutral"
                   :ui="{
@@ -466,9 +466,9 @@ async function deleteVersion(versionId: number) {
 
                 <!-- Collapsible Content -->
                 <template #content>
-                  <div class="px-6 pb-6 bg-neutral-50/50">
+                  <div class="px-6 pb-6 bg-muted/50">
                     <!-- Action Buttons -->
-                    <div class="flex justify-end space-x-3 mb-6 pt-4 border-b border-neutral-200 pb-4">
+                    <div class="flex justify-end space-x-3 mb-6 pt-4 border-b border-default pb-4">
                       <UButton
                         variant="outline"
                         size="sm"
@@ -541,7 +541,7 @@ async function deleteVersion(versionId: number) {
               />
             </UFormField>
 
-            <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end space-x-3 pt-4 border-t border-default">
               <UButton
                 type="button"
                 variant="outline"
@@ -629,7 +629,7 @@ async function deleteVersion(versionId: number) {
               />
             </div>
 
-            <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end space-x-3 pt-4 border-t border-default">
               <UButton
                 type="button"
                 variant="outline"
@@ -717,7 +717,7 @@ async function deleteVersion(versionId: number) {
               />
             </div>
 
-            <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
+            <div class="flex justify-end space-x-3 pt-4 border-t border-default">
               <UButton
                 type="button"
                 variant="outline"
@@ -747,18 +747,18 @@ async function deleteVersion(versionId: number) {
         <UCard>
           <template #header>
             <div class="flex items-center space-x-3">
-              <UIcon name="i-lucide-alert-triangle" class="w-6 h-6 text-red-500" />
-              <h3 class="text-lg font-semibold text-neutral-900">
+              <UIcon name="i-lucide-alert-triangle" class="w-6 h-6 text-error" />
+              <h3 class="text-lg font-semibold text-highlighted">
                 Confirm Delete
               </h3>
             </div>
           </template>
 
           <div class="space-y-4">
-            <p class="text-neutral-600">
+            <p class="text-toned">
               Are you sure you want to delete version <strong>{{ selectedVersionForDelete?.version }}</strong>?
             </p>
-            <p class="text-sm text-red-600">
+            <p class="text-sm text-error">
               This action cannot be undone.
             </p>
           </div>

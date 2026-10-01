@@ -14,8 +14,8 @@ const { formatDate } = useUIHelpers()
 </script>
 
 <template>
-  <div class="border-t border-neutral-200 pt-4">
-    <label class="block text-sm font-medium text-neutral-700 mb-3">
+  <div class="border-t border-default pt-4">
+    <label class="block text-sm font-medium text-default mb-3">
       Metadata
     </label>
     <div
@@ -25,16 +25,16 @@ const { formatDate } = useUIHelpers()
       class="text-sm"
     >
       <div v-if="createdAt">
-        <span class="text-neutral-500">Created:</span>
-        <span class="ml-2 text-neutral-700">{{ formatDate(createdAt) }}</span>
+        <span class="text-muted">Created:</span>
+        <span class="ml-2 text-default">{{ formatDate(createdAt) }}</span>
       </div>
       <div v-if="category">
-        <span class="text-neutral-500">Category:</span>
-        <span class="ml-2 text-neutral-700">{{ category }}</span>
+        <span class="text-muted">Category:</span>
+        <span class="ml-2 text-default">{{ category }}</span>
       </div>
       <div v-if="promptName">
-        <span class="text-neutral-500">Prompt:</span>
-        <span class="ml-2 text-neutral-700">{{ promptName }}</span>
+        <span class="text-muted">Prompt:</span>
+        <span class="ml-2 text-default">{{ promptName }}</span>
       </div>
     </div>
   </div>

@@ -32,15 +32,15 @@ withDefaults(defineProps<Props>(), {
     <!-- Header with version info -->
     <div v-if="showHeader && promptVersion.prompt?.name" class="grid grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-neutral-700 mb-2">
+        <label class="block text-sm font-medium text-default mb-2">
           Prompt Name
         </label>
-        <p class="text-sm text-neutral-600">
+        <p class="text-sm text-toned">
           {{ promptVersion.prompt.name }}
         </p>
       </div>
       <div>
-        <label class="block text-sm font-medium text-neutral-700 mb-2">
+        <label class="block text-sm font-medium text-default mb-2">
           Version
         </label>
         <PromptVersionHeader
@@ -54,10 +54,10 @@ withDefaults(defineProps<Props>(), {
 
     <!-- Description -->
     <div v-if="promptVersion.prompt?.description">
-      <label class="block text-sm font-medium text-neutral-700 mb-2">
+      <label class="block text-sm font-medium text-default mb-2">
         Description
       </label>
-      <p class="text-sm text-neutral-600">
+      <p class="text-sm text-toned">
         {{ promptVersion.prompt.description }}
       </p>
     </div>
