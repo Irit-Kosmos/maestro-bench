@@ -18,7 +18,7 @@ export function useUIHelpers() {
 
   // Format date for display
   function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return parseApiDate(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -29,7 +29,7 @@ export function useUIHelpers() {
 
   // Short relative date for lists ("5m ago", "3d ago", then "Mar 4"); pair with formatDate in a title
   function formatRelativeDate(dateString: string): string {
-    const date = new Date(dateString)
+    const date = parseApiDate(dateString)
     const seconds = Math.round((Date.now() - date.getTime()) / 1000)
     if (seconds < 60)
       return 'Just now'

@@ -50,7 +50,7 @@ const headerClasses = computed(() => {
     </div>
     <div v-if="createdAt" class="flex items-center space-x-4">
       <span class="text-sm text-neutral-500">
-        {{ new Date(createdAt).toLocaleDateString() }}
+        {{ parseApiDate(createdAt).toLocaleDateString() }}
       </span>
     </div>
   </div>

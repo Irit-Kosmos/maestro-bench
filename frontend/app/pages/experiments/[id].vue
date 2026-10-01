@@ -219,8 +219,8 @@ const duration = computed(() => {
 
   // Calculate duration for each completed execution
   const durations = completedExecutions.map((execution) => {
-    const startTime = new Date(execution.started_at).getTime() / 1000
-    const endTime = new Date(execution.completed_at!).getTime() / 1000
+    const startTime = parseApiDate(execution.started_at).getTime() / 1000
+    const endTime = parseApiDate(execution.completed_at!).getTime() / 1000
     return endTime - startTime
   })
 
@@ -235,9 +235,9 @@ const executionRows = computed(() => [...executions.value]
   .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
   .map(execution => ({
     execution,
-    startedLabel: new Date(execution.started_at).toLocaleString(),
+    startedLabel: parseApiDate(execution.started_at).toLocaleString(),
     durationLabel: execution.completed_at
-      ? formatDuration((new Date(execution.completed_at).getTime() - new Date(execution.started_at).getTime()) / 1000)
+      ? formatDuration((parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000)
       : null,
   })))
 
@@ -269,7 +269,7 @@ watch(() => route.params.id, () => {
             size="sm"
             :to="{ path: '/experiments/new', query: { from: experiment.id } }"
           >
-            Vary…
+            Vary
           </UButton>
         </UTooltip>
         <UTooltip text="Create a new execution with the same configuration">
