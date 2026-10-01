@@ -101,6 +101,16 @@ function removeRun(index: number) {
   form.value.runs.splice(index, 1)
 }
 
+// The order of the runs is the order of the comparison
+function moveRun(index: number, offset: -1 | 1) {
+  const runs = form.value.runs
+  const target = index + offset
+  if (target < 0 || target >= runs.length)
+    return
+  const [run] = runs.splice(index, 1)
+  runs.splice(target, 0, run!)
+}
+
 const valueTypeItems = [
   { label: 'Numeric', value: 'numeric', description: 'Scores, ratings, any number' },
   { label: 'Categorical', value: 'categorical', description: 'Labels, classes, yes/no' },
@@ -152,47 +162,72 @@ const confidenceItems = [
       <div
         v-for="(run, index) in form.runs"
         :key="index"
-        class="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto] items-end p-3 rounded-md border border-neutral-200"
+        class="space-y-3 p-3 rounded-md border border-neutral-200"
       >
-        <UFormField label="Execution">
-          <template #hint>
-            <UIRowCount :rows="rowsOf(run.execution_id)" size="xs" class="text-xs text-muted" />
-          </template>
-          <USelectMenu
-            v-model="run.execution_id"
-            :items="executionItems"
-            value-key="value"
-            class="w-full"
-            @update:model-value="run.agent_name = ''"
-          >
-            <template #item-trailing="{ item }">
-              <UIRowCount :rows="item.rows" size="xs" class="text-xs text-muted" />
+        <div class="flex items-end gap-2">
+          <UFormField label="Execution" class="flex-1 min-w-0">
+            <template #hint>
+              <UIRowCount :rows="rowsOf(run.execution_id)" size="xs" class="text-xs text-muted" />
             </template>
-          </USelectMenu>
-        </UFormField>
-        <UFormField label="Agent">
-          <USelect
-            v-model="run.agent_name"
-            :items="agentItems(run.execution_id)"
-            placeholder="Loading agents…"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField label="Label">
-          <UInput
-            :model-value="run.label ?? ''"
-            :placeholder="defaultLabel(run.execution_id, run.agent_name)"
-            class="w-full"
-            @update:model-value="(v: string) => run.label = v || null"
-          />
-        </UFormField>
-        <UButton
-          icon="i-lucide-x"
-          variant="ghost"
-          color="neutral"
-          aria-label="Remove execution"
-          @click="removeRun(index)"
-        />
+            <USelectMenu
+              v-model="run.execution_id"
+              :items="executionItems"
+              value-key="value"
+              class="w-full"
+              @update:model-value="run.agent_name = ''"
+            >
+              <template #item-trailing="{ item }">
+                <UIRowCount :rows="item.rows" size="xs" class="text-xs text-muted" />
+              </template>
+            </USelectMenu>
+          </UFormField>
+          <div class="flex items-center shrink-0">
+            <UButton
+              icon="i-lucide-chevron-up"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              aria-label="Move execution up"
+              :disabled="index === 0"
+              @click="moveRun(index, -1)"
+            />
+            <UButton
+              icon="i-lucide-chevron-down"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              aria-label="Move execution down"
+              :disabled="index === form.runs.length - 1"
+              @click="moveRun(index, 1)"
+            />
+            <UButton
+              icon="i-lucide-x"
+              variant="ghost"
+              color="neutral"
+              size="sm"
+              aria-label="Remove execution"
+              @click="removeRun(index)"
+            />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <UFormField label="Agent" class="min-w-0">
+            <USelect
+              v-model="run.agent_name"
+              :items="agentItems(run.execution_id)"
+              placeholder="Loading agents…"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Label" class="min-w-0">
+            <UInput
+              :model-value="run.label ?? ''"
+              :placeholder="defaultLabel(run.execution_id, run.agent_name)"
+              class="w-full"
+              @update:model-value="(v: string) => run.label = v || null"
+            />
+          </UFormField>
+        </div>
       </div>
 
       <USelectMenu

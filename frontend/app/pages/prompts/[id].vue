@@ -602,14 +602,12 @@ async function deleteVersion(versionId: number) {
               />
             </UFormField>
 
-            <UFormField label="Variables">
-              <PromptVariablesDisplay
-                v-model="newVersionVariablesArray"
-                :variables="newVersionData.variables"
-                editable
-                class="w-full"
-              />
-            </UFormField>
+            <PromptVariablesDisplay
+              v-model="newVersionVariablesArray"
+              :variables="newVersionData.variables"
+              editable
+              class="w-full"
+            />
 
             <UFormField label="Notes">
               <UTextarea
@@ -692,14 +690,12 @@ async function deleteVersion(versionId: number) {
               />
             </UFormField>
 
-            <UFormField label="Variables">
-              <PromptVariablesDisplay
-                v-model="editVersionVariablesArray"
-                :variables="editVersionData.variables"
-                editable
-                class="w-full"
-              />
-            </UFormField>
+            <PromptVariablesDisplay
+              v-model="editVersionVariablesArray"
+              :variables="editVersionData.variables"
+              editable
+              class="w-full"
+            />
 
             <UFormField label="Notes">
               <UTextarea
