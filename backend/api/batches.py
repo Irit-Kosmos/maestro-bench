@@ -23,6 +23,7 @@ from batch_utils import (
     variant_label,
 )
 from db import get_session
+from execution_stats import latest_figures
 from experiment_utils import add_experiment
 from results_files import execution_row_count
 from schemas.batches import (
@@ -241,14 +242,17 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
             for v in variations
             if v["field"] in point.get(v["agent_id"], {})
         ]
-        execution = session.exec(
+        executions = session.exec(
             select(ExperimentExecution)
             .where(ExperimentExecution.experiment_id == experiment.id)
             .order_by(col(ExperimentExecution.started_at).desc())
-        ).first()
+        ).all()
+        execution = executions[0] if executions else None
+        # The latest execution may have failed or be running again: analyses
+        # work from the latest one that completed
+        last_completed = next((e for e in executions if e.status == "completed"), None)
 
         agent_names: list[str] = []
-        duration = None
         if execution:
             agent_names = [
                 s.agent_name_snapshot
@@ -258,8 +262,6 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
                     .order_by(col(AgentExecutionSnapshot.execution_order))
                 ).all()
             ]
-            if execution.completed_at:
-                duration = (execution.completed_at - execution.started_at).total_seconds()
 
         experiment_responses.append(
             BatchExperimentResponse(
@@ -271,17 +273,20 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
                 execution_id=execution.id if execution else None,
                 execution_status=execution.status if execution else None,
                 started_at=execution.started_at if execution else None,
+                last_completed_execution_id=last_completed.id if last_completed else None,
                 completed_at=execution.completed_at if execution else None,
-                duration_seconds=duration,
                 row_count=execution_row_count(execution) if execution else None,
-                total_tokens=execution.total_tokens if execution else None,
-                total_cost_usd=execution.total_cost_usd if execution else None,
                 agent_names=agent_names,
             )
+                **latest_figures(executions),
         )
 
     statuses = [e.status for e in experiments]
     return BatchResponse(
+    tokens = [e.total_tokens for e in experiment_responses if e.total_tokens is not None]
+    costs = [
+        e.total_cost_usd for e in experiment_responses if e.total_cost_usd is not None
+    ]
         id=int(batch.id) if batch.id is not None else 0,
         name=batch.name,
         description=batch.description,
@@ -294,6 +299,9 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
         status=batch_status(statuses),
         counts=dict(Counter(statuses)),
         experiments=experiment_responses,
+        execution_count=sum(e.execution_count for e in experiment_responses),
+        total_tokens=sum(tokens) if tokens else None,
+        total_cost_usd=sum(costs) if costs else None,
     )
 
 

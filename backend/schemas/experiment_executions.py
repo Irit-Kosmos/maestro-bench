@@ -9,6 +9,21 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class LatestExecutionFigures(BaseModel):
+    """An experiment's executions, as its lists show them.
+
+    The figures are those of the latest execution; the other executions are
+    only counted.
+    """
+
+    execution_count: int = 0
+    duration_seconds: float | None = None
+    # Dataset rows that failed, counted in the rows processed
+    rows_failed: int | None = None
+    total_tokens: int | None = None
+    total_cost_usd: float | None = None
+
+
 class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int
