@@ -14,7 +14,7 @@ const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/prov
 
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
-const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, hasFilters, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
+const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
 
 // Whether the backend holds an API key for a provider, by canonical key
@@ -239,7 +239,6 @@ function handleDeleteLeave() {
         :definitions="filterDefinitions"
         :total="models.length"
         :shown="filtered.length"
-        :has-filters="hasFilters"
         :loading="pending"
         @refresh="refresh"
       />
