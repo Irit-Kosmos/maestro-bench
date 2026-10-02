@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Prompt } from '~/types'
+import type { FilterSpec } from '~/utils/filters'
+import { dateFilter } from '~/utils/filterSpecs'
 
 interface Props {
   data: Prompt[]
@@ -33,12 +35,25 @@ const columns = [
     label: 'Created',
   },
 ]
+
+const filters: FilterSpec<Prompt>[] = [
+  {
+    key: 'category',
+    label: 'Category',
+    icon: 'i-lucide-tag',
+    plural: 'categories',
+    searchPlaceholder: 'Search a category…',
+    value: prompt => prompt.category,
+  },
+  dateFilter(prompt => prompt.created_at),
+]
 </script>
 
 <template>
   <BaseDataTable
     :data="data"
     :columns="columns"
+    :filters="filters"
     :loading="loading"
     :row-to="(prompt: Prompt) => `/prompts/${prompt.id}`"
     item-name="prompt"

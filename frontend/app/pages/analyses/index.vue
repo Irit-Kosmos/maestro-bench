@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Analysis } from '~/types'
+import type { FilterSpec } from '~/utils/filters'
+import { dateFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Analyses',
@@ -35,6 +37,27 @@ const columns = [
     formatter: (_: unknown, row: Analysis) => String(row.runs.length),
   },
   { key: 'updated_at', label: 'Updated' },
+]
+
+const filters: FilterSpec<Analysis>[] = [
+  {
+    key: 'value_type',
+    label: 'Type',
+    icon: 'i-lucide-shapes',
+    value: analysis => analysis.config.value_type,
+    present: value => value === 'numeric'
+      ? { label: 'Numeric', icon: 'i-lucide-hash' }
+      : { label: 'Categorical', icon: 'i-lucide-tags' },
+  },
+  {
+    key: 'truth_column',
+    label: 'Ground truth',
+    icon: 'i-lucide-columns-3',
+    plural: 'columns',
+    searchPlaceholder: 'Search a column…',
+    value: analysis => analysis.config.truth_column,
+  },
+  dateFilter(analysis => analysis.updated_at, 'Updated'),
 ]
 
 const actions = [
@@ -95,6 +118,7 @@ async function confirmDelete() {
       <BaseDataTable
         :data="[...(analyses || [])]"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(analysis: Analysis) => `/analyses/${analysis.id}`"

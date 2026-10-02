@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { CreateDatasetForm, Dataset } from '~/types'
+import type { FilterSpec } from '~/utils/filters'
+import { dateFilter } from '~/utils/filterSpecs'
 
 // Page meta
 definePageMeta({
@@ -42,6 +44,10 @@ const columns = [
     key: 'created_at',
     label: 'Created',
   },
+]
+
+const filters: FilterSpec<Dataset>[] = [
+  dateFilter(dataset => dataset.created_at),
 ]
 
 const actions = [
@@ -145,6 +151,7 @@ function handleCreateClick() {
       <BaseDataTable
         :data="[...(datasets || [])]"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(dataset: Dataset) => `/datasets/${dataset.id}`"

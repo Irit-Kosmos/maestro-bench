@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Batch } from '~/types'
+import type { FilterSpec } from '~/utils/filters'
+import { datasetFilter, dateFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Batches',
@@ -21,16 +23,28 @@ const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
 const batchId = ref<number | null>(null)
 
+const figureClass = 'text-sm text-toned tabular-nums'
 const columns = [
   { key: 'name', label: 'Batch' },
   { key: 'experiments', label: 'Experiments' },
   { key: 'status', label: 'Status' },
+  // Across the experiments; the tokens and cost are those of their latest execution
+  { key: 'execution_count', label: 'Runs', class: figureClass, formatter: (count: number) => count ? String(count) : '—' },
+  { key: 'total_tokens', label: 'Tokens', class: figureClass, formatter: (tokens: number | null) => formatTokens(tokens) },
+  { key: 'total_cost_usd', label: 'Cost', class: figureClass, formatter: (cost: number | null) => formatCost(cost) },
   {
     key: 'dataset_name',
     label: 'Dataset',
     formatter: (_: unknown, row: Batch) => row.dataset_name || '—',
   },
   { key: 'created_at', label: 'Created' },
+]
+
+const filters: FilterSpec<Batch>[] = [
+  statusFilter(batch => batch.status),
+  datasetFilter(batch => batch.dataset_name),
+  runsFilter(batch => batch.execution_count, batch => batch.experiments.length),
+  dateFilter(batch => batch.created_at),
 ]
 
 const actions = [
@@ -101,6 +115,7 @@ async function confirmDelete() {
       <BaseDataTable
         :data="[...batches]"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(batch: Batch) => `/batches/${batch.id}`"
