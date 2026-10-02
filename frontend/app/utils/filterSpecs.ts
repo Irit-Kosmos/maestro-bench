@@ -20,6 +20,8 @@ type KnownStatus = keyof typeof STATUSES
 
 const isKnownStatus = (value: unknown): value is KnownStatus => typeof value === 'string' && value in STATUSES
 
+const presentStatus = (value: unknown) => isKnownStatus(value) ? STATUSES[value] : { label: String(value) }
+
 /** Where a run stands, in the order a run goes through them. */
 export function statusFilter<T>(status: (item: T) => string | null | undefined): FilterSpec<T> {
   return {
@@ -28,7 +30,20 @@ export function statusFilter<T>(status: (item: T) => string | null | undefined):
     icon: 'i-lucide-circle-dot',
     plural: 'statuses',
     value: status,
-    present: value => isKnownStatus(value) ? STATUSES[value] : { label: String(value) },
+    present: presentStatus,
+    compare: byOrder(Object.keys(STATUSES)),
+  }
+}
+
+/** The statuses the executions before the latest one ended with, which the status filter reads. */
+export function earlierRunsFilter<T>(statuses: (item: T) => readonly string[] | null | undefined): FilterSpec<T> {
+  return {
+    key: 'earlier_runs',
+    label: 'Earlier runs',
+    icon: 'i-lucide-history',
+    plural: 'statuses',
+    value: item => [...new Set(statuses(item))],
+    present: presentStatus,
     compare: byOrder(Object.keys(STATUSES)),
   }
 }

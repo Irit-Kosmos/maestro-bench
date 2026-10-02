@@ -17,6 +17,8 @@ class LatestExecutionFigures(BaseModel):
     """
 
     execution_count: int = 0
+    # Status of each execution, from the newest to the oldest
+    execution_statuses: list[str] = []
     duration_seconds: float | None = None
     # Dataset rows that failed, counted in the rows processed
     rows_failed: int | None = None

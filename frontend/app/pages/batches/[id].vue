@@ -187,6 +187,7 @@ function formatCost(cost: number | null) {
         <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
           <UIStatusIcon :status="batch.status" size="size-5" tooltip />
           <span class="min-w-0 text-balance">{{ batch.name }}</span>
+          <UIStatusHistory :earlier="batch.earlier_execution_statuses" />
         </h1>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
           <UIMetaItem icon="i-lucide-hash" label="Batch" class="tabular-nums">
@@ -302,6 +303,7 @@ function formatCost(cost: number | null) {
                 <td class="px-4 py-2.5">
                   <div class="flex items-center gap-3">
                     <UIStatusBadge :status="experiment.status" />
+                    <UIStatusHistory :earlier="experiment.execution_statuses?.slice(1)" />
                     <UIRunProgress :run="runOf(experiment.id)" />
                   </div>
                 </td>

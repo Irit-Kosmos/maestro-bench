@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Batch } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
-import { datasetFilter, dateFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { datasetFilter, dateFilter, earlierRunsFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Batches',
@@ -42,6 +42,7 @@ const columns = [
 
 const filters: FilterSpec<Batch>[] = [
   statusFilter(batch => batch.status),
+  earlierRunsFilter(batch => batch.earlier_execution_statuses),
   datasetFilter(batch => batch.dataset_name),
   runsFilter(batch => batch.execution_count, batch => batch.experiments.length),
   dateFilter(batch => batch.created_at),
@@ -130,7 +131,10 @@ async function confirmDelete() {
         </template>
 
         <template #status-cell="{ row }">
-          <UIStatusBadge :status="row.original.status" />
+          <div class="flex items-center gap-3">
+            <UIStatusBadge :status="row.original.status" />
+            <UIStatusHistory :earlier="row.original.earlier_execution_statuses" />
+          </div>
         </template>
 
         <template #created_at-cell="{ row }">

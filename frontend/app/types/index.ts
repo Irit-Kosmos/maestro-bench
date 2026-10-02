@@ -112,6 +112,8 @@ export interface Experiment {
 
   // Executions of the experiment: how many, and the figures of the latest one
   execution_count?: number
+  // Status of each execution, from the newest to the oldest
+  execution_statuses?: string[]
   duration_seconds?: number | null
   rows_failed?: number | null
   total_tokens?: number | null
@@ -467,6 +469,8 @@ export interface BatchExperiment {
   row_count: number | null
   // Executions of the experiment; the figures are those of the latest one
   execution_count: number
+  // Status of each execution, from the newest to the oldest
+  execution_statuses: string[]
   rows_failed: number | null
   total_tokens: number | null
   total_cost_usd: number | null
@@ -487,6 +491,8 @@ export interface Batch {
   counts: Record<string, number>
   // Executions of all the experiments; tokens and cost add up the latest one of each
   execution_count: number
+  // Status of the executions that are not the latest of their experiment, from the newest to the oldest
+  earlier_execution_statuses: string[]
   total_tokens: number | null
   total_cost_usd: number | null
   experiments: BatchExperiment[]

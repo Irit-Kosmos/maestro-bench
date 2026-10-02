@@ -104,6 +104,9 @@ class BatchResponse(BaseModel):
     # Executions of all the experiments. The tokens and cost add up the latest
     # execution of each, which are the ones the experiments table shows
     execution_count: int = 0
+    # Status of the executions that are not the latest of their experiment,
+    # from the newest to the oldest
+    earlier_execution_statuses: list[str] = []
     total_tokens: int | None = None
     total_cost_usd: float | None = None
     experiments: list[BatchExperimentResponse]

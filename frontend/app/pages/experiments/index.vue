@@ -2,7 +2,7 @@
 import type { Experiment } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
-import { datasetFilter, dateFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
 // Page meta
 definePageMeta({
@@ -113,6 +113,7 @@ const batchNames = computed(() => new Map((experiments.value ?? []).flatMap(exp 
 
 const filters = computed<FilterSpec<Experiment>[]>(() => [
   statusFilter(exp => exp.status ?? 'pending'),
+  earlierRunsFilter(exp => exp.execution_statuses?.slice(1)),
   datasetFilter(exp => exp.dataset?.name),
   {
     key: 'batch',
@@ -282,6 +283,7 @@ async function handleCreateExperiment() {
         <template #status-cell="{ row }">
           <div class="flex items-center gap-3">
             <UIStatusBadge :status="row.original.status" />
+            <UIStatusHistory :earlier="row.original.execution_statuses?.slice(1)" />
             <UIRunProgress :run="runOf(row.original.id)" />
           </div>
         </template>

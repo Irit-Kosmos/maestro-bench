@@ -231,6 +231,7 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
     ]
 
     experiment_responses = []
+    earlier_executions: list[ExperimentExecution] = []
     for experiment in experiments:
         point = parse_point(experiment.variant)
         coordinates = [
@@ -249,6 +250,7 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
             .order_by(col(ExperimentExecution.started_at).desc())
         ).all()
         execution = executions[0] if executions else None
+        earlier_executions.extend(executions[1:])
         # The latest execution may have failed or be running again: analyses
         # work from the latest one that completed
         last_completed = next((e for e in executions if e.status == "completed"), None)
@@ -300,6 +302,12 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
         status=batch_status(statuses),
         counts=dict(Counter(statuses)),
         execution_count=sum(e.execution_count for e in experiment_responses),
+        earlier_execution_statuses=[
+            e.status
+            for e in sorted(
+                earlier_executions, key=lambda e: e.started_at, reverse=True
+            )
+        ],
         total_tokens=sum(tokens) if tokens else None,
         total_cost_usd=sum(costs) if costs else None,
         experiments=experiment_responses,
