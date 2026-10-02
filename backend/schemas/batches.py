@@ -97,7 +97,7 @@ class BatchResponse(BaseModel):
     dataset_id: int | None = None
     dataset_name: str | None = None
     variations: list[VariationResponse]
-    # pending, running, completed, partial (some failed) or failed
+    # pending, running, completed, partial (not all completed), failed or cancelled
     status: str
     counts: dict[str, int]
     experiments: list[BatchExperimentResponse]
