@@ -39,7 +39,6 @@ def create_prompt(
     prompt = Prompt(
         name=prompt_data.name,
         description=prompt_data.description,
-        category=prompt_data.category,
     )
     session.add(prompt)
     session.flush()

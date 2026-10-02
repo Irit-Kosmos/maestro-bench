@@ -27,7 +27,6 @@ class Prompt(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)  # e.g., "Language Evaluator", "Content Scorer"
     description: str | None = None
-    category: str | None = None  # e.g., "evaluation", "generation", "analysis"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships

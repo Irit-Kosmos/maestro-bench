@@ -14,14 +14,12 @@ from schemas.tags import TagResponse
 class PromptCreate(BaseModel):
     name: str
     description: str | None = None
-    category: str | None = None
     tag_ids: list[int] = []
 
 
 class PromptUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    category: str | None = None
     # Left out: the tags stay as they are. Sent: they become exactly these.
     tag_ids: list[int] | None = None
 
@@ -52,7 +50,6 @@ class PromptResponse(BaseModel):
     id: int
     name: str
     description: str | None
-    category: str | None
     created_at: datetime
 
 

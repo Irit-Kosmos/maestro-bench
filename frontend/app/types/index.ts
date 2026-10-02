@@ -31,7 +31,6 @@ export interface Prompt {
   id: number
   name: string
   description: string | null
-  category: string | null
   tags: Tag[]
   created_at: string
   versions?: PromptVersion[]

@@ -21,7 +21,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlmodel import Session, delete
 
 from db import engine, init_db
-from tables import Agent, AgentTeam, Dataset, Model, Prompt, PromptVersion
+from tables import (
+    Agent,
+    AgentTeam,
+    Dataset,
+    Model,
+    Prompt,
+    PromptVersion,
+    Tag,
+    TagLink,
+)
 
 
 def seed_data() -> None:
@@ -42,7 +51,16 @@ def seed_data() -> None:
         # Clear existing data in FK-safe order using bulk DELETE statements
         # ------------------------------------------------------------------
         print("Clearing existing data...")
-        for table in (Agent, AgentTeam, PromptVersion, Prompt, Model, Dataset):
+        for table in (
+            Agent,
+            AgentTeam,
+            PromptVersion,
+            TagLink,
+            Tag,
+            Prompt,
+            Model,
+            Dataset,
+        ):
             session.exec(delete(table))
         session.commit()
         print("Existing data cleared.")
@@ -73,15 +91,22 @@ def seed_data() -> None:
         # ------------------------------------------------------------------
         print("Creating prompts and versions...")
 
+        evaluation_tag = Tag(name="evaluation", color="blue")
+        advice_tag = Tag(name="advice", color="green")
+        session.add_all([evaluation_tag, advice_tag])
+        session.commit()
+
         # Language Evaluator
         language_prompt = Prompt(
             name="Language Evaluator",
             description="Evaluates learner answers based on clarity, grammar, and terminology",
-            category="evaluation",
         )
         session.add(language_prompt)
         session.commit()
         session.refresh(language_prompt)
+        session.add(
+            TagLink(tag_id=evaluation_tag.id, kind="prompt", item_id=language_prompt.id)
+        )
 
         language_version = PromptVersion(
             prompt_id=language_prompt.id,
@@ -122,11 +147,13 @@ Input:
         content_prompt = Prompt(
             name="Content Evaluator",
             description="Evaluates how well learner answers cover key factual and conceptual points",
-            category="evaluation",
         )
         session.add(content_prompt)
         session.commit()
         session.refresh(content_prompt)
+        session.add(
+            TagLink(tag_id=evaluation_tag.id, kind="prompt", item_id=content_prompt.id)
+        )
 
         content_version = PromptVersion(
             prompt_id=content_prompt.id,
@@ -168,11 +195,13 @@ Input:
         metatutor_prompt = Prompt(
             name="MetaTutor",
             description="Provides actionable insights and advice for teachers",
-            category="advice",
         )
         session.add(metatutor_prompt)
         session.commit()
         session.refresh(metatutor_prompt)
+        session.add(
+            TagLink(tag_id=advice_tag.id, kind="prompt", item_id=metatutor_prompt.id)
+        )
 
         metatutor_version = PromptVersion(
             prompt_id=metatutor_prompt.id,

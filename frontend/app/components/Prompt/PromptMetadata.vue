@@ -1,7 +1,6 @@
 <script setup lang="ts">
 interface Props {
   createdAt?: string
-  category?: string | null
   promptName?: string
   layout?: 'grid' | 'inline'
 }
@@ -27,10 +26,6 @@ const { formatDate } = useUIHelpers()
       <div v-if="createdAt">
         <span class="text-muted">Created:</span>
         <span class="ml-2 text-default">{{ formatDate(createdAt) }}</span>
-      </div>
-      <div v-if="category">
-        <span class="text-muted">Category:</span>
-        <span class="ml-2 text-default">{{ category }}</span>
       </div>
       <div v-if="promptName">
         <span class="text-muted">Prompt:</span>

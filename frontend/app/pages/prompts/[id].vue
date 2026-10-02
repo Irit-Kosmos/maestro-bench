@@ -250,17 +250,16 @@ async function confirmDelete() {
   }
 }
 
-// Prompt details (name, description, category): rare, so a small modal is enough
+// Prompt details (name, description, tags): rare, so a small modal is enough
 const showEditPromptModal = ref(false)
 const updatingPrompt = ref(false)
-const editPromptData = ref({ name: '', description: '', category: '', tag_ids: [] as number[] })
+const editPromptData = ref({ name: '', description: '', tag_ids: [] as number[] })
 
 watch(prompt, (value) => {
   if (value) {
     editPromptData.value = {
       name: value.name,
       description: value.description || '',
-      category: value.category || '',
       tag_ids: value.tags.map(tag => tag.id),
     }
   }
@@ -425,9 +424,6 @@ onBeforeRouteLeave((to) => {
       </UFormField>
       <UFormField label="Description">
         <UTextarea v-model="editPromptData.description" placeholder="What this prompt is for" :rows="3" class="w-full" />
-      </UFormField>
-      <UFormField label="Category">
-        <UInput v-model="editPromptData.category" placeholder="e.g. evaluation, instruction" autocomplete="off" class="w-full" />
       </UFormField>
       <UFormField label="Tags">
         <TagsInput v-model="editPromptData.tag_ids" />

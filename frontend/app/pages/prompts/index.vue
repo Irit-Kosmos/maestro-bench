@@ -27,7 +27,6 @@ const isCreating = ref(false)
 const createForm = ref({
   name: '',
   description: '',
-  category: '',
   tag_ids: [] as number[],
 })
 
@@ -41,7 +40,6 @@ function resetCreateForm() {
   createForm.value = {
     name: '',
     description: '',
-    category: '',
     tag_ids: [],
   }
 }
@@ -55,7 +53,6 @@ async function handleCreatePrompt() {
     const result = await createPrompt({
       name: createForm.value.name,
       description: createForm.value.description || undefined,
-      category: createForm.value.category || undefined,
       tag_ids: createForm.value.tag_ids,
     })
 
@@ -80,7 +77,7 @@ async function handleCreatePrompt() {
 
 <template>
   <BasePageContent
-    :loading="pending"
+    :loading="pending && !prompts"
     :error="error?.message || null"
   >
     <template #before-content>
@@ -130,14 +127,6 @@ async function handleCreatePrompt() {
                 placeholder="e.g., Language Evaluator"
                 class="w-full"
                 required
-              />
-            </UFormField>
-
-            <UFormField label="Category">
-              <UInput
-                v-model="createForm.category"
-                placeholder="e.g., evaluation, generation, analysis"
-                class="w-full"
               />
             </UFormField>
 
