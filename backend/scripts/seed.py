@@ -273,13 +273,6 @@ Your response must be in the same language as the query!""",
                 file_path="diff_gt_2_mohler_dataset.csv",
             )
         )
-        session.add(
-            Dataset(
-                name="French answers (sample)",
-                description="Tiny synthetic French dataset for smoke-testing prompts",
-                file_path="french_answers.csv",
-            )
-        )
 
         session.commit()
         print("\nDatabase successfully seeded!")
