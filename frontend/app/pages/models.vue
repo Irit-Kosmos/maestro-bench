@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Model } from '~/types'
+import type { ModelFormValues } from '~/components/Models/Form.vue'
+import type { Model, ProviderStatus } from '~/types'
 
 // Page meta
 definePageMeta({
@@ -9,13 +10,17 @@ definePageMeta({
 
 // Fetch data directly in the page
 const { data: models, pending, error, refresh } = await useMyLazyFetch<Model[]>('/models')
-
-const availableProviders = computed(() => [...new Set((models.value ?? []).map(m => m.provider))].sort())
+const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
-const { selectedProviders, searchQuery, filterModels, toggleProvider, updateSearch, clearFilters } = useModelFilters()
+const { search, providers, status, groupBy, providerOptions, statusCounts, filtered, groups, hasFilters, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
+
+// Whether the backend holds an API key for a provider, by canonical key
+const providerStatus = computed(() => Object.fromEntries(
+  (providerStatuses.value ?? []).map(item => [providerMeta(item.provider).key, item]),
+))
 
 // Page meta
 useSeoMeta({
@@ -33,97 +38,8 @@ const isCreating = ref(false)
 const isUpdating = ref(false)
 const isDeleting = ref(false)
 
-const createForm = ref({
-  name: '',
-  provider: '',
-  description: '',
-  max_tokens: null as number | null,
-  default_temperature: null as number | null,
-  default_max_tokens: null as number | null,
-  is_active: true,
-})
-
-const editForm = ref({
-  name: '',
-  provider: '',
-  description: '',
-  max_tokens: null as number | null,
-  default_temperature: null as number | null,
-  default_max_tokens: null as number | null,
-  is_active: true,
-})
-
-// Provider options
-const providerOptions = [
-  { label: 'OpenAI', value: 'openai' },
-  { label: 'Anthropic', value: 'anthropic' },
-  { label: 'Mistral', value: 'mistral' },
-  { label: 'Google', value: 'google' },
-  { label: 'Meta', value: 'meta' },
-  { label: 'Other', value: 'other' },
-]
-
-// Computed
-const filteredModels = computed(() => {
-  return filterModels(models.value || [])
-})
-
-const createFormValid = computed(() => {
-  return createForm.value.name.trim() && createForm.value.provider.trim()
-})
-
-const editFormValid = computed(() => {
-  return editForm.value.name.trim() && editForm.value.provider.trim()
-})
-
-// Table configuration
-const columns = [
-  {
-    key: 'name',
-    label: 'Model',
-  },
-  {
-    key: 'provider',
-    label: 'Provider',
-  },
-  {
-    key: 'description',
-    label: 'Description',
-  },
-  {
-    key: 'is_active',
-    label: 'Status',
-  },
-
-]
-
-const actions = [
-  {
-    label: 'Edit',
-    icon: 'i-lucide-edit',
-    variant: 'ghost' as const,
-    color: 'neutral' as const,
-    handler: (model: Model) => editModel(model),
-  },
-  {
-    label: (model: Model) => model.is_active ? 'Deactivate' : 'Activate',
-    icon: 'i-lucide-power',
-    variant: 'ghost' as const,
-    color: 'neutral' as const,
-    handler: (model: Model) => handleToggleStatus(model),
-  },
-  {
-    label: 'Delete',
-    icon: 'i-lucide-trash-2',
-    variant: 'ghost' as const,
-    color: 'error' as const,
-    handler: (model: Model) => confirmDelete(model),
-  },
-]
-
-// Methods
-function resetCreateForm() {
-  createForm.value = {
+function emptyForm(): ModelFormValues {
+  return {
     name: '',
     provider: '',
     description: '',
@@ -134,16 +50,25 @@ function resetCreateForm() {
   }
 }
 
+const createForm = ref<ModelFormValues>(emptyForm())
+const editForm = ref<ModelFormValues>(emptyForm())
+
+// Computed
+const createFormValid = computed(() => {
+  return createForm.value.name.trim() && createForm.value.provider.trim()
+})
+
+const editFormValid = computed(() => {
+  return editForm.value.name.trim() && editForm.value.provider.trim()
+})
+
+// Methods
+function resetCreateForm() {
+  createForm.value = emptyForm()
+}
+
 function resetEditForm() {
-  editForm.value = {
-    name: '',
-    provider: '',
-    description: '',
-    max_tokens: null,
-    default_temperature: null,
-    default_max_tokens: null,
-    is_active: true,
-  }
+  editForm.value = emptyForm()
 }
 
 async function handleCreateModel() {
@@ -230,17 +155,17 @@ async function handleUpdateModel() {
 }
 
 async function handleToggleStatus(model: Model) {
+  // Flip it right away: the switch is used in bursts and shouldn't wait on the network
+  model.is_active = !model.is_active
   try {
     const result = await toggleStatus(model.id)
-    if (result.success) {
-      // Refresh the models list
-      await refresh()
-    }
-    else {
+    if (!result.success) {
+      model.is_active = !model.is_active
       showUpdateError('Model status', typeof result.error === 'string' ? result.error : undefined)
     }
   }
   catch (error) {
+    model.is_active = !model.is_active
     showUpdateError('Model status', error instanceof Error ? error.message : undefined)
   }
 }
@@ -303,7 +228,7 @@ watch(() => showDeleteModal.value, (newValue) => {
 
 <template>
   <BasePageContent
-    :loading="pending"
+    :loading="pending && !models"
     :error="error ? 'Failed to load models' : null"
   >
     <template #before-content>
@@ -317,67 +242,57 @@ watch(() => showDeleteModal.value, (newValue) => {
       </UButton>
     </template>
 
-    <!-- Filters -->
-    <div class="mb-6">
+    <!-- Models -->
+    <div v-if="models && models.length > 0" class="overflow-hidden rounded-lg border border-default">
       <ModelsFilters
-        :providers="availableProviders"
-        :selected-providers="[...selectedProviders]"
-        :search-query="searchQuery"
-        :total-count="models?.length || 0"
-        :filtered-count="filteredModels.length"
-        @toggle-provider="toggleProvider"
-        @update-search="updateSearch"
-        @clear-filters="clearFilters"
-      />
-    </div>
-
-    <!-- Models Table -->
-    <div v-if="filteredModels.length > 0">
-      <BaseDataTable
-        :data="filteredModels"
-        :columns="columns"
-        :actions="actions"
+        v-model:search="search"
+        v-model:providers="providers"
+        v-model:status="status"
+        v-model:group-by="groupBy"
+        :provider-options="providerOptions"
+        :status-counts="statusCounts"
+        :total="models.length"
+        :shown="filtered.length"
+        :has-filters="hasFilters"
         :loading="pending"
-        title="All Models"
+        @clear="clearFilters"
         @refresh="refresh"
-      >
-        <!-- Custom cell for status -->
-        <template #is_active-cell="{ row }">
-          <UBadge
-            :color="row.original.is_active ? 'success' : 'neutral'"
-            :label="row.original.is_active ? 'Active' : 'Inactive'"
-            variant="soft"
-          />
-        </template>
+      />
 
-        <!-- Custom cell for description -->
-        <template #description-cell="{ row }">
-          <span class="text-sm text-toned">
-            {{ row.original.description || 'No description' }}
-          </span>
-        </template>
-      </BaseDataTable>
+      <ModelsList
+        v-if="filtered.length > 0"
+        :groups="groups"
+        :grouped="groupBy !== 'none'"
+        :show-provider="groupBy !== 'provider'"
+        :is-collapsed="isCollapsed"
+        :provider-status="providerStatus"
+        @toggle-group="toggleCollapsed"
+        @edit="editModel"
+        @toggle-status="handleToggleStatus"
+        @delete="confirmDelete"
+      />
+
+      <!-- No Results State -->
+      <div v-else class="p-6">
+        <BaseEmptyState
+          title="No models match your filters"
+          message="Try another search, or clear the filters."
+          icon="i-lucide-search-x"
+          action-label="Clear filters"
+          action-icon="i-lucide-x"
+          @action="clearFilters"
+        />
+      </div>
     </div>
 
     <!-- Empty State -->
     <BaseEmptyState
-      v-else-if="!pending && (!models || models.length === 0)"
+      v-else-if="!pending"
       title="No models yet"
       message="Start by adding your first AI model"
       icon="i-lucide-cpu"
       action-label="Add model"
       @action="handleCreateClick"
-    />
-
-    <!-- No Results State -->
-    <BaseEmptyState
-      v-else-if="!pending && filteredModels.length === 0"
-      title="No models match your filters"
-      message="Try adjusting your search or filter criteria"
-      icon="i-lucide:search-x"
-      action-label="Clear filters"
-      action-icon="i-lucide-x"
-      @action="clearFilters"
     />
 
     <!-- Create Model Modal -->
@@ -388,74 +303,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       :loading="isCreating"
       @submit="handleCreateModel"
     >
-      <div class="space-y-6">
-        <div class="grid grid-cols-1 gap-4">
-          <UFormField label="Name" required>
-            <UInput
-              v-model="createForm.name"
-              placeholder="e.g., gpt-4-turbo"
-              required
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Provider" required>
-            <USelect
-              v-model="createForm.provider"
-              :items="providerOptions"
-              placeholder="Select provider"
-              required
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Description">
-            <UTextarea
-              v-model="createForm.description"
-              placeholder="Brief description of the model"
-              :rows="3"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Max Tokens">
-            <UInput
-              v-model="createForm.max_tokens"
-              type="number"
-              placeholder="e.g., 128000"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Default Temperature">
-            <UInput
-              v-model="createForm.default_temperature"
-              type="number"
-              step="0.1"
-              min="0"
-              max="2"
-              placeholder="e.g., 0.7"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Default Max Tokens">
-            <UInput
-              v-model="createForm.default_max_tokens"
-              type="number"
-              placeholder="e.g., 2048"
-              class="w-full"
-            />
-          </UFormField>
-
-          <div class="flex items-center justify-between">
-            <label class="text-sm font-medium text-default">Active</label>
-            <USwitch
-              v-model="createForm.is_active"
-            />
-          </div>
-        </div>
-      </div>
+      <ModelsForm v-model="createForm" name-placeholder="e.g. gpt-4-turbo" />
     </BaseCrudModal>
 
     <!-- Edit Model Modal -->
@@ -466,68 +314,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       :loading="isUpdating"
       @submit="handleUpdateModel"
     >
-      <div class="space-y-6">
-        <div class="grid grid-cols-1 gap-4">
-          <UFormField label="Name" required>
-            <UInput
-              v-model="editForm.name"
-              required
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Provider" required>
-            <USelect
-              v-model="editForm.provider"
-              :items="providerOptions"
-              required
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Description">
-            <UTextarea
-              v-model="editForm.description"
-              :rows="3"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Max Tokens">
-            <UInput
-              v-model="editForm.max_tokens"
-              type="number"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Default Temperature">
-            <UInput
-              v-model="editForm.default_temperature"
-              type="number"
-              step="0.1"
-              min="0"
-              max="2"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Default Max Tokens">
-            <UInput
-              v-model="editForm.default_max_tokens"
-              type="number"
-              class="w-full"
-            />
-          </UFormField>
-
-          <div class="flex items-center justify-between">
-            <label class="text-sm font-medium text-default">Active</label>
-            <USwitch
-              v-model="editForm.is_active"
-            />
-          </div>
-        </div>
-      </div>
+      <ModelsForm v-model="editForm" />
     </BaseCrudModal>
 
     <!-- Delete Confirmation Modal -->

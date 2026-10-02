@@ -1,119 +1,150 @@
 <script setup lang="ts">
-interface Props {
-  /** Providers offered as quick filters (derived from the models list) */
-  providers?: string[]
-  selectedProviders?: string[]
-  searchQuery?: string
-  totalCount?: number
-  filteredCount?: number
-}
+import type { ModelGroupBy, ModelStatusFilter, ProviderOption } from '~/composables/useModelFilters'
 
-interface Emits {
-  toggleProvider: [provider: string]
-  updateSearch: [query: string]
-  clearFilters: []
-}
+// The toolbar of the models list: search, provider and status filters, and how to group the rows
+const props = defineProps<{
+  providerOptions: readonly ProviderOption[]
+  statusCounts: { all: number, active: number, inactive: number }
+  total: number
+  shown: number
+  hasFilters: boolean
+  loading?: boolean
+}>()
 
-const props = withDefaults(defineProps<Props>(), {
-  providers: () => [],
-  selectedProviders: () => [],
-  searchQuery: '',
-  totalCount: 0,
-  filteredCount: 0,
+const emit = defineEmits<{
+  clear: []
+  refresh: []
+}>()
+
+const search = defineModel<string>('search', { required: true })
+const providers = defineModel<string[]>('providers', { required: true })
+const status = defineModel<ModelStatusFilter>('status', { required: true })
+const groupBy = defineModel<ModelGroupBy>('groupBy', { required: true })
+
+const searchInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('searchInput')
+defineShortcuts({
+  '/': () => searchInput.value?.inputRef?.focus(),
 })
 
-const emit = defineEmits<Emits>()
+const statusItems = computed(() => [
+  { label: 'Any status', value: 'all', icon: 'i-lucide-circle-dashed', count: props.statusCounts.all },
+  { label: 'Active', value: 'active', icon: 'i-lucide-circle-check', count: props.statusCounts.active },
+  { label: 'Inactive', value: 'inactive', icon: 'i-lucide-circle-slash', count: props.statusCounts.inactive },
+])
 
-// Local reactive values
-const localProviders = ref([...props.selectedProviders])
-const localSearch = ref(props.searchQuery || '')
+const groupItems = [
+  { label: 'Group by provider', value: 'provider', icon: 'i-lucide-layers' },
+  { label: 'Group by status', value: 'status', icon: 'i-lucide-list-checks' },
+  { label: 'No grouping', value: 'none', icon: 'i-lucide-list' },
+]
 
-// Watch for prop changes
-watch(() => props.selectedProviders, (newVal) => {
-  localProviders.value = [...newVal]
-})
+// The trigger wears the logos of the providers being filtered on
+const selectedLogos = computed(() => providers.value.slice(0, 3))
 
-watch(() => props.searchQuery, (newVal) => {
-  localSearch.value = newVal || ''
-})
-
-// Methods
-function handleProviderToggle(provider: string) {
-  const index = localProviders.value.indexOf(provider)
-  if (index > -1) {
-    localProviders.value.splice(index, 1)
-  }
-  else {
-    localProviders.value.push(provider)
-  }
-  emit('toggleProvider', provider)
-}
-
-function handleSearchChange(value: string) {
-  localSearch.value = value
-  emit('updateSearch', value)
-}
-
-function clearAllFilters() {
-  localProviders.value = []
-  localSearch.value = ''
-  emit('clearFilters')
-}
-
-// Computed
-const hasActiveFilters = computed(() => {
-  return localProviders.value.length > 0 || localSearch.value
-})
+const countLabel = computed(() =>
+  props.shown === props.total
+    ? `${props.total} ${props.total === 1 ? 'model' : 'models'}`
+    : `${props.shown} of ${props.total} models`,
+)
 </script>
 
 <template>
-  <div class="space-y-4">
-    <!-- Search Bar -->
-    <div class="flex gap-4 items-center">
-      <div class="flex-1">
-        <UInput
-          :model-value="localSearch"
-          placeholder="Search models..."
-          icon="i-lucide-search"
-          class="w-full"
-          @update:model-value="handleSearchChange"
-        />
-      </div>
+  <div class="flex min-h-11 flex-wrap items-center gap-x-1 gap-y-1 border-b border-default px-2 py-1">
+    <UInput
+      ref="searchInput"
+      v-model="search"
+      placeholder="Filter…"
+      icon="i-lucide-search"
+      size="sm"
+      variant="none"
+      aria-label="Filter models"
+      class="min-w-32 flex-1 sm:max-w-56"
+      @keydown.esc="search = ''"
+    >
+      <template v-if="!search" #trailing>
+        <UKbd value="/" size="sm" />
+      </template>
+    </UInput>
 
+    <USelectMenu
+      v-model="providers"
+      multiple
+      value-key="value"
+      :items="providerOptions as ProviderOption[]"
+      :filter-fields="['label', 'value']"
+      :search-input="{ placeholder: 'Search providers…' }"
+      placeholder="All providers"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      class="w-44"
+      :ui="{ content: 'min-w-56' }"
+      aria-label="Filter by provider"
+    >
+      <template #leading>
+        <span v-if="selectedLogos.length" class="flex items-center -space-x-1.5">
+          <UIProviderIcon v-for="key in selectedLogos" :key="key" :provider="key" />
+        </span>
+        <UIcon v-else name="i-lucide-building-2" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
+      </template>
+      <template #item-leading="{ item }">
+        <UIProviderIcon :provider="(item as ProviderOption).value" />
+      </template>
+      <template #item-trailing="{ item }">
+        <span class="text-xs text-dimmed tabular-nums">{{ (item as ProviderOption).count }}</span>
+      </template>
+    </USelectMenu>
+
+    <USelectMenu
+      v-model="status"
+      value-key="value"
+      :items="statusItems"
+      :search-input="false"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      class="w-36"
+      aria-label="Filter by status"
+    >
+      <template #item-trailing="{ item }">
+        <span class="text-xs text-dimmed tabular-nums">{{ (item as typeof statusItems[number]).count }}</span>
+      </template>
+    </USelectMenu>
+
+    <USelectMenu
+      v-model="groupBy"
+      value-key="value"
+      :items="groupItems"
+      :search-input="false"
+      size="xs"
+      variant="ghost"
+      color="neutral"
+      class="w-40"
+      aria-label="Group models"
+    />
+
+    <UButton
+      v-if="hasFilters"
+      color="neutral"
+      variant="ghost"
+      size="xs"
+      icon="i-lucide-x"
+      @click="emit('clear')"
+    >
+      Clear
+    </UButton>
+
+    <span class="ms-auto ps-2 text-xs text-muted tabular-nums">{{ countLabel }}</span>
+    <UTooltip text="Refresh">
       <UButton
-        v-if="hasActiveFilters"
-        variant="outline"
+        variant="ghost"
         color="neutral"
-        icon="i-lucide-x"
-        @click="clearAllFilters"
-      >
-        Clear Filters
-      </UButton>
-    </div>
-
-    <!-- Compact Filters Row -->
-    <div class="flex flex-col md:flex-row md:items-center gap-4">
-      <!-- Multi-Select Provider Tags -->
-      <div class="flex flex-wrap gap-2 md:flex-1">
-        <span class="text-sm font-medium text-default self-center mr-2 whitespace-nowrap">Providers:</span>
-        <UButton
-          v-for="provider in providers"
-          :key="provider"
-          :variant="localProviders.includes(provider) ? 'solid' : 'outline'"
-          color="neutral"
-          size="sm"
-          @click="handleProviderToggle(provider)"
-        >
-          {{ provider.charAt(0).toUpperCase() + provider.slice(1) }}
-        </UButton>
-      </div>
-
-      <!-- Results Count -->
-      <div class="flex gap-4 flex-wrap md:flex-nowrap items-center">
-        <div v-if="totalCount > 0" class="text-sm text-toned whitespace-nowrap ml-auto">
-          {{ filteredCount }} of {{ totalCount }} models
-        </div>
-      </div>
-    </div>
+        icon="i-lucide-refresh-cw"
+        size="sm"
+        aria-label="Refresh"
+        :loading="loading"
+        @click="emit('refresh')"
+      />
+    </UTooltip>
   </div>
 </template>
