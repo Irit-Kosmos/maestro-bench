@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Experiment } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
+import { h, resolveComponent } from 'vue'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
 import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
@@ -53,11 +54,17 @@ useSeoMeta({
 })
 
 // Table configuration
+const ExperimentsName = resolveComponent('ExperimentsName')
 const figureClass = 'text-sm text-toned tabular-nums'
 const columns = [
   {
     key: 'name',
     label: 'Experiment',
+    // Capped so a long name truncates instead of pushing the status out of view
+    class: 'max-w-72',
+    // A batch's experiments drop the batch prefix: the Batch column already says it
+    formatter: (_: any, row: Experiment) => shortExperimentName(row.name, row.batch_name),
+    render: (row: Experiment, hint?: string) => h(ExperimentsName, { name: row.name, batchName: row.batch_name, hint, stacked: true }),
   },
   {
     key: 'dataset',

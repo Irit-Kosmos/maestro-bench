@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { VNodeChild } from 'vue'
 import type { FilterSpec, FilterState } from '~/utils/filters'
 import { h, resolveComponent } from 'vue'
 
@@ -9,6 +10,8 @@ interface Column {
   sortable?: boolean
   class?: string
   formatter?: (value: any, row: any) => string
+  /** Rich content for the first column of a linked row (see `rowTo`); it places the row hint itself. `formatter` still feeds the search */
+  render?: (row: any, hint?: string) => VNodeChild
 }
 
 interface Action {
@@ -150,10 +153,12 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       return h(NuxtLink, {
         to: props.rowTo(row.original),
         class: 'flex items-baseline gap-2 min-w-0 font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary',
-      }, () => [
-        h('span', { class: 'truncate' }, value),
-        hint ? h('span', { class: 'shrink-0 text-xs font-normal text-dimmed tabular-nums' }, hint) : null,
-      ])
+      }, () => col.render
+        ? col.render(row.original, hint)
+        : [
+            h('span', { class: 'truncate' }, value),
+            hint ? h('span', { class: 'shrink-0 text-xs font-normal text-dimmed tabular-nums' }, hint) : null,
+          ])
     },
     meta: {
       class: {
