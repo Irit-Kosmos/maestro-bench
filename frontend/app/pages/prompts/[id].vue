@@ -260,6 +260,7 @@ async function handleEditPrompt() {
 
 // Keyboard: arrows or j/k to move through versions, e to edit, n for a new one.
 // Typing in a field never triggers them, and the form has its own ⌘↵ / Esc.
+// Esc is also caught here, for when focus is nowhere in the form (right after clicking Edit).
 const anyDialogOpen = computed(() => showEditPromptModal.value || showDeleteDialog.value || showDiscardDialog.value)
 
 function step(direction: 1 | -1) {
@@ -284,6 +285,10 @@ defineShortcuts({
   n: () => {
     if (mode.value === 'view' && !anyDialogOpen.value)
       startCreate()
+  },
+  escape: () => {
+    if (mode.value !== 'view' && !anyDialogOpen.value)
+      cancelForm()
   },
 })
 
