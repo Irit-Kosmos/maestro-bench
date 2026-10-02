@@ -179,12 +179,22 @@ function addAgentRun(index: number) {
 const pathOpen = ref(false)
 const customPaths = ref<string[]>([])
 
+// A combobox item can't have an empty value, so the whole output gets a stand-in
+const WHOLE_OUTPUT = '__whole_output__'
+
+const pathModel = computed({
+  get: () => form.value.config.output_path || WHOLE_OUTPUT,
+  set: (value: string) => {
+    form.value.config.output_path = value === WHOLE_OUTPUT ? '' : value
+  },
+})
+
 const pathItems = computed(() => {
   const paths = new Set([...pathSuggestions.value, ...customPaths.value])
   if (form.value.config.output_path)
     paths.add(form.value.config.output_path)
   return [
-    { label: '(whole output)', value: '' },
+    { label: '(whole output)', value: WHOLE_OUTPUT },
     ...[...paths].map(p => ({ label: p, value: p })),
   ]
 })
@@ -268,7 +278,8 @@ const confidenceItems = [
           value-key="value"
           :search-input="{ placeholder: 'Search executions…' }"
           :content="{ align: 'end' }"
-          :ui="{ trailing: 'hidden', content: 'min-w-[28rem]' }"
+          :trailing-icon="false"
+          :ui="{ content: 'min-w-[28rem]' }"
           variant="ghost"
           color="neutral"
           size="sm"
@@ -419,7 +430,7 @@ const confidenceItems = [
 
         <AnalysesField label="Prediction" hint="Path in the agent's JSON output, like evaluation.score">
           <USelectMenu
-            v-model="form.config.output_path"
+            v-model="pathModel"
             v-model:open="pathOpen"
             :items="pathItems"
             value-key="value"
