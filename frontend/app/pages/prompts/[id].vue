@@ -54,11 +54,33 @@ const selectedId = computed<number | null>({
     return (versions.value.find(version => version.is_default) ?? sortedVersions.value[0])?.id ?? null
   },
   set(id) {
-    router.replace({ query: { ...route.query, v: id ?? undefined } })
+    // Another version means another "version before": a base picked by hand does not follow
+    router.replace({ query: { ...route.query, v: id ?? undefined, base: undefined } })
   },
 })
 
 const selected = computed(() => versions.value.find(version => version.id === selectedId.value) ?? null)
+
+// Changes view: also in the URL (?diff=1&base=), so a link opens on the same comparison
+const canCompare = computed(() => versions.value.length >= 2)
+const changesOn = computed(() => route.query.diff === '1' && canCompare.value)
+const pickedBaseId = computed(() => {
+  const id = Number.parseInt(String(route.query.base))
+  return Number.isNaN(id) ? null : id
+})
+
+const { base, diff, stats, load: loadDiff } = usePromptDiff(sortedVersions, selected, pickedBaseId)
+const baseCandidates = computed(() => sortedVersions.value.filter(version => version.id !== selectedId.value))
+
+function setChanges(on: boolean) {
+  if (on)
+    loadDiff()
+  router.replace({ query: { ...route.query, diff: on ? '1' : undefined, base: on ? route.query.base : undefined } })
+}
+
+function setBase(id: number) {
+  router.replace({ query: { ...route.query, base: String(id) } })
+}
 
 // On desktop the block fills the page (top bar and body padding taken off), so only the panes inside scroll
 const frame = 'min-h-[26rem] overflow-hidden rounded-lg border border-default lg:h-[calc(100dvh-var(--ui-header-height)-3rem-1px)]'
@@ -199,6 +221,13 @@ async function patchSelected(patch: { is_default?: boolean, is_active?: boolean 
 // Delete
 const showDeleteDialog = ref(false)
 const deleting = ref(false)
+// Snapshot for the dialog text: the selection changes as soon as the delete succeeds, mid fade-out
+const deleteLabel = ref('')
+
+function requestDelete() {
+  deleteLabel.value = selected.value?.version ?? ''
+  showDeleteDialog.value = true
+}
 
 async function confirmDelete() {
   if (!selected.value)
@@ -258,7 +287,7 @@ async function handleEditPrompt() {
   }
 }
 
-// Keyboard: arrows or j/k to move through versions, e to edit, n for a new one.
+// Keyboard: arrows or j/k to move through versions, d for changes, e to edit, n for a new one.
 // Typing in a field never triggers them, and the form has its own ⌘↵ / Esc.
 // Esc is also caught here, for when focus is nowhere in the form (right after clicking Edit).
 const anyDialogOpen = computed(() => showEditPromptModal.value || showDeleteDialog.value || showDiscardDialog.value)
@@ -278,6 +307,10 @@ defineShortcuts({
   j: () => step(1),
   arrowup: () => step(-1),
   k: () => step(-1),
+  d: () => {
+    if (mode.value === 'view' && !anyDialogOpen.value && canCompare.value)
+      setChanges(!changesOn.value)
+  },
   e: () => {
     if (mode.value === 'view' && !anyDialogOpen.value)
       startEdit()
@@ -345,6 +378,7 @@ onBeforeRouteLeave((to) => {
           :versions="sortedVersions"
           :selected-id="selectedId"
           :drafting="mode === 'create'"
+          :stats="stats"
           class="max-h-56 border-b border-default bg-muted/30 lg:max-h-none lg:border-e lg:border-b-0"
           @select="select"
           @create="guard(startCreate)"
@@ -362,10 +396,17 @@ onBeforeRouteLeave((to) => {
           v-else-if="selected"
           :key="selected.id"
           :version="selected"
+          :changes="changesOn"
+          :can-compare="canCompare"
+          :base="base"
+          :bases="baseCandidates"
+          :diff="diff"
+          @update:changes="setChanges"
+          @select-base="setBase"
           @edit="startEdit"
           @set-default="patchSelected({ is_default: true })"
           @toggle-active="patchSelected({ is_active: !selected.is_active })"
-          @delete="() => { showDeleteDialog = true }"
+          @delete="requestDelete"
         />
       </div>
     </template>
@@ -392,7 +433,7 @@ onBeforeRouteLeave((to) => {
     <BaseConfirmDialog
       v-model:open="showDeleteDialog"
       title="Delete version"
-      :message="`Are you sure you want to delete version &quot;${selected?.version}&quot;? This action cannot be undone.`"
+      :message="`Are you sure you want to delete version &quot;${deleteLabel}&quot;? This action cannot be undone.`"
       confirm-label="Delete version"
       variant="error"
       :loading="deleting"
