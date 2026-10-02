@@ -198,6 +198,7 @@ const description = computed(() => {
 const problems = computed(() => items.value
   .map(item => ({ item, issues: pipeline.issuesOf(item.agent.id) }))
   .filter(entry => entry.issues.length > 0))
+const problemCount = computed(() => problems.value.reduce((total, entry) => total + entry.issues.length, 0))
 </script>
 
 <template>
@@ -228,20 +229,6 @@ const problems = computed(() => items.value
           Graph
         </UButton>
       </div>
-
-      <USelectMenu
-        v-if="view === 'list' && !allAdded"
-        v-model="picked"
-        value-key="value"
-        :items="pickerItems"
-        :ui="{ content: 'min-w-60' }"
-        icon="i-lucide-plus"
-        placeholder="Add an agent"
-        :search-input="{ placeholder: 'Search agents…' }"
-        class="w-48"
-        aria-label="Add an agent"
-        @update:model-value="(id) => addById(id as number | undefined)"
-      />
     </template>
 
     <!-- Nothing chosen yet -->
@@ -287,6 +274,20 @@ const problems = computed(() => items.value
     <div v-else class="flex flex-col gap-4">
       <!-- List view -->
       <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
+        <USelectMenu
+          v-if="!allAdded"
+          v-model="picked"
+          value-key="value"
+          :items="pickerItems"
+          :ui="{ content: 'min-w-60' }"
+          icon="i-lucide-plus"
+          placeholder="Add an agent"
+          :search-input="{ placeholder: 'Search agents…' }"
+          class="w-full sm:w-64"
+          aria-label="Add an agent"
+          @update:model-value="(id) => addById(id as number | undefined)"
+        />
+
         <div
           v-if="items.length > 1"
           ref="sortableRef"
@@ -332,15 +333,35 @@ const problems = computed(() => items.value
           />
         </div>
 
-        <!-- What still blocks "Create and start", in words -->
-        <ul v-if="problems.length > 0" class="flex flex-col gap-1 text-sm text-warning" aria-label="To fix before creating">
-          <li v-for="entry in problems" :key="entry.item.agent.id" class="flex items-start gap-1.5">
-            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span>
-              <template v-if="items.length > 1">{{ entry.item.agent.name }}: </template>{{ entry.issues.join(' · ') }}
-            </span>
-          </li>
-        </ul>
+        <!-- What still blocks "Create and start": a count, then the issues grouped by agent -->
+        <section
+          v-if="problems.length > 0"
+          class="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3"
+          aria-labelledby="agents-problems-title"
+        >
+          <h3 id="agents-problems-title" class="flex items-center gap-2 text-sm font-medium text-highlighted">
+            <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-warning" aria-hidden="true" />
+            {{ problemCount }} {{ problemCount === 1 ? 'thing' : 'things' }} to fix before creating
+          </h3>
+          <ul class="mt-2 flex flex-col gap-2 ps-6">
+            <li v-for="entry in problems" :key="entry.item.agent.id" class="text-sm">
+              <template v-if="items.length > 1">
+                <button
+                  type="button"
+                  class="rounded-sm font-medium text-highlighted underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  @click="setOpen(entry.item.agent.id, true)"
+                >
+                  {{ entry.item.agent.name }}
+                </button>
+              </template>
+              <ul class="list-disc ps-4 text-muted marker:text-warning" :class="{ 'mt-0.5': items.length > 1 }">
+                <li v-for="issue in entry.issues" :key="issue">
+                  {{ issue }}
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <!-- Graph view -->
