@@ -8,8 +8,8 @@ definePageMeta({
   subtitle: 'Manage available AI models for your experiments',
 })
 
-// Fetch data directly in the page
-const { data: models, pending, error, refresh } = await useMyLazyFetch<Model[]>('/models')
+// Fetch data directly in the page. Deep, because the status switch flips `is_active` in place
+const { data: models, pending, error, refresh } = await useMyLazyFetch<Model[]>('/models', { deep: true })
 const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 
 // Composables
