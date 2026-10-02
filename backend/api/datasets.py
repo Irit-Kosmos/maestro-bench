@@ -6,9 +6,10 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 from db import get_session
-from schemas.datasets import DatasetCreate
+from schemas.datasets import DatasetCreate, DatasetRowsUpdate
 from tables import Dataset, Experiment
 
 router = APIRouter(tags=["datasets"])
@@ -147,6 +148,45 @@ def get_dataset_preview(
         raise
     except Exception as e:
         raise HTTPException(500, f"Error reading dataset file: {e}") from e
+
+
+@router.get("/datasets/{dataset_id}/rows")
+def get_dataset_rows(
+    dataset_id: int,
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Get every row of the dataset file, for viewing and editing."""
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+
+    file_path = _resolve_dataset_file(dataset)
+    try:
+        return read_dataset_rows(file_path)
+    except DatasetFileError as e:
+        raise HTTPException(e.status_code, e.detail) from e
+    except Exception as e:
+        raise HTTPException(500, f"Error reading dataset file: {e}") from e
+
+
+@router.put("/datasets/{dataset_id}/rows")
+def update_dataset_rows(
+    dataset_id: int,
+    payload: DatasetRowsUpdate,
+    session: Annotated[Session, Depends(get_session)],
+):
+    """Replace the rows of the dataset file. Columns stay as they are on disk."""
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+
+    file_path = _resolve_dataset_file(dataset)
+    try:
+        return write_dataset_rows(file_path, payload.rows, payload.revision)
+    except DatasetFileError as e:
+        raise HTTPException(e.status_code, e.detail) from e
+    except Exception as e:
+        raise HTTPException(500, f"Error writing dataset file: {e}") from e
 
 
 @router.get("/datasets/{dataset_id}/info")

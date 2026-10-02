@@ -9,7 +9,7 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 const toast = useToast()
 const { fetchExperiment, deleteExperiment, rerunExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
-const { formatDuration, formatDate } = useUIHelpers()
+const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
 
 // State
@@ -37,16 +37,16 @@ useSeoMeta({
   ),
 })
 
-// How the dataset rows were picked, so "3 rows" reads as a deliberate sample
-const samplingLabel = computed(() => {
+// How the dataset rows were picked, next to how many there were
+const samplingHint = computed(() => {
   const exp = experiment.value
   if (!exp)
     return ''
   if (exp.sampling_type === 'random')
-    return `Random sample of ${exp.sampling_size ?? '?'}`
+    return 'random sample'
   if (exp.sampling_type === 'range')
-    return `Rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
-  return 'All dataset rows'
+    return `rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
+  return 'full dataset'
 })
 
 // Latest execution for configuration display
@@ -203,43 +203,31 @@ async function handleRerunExperiment() {
   }
 }
 
-const duration = computed(() => {
-  if (!experiment.value || !executions.value.length) {
-    return 'N/A'
-  }
+const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
 
-  // Get all completed executions
-  const completedExecutions = executions.value.filter(
-    execution => execution.status === 'completed' && execution.completed_at && execution.started_at,
-  )
-
-  if (completedExecutions.length === 0) {
-    return '-'
-  }
-
-  // Calculate duration for each completed execution
-  const durations = completedExecutions.map((execution) => {
-    const startTime = parseApiDate(execution.started_at).getTime() / 1000
-    const endTime = parseApiDate(execution.completed_at!).getTime() / 1000
-    return endTime - startTime
-  })
-
-  // Calculate average duration
-  const averageDuration = durations.reduce((sum, duration) => sum + duration, 0) / durations.length
-
-  return formatDuration(averageDuration)
+// Rows the run processed; before any run, what the sampling asks for
+const datasetRows = computed(() => {
+  const exp = experiment.value
+  return latestExecution.value?.row_count
+    ?? exp?.row_count
+    ?? (exp?.sampling_type === 'random' ? exp.sampling_size : null)
+    ?? null
 })
 
-// Newest first, with what each run took
+// Newest first; what each run took, used and cost sits with the run, not in the page header
 const executionRows = computed(() => [...executions.value]
   .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  .map(execution => ({
-    execution,
-    startedLabel: parseApiDate(execution.started_at).toLocaleString(),
-    durationLabel: execution.completed_at
-      ? formatDuration((parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000)
-      : null,
-  })))
+  .map((execution) => {
+    const seconds = execution.completed_at
+      ? (parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000
+      : null
+    return {
+      execution,
+      duration: seconds === null ? null : formatElapsed(seconds),
+      tokens: execution.total_tokens ? formatTokens(execution.total_tokens) : null,
+      cost: execution.total_cost_usd ? formatCost(execution.total_cost_usd) : null,
+    }
+  }))
 
 // Lifecycle
 onMounted(() => {
@@ -258,12 +246,12 @@ watch(() => route.params.id, () => {
     <BaseLoadingState v-if="loading" />
 
     <!-- Experiment Details -->
-    <div v-else-if="experiment" class="mx-auto flex max-w-5xl flex-col gap-8">
+    <div v-else-if="experiment" class="@container flex max-w-[96rem] flex-col gap-6">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
         <UTooltip text="Run this setup with other models, prompts or temperatures">
           <UButton
-            variant="outline"
+            variant="soft"
             color="neutral"
             icon="i-lucide-split"
             size="sm"
@@ -274,7 +262,7 @@ watch(() => route.params.id, () => {
         </UTooltip>
         <UTooltip text="Create a new execution with the same configuration">
           <UButton
-            variant="outline"
+            variant="soft"
             color="neutral"
             icon="i-lucide-play"
             size="sm"
@@ -287,7 +275,8 @@ watch(() => route.params.id, () => {
         </UTooltip>
         <UTooltip :text="latestCompletedExecution ? 'Compare this execution to a ground-truth column' : 'Available once an execution has completed'">
           <UButton
-            color="primary"
+            color="neutral"
+            variant="soft"
             icon="i-lucide-chart-column"
             size="sm"
             :disabled="!latestCompletedExecution"
@@ -297,7 +286,7 @@ watch(() => route.params.id, () => {
           </UButton>
         </UTooltip>
         <UButton
-          variant="outline"
+          variant="soft"
           color="error"
           icon="i-lucide-trash-2"
           size="sm"
@@ -307,182 +296,132 @@ watch(() => route.params.id, () => {
         </UButton>
       </AppPageActions>
 
-      <div>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 class="text-xl font-semibold text-highlighted text-balance">
-            {{ experiment.name }}
-          </h1>
-          <UIStatusBadge v-if="experiment.status" :status="experiment.status" />
+      <!-- Identity only: what it is and when. Everything measurable lives with the thing it measures -->
+      <header>
+        <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
+          <UIStatusIcon :status="experiment.status" size="size-5" tooltip />
+          <span class="min-w-0 text-balance">{{ experiment.name }}</span>
+        </h1>
+        <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
+        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          <UIMetaItem icon="i-lucide-hash" label="Experiment" class="tabular-nums">
+            {{ experiment.id }}
+          </UIMetaItem>
+          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+            {{ formatDate(experiment.created_at) }}
+          </UIMetaItem>
+          <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
+            <UIMetaLink :to="`/batches/${experiment.batch_id}`">
+              {{ experiment.batch_name }}
+            </UIMetaLink>
+          </UIMetaItem>
         </div>
-        <p class="mt-0.5 text-sm text-muted tabular-nums">
-          Experiment #{{ experiment.id }} · Created {{ formatDate(experiment.created_at) }}
-        </p>
-        <p v-if="experiment.batch_id" class="mt-1 text-sm text-muted">
-          Part of batch
-          <NuxtLink :to="`/batches/${experiment.batch_id}`" class="text-toned underline-offset-2 hover:underline">
-            {{ experiment.batch_name }}
-          </NuxtLink>
-        </p>
-        <p v-if="experiment.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
+        <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ experiment.description }}
         </p>
-      </div>
+      </header>
 
-      <!-- Figures: a plain row that wraps, so any number of them lines up -->
-      <dl class="flex flex-wrap gap-x-10 gap-y-4">
-        <div>
-          <dt class="text-xs text-muted">
-            Rows
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            <UIRowCount :rows="latestExecution?.row_count ?? experiment.row_count" />
-          </dd>
-          <p class="text-xs text-muted">
-            {{ samplingLabel }}
-          </p>
-        </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Agents
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ latestExecution?.agent_executions?.length || 0 }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Executions
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ executions.length }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Duration
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ duration }}
-          </dd>
-          <p v-if="executions.filter(e => e.status === 'completed').length > 1" class="text-xs text-muted">
-            Average of {{ executions.filter(e => e.status === 'completed').length }}
-          </p>
-        </div>
-        <div v-if="latestExecution?.total_tokens">
-          <dt class="text-xs text-muted">
-            Tokens
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ latestExecution.total_tokens.toLocaleString() }}
-          </dd>
-        </div>
-        <div v-if="latestExecution?.total_cost_usd !== undefined && latestExecution?.total_cost_usd !== null">
-          <dt class="text-xs text-muted">
-            Cost
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            ${{ latestExecution.total_cost_usd.toFixed(4) }}
-          </dd>
-        </div>
-      </dl>
-
-      <ExperimentsSection
-        id="agents"
-        title="Agents"
-        :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
-      >
-        <ExperimentsExecutionAgents
-          v-if="latestExecution && latestExecution.agent_executions.length > 0"
-          :agents="latestExecution.agent_executions"
-        />
-        <BaseEmptyState
-          v-else
+      <!-- What is run (agents) takes the wide column; what it runs on and what came out stack beside it -->
+      <div class="grid gap-x-10 gap-y-6 @4xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <ExperimentsSection
+          id="agents"
+          title="Agents"
           icon="i-lucide-bot"
-          title="No configuration recorded"
-          message="This experiment has no execution yet."
-        />
-      </ExperimentsSection>
+          :count="latestExecution?.agent_executions.length ?? 0"
+          :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
+        >
+          <ExperimentsExecutionAgents
+            v-if="latestExecution && latestExecution.agent_executions.length > 0"
+            :agents="latestExecution.agent_executions"
+          />
+          <BaseEmptyState
+            v-else
+            icon="i-lucide-bot"
+            title="No configuration recorded"
+            message="This experiment has no execution yet."
+          />
+        </ExperimentsSection>
 
-      <ExperimentsSection id="dataset" title="Dataset">
-        <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-          <div>
-            <dt class="text-xs text-muted">
-              Name
-            </dt>
-            <dd class="mt-0.5 text-sm text-highlighted">
-              {{ datasetInfo?.name || experiment.dataset?.name || 'Unknown' }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted">
-              Rows used
-            </dt>
-            <dd class="mt-0.5 text-sm text-highlighted">
-              {{ samplingLabel }}
-            </dd>
-          </div>
-          <div v-if="datasetInfo?.description" class="sm:col-span-2">
-            <dt class="text-xs text-muted">
-              Description
-            </dt>
-            <dd class="mt-0.5 text-sm text-toned text-pretty">
-              {{ datasetInfo.description }}
-            </dd>
-          </div>
-          <div v-if="datasetInfo?.file_path" class="sm:col-span-2">
-            <dt class="text-xs text-muted">
-              File
-            </dt>
-            <dd class="mt-0.5 break-all font-mono text-xs text-toned">
-              {{ datasetInfo.file_path }}
-            </dd>
-          </div>
-        </dl>
-      </ExperimentsSection>
+        <div class="flex min-w-0 flex-col gap-5">
+          <!-- Values describe themselves, so the icon names the fact (and the title says it on hover) -->
+          <ExperimentsSection id="dataset" title="Dataset" icon="i-lucide-database" compact>
+            <ul class="flex flex-col gap-2 text-sm text-highlighted">
+              <li>
+                <UIMetaItem icon="i-lucide-tag" label="Name">
+                  <UIMetaLink v-if="experiment.dataset_id" :to="`/datasets/${experiment.dataset_id}`">
+                    {{ datasetName }}
+                  </UIMetaLink>
+                  <span v-else class="truncate">{{ datasetName }}</span>
+                </UIMetaItem>
+              </li>
+              <li>
+                <UIMetaItem icon="i-lucide-rows-3" label="Rows used" class="tabular-nums">
+                  <UIRowCount :rows="datasetRows" />
+                  <span class="text-muted">· {{ samplingHint }}</span>
+                </UIMetaItem>
+              </li>
+              <li v-if="datasetInfo?.file_path">
+                <UIMetaItem icon="i-lucide-file-spreadsheet" label="File">
+                  <span class="truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">{{ datasetInfo.file_path }}</span>
+                </UIMetaItem>
+              </li>
+              <li v-if="datasetInfo?.description" class="ps-5">
+                <p class="line-clamp-2 text-xs text-muted text-pretty" :title="datasetInfo.description">
+                  {{ datasetInfo.description }}
+                </p>
+              </li>
+            </ul>
+          </ExperimentsSection>
 
-      <ExperimentsSection v-if="executionRows.length > 0" id="executions" title="Executions">
-        <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
-          <li
-            v-for="row in executionRows"
-            :key="row.execution.id"
-            class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
+          <ExperimentsSection
+            v-if="executionRows.length > 0"
+            id="executions"
+            title="Executions"
+            icon="i-lucide-history"
+            :count="executionRows.length"
+            compact
           >
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-sm font-medium text-highlighted tabular-nums">Execution #{{ row.execution.id }}</span>
-                <UIStatusBadge :status="row.execution.status" size="xs" />
-                <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
-              </div>
-              <p class="mt-0.5 text-xs text-muted tabular-nums">
-                Started {{ row.startedLabel }}<template v-if="row.durationLabel">
-                  · took {{ row.durationLabel }}
-                </template>
-              </p>
-            </div>
-            <p v-if="row.execution.total_tokens || row.execution.total_cost_usd" class="text-xs text-muted tabular-nums">
-              <template v-if="row.execution.total_tokens">
-                {{ row.execution.total_tokens.toLocaleString() }} tokens
-              </template>
-              <template v-if="row.execution.total_tokens && row.execution.total_cost_usd">
-                ·
-              </template>
-              <template v-if="row.execution.total_cost_usd">
-                ${{ row.execution.total_cost_usd.toFixed(4) }}
-              </template>
-            </p>
-            <UButton
-              v-if="row.execution.results_file_path"
-              variant="ghost"
-              color="neutral"
-              icon="i-lucide-download"
-              size="sm"
-              @click="() => { downloadResultsFile(row.execution.id) }"
-            >
-              Results
-            </UButton>
-          </li>
-        </ul>
-      </ExperimentsSection>
+            <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+              <li
+                v-for="row in executionRows"
+                :key="row.execution.id"
+                class="flex items-center gap-2 py-2 pl-3 pr-2"
+              >
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <UIStatusBadge :status="row.execution.status" />
+                    <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
+                    <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+                    <span class="text-xs text-muted tabular-nums" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                  </div>
+                  <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
+                  <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
+                    <UIMetaItem v-if="row.duration" icon="i-lucide-clock" label="Duration">
+                      {{ row.duration }}
+                    </UIMetaItem>
+                    <UIMetaItem v-if="row.tokens" icon="i-lucide-type" label="Tokens">
+                      <span :title="row.execution.total_tokens?.toLocaleString()">{{ row.tokens }}</span>
+                    </UIMetaItem>
+                    <UIMetaItem v-if="row.cost" icon="i-lucide-coins" label="Cost">
+                      <span :title="`$${row.execution.total_cost_usd?.toFixed(4)}`">{{ row.cost }}</span>
+                    </UIMetaItem>
+                  </div>
+                </div>
+                <UTooltip v-if="row.execution.results_file_path" text="Download results">
+                  <UButton
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-download"
+                    size="sm"
+                    :aria-label="`Download results of execution #${row.execution.id}`"
+                    @click="() => { downloadResultsFile(row.execution.id) }"
+                  />
+                </UTooltip>
+              </li>
+            </ul>
+          </ExperimentsSection>
+        </div>
+      </div>
     </div>
 
     <!-- Error State -->

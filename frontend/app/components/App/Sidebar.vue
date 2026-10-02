@@ -67,7 +67,7 @@ defineShortcuts({
     :max-size="360"
     :collapsed-size="56"
     :ui="{
-      root: 'peer min-w-14 bg-muted',
+      root: 'peer min-w-14 bg-muted dark:bg-(--ui-bg-sidebar)',
       header: 'px-3',
       body: 'px-2 py-1 gap-5',
       footer: 'px-2 py-2',
@@ -83,11 +83,9 @@ defineShortcuts({
         <img
           src="/MAESTRO-bench.png"
           alt=""
-          width="22"
-          height="22"
-          class="shrink-0"
+          class="shrink-0 h-6 w-auto translate-y-px"
         >
-        <span class="text-sm font-semibold text-highlighted truncate">MAESTRO-bench</span>
+        <span class="text-sm font-semibold leading-none translate-y-0.5 text-highlighted truncate">MAESTRO-bench</span>
       </NuxtLink>
 
       <UTooltip

@@ -48,7 +48,6 @@ function resetForm() {
 }
 
 function handleCancel() {
-  resetForm()
   show.value = false
 }
 
@@ -59,7 +58,6 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     emit('submit', { ...formData.value })
-    resetForm()
     show.value = false
   }
   finally {
@@ -79,17 +77,10 @@ function toggleAgent(agentId: number) {
     formData.value.agent_ids.push(agentId)
   }
 }
-
-// Watch for modal close to reset form
-watch(() => props.open, (newValue) => {
-  if (!newValue) {
-    resetForm()
-  }
-})
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isSubmitting">
+  <UModal v-model:open="show" :prevent-close="isSubmitting" @after:leave="resetForm">
     <template #content>
       <UCard>
         <template #header>

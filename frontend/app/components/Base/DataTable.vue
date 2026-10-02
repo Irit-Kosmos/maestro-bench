@@ -38,6 +38,8 @@ interface Props {
   itemNamePlural?: string
   /** Total before page-level filters, so the count reads "4 of 41" */
   totalCount?: number
+  /** Fills the height of its parent: toolbar and column headers stay put, only the rows scroll */
+  fill?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -51,6 +53,7 @@ const props = withDefaults(defineProps<Props>(), {
   itemName: undefined,
   itemNamePlural: undefined,
   totalCount: undefined,
+  fill: false,
 })
 
 const emit = defineEmits<{
@@ -180,9 +183,9 @@ function handleRefresh() {
 </script>
 
 <template>
-  <div class="rounded-lg border border-default overflow-hidden">
+  <div class="flex flex-col rounded-lg border border-default overflow-hidden" :class="fill && 'flex-1 min-h-0'">
     <!-- Toolbar -->
-    <div class="flex items-center gap-2 px-2 h-11 border-b border-default">
+    <div class="flex shrink-0 items-center gap-2 px-2 h-11 border-b border-default">
       <UInput
         v-if="searchable"
         ref="searchInput"
@@ -224,7 +227,7 @@ function handleRefresh() {
     </div>
 
     <!-- Empty State -->
-    <div v-if="!loading && filteredData.length === 0" class="p-6">
+    <div v-if="!loading && filteredData.length === 0" class="p-6" :class="fill && 'flex-1 min-h-0 overflow-y-auto'">
       <BaseEmptyState
         :title="searchQuery ? 'No matching rows' : 'Nothing here yet'"
         :message="searchQuery ? `Nothing matches “${searchQuery}”. Try another term or clear the filter.` : emptyMessage"
@@ -243,8 +246,11 @@ function handleRefresh() {
       :loading="loading"
       :empty="emptyMessage"
       class="min-w-full"
+      :class="fill && 'flex-1 min-h-0'"
+      :sticky="fill"
       :ui="{
-        thead: 'bg-muted/60',
+        // Opaque when sticky, so rows don't show through while scrolling under it
+        thead: fill ? 'bg-muted' : 'bg-muted/60',
         th: 'px-4 py-2 text-xs font-medium text-muted',
         tr: rowTo ? 'relative hover:bg-elevated/50' : '',
         td: 'px-4 py-2.5 text-sm text-toned',

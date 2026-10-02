@@ -1,0 +1,98 @@
+<script setup lang="ts">
+import type { VersionDiff } from '~/composables/usePromptDiff'
+
+// What changed between two versions, field by field. A field that moved is open, apart from the notes,
+// which are metadata. One that did not move is a single closed line: open it to read the whole thing.
+const props = defineProps<{
+  diff: VersionDiff
+  /** Name of the version compared against */
+  baseLabel: string
+}>()
+
+const moved = (field: VersionDiff['fields'][number]) => field.diff.added + field.diff.removed > 0
+const variablesMoved = computed(() => props.diff.variables.some(tag => tag.status !== 'same'))
+
+// Only what the reader toggled; everything else follows its default
+const toggled = ref<Readonly<Record<string, boolean>>>({})
+
+function isOpen(key: string, byDefault: boolean) {
+  return toggled.value[key] ?? byDefault
+}
+
+function toggle(key: string, byDefault: boolean) {
+  toggled.value = { ...toggled.value, [key]: !isOpen(key, byDefault) }
+}
+
+const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary'
+</script>
+
+<template>
+  <div class="space-y-5">
+    <p v-if="diff.identical" class="text-sm text-muted">
+      Identical to {{ baseLabel }}.
+    </p>
+
+    <template v-for="field in diff.fields" :key="field.key">
+      <section v-if="!field.empty">
+        <div class="mb-1.5 flex h-6 items-center justify-between gap-2">
+          <h3 class="text-xs font-medium">
+            <button
+              type="button"
+              :class="toggleClass"
+              :aria-expanded="isOpen(field.key, moved(field) && field.key !== 'notes')"
+              @click="toggle(field.key, moved(field) && field.key !== 'notes')"
+            >
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-3.5 transition-transform duration-150 ease-out"
+                :class="{ 'rotate-90': isOpen(field.key, moved(field) && field.key !== 'notes') }"
+                aria-hidden="true"
+              />
+              {{ field.label }}
+              <span v-if="!moved(field)" class="font-normal text-dimmed">· Unchanged</span>
+            </button>
+          </h3>
+          <BaseDiffStat :added="field.diff.added" :removed="field.diff.removed" />
+        </div>
+        <BaseDiffBlock
+          v-if="isOpen(field.key, moved(field) && field.key !== 'notes')"
+          :items="moved(field) ? field.diff.items : field.full"
+        />
+      </section>
+    </template>
+
+    <section v-if="diff.variables.length">
+      <div class="mb-1.5 flex h-6 items-center">
+        <h3 class="text-xs font-medium">
+          <button
+            type="button"
+            :class="toggleClass"
+            :aria-expanded="isOpen('variables', variablesMoved)"
+            @click="toggle('variables', variablesMoved)"
+          >
+            <UIcon
+              name="i-lucide-chevron-right"
+              class="size-3.5 transition-transform duration-150 ease-out"
+              :class="{ 'rotate-90': isOpen('variables', variablesMoved) }"
+              aria-hidden="true"
+            />
+            Variables
+            <span v-if="!variablesMoved" class="font-normal text-dimmed">· Unchanged</span>
+          </button>
+        </h3>
+      </div>
+      <ul v-if="isOpen('variables', variablesMoved)" class="flex flex-wrap gap-1.5">
+        <li v-for="tag in diff.variables" :key="tag.name">
+          <UBadge
+            :label="tag.status === 'added' ? `+ ${tag.name}` : tag.status === 'removed' ? `− ${tag.name}` : tag.name"
+            :color="tag.status === 'added' ? 'success' : tag.status === 'removed' ? 'error' : 'neutral'"
+            variant="subtle"
+            size="md"
+            class="font-mono"
+            :class="{ 'line-through': tag.status === 'removed' }"
+          />
+        </li>
+      </ul>
+    </section>
+  </div>
+</template>

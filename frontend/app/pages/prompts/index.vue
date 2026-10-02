@@ -59,7 +59,6 @@ async function handleCreatePrompt() {
     if (result.success) {
       showCreateSuccess('Prompt')
       showCreateModal.value = false
-      resetCreateForm()
       // Refresh the prompts list
       await refresh()
     }
@@ -74,13 +73,6 @@ async function handleCreatePrompt() {
     isCreating.value = false
   }
 }
-
-// Watch for modal close to reset forms
-watch(() => showCreateModal.value, (newValue) => {
-  if (!newValue) {
-    resetCreateForm()
-  }
-})
 </script>
 
 <template>
@@ -90,7 +82,8 @@ watch(() => showCreateModal.value, (newValue) => {
   >
     <template #before-content>
       <UButton
-        color="primary"
+        color="neutral"
+        variant="soft"
         icon="i-lucide-plus"
         size="sm"
         @click="() => { showCreateModal = true }"
@@ -118,7 +111,7 @@ watch(() => showCreateModal.value, (newValue) => {
     />
 
     <!-- Create Prompt Modal -->
-    <UModal v-model:open="showCreateModal" :prevent-close="isCreating">
+    <UModal v-model:open="showCreateModal" :prevent-close="isCreating" @after:leave="resetCreateForm">
       <template #content>
         <UCard class="overflow-y-auto">
           <template #header>

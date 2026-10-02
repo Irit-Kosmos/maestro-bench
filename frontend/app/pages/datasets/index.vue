@@ -104,7 +104,6 @@ async function handleDeleteDataset() {
     if (result.success) {
       showDeleteSuccess('Dataset')
       showDeleteModal.value = false
-      datasetToDelete.value = null
       await refresh()
     }
     else {
@@ -131,7 +130,8 @@ function handleCreateClick() {
   >
     <template #before-content>
       <UButton
-        color="primary"
+        color="neutral"
+        variant="soft"
         icon="i-lucide-plus"
         size="sm"
         @click="handleCreateClick"
@@ -185,6 +185,7 @@ function handleCreateClick() {
       confirm-label="Delete Dataset"
       variant="error"
       :loading="isDeleting"
+      @after-leave="datasetToDelete = null"
       @confirm="handleDeleteDataset"
     />
   </BasePageContent>

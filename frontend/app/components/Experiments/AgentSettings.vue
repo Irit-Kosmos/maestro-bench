@@ -20,32 +20,6 @@ const emit = defineEmits<{
 
 const ids = useId()
 
-// Flat, searchable, and the trigger always reads "Prompt name v1.2"
-const promptItems = computed<any[]>(() => props.promptVersions
-  .filter(v => v.is_active || v.id === props.config?.prompt_version_id)
-  .map(v => ({
-    label: `${v.prompt?.name || 'Unknown'} v${v.version}${v.is_default ? ' (default)' : ''}`,
-    value: v.id,
-  }))
-  .sort((a, b) => a.label.localeCompare(b.label)))
-
-// Grouped by provider; the current model stays selectable even if it was deactivated since
-const modelItems = computed<any[]>(() => {
-  const groups = new Map<string, { label: string, value: number }[]>()
-  props.models
-    .filter(m => m.is_active || m.id === props.config?.model_id)
-    .forEach((m) => {
-      const list = groups.get(m.provider) ?? []
-      list.push({ label: m.name, value: m.id })
-      groups.set(m.provider, list)
-    })
-  return [...groups.keys()].sort().flatMap((provider, index) => [
-    ...(index > 0 ? [{ type: 'separator' as const }] : []),
-    { type: 'label' as const, label: provider },
-    ...groups.get(provider)!,
-  ])
-})
-
 const selectedModel = computed(() => props.models.find(m => m.id === props.config?.model_id))
 
 // Empty fields fall back to the model's own defaults, so say which
@@ -124,22 +98,18 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
             View
           </UButton>
         </template>
-        <USelectMenu
+        <PromptsSelect
           :model-value="config?.prompt_version_id"
-          value-key="value"
-          :items="promptItems"
-          placeholder="Choose a prompt version"
+          :prompt-versions="promptVersions"
           class="w-full"
           @update:model-value="(value) => emit('update', 'prompt_version_id', (value as number | undefined) ?? undefined)"
         />
       </UFormField>
 
       <UFormField label="Model" required>
-        <USelectMenu
+        <ModelsSelect
           :model-value="config?.model_id"
-          value-key="value"
-          :items="modelItems"
-          placeholder="Choose a model"
+          :models="models"
           class="w-full"
           @update:model-value="(value) => emit('update', 'model_id', (value as number | undefined) ?? undefined)"
         />

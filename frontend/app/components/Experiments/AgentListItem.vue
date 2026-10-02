@@ -32,7 +32,7 @@ const enabled = computed(() => props.item.config.is_active !== false)
 
 const prompt = computed(() => props.promptVersions.find(v => v.id === props.item.config.prompt_version_id))
 const promptLabel = computed(() => prompt.value ? `${prompt.value.prompt?.name || 'Unknown'} v${prompt.value.version}` : null)
-const modelName = computed(() => props.models.find(m => m.id === props.item.config.model_id)?.name ?? null)
+const model = computed(() => props.models.find(m => m.id === props.item.config.model_id) ?? null)
 
 const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] : `${props.issues.length} to fix`)
 </script>
@@ -110,7 +110,9 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
           </span>
           <span class="mt-0.5 block truncate text-xs text-muted">
             <template v-if="!enabled">Skipped in this run</template>
-            <template v-else-if="promptLabel || modelName">{{ [promptLabel, modelName].filter(Boolean).join(' · ') }}</template>
+            <template v-else-if="promptLabel || model">
+              {{ promptLabel }}<span v-if="promptLabel && model" aria-hidden="true"> · </span><ModelsLabel v-if="model" :name="model.name" :provider="model.provider" />
+            </template>
             <template v-else>Not configured</template>
           </span>
         </span>

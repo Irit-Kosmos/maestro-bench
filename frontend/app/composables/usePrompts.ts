@@ -66,12 +66,12 @@ export function usePrompts() {
   // Create a new prompt version
   async function createPromptVersion(promptId: number, versionData: {
     version: string
-    system_prompt?: string
-    user_prompt?: string
-    variables?: string
+    system_prompt?: string | null
+    user_prompt?: string | null
+    variables?: string | null
     is_active?: boolean
     is_default?: boolean
-    notes?: string
+    notes?: string | null
   }) {
     try {
       const response = await $api(`/prompts/${promptId}/versions`, {
@@ -90,12 +90,12 @@ export function usePrompts() {
   // Update a prompt version
   async function updatePromptVersion(versionId: number, versionData: {
     version?: string
-    system_prompt?: string
-    user_prompt?: string
-    variables?: string
+    system_prompt?: string | null
+    user_prompt?: string | null
+    variables?: string | null
     is_active?: boolean
     is_default?: boolean
-    notes?: string
+    notes?: string | null
   }) {
     try {
       const response = await $api(`/prompt-versions/${versionId}`, {

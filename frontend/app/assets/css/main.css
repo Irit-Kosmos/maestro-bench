@@ -15,6 +15,37 @@
   --ui-header-height: 3.25rem;
 }
 
+/*
+ * Dark theme uses true neutral grays instead of the bluish slate scale (light keeps slate).
+ * Literal values: Nuxt UI aliases --color-neutral-* to the configured scale, so the
+ * Tailwind neutral palette is only reachable by value. `html:root.dark` beats the
+ * runtime-injected `:root` neutral variables.
+ */
+html:root.dark {
+  --ui-color-neutral-50: #fafafa;
+  --ui-color-neutral-100: #f5f5f5;
+  --ui-color-neutral-200: #e5e5e5;
+  --ui-color-neutral-300: #d4d4d4;
+  --ui-color-neutral-400: #a3a3a3;
+  --ui-color-neutral-500: #737373;
+  --ui-color-neutral-600: #525252;
+  --ui-color-neutral-700: #404040;
+  --ui-color-neutral-800: #262626;
+  --ui-color-neutral-900: #171717;
+  --ui-color-neutral-950: #0a0a0a;
+
+  /*
+   * Surfaces step up in lightness like Linear: sidebar (darkest) < page < cards/popovers < hover.
+   * Nuxt UI defaults put the sidebar lighter than the page, which reads inverted.
+   */
+  --ui-bg-sidebar: #0c0c0c;
+  --ui-bg: #151515;
+  --ui-bg-muted: #1b1b1b;
+  --ui-bg-elevated: #202020;
+  --ui-bg-accented: #2a2a2a;
+  --ui-border: #262626;
+}
+
 /* Paint the canvas so overscroll never shows a different surface */
 html {
   background-color: var(--ui-bg);

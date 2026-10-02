@@ -20,11 +20,13 @@ interface Props {
   headerSize?: 'sm' | 'md' | 'lg'
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   showHeader: true,
   showMetadata: true,
   headerSize: 'md',
 })
+
+const variableNames = computed(() => parseVariables(props.promptVersion.variables || ''))
 </script>
 
 <template>
@@ -65,16 +67,18 @@ withDefaults(defineProps<Props>(), {
     <!-- System Prompt -->
     <PromptContentDisplay
       v-if="promptVersion.system_prompt"
-      label="System Prompt"
+      label="System prompt"
       :content="promptVersion.system_prompt"
+      :variables="variableNames"
       type="code"
     />
 
     <!-- User Prompt -->
     <PromptContentDisplay
       v-if="promptVersion.user_prompt"
-      label="User Prompt"
+      label="User prompt"
       :content="promptVersion.user_prompt"
+      :variables="variableNames"
       type="code"
     />
 

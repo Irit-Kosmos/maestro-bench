@@ -19,10 +19,6 @@ function setOpen(id: number, open: boolean) {
     next.delete(id)
   openIds.value = next
 }
-
-function summary(agent: AgentExecutionSnapshot) {
-  return `${agent.prompt_name_snapshot} v${agent.prompt_version_snapshot} · ${agent.model_name_snapshot}`
-}
 </script>
 
 <template>
@@ -66,7 +62,11 @@ function summary(agent: AgentExecutionSnapshot) {
               <span class="truncate text-sm font-medium text-highlighted">{{ agent.agent_name_snapshot }}</span>
               <span v-if="agent.agent_team_name_snapshot" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
             </span>
-            <span class="mt-0.5 block truncate text-xs text-muted">{{ summary(agent) }}</span>
+            <span class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
+              <span class="shrink-0">{{ agent.prompt_name_snapshot }} v{{ agent.prompt_version_snapshot }}</span>
+              <span aria-hidden="true">·</span>
+              <ModelsLabel :name="agent.model_name_snapshot" :provider="agent.model_provider_snapshot" />
+            </span>
           </span>
         </button>
 
