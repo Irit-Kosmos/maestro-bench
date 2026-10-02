@@ -56,7 +56,6 @@ function resetForm() {
 }
 
 function handleCancel() {
-  resetForm()
   show.value = false
 }
 
@@ -67,7 +66,6 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     emit('submit', { ...formData.value })
-    resetForm()
     show.value = false
   }
   finally {
@@ -79,17 +77,10 @@ async function handleSubmit() {
 onMounted(() => {
   resetForm()
 })
-
-// Watch for modal close to reset form
-watch(() => props.open, (newValue) => {
-  if (!newValue) {
-    resetForm()
-  }
-})
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isSubmitting">
+  <UModal v-model:open="show" :prevent-close="isSubmitting" @after:leave="resetForm">
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>

@@ -89,7 +89,6 @@ async function handleCreateModel() {
     if (result.success) {
       showCreateSuccess('Model')
       showCreateModal.value = false
-      resetCreateForm()
       // Refresh the models list
       await refresh()
     }
@@ -137,8 +136,6 @@ async function handleUpdateModel() {
     if (result.success) {
       showUpdateSuccess('Model')
       showEditModal.value = false
-      editingModel.value = null
-      resetEditForm()
       // Refresh the models list
       await refresh()
     }
@@ -185,7 +182,6 @@ async function handleDeleteModel() {
     if (result.success) {
       showDeleteSuccess('Model')
       showDeleteModal.value = false
-      modelToDelete.value = null
       // Refresh the models list
       await refresh()
     }
@@ -202,28 +198,19 @@ async function handleDeleteModel() {
 }
 
 function handleCreateClick() {
+  resetCreateForm()
   showCreateModal.value = true
 }
 
-// Watch for modal close to reset forms
-watch(() => showCreateModal.value, (newValue) => {
-  if (!newValue) {
-    resetCreateForm()
-  }
-})
+// Reset only once the leave transition is done, otherwise the modal empties while it fades out
+function handleEditLeave() {
+  resetEditForm()
+  editingModel.value = null
+}
 
-watch(() => showEditModal.value, (newValue) => {
-  if (!newValue) {
-    resetEditForm()
-    editingModel.value = null
-  }
-})
-
-watch(() => showDeleteModal.value, (newValue) => {
-  if (!newValue) {
-    modelToDelete.value = null
-  }
-})
+function handleDeleteLeave() {
+  modelToDelete.value = null
+}
 </script>
 
 <template>
@@ -247,16 +234,13 @@ watch(() => showDeleteModal.value, (newValue) => {
     <div v-if="models && models.length > 0" class="overflow-hidden rounded-lg border border-default">
       <ModelsFilters
         v-model:search="search"
-        v-model:providers="providers"
-        v-model:status="status"
+        v-model:filters="filters"
         v-model:group-by="groupBy"
-        :provider-options="providerOptions"
-        :status-counts="statusCounts"
+        :definitions="filterDefinitions"
         :total="models.length"
         :shown="filtered.length"
         :has-filters="hasFilters"
         :loading="pending"
-        @clear="clearFilters"
         @refresh="refresh"
       />
 
@@ -314,6 +298,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       mode="edit"
       :loading="isUpdating"
       @submit="handleUpdateModel"
+      @after-leave="handleEditLeave"
     >
       <ModelsForm v-model="editForm" />
     </BaseCrudModal>
@@ -327,6 +312,7 @@ watch(() => showDeleteModal.value, (newValue) => {
       variant="error"
       :loading="isDeleting"
       @confirm="handleDeleteModel"
+      @after-leave="handleDeleteLeave"
     />
   </BasePageContent>
 </template>

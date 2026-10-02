@@ -9,6 +9,7 @@ interface Props {
 interface Emits {
   'update:open': [value: boolean]
   'confirm': [agentId: number]
+  'afterLeave': []
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,7 +46,7 @@ async function handleConfirm() {
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isDeleting">
+  <UModal v-model:open="show" :prevent-close="isDeleting" @after:leave="emit('afterLeave')">
     <template #content>
       <UCard>
         <template #header>

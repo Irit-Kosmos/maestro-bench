@@ -104,7 +104,6 @@ async function handleDeleteDataset() {
     if (result.success) {
       showDeleteSuccess('Dataset')
       showDeleteModal.value = false
-      datasetToDelete.value = null
       await refresh()
     }
     else {
@@ -186,6 +185,7 @@ function handleCreateClick() {
       confirm-label="Delete Dataset"
       variant="error"
       :loading="isDeleting"
+      @after-leave="datasetToDelete = null"
       @confirm="handleDeleteDataset"
     />
   </BasePageContent>

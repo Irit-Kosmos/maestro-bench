@@ -16,6 +16,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   'submit': []
   'cancel': []
+  'afterLeave': []
 }>()
 
 defineSlots<{
@@ -48,7 +49,7 @@ function handleCancel() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen">
+  <UModal v-model:open="isOpen" @after:leave="emit('afterLeave')">
     <template #content>
       <UCard class="w-full">
         <template #header>

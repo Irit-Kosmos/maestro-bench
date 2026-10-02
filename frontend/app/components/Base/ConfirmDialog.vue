@@ -21,6 +21,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   'confirm': []
   'cancel': []
+  'afterLeave': []
 }>()
 
 const isOpen = computed({
@@ -60,7 +61,7 @@ function handleCancel() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen">
+  <UModal v-model:open="isOpen" @after:leave="emit('afterLeave')">
     <template #content>
       <UCard>
         <template #header>

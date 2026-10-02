@@ -116,7 +116,6 @@ async function handleDeleteAgent(agentId: number) {
     })
     showDeleteAgentModal.value = false
     setOpen(agentId, false)
-    selectedAgent.value = null
     await refreshAll()
   }
   else {
@@ -225,6 +224,7 @@ async function handleDeleteAgent(agentId: number) {
       v-model:open="showDeleteAgentModal"
       :agent="selectedAgent"
       @confirm="handleDeleteAgent"
+      @after-leave="selectedAgent = null"
     />
   </BasePageContent>
 </template>
