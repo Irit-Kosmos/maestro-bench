@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Batch } from '~/types'
+import type { Batch, Model } from '~/types'
 
 const route = useRoute()
 const batchId = computed(() => Number.parseInt(route.params.id as string))
@@ -9,6 +9,10 @@ const { cancelBatch, deleteBatch } = useBatches()
 const { formatDate, formatDuration } = useUIHelpers()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
+
+// Model values only carry an id and a name: the catalogue says whose they are
+const { data: models } = await useMyLazyFetch<Model[]>('/models')
+const modelsById = computed(() => new Map((models.value ?? []).map(m => [m.id, m])))
 
 useBreadcrumbLabel(() => batch.value?.name)
 useSeoMeta({ title: () => batch.value?.name ?? 'Batch' })
@@ -38,10 +42,32 @@ const axes = computed(() => (batch.value?.variations ?? []).map(v => ({
   field: v.field,
   title: multipleAgents.value ? `${v.agent_name} · ${fieldNames[v.field]}` : fieldNames[v.field],
   values: v.values.map(value => value.label),
+  // Models read better under their provider: a comparison across providers is the point of most batches
+  providerGroups: v.field === 'model_id' ? groupByProvider(v.values) : [],
 })))
+
+function groupByProvider(values: Batch['variations'][number]['values']) {
+  const groups = new Map<string, string[]>()
+  for (const { value, label } of values) {
+    const provider = (value === null ? undefined : modelsById.value.get(value)?.provider) ?? ''
+    const key = provider ? providerMeta(provider).key : ''
+    groups.set(key, [...(groups.get(key) ?? []), label])
+  }
+  return [...groups.keys()]
+    .sort((a, b) => (a && b) ? compareProviders(a, b) : Number(!a) - Number(!b))
+    .map(key => ({ key, label: key ? providerLabel(key) : '', names: groups.get(key)! }))
+}
 
 function labelOf(experiment: Batch['experiments'][number], axis: { agent_id: number, field: string }) {
   return experiment.coordinates.find(c => c.agent_id === axis.agent_id && c.field === axis.field)?.label ?? '—'
+}
+
+// The provider of the model an experiment ran on this axis, once the catalogue has loaded
+function providerOf(experiment: Batch['experiments'][number], axis: { agent_id: number, field: string }) {
+  if (axis.field !== 'model_id')
+    return undefined
+  const value = experiment.coordinates.find(c => c.agent_id === axis.agent_id && c.field === axis.field)?.value
+  return typeof value === 'number' ? modelsById.value.get(value)?.provider : undefined
 }
 
 const finished = computed(() => (batch.value?.experiments ?? []).filter(e => e.status === 'completed').length)
@@ -172,7 +198,14 @@ function formatCost(cost: number | null) {
           <dt class="text-xs text-muted">
             {{ axis.title }}
           </dt>
-          <dd class="mt-0.5 text-sm text-highlighted">
+          <dd v-if="axis.providerGroups.length" class="mt-0.5 flex flex-col gap-0.5 text-sm text-highlighted">
+            <span v-for="group in axis.providerGroups" :key="group.key" class="inline-flex items-center gap-1.5">
+              <UIProviderIcon v-if="group.key" :provider="group.key" />
+              <span v-if="group.label" class="text-muted">{{ group.label }}</span>
+              {{ group.names.join(', ') }}
+            </span>
+          </dd>
+          <dd v-else class="mt-0.5 text-sm text-highlighted">
             {{ axis.values.join(', ') }}
           </dd>
         </div>
@@ -212,8 +245,12 @@ function formatCost(cost: number | null) {
                     :to="`/experiments/${experiment.id}`"
                     class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
                   >
-                    {{ labelOf(experiment, axis) }}
+                    <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
+                    <template v-else>
+                      {{ labelOf(experiment, axis) }}
+                    </template>
                   </NuxtLink>
+                  <ModelsLabel v-else-if="axis.field === 'model_id'" class="text-toned" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
                   <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
                 </td>
                 <td class="px-4 py-2.5">

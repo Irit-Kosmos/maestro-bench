@@ -103,25 +103,9 @@ const savedPromptLabel = computed(() => {
   const version = props.promptVersions.find(v => v.id === props.agent.default_prompt_version_id)
   return version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null
 })
-const savedModelName = computed(() => props.models.find(m => m.id === props.agent.default_model_id)?.name ?? null)
+const savedModel = computed(() => props.models.find(m => m.id === props.agent.default_model_id) ?? null)
 
 const teamItems = computed(() => props.teams.map(team => ({ label: team.name, value: team.id })))
-
-const promptVersionItems = computed(() => [
-  { label: 'No default prompt', value: null },
-  ...props.promptVersions.map(version => ({
-    label: `${version.prompt?.name || 'Unknown'} v${version.version}`,
-    value: version.id,
-  })),
-])
-
-// Keep the current model selectable even if it was deactivated since
-const modelItems = computed(() => [
-  { label: 'No default model', value: null },
-  ...props.models
-    .filter(model => model.is_active || model.id === baseline.value.default_model_id)
-    .map(model => ({ label: `${model.name} (${model.provider})`, value: model.id })),
-])
 </script>
 
 <template>
@@ -158,10 +142,7 @@ const modelItems = computed(() => [
           <UIcon name="i-lucide-message-square-text" class="size-3 text-muted" aria-hidden="true" />
           {{ savedPromptLabel }}
         </span>
-        <span v-if="savedModelName" class="inline-flex items-center gap-1">
-          <UIcon name="i-lucide-cpu" class="size-3 text-muted" aria-hidden="true" />
-          {{ savedModelName }}
-        </span>
+        <ModelsLabel v-if="savedModel" :name="savedModel.name" :provider="savedModel.provider" />
       </div>
     </button>
 
@@ -193,11 +174,23 @@ const modelItems = computed(() => [
           </UFormField>
 
           <UFormField label="Default prompt version">
-            <USelect v-model="form.default_prompt_version_id" :items="promptVersionItems" class="w-full" />
+            <PromptsSelect
+              v-model="form.default_prompt_version_id"
+              :prompt-versions="promptVersions"
+              clearable
+              placeholder="No default prompt"
+              class="w-full"
+            />
           </UFormField>
 
           <UFormField label="Default model">
-            <USelect v-model="form.default_model_id" :items="modelItems" class="w-full" />
+            <ModelsSelect
+              v-model="form.default_model_id"
+              :models="models"
+              clearable
+              placeholder="No default model"
+              class="w-full"
+            />
           </UFormField>
         </div>
 

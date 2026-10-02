@@ -58,7 +58,7 @@ const prompts = computed(() => [
           Model
         </dt>
         <dd class="mt-0.5 text-sm text-highlighted text-pretty">
-          {{ snapshot.model_name_snapshot }} <span class="text-muted">{{ snapshot.model_provider_snapshot }}</span>
+          <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" show-provider class="gap-1.5" />
         </dd>
       </div>
       <div v-if="snapshot.final_temperature !== null && snapshot.final_temperature !== undefined">

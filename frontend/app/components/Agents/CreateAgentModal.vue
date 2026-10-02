@@ -44,26 +44,6 @@ const formValid = computed(() => {
     && formData.value.team_id > 0
 })
 
-const promptVersionOptions = computed(() => {
-  if (!props.availablePromptVersions)
-    return []
-  return props.availablePromptVersions.map((version: any) => ({
-    label: `${version.prompt?.name || 'Unknown'} v${version.version}`,
-    value: version.id,
-  }))
-})
-
-const modelOptions = computed(() => {
-  if (!props.availableModels)
-    return []
-  return props.availableModels
-    .filter((model: any) => model.is_active)
-    .map((model: any) => ({
-      label: `${model.name} (${model.provider})`,
-      value: model.id,
-    }))
-})
-
 // Methods
 function resetForm() {
   formData.value = {
@@ -158,20 +138,22 @@ watch(() => props.open, (newValue) => {
 
             <div>
               <UFormField label="Default Prompt Version (Optional)">
-                <USelect
+                <PromptsSelect
                   v-model="formData.default_prompt_version_id"
-                  :items="[{ label: 'No default prompt', value: null }, ...promptVersionOptions]"
+                  :prompt-versions="availablePromptVersions"
+                  clearable
                   class="w-full"
-                  placeholder="Select a default prompt version"
+                  placeholder="No default prompt"
                 />
               </UFormField>
             </div>
 
             <div>
               <UFormField label="Default Model (Optional)">
-                <USelect
+                <ModelsSelect
                   v-model="formData.default_model_id"
-                  :items="[{ label: 'No default model', value: null }, ...modelOptions]"
+                  :models="availableModels"
+                  clearable
                   class="w-full"
                   placeholder="Select a default model"
                 />

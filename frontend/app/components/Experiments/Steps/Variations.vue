@@ -40,35 +40,13 @@ function onlyAdded(variation: VariationDraft, selected: unknown): number[] {
   return (selected as number[]).filter(value => value !== base)
 }
 
-const modelItems = computed(() => (base: number | null) => {
-  const groups = new Map<string, { label: string, value: number, description?: string, disabled?: boolean }[]>()
-  ;(props.models ?? []).filter(m => m.is_active || m.id === base).forEach((m) => {
-    const list = groups.get(m.provider) ?? []
-    list.push(m.id === base ? { label: m.name, value: m.id, description: 'Current setup', disabled: true } : { label: m.name, value: m.id })
-    groups.set(m.provider, list)
-  })
-  return [...groups.keys()].sort().flatMap((provider, index) => [
-    ...(index > 0 ? [{ type: 'separator' as const }] : []),
-    { type: 'label' as const, label: provider },
-    ...groups.get(provider)!,
-  ]) as any[]
-})
-
 // A prompt version can replace the agent's one only if the agent's mappings cover its variables
-function promptItems(agentId: number, base: number | null) {
+function promptState(agentId: number) {
   const config = agents.value.find(item => item.agent.id === agentId)?.config
-  return (props.promptVersions ?? [])
-    .filter(version => version.is_active || version.id === base)
-    .map((version) => {
-      const missing = version.id === base ? [] : unmappedVariables(version, config)
-      return {
-        label: `${version.prompt?.name || 'Unknown'} v${version.version}`,
-        value: version.id,
-        description: version.id === base ? 'Current setup' : missing.length > 0 ? `Needs a mapping for ${missing.join(', ')}` : undefined,
-        disabled: version.id === base || missing.length > 0,
-      }
-    })
-    .sort((a, b) => a.label.localeCompare(b.label))
+  return (version: PromptVersion) => {
+    const missing = unmappedVariables(version, config)
+    return missing.length > 0 ? { description: `Needs a mapping for ${missing.join(', ')}`, disabled: true } : undefined
+  }
 }
 
 function firstFreeField(agentId: number): VariationField {
@@ -160,26 +138,25 @@ watch(agents, (list) => {
             @update:model-value="(field) => patch(index, { field: field as VariationField, extras: [] })"
           />
 
-          <USelectMenu
+          <ModelsSelect
             v-if="variation.field === 'model_id'"
             :model-value="withBase(variation)"
+            :models="models ?? []"
             multiple
-            value-key="value"
-            :items="modelItems(baseOf(variation))"
+            :locked-id="baseOf(variation)"
             placeholder="Choose the models to run"
-            :search-input="{ placeholder: 'Search models…' }"
             class="w-full"
             aria-label="Models to run"
             @update:model-value="(values) => patch(index, { extras: onlyAdded(variation, values) })"
           />
-          <USelectMenu
+          <PromptsSelect
             v-else-if="variation.field === 'prompt_version_id'"
             :model-value="withBase(variation)"
+            :prompt-versions="promptVersions ?? []"
             multiple
-            value-key="value"
-            :items="promptItems(variation.agent_id, baseOf(variation))"
+            :locked-id="baseOf(variation)"
+            :item-state="promptState(variation.agent_id)"
             placeholder="Choose the prompt versions to run"
-            :search-input="{ placeholder: 'Search prompts…' }"
             class="w-full"
             aria-label="Prompt versions to run"
             @update:model-value="(values) => patch(index, { extras: onlyAdded(variation, values) })"

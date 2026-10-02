@@ -60,12 +60,15 @@ const promptDisplay = computed(() => {
   return `${name} v${version.version}`
 })
 
-const modelDisplay = computed(() => {
+const model = computed(() => {
   const id = props.data?.config?.model_id
-  if (!id)
+  return id ? models.value.find(m => m.id === id) : undefined
+})
+
+const modelDisplay = computed(() => {
+  if (!props.data?.config?.model_id)
     return 'No model'
-  const model = models.value.find(m => m.id === id)
-  return model?.name || 'Model set'
+  return model.value?.name || 'Model set'
 })
 </script>
 
@@ -112,7 +115,8 @@ const modelDisplay = computed(() => {
           </span>
         </div>
         <div class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-lucide-brain-circuit" class="w-3 h-3 flex-shrink-0" />
+          <UIProviderIcon v-if="model" :provider="model.provider" class="size-3" />
+          <UIcon v-else name="i-lucide-brain-circuit" class="w-3 h-3 flex-shrink-0" />
           <span class="truncate" :title="modelDisplay">
             {{ modelDisplay }}
           </span>
