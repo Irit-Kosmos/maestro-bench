@@ -234,7 +234,7 @@ function formatCost(cost: number | null) {
           <dt class="text-xs text-muted">
             Cancelled
           </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-toned tabular-nums">
+          <dd class="mt-0.5 text-lg font-semibold text-orange-600 tabular-nums dark:text-orange-400">
             {{ batch.counts.cancelled }}
           </dd>
         </div>

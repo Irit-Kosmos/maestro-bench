@@ -19,7 +19,7 @@ const config = computed(() => {
     case 'completed': return { icon: 'i-lucide-circle-check', class: 'text-success' }
     case 'running': return { icon: null, class: 'text-warning' }
     case 'failed': return { icon: 'i-lucide-circle-x', class: 'text-error' }
-    case 'cancelled': return { icon: 'i-lucide-circle-slash', class: 'text-muted' }
+    case 'cancelled': return { icon: 'i-lucide-circle-slash', class: 'text-orange-600 dark:text-orange-400' }
     case 'partial': return { icon: 'i-lucide-circle-alert', class: 'text-warning' }
     default: return { icon: 'i-lucide-circle-dashed', class: 'text-muted' }
   }

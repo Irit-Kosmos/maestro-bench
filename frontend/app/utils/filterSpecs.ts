@@ -13,7 +13,7 @@ const STATUSES = {
   completed: { label: 'Completed', icon: 'i-lucide-circle-check', iconClass: 'text-success' },
   partial: { label: 'Partial', icon: 'i-lucide-circle-alert', iconClass: 'text-warning' },
   failed: { label: 'Failed', icon: 'i-lucide-circle-x', iconClass: 'text-error' },
-  cancelled: { label: 'Cancelled', icon: 'i-lucide-circle-slash', iconClass: 'text-muted' },
+  cancelled: { label: 'Cancelled', icon: 'i-lucide-circle-slash', iconClass: 'text-orange-600 dark:text-orange-400' },
 } as const
 
 type KnownStatus = keyof typeof STATUSES
