@@ -175,7 +175,8 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
             <span
               v-for="option in chipIcons(definition)"
               :key="String(option.value)"
-              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated ring-2 ring-(--ui-bg-elevated)"
+              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated ring-(--ui-bg-elevated)"
+              :class="option.icon ? 'ring-2' : 'ring-1'"
             >
               <UIcon v-if="option.icon" :name="option.icon" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
               <span v-else class="size-2 rounded-full" :class="option.dot" aria-hidden="true" />
