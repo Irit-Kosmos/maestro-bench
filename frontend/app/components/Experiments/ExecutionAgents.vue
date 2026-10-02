@@ -9,6 +9,11 @@ const props = defineProps<{
 
 const ordered = computed(() => [...props.agents].sort((a, b) => a.execution_order - b.execution_order))
 
+// A team named like its only agent adds nothing under the title
+function showTeam(agent: AgentExecutionSnapshot) {
+  return !!agent.agent_team_name_snapshot && agent.agent_team_name_snapshot !== agent.agent_name_snapshot
+}
+
 const openIds = ref(new Set<number>())
 
 function setOpen(id: number, open: boolean) {
@@ -30,7 +35,7 @@ function setOpen(id: number, open: boolean) {
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ ordered[0]!.agent_name_snapshot }}
         </h3>
-        <p v-if="ordered[0]!.agent_team_name_snapshot" class="text-xs text-muted">
+        <p v-if="showTeam(ordered[0]!)" class="text-xs text-muted">
           {{ ordered[0]!.agent_team_name_snapshot }}
         </p>
       </div>
@@ -60,7 +65,7 @@ function setOpen(id: number, open: boolean) {
           <span class="min-w-0 flex-1">
             <span class="flex min-w-0 items-center gap-2">
               <span class="truncate text-sm font-medium text-highlighted">{{ agent.agent_name_snapshot }}</span>
-              <span v-if="agent.agent_team_name_snapshot" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
+              <span v-if="showTeam(agent)" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
             </span>
             <span class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
               <span class="shrink-0">{{ agent.prompt_name_snapshot }} v{{ agent.prompt_version_snapshot }}</span>

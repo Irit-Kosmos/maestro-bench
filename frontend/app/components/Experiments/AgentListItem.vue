@@ -104,7 +104,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         </span>
 
         <span class="min-w-0 flex-1">
-          <span class="flex items-center gap-2 min-w-0">
+          <span class="flex items-baseline gap-2 min-w-0">
             <span class="truncate text-sm font-medium text-highlighted">{{ item.agent.name }}</span>
             <span v-if="item.team" class="hidden shrink-0 text-xs text-muted sm:inline">{{ item.team.name }}</span>
           </span>
@@ -119,11 +119,11 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
 
         <span
           v-if="enabled && issues.length > 0"
-          class="hidden shrink-0 items-center gap-1 text-xs text-warning sm:inline-flex"
+          class="hidden h-5 shrink-0 items-center gap-1 rounded-full bg-warning/10 px-2 text-xs font-medium text-warning sm:inline-flex"
           :title="issues.join('\n')"
         >
-          <UIcon name="i-lucide-triangle-alert" class="size-3.5" aria-hidden="true" />
-          {{ issueSummary }}
+          <UIcon name="i-lucide-triangle-alert" class="size-3 shrink-0" aria-hidden="true" />
+          <span class="leading-none">{{ issueSummary }}</span>
         </span>
       </button>
 

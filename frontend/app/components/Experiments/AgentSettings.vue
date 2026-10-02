@@ -158,9 +158,10 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
         <li
           v-for="row in rows"
           :key="row.variable"
-          class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_11rem_minmax(0,1fr)]"
+          class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
         >
-          <code class="truncate font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
+          <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
+          <UIcon name="i-lucide-arrow-right" class="hidden size-3.5 shrink-0 text-dimmed @xl:block" aria-hidden="true" />
 
           <USelect
             :model-value="row.mapping?.source"

@@ -47,14 +47,6 @@ const prompts = computed(() => [
     <dl class="flex flex-wrap gap-x-8 gap-y-3">
       <div class="min-w-0">
         <dt class="text-xs text-muted">
-          Prompt
-        </dt>
-        <dd class="mt-0.5 text-sm text-highlighted text-pretty">
-          {{ snapshot.prompt_name_snapshot }} <span class="text-muted">v{{ snapshot.prompt_version_snapshot }}</span>
-        </dd>
-      </div>
-      <div class="min-w-0">
-        <dt class="text-xs text-muted">
           Model
         </dt>
         <dd class="mt-0.5 text-sm text-highlighted text-pretty">
@@ -79,34 +71,37 @@ const prompts = computed(() => [
       </div>
     </dl>
 
-    <section v-if="variables.length > 0" :aria-labelledby="`vars-${snapshot.id}`">
-      <h4 :id="`vars-${snapshot.id}`" class="text-sm font-medium text-highlighted">
-        Prompt variables
+    <!-- The prompt, its inputs and its texts together: one card -->
+    <section :aria-labelledby="`prompt-${snapshot.id}`">
+      <h4 :id="`prompt-${snapshot.id}`" class="flex items-baseline gap-2 text-sm font-medium text-highlighted">
+        <span>Prompt</span>
+        <span class="min-w-0 truncate font-normal text-muted">{{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}</span>
       </h4>
-      <ul class="mt-2 divide-y divide-default rounded-lg border border-default bg-default">
-        <li
-          v-for="variable in variables"
-          :key="variable"
-          class="grid items-baseline gap-x-3 gap-y-0.5 px-3 py-2 sm:grid-cols-[minmax(6rem,10rem)_minmax(0,1fr)]"
-        >
-          <code class="truncate font-mono text-xs text-highlighted" :title="variable">{{ variable }}</code>
-          <span class="flex min-w-0 items-baseline gap-1.5 text-sm text-toned">
-            <UIcon :name="sourceOf(variable).icon" class="size-3.5 shrink-0 translate-y-0.5 text-muted" aria-hidden="true" />
-            <span class="shrink-0">{{ sourceOf(variable).label }}</span>
-            <code v-if="sourceOf(variable).detail" class="min-w-0 truncate font-mono text-xs text-highlighted" :title="sourceOf(variable).detail">{{ sourceOf(variable).detail }}</code>
-          </span>
-        </li>
-      </ul>
-    </section>
+      <div class="mt-2 divide-y divide-default overflow-hidden rounded-lg border border-default bg-default">
+        <ul v-if="variables.length > 0" class="divide-y divide-default">
+          <li
+            v-for="variable in variables"
+            :key="variable"
+            class="grid items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[minmax(6rem,10rem)_auto_minmax(0,1fr)]"
+          >
+            <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="variable">{{ variable }}</code>
+            <UIcon name="i-lucide-arrow-right" class="hidden size-3.5 shrink-0 text-dimmed sm:block" aria-hidden="true" />
+            <span class="flex min-w-0 items-center gap-1.5 text-sm text-toned">
+              <UIcon :name="sourceOf(variable).icon" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+              <span class="shrink-0">{{ sourceOf(variable).label }}</span>
+              <code v-if="sourceOf(variable).detail" class="min-w-0 truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="sourceOf(variable).detail">{{ sourceOf(variable).detail }}</code>
+            </span>
+          </li>
+        </ul>
 
-    <div v-if="prompts.length > 0" class="flex flex-col gap-2">
-      <details v-for="prompt in prompts" :key="prompt.label" class="group rounded-lg border border-default bg-default">
-        <summary class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-          <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
-          {{ prompt.label }}
-        </summary>
-        <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
-      </details>
-    </div>
+        <details v-for="prompt in prompts" :key="prompt.label" class="group">
+          <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+            <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+            {{ prompt.label }}
+          </summary>
+          <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
+        </details>
+      </div>
+    </section>
   </div>
 </template>
