@@ -52,7 +52,8 @@ function onAction() {
       <slot>
         <UButton
           :to="actionTo"
-          color="primary"
+          color="neutral"
+          variant="soft"
           :icon="actionIcon"
           size="sm"
           @click="onAction"

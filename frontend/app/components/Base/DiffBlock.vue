@@ -48,7 +48,7 @@ const markClass = {
       <button
         v-if="entry.type === 'fold'"
         type="button"
-        class="flex w-full items-center gap-2 border-s-2 border-transparent bg-elevated/40 px-3 py-1 text-start font-sans text-xs text-muted outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        class="flex w-full items-center gap-2 border-s-2 border-transparent bg-elevated/40 px-3 py-1 text-start font-sans text-xs text-muted outline-none first:rounded-t-[calc(var(--radius-md)-1px)] last:rounded-b-[calc(var(--radius-md)-1px)] hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         @click="open(entry.index)"
       >
         <UIcon name="i-lucide-chevrons-up-down" class="size-3.5 shrink-0" aria-hidden="true" />
@@ -57,7 +57,7 @@ const markClass = {
 
       <div
         v-else
-        class="relative min-h-[1.625em] border-s-2 ps-6 pe-3 break-words whitespace-pre-wrap before:absolute before:start-2 before:select-none before:text-[11px]"
+        class="relative min-h-[1.625em] border-s-2 ps-6 pe-3 break-words whitespace-pre-wrap first:rounded-t-[calc(var(--radius-md)-1px)] last:rounded-b-[calc(var(--radius-md)-1px)] before:absolute before:start-2 before:select-none before:text-[11px]"
         :class="[rowClass[entry.row.kind], { 'diff-reveal': entry.revealed }]"
       >
         <template v-for="(part, index) in entry.row.parts" :key="index">
