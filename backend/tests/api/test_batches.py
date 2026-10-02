@@ -36,6 +36,9 @@ def engine():
     return engine
 
 
+REAL_START_EXPERIMENT = async_jobs.start_experiment
+
+
 @pytest.fixture
 def jobs(monkeypatch):
     """Experiments handed to the background runner, instead of running."""
@@ -421,6 +424,43 @@ class TestManageBatch:
 
         assert response.json()["cancelled"] == 2
         assert sorted(jobs.cancelled) == sorted(e["id"] for e in body["experiments"])
+
+    def test_rerun_starts_every_experiment_that_is_not_running(
+        self, client, world, engine, jobs
+    ):
+        body = self.create(client, world)
+        running, idle = body["experiments"][0]["id"], body["experiments"][1]["id"]
+        jobs.started.clear()
+        with Session(engine) as s:
+            for experiment_id, status in ((running, "running"), (idle, "completed")):
+                experiment = s.get(Experiment, experiment_id)
+                experiment.status = status
+                s.add(experiment)
+            s.commit()
+
+        response = client.post(f"/batches/{body['id']}/rerun")
+
+        assert response.json() == {"batch_id": body["id"], "started": 1, "skipped": 1}
+        assert jobs.started == [idle]
+
+    def test_rerun_schedules_the_runs_on_the_event_loop(
+        self, client, world, engine, jobs, monkeypatch
+    ):
+        # `jobs` replaces start_experiment, which hides that the real one needs
+        # a running loop: use it, with the run itself stubbed out
+        async def no_run(experiment_id):
+            return None
+
+        monkeypatch.setattr(async_jobs, "start_experiment", REAL_START_EXPERIMENT)
+        monkeypatch.setattr(async_jobs, "run_experiment_async", no_run)
+        body = self.create(client, world)
+
+        response = client.post(f"/batches/{body['id']}/rerun")
+
+        assert response.json()["started"] == 2
+
+    def test_rerun_of_an_unknown_batch_is_a_404(self, client):
+        assert client.post("/batches/999/rerun").status_code == 404
 
     def test_deleting_a_batch_keeps_its_experiments(self, client, world, engine):
         body = self.create(client, world)

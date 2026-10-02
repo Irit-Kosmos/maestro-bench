@@ -112,3 +112,9 @@ class BatchResponse(BaseModel):
 class BatchCancelResponse(BaseModel):
     batch_id: int
     cancelled: int
+
+
+class BatchRerunResponse(BaseModel):
+    batch_id: int
+    started: int
+    skipped: int
