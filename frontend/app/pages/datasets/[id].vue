@@ -118,13 +118,14 @@ watch(() => route.params.id, () => {
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <div class="pb-6">
+  <!-- Fills the panel so only the rows scroll, not the page -->
+  <div class="flex flex-col flex-1 min-h-0">
+    <div class="flex flex-col flex-1 min-h-0">
       <!-- Loading State -->
       <BaseLoadingState v-if="loading" />
 
       <!-- Dataset Details -->
-      <div v-else-if="dataset" class="flex flex-col gap-5">
+      <div v-else-if="dataset" class="flex flex-col flex-1 min-h-0 gap-5">
         <!-- Edit isn't available yet, so it isn't shown as a dead button -->
         <AppPageActions>
           <UDropdownMenu
@@ -178,8 +179,13 @@ watch(() => route.params.id, () => {
 
         <USeparator />
 
-        <!-- Preview -->
-        <DatasetsPreview v-if="dataset.file_path" :dataset-id="dataset.id" />
+        <!-- Rows: browse, search and edit the whole file -->
+        <DatasetsEditor
+          v-if="dataset.file_path"
+          class="flex-1 min-h-0"
+          :dataset-id="dataset.id"
+          :experiment-count="datasetStats?.experiment_count ?? null"
+        />
 
         <BaseEmptyState
           v-else

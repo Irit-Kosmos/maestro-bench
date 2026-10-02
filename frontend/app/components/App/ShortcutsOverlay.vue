@@ -20,6 +20,15 @@ const shortcuts = [
     { keys: ['T'], label: 'Switch between light and dark' },
     { keys: ['?'], label: 'Show keyboard shortcuts' },
   ] },
+  { section: 'Dataset rows', items: [
+    { keys: ['/'], label: 'Search rows' },
+    { keys: ['↑', '↓', '←', '→'], label: 'Move between cells' },
+    { keys: ['enter'], label: 'Edit the selected cell (enter saves it, esc cancels)' },
+    { keys: ['space'], label: 'Open the row in full' },
+    { keys: ['X'], label: 'Select the row' },
+    { keys: ['delete'], label: 'Delete the selected rows' },
+    { keys: ['meta', 'S'], label: 'Save the dataset' },
+  ] },
 ]
 </script>
 
