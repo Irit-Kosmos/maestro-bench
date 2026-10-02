@@ -9,7 +9,7 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 const toast = useToast()
 const { fetchExperiment, deleteExperiment, rerunExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
-const { formatDuration, formatDate } = useUIHelpers()
+const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
 
 // State
@@ -37,16 +37,16 @@ useSeoMeta({
   ),
 })
 
-// How the dataset rows were picked, so "3 rows" reads as a deliberate sample
-const samplingLabel = computed(() => {
+// How the dataset rows were picked, next to how many there were
+const samplingHint = computed(() => {
   const exp = experiment.value
   if (!exp)
     return ''
   if (exp.sampling_type === 'random')
-    return `Random sample of ${exp.sampling_size ?? '?'}`
+    return 'random sample'
   if (exp.sampling_type === 'range')
-    return `Rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
-  return 'All dataset rows'
+    return `rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
+  return 'full dataset'
 })
 
 // Latest execution for configuration display
@@ -203,49 +203,30 @@ async function handleRerunExperiment() {
   }
 }
 
-const duration = computed(() => {
-  if (!experiment.value || !executions.value.length) {
-    return 'N/A'
-  }
-
-  // Get all completed executions
-  const completedExecutions = executions.value.filter(
-    execution => execution.status === 'completed' && execution.completed_at && execution.started_at,
-  )
-
-  if (completedExecutions.length === 0) {
-    return '-'
-  }
-
-  // Calculate duration for each completed execution
-  const durations = completedExecutions.map((execution) => {
-    const startTime = parseApiDate(execution.started_at).getTime() / 1000
-    const endTime = parseApiDate(execution.completed_at!).getTime() / 1000
-    return endTime - startTime
-  })
-
-  // Calculate average duration
-  const averageDuration = durations.reduce((sum, duration) => sum + duration, 0) / durations.length
-
-  return formatDuration(averageDuration)
-})
-
-const completedCount = computed(() => executions.value.filter(e => e.status === 'completed').length)
-
 const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
 
-// Newest first, with what each run took on one line
+// Rows the run processed; before any run, what the sampling asks for
+const datasetRows = computed(() => {
+  const exp = experiment.value
+  return latestExecution.value?.row_count
+    ?? exp?.row_count
+    ?? (exp?.sampling_type === 'random' ? exp.sampling_size : null)
+    ?? null
+})
+
+// Newest first; what each run took, used and cost sits with the run, not in the page header
 const executionRows = computed(() => [...executions.value]
   .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
   .map((execution) => {
-    const parts = [parseApiDate(execution.started_at).toLocaleString()]
-    if (execution.completed_at)
-      parts.push(formatDuration((parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000))
-    if (execution.total_tokens)
-      parts.push(`${execution.total_tokens.toLocaleString()} tokens`)
-    if (execution.total_cost_usd)
-      parts.push(`$${execution.total_cost_usd.toFixed(4)}`)
-    return { execution, detail: parts.join(' · ') }
+    const seconds = execution.completed_at
+      ? (parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000
+      : null
+    return {
+      execution,
+      duration: seconds === null ? null : formatElapsed(seconds),
+      tokens: execution.total_tokens ? formatTokens(execution.total_tokens) : null,
+      cost: execution.total_cost_usd ? formatCost(execution.total_cost_usd) : null,
+    }
   }))
 
 // Lifecycle
@@ -315,89 +296,38 @@ watch(() => route.params.id, () => {
         </UButton>
       </AppPageActions>
 
-      <!-- Title and figures share the top: the figures sit right of the title when there is room -->
-      <header class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
-        <div class="min-w-0 flex-1 basis-80">
-          <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
-            <UIStatusIcon :status="experiment.status" size="size-5" tooltip />
-            <span class="min-w-0 text-balance">{{ experiment.name }}</span>
-          </h1>
-          <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
-          <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-            <UIMetaItem icon="i-lucide-hash" label="Experiment" class="tabular-nums">
-              {{ experiment.id }}
-            </UIMetaItem>
-            <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
-              {{ formatDate(experiment.created_at) }}
-            </UIMetaItem>
-            <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
-              <UIMetaLink :to="`/batches/${experiment.batch_id}`">
-                {{ experiment.batch_name }}
-              </UIMetaLink>
-            </UIMetaItem>
-          </div>
-          <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
-            {{ experiment.description }}
-          </p>
+      <!-- Identity only: what it is and when. Everything measurable lives with the thing it measures -->
+      <header>
+        <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
+          <UIStatusIcon :status="experiment.status" size="size-5" tooltip />
+          <span class="min-w-0 text-balance">{{ experiment.name }}</span>
+        </h1>
+        <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
+        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          <UIMetaItem icon="i-lucide-hash" label="Experiment" class="tabular-nums">
+            {{ experiment.id }}
+          </UIMetaItem>
+          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+            {{ formatDate(experiment.created_at) }}
+          </UIMetaItem>
+          <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
+            <UIMetaLink :to="`/batches/${experiment.batch_id}`">
+              {{ experiment.batch_name }}
+            </UIMetaLink>
+          </UIMetaItem>
         </div>
-
-        <dl class="flex flex-wrap gap-x-8 gap-y-3">
-          <div>
-            <dt class="text-xs text-muted">
-              Rows
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              <UIRowCount :rows="latestExecution?.row_count ?? experiment.row_count" />
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted">
-              Agents
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              {{ latestExecution?.agent_executions?.length || 0 }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted">
-              Executions
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              {{ executions.length }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted">
-              {{ completedCount > 1 ? 'Avg duration' : 'Duration' }}
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              {{ duration }}
-            </dd>
-          </div>
-          <div v-if="latestExecution?.total_tokens">
-            <dt class="text-xs text-muted">
-              Tokens
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              {{ latestExecution.total_tokens.toLocaleString() }}
-            </dd>
-          </div>
-          <div v-if="latestExecution?.total_cost_usd !== undefined && latestExecution?.total_cost_usd !== null">
-            <dt class="text-xs text-muted">
-              Cost
-            </dt>
-            <dd class="text-base font-semibold text-highlighted tabular-nums">
-              ${{ latestExecution.total_cost_usd.toFixed(4) }}
-            </dd>
-          </div>
-        </dl>
+        <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
+          {{ experiment.description }}
+        </p>
       </header>
 
-      <!-- Agents take the wide column; dataset and executions are short and stack beside them -->
+      <!-- What is run (agents) takes the wide column; what it runs on and what came out stack beside it -->
       <div class="grid gap-x-10 gap-y-6 @4xl:grid-cols-[minmax(0,1fr)_21rem]">
         <ExperimentsSection
           id="agents"
           title="Agents"
+          icon="i-lucide-bot"
+          :count="latestExecution?.agent_executions.length ?? 0"
           :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
         >
           <ExperimentsExecutionAgents
@@ -413,53 +343,44 @@ watch(() => route.params.id, () => {
         </ExperimentsSection>
 
         <div class="flex min-w-0 flex-col gap-5">
-          <ExperimentsSection id="dataset" title="Dataset" compact>
-            <dl class="flex flex-col gap-2.5">
-              <div class="flex items-baseline justify-between gap-4">
-                <dt class="shrink-0 text-xs text-muted">
-                  Name
-                </dt>
-                <dd class="min-w-0 truncate text-sm text-highlighted" :title="datasetName">
-                  <NuxtLink
-                    v-if="experiment.dataset_id"
-                    :to="`/datasets/${experiment.dataset_id}`"
-                    class="underline-offset-2 hover:underline"
-                  >
+          <!-- Values describe themselves, so the icon names the fact (and the title says it on hover) -->
+          <ExperimentsSection id="dataset" title="Dataset" icon="i-lucide-database" compact>
+            <ul class="flex flex-col gap-2 text-sm text-highlighted">
+              <li>
+                <UIMetaItem icon="i-lucide-tag" label="Name">
+                  <UIMetaLink v-if="experiment.dataset_id" :to="`/datasets/${experiment.dataset_id}`">
                     {{ datasetName }}
-                  </NuxtLink>
-                  <template v-else>
-                    {{ datasetName }}
-                  </template>
-                </dd>
-              </div>
-              <div class="flex items-baseline justify-between gap-4">
-                <dt class="shrink-0 text-xs text-muted">
-                  Rows used
-                </dt>
-                <dd class="text-sm text-highlighted tabular-nums">
-                  {{ samplingLabel }}
-                </dd>
-              </div>
-              <div v-if="datasetInfo?.file_path" class="flex items-baseline justify-between gap-4">
-                <dt class="shrink-0 text-xs text-muted">
-                  File
-                </dt>
-                <dd class="min-w-0 truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">
-                  {{ datasetInfo.file_path }}
-                </dd>
-              </div>
-              <div v-if="datasetInfo?.description">
-                <dt class="sr-only">
-                  Description
-                </dt>
-                <dd class="line-clamp-2 text-xs text-muted text-pretty" :title="datasetInfo.description">
+                  </UIMetaLink>
+                  <span v-else class="truncate">{{ datasetName }}</span>
+                </UIMetaItem>
+              </li>
+              <li>
+                <UIMetaItem icon="i-lucide-rows-3" label="Rows used" class="tabular-nums">
+                  <UIRowCount :rows="datasetRows" />
+                  <span class="text-muted">· {{ samplingHint }}</span>
+                </UIMetaItem>
+              </li>
+              <li v-if="datasetInfo?.file_path">
+                <UIMetaItem icon="i-lucide-file-spreadsheet" label="File">
+                  <span class="truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">{{ datasetInfo.file_path }}</span>
+                </UIMetaItem>
+              </li>
+              <li v-if="datasetInfo?.description" class="ps-5">
+                <p class="line-clamp-2 text-xs text-muted text-pretty" :title="datasetInfo.description">
                   {{ datasetInfo.description }}
-                </dd>
-              </div>
-            </dl>
+                </p>
+              </li>
+            </ul>
           </ExperimentsSection>
 
-          <ExperimentsSection v-if="executionRows.length > 0" id="executions" title="Executions" compact>
+          <ExperimentsSection
+            v-if="executionRows.length > 0"
+            id="executions"
+            title="Executions"
+            icon="i-lucide-history"
+            :count="executionRows.length"
+            compact
+          >
             <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
               <li
                 v-for="row in executionRows"
@@ -468,13 +389,23 @@ watch(() => route.params.id, () => {
               >
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
                     <UIStatusBadge :status="row.execution.status" />
+                    <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
                     <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+                    <span class="text-xs text-muted tabular-nums" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
                   </div>
-                  <p class="mt-0.5 truncate text-xs text-muted tabular-nums" :title="row.detail">
-                    {{ row.detail }}
-                  </p>
+                  <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
+                  <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
+                    <UIMetaItem v-if="row.duration" icon="i-lucide-clock" label="Duration">
+                      {{ row.duration }}
+                    </UIMetaItem>
+                    <UIMetaItem v-if="row.tokens" icon="i-lucide-type" label="Tokens">
+                      <span :title="row.execution.total_tokens?.toLocaleString()">{{ row.tokens }}</span>
+                    </UIMetaItem>
+                    <UIMetaItem v-if="row.cost" icon="i-lucide-coins" label="Cost">
+                      <span :title="`$${row.execution.total_cost_usd?.toFixed(4)}`">{{ row.cost }}</span>
+                    </UIMetaItem>
+                  </div>
                 </div>
                 <UTooltip v-if="row.execution.results_file_path" text="Download results">
                   <UButton

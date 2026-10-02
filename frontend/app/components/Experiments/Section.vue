@@ -6,6 +6,10 @@ defineProps<{
   description?: string
   /** Tighter rhythm, for sections in a side column */
   compact?: boolean
+  /** Names what the section is about, before its title */
+  icon?: string
+  /** How many things it holds, after its title */
+  count?: number
 }>()
 
 defineSlots<{
@@ -23,8 +27,10 @@ defineSlots<{
   >
     <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div class="min-w-0">
-        <h2 :id="`${id}-title`" class="text-base font-semibold text-highlighted">
+        <h2 :id="`${id}-title`" class="flex items-center gap-2 text-base font-semibold text-highlighted">
+          <UIcon v-if="icon" :name="icon" class="size-4 shrink-0 text-muted" aria-hidden="true" />
           {{ title }}
+          <span v-if="count !== undefined" class="text-sm font-normal text-muted tabular-nums">{{ count }}</span>
         </h2>
         <p v-if="description" class="mt-0.5 max-w-prose text-sm text-muted text-pretty">
           {{ description }}
