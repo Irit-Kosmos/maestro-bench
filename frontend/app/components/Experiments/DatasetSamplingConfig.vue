@@ -32,12 +32,16 @@ const error = ref<string | null>(null)
 
 // Computed
 const samplingTypeOptions = [
-  { label: 'Use all rows', value: 'all' },
+  { label: 'All rows', value: 'all' },
   { label: 'Random sample', value: 'random' },
-  { label: 'Specific row range', value: 'range' },
+  { label: 'Row range', value: 'range' },
 ]
 
 const maxRows = computed(() => datasetInfo.value?.total_rows || 0)
+
+function formatNumber(value: number) {
+  return value.toLocaleString('en-US')
+}
 
 const isValidRange = computed(() => {
   if (props.samplingType !== 'range')
@@ -55,6 +59,40 @@ const isValidSampleSize = computed(() => {
   if (!props.samplingSize)
     return false
   return props.samplingSize > 0 && props.samplingSize <= maxRows.value
+})
+
+const sampleSizeError = computed(() => {
+  if (props.samplingType !== 'random' || !props.samplingSize || isValidSampleSize.value)
+    return undefined
+  return `Sample size must be between 1 and ${formatNumber(maxRows.value)}.`
+})
+
+const rangeError = computed(() => {
+  if (props.samplingType !== 'range')
+    return undefined
+  const { samplingStartRow: start, samplingEndRow: end } = props
+  if (start && (start < 1 || start > maxRows.value))
+    return `Start row must be between 1 and ${formatNumber(maxRows.value)}.`
+  if (end && !isValidRange.value)
+    return `End row must be at least the start row and at most ${formatNumber(maxRows.value)}.`
+  return undefined
+})
+
+const samplingError = computed(() => sampleSizeError.value || rangeError.value)
+
+const hint = computed(() => {
+  const total = formatNumber(maxRows.value)
+  if (props.samplingType === 'random') {
+    return props.samplingSize && isValidSampleSize.value
+      ? `${formatNumber(props.samplingSize)} of ${total} rows, drawn at random.`
+      : 'Rows are drawn at random each time the experiment runs.'
+  }
+  if (props.samplingType === 'range') {
+    return props.samplingStartRow && props.samplingEndRow && isValidRange.value
+      ? `${formatNumber(props.samplingEndRow - props.samplingStartRow + 1)} rows, from ${formatNumber(props.samplingStartRow)} to ${formatNumber(props.samplingEndRow)}.`
+      : 'Rows are numbered from 1; start and end are inclusive.'
+  }
+  return `All ${total} rows will be used.`
 })
 
 // Methods
@@ -116,7 +154,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div>
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center gap-2 text-toned">
       <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
@@ -127,114 +165,84 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
     <UAlert v-else-if="error" color="error" variant="soft" :title="error" />
 
     <!-- Configuration -->
-    <div v-else-if="datasetInfo" class="space-y-4 flex gap-4">
-      <!-- Dataset Summary -->
-      <UCard class="flex-1">
-        <template #header>
-          <h4 class="text-base font-medium">
-            Dataset Overview
-          </h4>
-        </template>
-
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div class="text-center">
-            <div class="text-2xl font-bold text-primary">
-              {{ datasetInfo.total_rows }}
-            </div>
-            <div class="text-sm text-muted">
-              Total Rows
-            </div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-primary">
-              {{ datasetInfo.total_columns }}
-            </div>
-            <div class="text-sm text-muted">
-              Columns
-            </div>
-          </div>
-          <div class="text-center">
-            <UBadge :label="datasetInfo.file_type.toUpperCase()" variant="subtle" color="info" />
-            <div class="text-sm text-muted mt-1">
-              File Type
-            </div>
-          </div>
-        </div>
-      </UCard>
-
-      <div class="flex flex-1 flex-col gap-4">
-        <!-- Sampling Type Selection -->
-        <UFormField label="Sampling Method" required>
-          <USelect
-            :model-value="samplingType"
-            :items="samplingTypeOptions"
-            class="w-60"
-            @update:model-value="updateSamplingType"
-          />
-        </UFormField>
+    <div v-else-if="datasetInfo" class="space-y-2">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <!-- Sampling Method -->
+        <UTabs
+          :model-value="samplingType"
+          :items="samplingTypeOptions"
+          :content="false"
+          variant="pill"
+          size="sm"
+          aria-label="Sampling method"
+          @update:model-value="(value) => updateSamplingType(String(value))"
+        />
 
         <!-- Random Sample Configuration -->
-        <div v-if="samplingType === 'random'" class="space-y-4">
-          <UFormField
-            label="Sample Size"
-            required
-            :error="!isValidSampleSize ? `Sample size must be between 1 and ${maxRows}` : undefined"
-          >
-            <UInput
-              :model-value="samplingSize?.toString() || ''"
-              type="number"
-              :min="1"
-              :max="maxRows"
-              placeholder="e.g., 100"
-              @update:model-value="updateSamplingSize"
-            />
-            <template #help>
-              <span class="text-xs text-muted">
-                Enter the number of rows to randomly sample (max: {{ maxRows }})
-              </span>
-            </template>
-          </UFormField>
+        <div v-if="samplingType === 'random'" class="flex items-center gap-2">
+          <UInput
+            :model-value="samplingSize?.toString() || ''"
+            type="number"
+            size="sm"
+            class="w-28"
+            :min="1"
+            :max="maxRows"
+            placeholder="e.g. 100"
+            aria-label="Sample size"
+            :color="sampleSizeError ? 'error' : undefined"
+            :highlight="!!sampleSizeError"
+            @update:model-value="updateSamplingSize"
+          />
+          <span class="text-sm text-muted tabular-nums">of {{ formatNumber(maxRows) }} rows</span>
         </div>
 
         <!-- Range Configuration -->
-        <div v-if="samplingType === 'range'" class="space-y-4">
-          <div class="flex gap-4">
-            <UFormField
-              label="Start Row"
-              required
-              :error="samplingStartRow && (samplingStartRow < 1 || samplingStartRow > maxRows) ? `Must be between 1 and ${maxRows}` : undefined"
-            >
-              <UInput
-                :model-value="samplingStartRow?.toString() || ''"
-                type="number"
-                :min="1"
-                :max="maxRows"
-                placeholder="1"
-                @update:model-value="updateSamplingStartRow"
-              />
-            </UFormField>
-
-            <UFormField
-              label="End Row"
-              required
-              :error="samplingEndRow && (!isValidRange) ? `Must be >= start row and <= ${maxRows}` : undefined"
-            >
-              <UInput
-                :model-value="samplingEndRow?.toString() || ''"
-                type="number"
-                :min="samplingStartRow || 1"
-                :max="maxRows"
-                placeholder="100"
-                @update:model-value="updateSamplingEndRow"
-              />
-            </UFormField>
-          </div>
-
-          <p class="text-xs text-muted">
-            Specify the row range to use (1-based indexing). Both start and end rows are inclusive.
-          </p>
+        <div v-else-if="samplingType === 'range'" class="flex items-center gap-2">
+          <UInput
+            :model-value="samplingStartRow?.toString() || ''"
+            type="number"
+            size="sm"
+            class="w-28"
+            :min="1"
+            :max="maxRows"
+            placeholder="From"
+            aria-label="Start row"
+            :color="rangeError ? 'error' : undefined"
+            :highlight="!!rangeError"
+            @update:model-value="updateSamplingStartRow"
+          />
+          <span class="text-sm text-muted">to</span>
+          <UInput
+            :model-value="samplingEndRow?.toString() || ''"
+            type="number"
+            size="sm"
+            class="w-28"
+            :min="samplingStartRow || 1"
+            :max="maxRows"
+            placeholder="To"
+            aria-label="End row"
+            :color="rangeError ? 'error' : undefined"
+            :highlight="!!rangeError"
+            @update:model-value="updateSamplingEndRow"
+          />
         </div>
+
+        <!-- Dataset facts -->
+        <p class="ml-auto flex items-center gap-1.5 text-xs text-muted tabular-nums">
+          <span>{{ formatNumber(maxRows) }} rows</span>
+          <span aria-hidden="true">·</span>
+          <span>{{ datasetInfo.total_columns }} columns</span>
+          <UBadge :label="datasetInfo.file_type.toUpperCase()" variant="subtle" color="neutral" size="sm" />
+        </p>
       </div>
+
+      <p
+        class="text-xs tabular-nums"
+        :class="samplingError ? 'text-error' : 'text-muted'"
+        :role="samplingError ? 'alert' : undefined"
+      >
+        {{ samplingError || hint }}
+      </p>
     </div>
 
     <!-- No Dataset Selected -->
