@@ -14,7 +14,7 @@ const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/prov
 
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
-const { search, providers, status, groupBy, providerOptions, statusCounts, filtered, groups, hasFilters, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
+const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, hasFilters, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
 
 // Whether the backend holds an API key for a provider, by canonical key
@@ -287,6 +287,7 @@ function handleDeleteLeave() {
       mode="create"
       :loading="isCreating"
       @submit="handleCreateModel"
+      @after-leave="resetCreateForm"
     >
       <ModelsForm v-model="createForm" name-placeholder="e.g. gpt-4-turbo" />
     </BaseCrudModal>
