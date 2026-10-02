@@ -28,6 +28,7 @@ const createForm = ref({
   name: '',
   description: '',
   category: '',
+  tag_ids: [] as number[],
 })
 
 // Computed
@@ -41,6 +42,7 @@ function resetCreateForm() {
     name: '',
     description: '',
     category: '',
+    tag_ids: [],
   }
 }
 
@@ -54,6 +56,7 @@ async function handleCreatePrompt() {
       name: createForm.value.name,
       description: createForm.value.description || undefined,
       category: createForm.value.category || undefined,
+      tag_ids: createForm.value.tag_ids,
     })
 
     if (result.success) {
@@ -145,6 +148,10 @@ async function handleCreatePrompt() {
                 class="w-full"
                 :rows="3"
               />
+            </UFormField>
+
+            <UFormField label="Tags">
+              <TagsInput v-model="createForm.tag_ids" />
             </UFormField>
 
             <div class="flex justify-end gap-2 pt-4 border-t border-default">

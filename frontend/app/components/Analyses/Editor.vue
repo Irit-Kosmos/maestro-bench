@@ -257,6 +257,7 @@ const confidenceItems = [
         class="w-full bg-transparent text-sm text-toned outline-none placeholder:text-dimmed"
         @input="form.description = ($event.target as HTMLInputElement).value || null"
       >
+      <TagsInput v-model="form.tag_ids" class="pt-1.5" />
     </div>
 
     <section class="space-y-2" aria-labelledby="analysis-executions">

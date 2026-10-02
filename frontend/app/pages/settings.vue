@@ -100,6 +100,10 @@ async function recheck() {
       </div>
     </BaseSection>
 
+    <BaseSection title="Tags">
+      <TagsManager />
+    </BaseSection>
+
     <BaseSection title="Backend">
       <dl class="divide-y divide-default">
         <div class="flex items-center gap-3 h-11 px-4">

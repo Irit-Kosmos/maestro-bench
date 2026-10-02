@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Prompt } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
-import { dateFilter } from '~/utils/filterSpecs'
+import { dateFilter, tagsFilter } from '~/utils/filterSpecs'
 
 interface Props {
   data: Prompt[]
@@ -27,6 +27,12 @@ const columns = [
     label: 'Category',
   },
   {
+    key: 'tags',
+    label: 'Tags',
+    // What the search reads; the cell below shows the chips
+    formatter: (_: unknown, prompt: Prompt) => prompt.tags.map(tag => tag.name).join(' '),
+  },
+  {
     key: 'description',
     label: 'Description',
   },
@@ -45,6 +51,7 @@ const filters: FilterSpec<Prompt>[] = [
     searchPlaceholder: 'Search a category…',
     value: prompt => prompt.category,
   },
+  tagsFilter<Prompt>(prompt => prompt.tags),
   dateFilter(prompt => prompt.created_at),
 ]
 </script>
@@ -70,6 +77,10 @@ const filters: FilterSpec<Prompt>[] = [
         {{ row.original.category }}
       </UBadge>
       <span v-else class="text-dimmed text-sm">—</span>
+    </template>
+
+    <template #tags-cell="{ row }">
+      <TagsList :tags="row.original.tags" />
     </template>
 
     <!-- Custom cell for created_at -->

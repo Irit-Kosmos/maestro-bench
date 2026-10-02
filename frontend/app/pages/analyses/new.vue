@@ -23,6 +23,7 @@ const executionIds = String(route.query.executions ?? '')
 const form = ref<AnalysisForm>({
   name: route.query.name ? `${route.query.name} analysis` : '',
   description: null,
+  tag_ids: [],
   config: structuredClone(DEFAULT_ANALYSIS_CONFIG),
   runs: executionIds.length > 0
     ? executionIds.map(id => ({ execution_id: id, agent_name: '', label: null }))

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Analysis } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
-import { dateFilter } from '~/utils/filterSpecs'
+import { dateFilter, tagsFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Analyses',
@@ -25,6 +25,12 @@ const analysisId = ref<number | null>(null)
 
 const columns = [
   { key: 'name', label: 'Analysis' },
+  {
+    key: 'tags',
+    label: 'Tags',
+    // What the search reads; the cell below shows the chips
+    formatter: (_: unknown, row: Analysis) => row.tags.map(tag => tag.name).join(' '),
+  },
   {
     key: 'config',
     label: 'Ground truth vs prediction',
@@ -57,6 +63,7 @@ const filters: FilterSpec<Analysis>[] = [
     searchPlaceholder: 'Search a column…',
     value: analysis => analysis.config.truth_column,
   },
+  tagsFilter<Analysis>(analysis => analysis.tags),
   dateFilter(analysis => analysis.updated_at, 'Updated'),
 ]
 
@@ -127,6 +134,10 @@ async function confirmDelete() {
         searchable
         @refresh="refresh"
       >
+        <template #tags-cell="{ row }">
+          <TagsList :tags="row.original.tags" />
+        </template>
+
         <template #updated_at-cell="{ row }">
           <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.updated_at)">
             {{ formatRelativeDate(row.original.updated_at) }}

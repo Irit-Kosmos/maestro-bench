@@ -12,11 +12,27 @@ export interface Model {
   created_at: string
 }
 
+/** The palette tags choose from (see `TAG_COLORS` in utils/tags.ts) */
+export type TagColor = 'red' | 'orange' | 'amber' | 'green' | 'teal' | 'blue' | 'indigo' | 'purple' | 'pink' | 'gray'
+
+/** A label shared by every kind of item that can be tagged */
+export interface Tag {
+  id: number
+  name: string
+  color: TagColor
+}
+
+export interface TagWithCount extends Tag {
+  /** How many items carry the tag */
+  count: number
+}
+
 export interface Prompt {
   id: number
   name: string
   description: string | null
   category: string | null
+  tags: Tag[]
   created_at: string
   versions?: PromptVersion[]
 }
@@ -311,6 +327,7 @@ export interface Analysis {
   description?: string | null
   config: AnalysisConfig
   runs: AnalysisRunRef[]
+  tags: Tag[]
   created_at: string
   updated_at: string
 }
@@ -320,6 +337,7 @@ export interface AnalysisForm {
   description?: string | null
   config: AnalysisConfig
   runs: AnalysisRunRef[]
+  tag_ids: number[]
 }
 
 export interface MetricInfo {

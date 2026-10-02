@@ -43,8 +43,8 @@ const isSaving = ref(false)
 function openEditor() {
   if (!analysis.value)
     return
-  const { name, description, config, runs } = analysis.value
-  draft.value = structuredClone({ name, description, config, runs })
+  const { name, description, config, runs, tags } = analysis.value
+  draft.value = structuredClone({ name, description, config, runs, tag_ids: tags.map(tag => tag.id) })
   showEditor.value = true
 }
 
@@ -125,6 +125,9 @@ async function confirmDelete() {
         <p v-if="analysis.description" class="mt-1 text-sm text-toned max-w-prose">
           {{ analysis.description }}
         </p>
+        <div v-if="analysis.tags.length" class="mt-2 flex flex-wrap gap-1">
+          <TagsChip v-for="tag in analysis.tags" :key="tag.id" :tag="tag" />
+        </div>
       </div>
 
       <BaseErrorState v-if="computeError" :message="computeError" />

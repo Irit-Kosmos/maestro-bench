@@ -69,9 +69,9 @@ function valueLabel(definition: FilterDefinition) {
   return `${labels.length} ${definition.plural ?? 'values'}`
 }
 
-// Past three icons, the rest collapse into an ellipsis
+// Past three icons (or dots), the rest collapse into an ellipsis
 const CHIP_ICON_LIMIT = 3
-const iconOptions = (definition: FilterDefinition) => selectedOptions(definition).filter(option => option.icon)
+const iconOptions = (definition: FilterDefinition) => selectedOptions(definition).filter(option => option.icon || option.dot)
 const chipIcons = (definition: FilterDefinition) => iconOptions(definition).slice(0, CHIP_ICON_LIMIT)
 const hasMoreIcons = (definition: FilterDefinition) => iconOptions(definition).length > CHIP_ICON_LIMIT
 
@@ -177,7 +177,8 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
               :key="String(option.value)"
               class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated ring-2 ring-(--ui-bg-elevated)"
             >
-              <UIcon :name="option.icon!" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
+              <UIcon v-if="option.icon" :name="option.icon" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
+              <span v-else class="size-2 rounded-full" :class="option.dot" aria-hidden="true" />
             </span>
             <span
               v-if="hasMoreIcons(definition)"

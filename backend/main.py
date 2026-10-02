@@ -19,6 +19,7 @@ from api import (
     models,
     prompts,
     providers,
+    tags,
 )
 from config import API_HOST, API_PORT, CORS_ORIGINS
 from db import init_db
@@ -65,6 +66,7 @@ app.include_router(prompts.router)
 app.include_router(models.router)
 app.include_router(providers.router)
 app.include_router(analyses.router)
+app.include_router(tags.router)
 app.include_router(batches.router)
 app.include_router(dashboard.router)
 app.include_router(events.router)

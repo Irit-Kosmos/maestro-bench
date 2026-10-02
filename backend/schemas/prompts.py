@@ -8,17 +8,22 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from schemas.tags import TagResponse
+
 
 class PromptCreate(BaseModel):
     name: str
     description: str | None = None
     category: str | None = None
+    tag_ids: list[int] = []
 
 
 class PromptUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     category: str | None = None
+    # Left out: the tags stay as they are. Sent: they become exactly these.
+    tag_ids: list[int] | None = None
 
 
 class PromptVersionCreate(BaseModel):
@@ -49,6 +54,12 @@ class PromptResponse(BaseModel):
     description: str | None
     category: str | None
     created_at: datetime
+
+
+class PromptDetail(PromptResponse):
+    """A prompt with its tags (the tags are not read where a prompt only gives context)"""
+
+    tags: list[TagResponse] = []
 
 
 class PromptVersionResponse(BaseModel):

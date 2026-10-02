@@ -1,5 +1,7 @@
 import type { FilterSpec } from './filters'
+import type { Tag } from '~/types'
 import { byOrder } from './filters'
+import { tagDot } from './tags'
 import { parseApiDate } from './utils'
 
 // Filters that several lists share. Icon names stay literal strings so Nuxt Icon can find and serve them.
@@ -126,5 +128,26 @@ export function failuresFilter<T>(rowsFailed: (item: T) => number | null | undef
     },
     present: value => FAILURES[value as keyof typeof FAILURES] ?? { label: String(value) },
     compare: byOrder(Object.keys(FAILURES)),
+  }
+}
+
+/** The tags an item carries, picked by name. An item can carry several, so "is all of" is offered. */
+export function tagsFilter<T>(tags: (item: T) => readonly Tag[] | null | undefined): FilterSpec<T> {
+  // The colour of each tag, learnt from the items as the filter reads them
+  const colors = new Map<string, string>()
+  return {
+    key: 'tags',
+    label: 'Tags',
+    icon: 'i-lucide-tag',
+    plural: 'tags',
+    multiValued: true,
+    searchPlaceholder: 'Search a tag…',
+    value: (item) => {
+      const found = tags(item) ?? []
+      for (const tag of found)
+        colors.set(tag.name, tag.color)
+      return found.map(tag => tag.name)
+    },
+    present: value => ({ label: String(value), dot: tagDot(colors.get(String(value)) ?? 'gray') }),
   }
 }

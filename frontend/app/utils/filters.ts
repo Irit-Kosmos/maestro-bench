@@ -6,6 +6,8 @@ export interface FilterOption {
   icon?: string
   /** Extra classes for the icon in the option list, e.g. to flip a black logo on dark surfaces. */
   iconClass?: string
+  /** A coloured dot in front of the label (classes that paint it), for values that have a colour of their own. */
+  dot?: string
   /** How many items carry this value, shown next to the option. */
   count?: number
 }
@@ -123,7 +125,7 @@ export interface FilterSpec<T> {
   plural?: string
   searchPlaceholder?: string
   /** How a value reads in the option list and the chip. Defaults to the value as text. */
-  present?: (value: FilterValue) => Pick<FilterOption, 'label' | 'icon' | 'iconClass'>
+  present?: (value: FilterValue) => Pick<FilterOption, 'label' | 'icon' | 'iconClass' | 'dot'>
   /** Order of the options. Defaults to alphabetical by label. */
   compare?: (a: FilterValue, b: FilterValue) => number
 }
