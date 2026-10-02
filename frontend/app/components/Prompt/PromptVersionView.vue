@@ -98,7 +98,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
             </template>
           </UTooltip>
         </div>
-        <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-pencil" @click="emit('edit')">
+        <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-pencil" @click="emit('edit')">
           Edit
           <UKbd value="e" size="sm" />
         </UButton>

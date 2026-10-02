@@ -83,9 +83,9 @@ defineShortcuts({
         <img
           src="/MAESTRO-bench.png"
           alt=""
-          class="shrink-0 h-6 w-auto translate-y-px"
+          class="shrink-0 h-6 w-auto"
         >
-        <span class="text-sm font-semibold leading-none translate-y-0.5 text-highlighted truncate">MAESTRO-bench</span>
+        <span class="text-sm font-semibold leading-none text-highlighted truncate">MAESTRO-bench</span>
       </NuxtLink>
 
       <UTooltip
