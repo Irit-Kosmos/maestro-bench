@@ -27,6 +27,15 @@ export function useUIHelpers() {
     })
   }
 
+  // Compact numeric date (DD/MM/YYYY), for places where a version has to be recognised at a glance
+  function formatShortDate(dateString: string): string {
+    return parseApiDate(dateString).toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  }
+
   // Short relative date for lists ("5m ago", "3d ago", then "Mar 4"); pair with formatDate in a title
   function formatRelativeDate(dateString: string): string {
     const date = parseApiDate(dateString)
@@ -58,6 +67,7 @@ export function useUIHelpers() {
   return {
     getStatusColor,
     formatDate,
+    formatShortDate,
     formatRelativeDate,
     formatDuration,
   }
