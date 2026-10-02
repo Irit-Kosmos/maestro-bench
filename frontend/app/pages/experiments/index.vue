@@ -153,7 +153,8 @@ async function handleCreateExperiment() {
     <template #before-content>
       <UTooltip text="New experiment" :kbds="['C']">
         <UButton
-          color="primary"
+          color="neutral"
+          variant="soft"
           icon="i-lucide-plus"
           size="sm"
           @click="handleCreateExperiment"

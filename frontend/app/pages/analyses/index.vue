@@ -80,7 +80,8 @@ async function confirmDelete() {
     <template #before-content>
       <UTooltip text="New analysis" :kbds="['C']">
         <UButton
-          color="primary"
+          color="neutral"
+          variant="soft"
           icon="i-lucide-plus"
           size="sm"
           to="/analyses/new"

@@ -123,7 +123,7 @@ function formatCost(cost: number | null) {
       <AppPageActions>
         <UButton
           v-if="isActive"
-          variant="outline"
+          variant="soft"
           color="neutral"
           icon="i-lucide-circle-stop"
           size="sm"
@@ -134,7 +134,8 @@ function formatCost(cost: number | null) {
         </UButton>
         <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'">
           <UButton
-            color="primary"
+            color="neutral"
+            variant="soft"
             icon="i-lucide-chart-column"
             size="sm"
             :disabled="!analyzeLink"
@@ -144,7 +145,7 @@ function formatCost(cost: number | null) {
           </UButton>
         </UTooltip>
         <UButton
-          variant="outline"
+          variant="soft"
           color="error"
           icon="i-lucide-trash-2"
           size="sm"

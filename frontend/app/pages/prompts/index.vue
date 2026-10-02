@@ -90,7 +90,8 @@ watch(() => showCreateModal.value, (newValue) => {
   >
     <template #before-content>
       <UButton
-        color="primary"
+        color="neutral"
+        variant="soft"
         icon="i-lucide-plus"
         size="sm"
         @click="() => { showCreateModal = true }"

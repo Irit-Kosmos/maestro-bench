@@ -270,7 +270,7 @@ watch(() => route.params.id, () => {
       <AppPageActions>
         <UTooltip text="Run this setup with other models, prompts or temperatures">
           <UButton
-            variant="outline"
+            variant="soft"
             color="neutral"
             icon="i-lucide-split"
             size="sm"
@@ -281,7 +281,7 @@ watch(() => route.params.id, () => {
         </UTooltip>
         <UTooltip text="Create a new execution with the same configuration">
           <UButton
-            variant="outline"
+            variant="soft"
             color="neutral"
             icon="i-lucide-play"
             size="sm"
@@ -294,7 +294,8 @@ watch(() => route.params.id, () => {
         </UTooltip>
         <UTooltip :text="latestCompletedExecution ? 'Compare this execution to a ground-truth column' : 'Available once an execution has completed'">
           <UButton
-            color="primary"
+            color="neutral"
+            variant="soft"
             icon="i-lucide-chart-column"
             size="sm"
             :disabled="!latestCompletedExecution"
@@ -304,7 +305,7 @@ watch(() => route.params.id, () => {
           </UButton>
         </UTooltip>
         <UButton
-          variant="outline"
+          variant="soft"
           color="error"
           icon="i-lucide-trash-2"
           size="sm"

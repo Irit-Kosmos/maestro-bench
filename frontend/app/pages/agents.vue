@@ -136,7 +136,7 @@ async function handleDeleteAgent(agentId: number) {
   >
     <template #before-content>
       <UButton
-        variant="outline"
+        variant="soft"
         color="neutral"
         icon="i-lucide-users-round"
         size="sm"
@@ -145,7 +145,8 @@ async function handleDeleteAgent(agentId: number) {
         New team
       </UButton>
       <UButton
-        color="primary"
+        color="neutral"
+        variant="soft"
         icon="i-lucide-plus"
         size="sm"
         @click="() => { showCreateAgentModal = true }"

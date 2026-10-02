@@ -62,7 +62,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         />
       </UTooltip>
       <UTooltip text="New experiment" :kbds="['C']">
-        <UButton to="/experiments/new" icon="i-lucide-plus" color="primary" size="sm">
+        <UButton to="/experiments/new" icon="i-lucide-plus" color="neutral" variant="soft" size="sm">
           New experiment
         </UButton>
       </UTooltip>

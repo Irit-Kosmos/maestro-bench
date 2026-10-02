@@ -100,7 +100,7 @@ async function confirmDelete() {
         >
           Recompute
         </UButton>
-        <UButton variant="outline" color="neutral" icon="i-lucide-pencil" size="sm" @click="openEditor">
+        <UButton variant="soft" color="neutral" icon="i-lucide-pencil" size="sm" @click="openEditor">
           Edit
         </UButton>
         <UDropdownMenu

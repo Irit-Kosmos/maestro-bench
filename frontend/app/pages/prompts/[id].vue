@@ -308,7 +308,7 @@ onBeforeRouteLeave((to) => {
   >
     <template #before-content>
       <UButton
-        variant="outline"
+        variant="soft"
         color="neutral"
         icon="i-lucide-pencil"
         size="sm"
@@ -317,7 +317,8 @@ onBeforeRouteLeave((to) => {
         Edit
       </UButton>
       <UButton
-        color="primary"
+        color="neutral"
+        variant="soft"
         icon="i-lucide-plus"
         size="sm"
         :disabled="mode === 'create'"
