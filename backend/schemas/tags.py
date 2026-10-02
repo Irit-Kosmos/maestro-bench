@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from tag_utils import TagColor
+from tag_utils import TagColor, TaggedKind
 
 NAME_MAX_LENGTH = 40
 
@@ -33,3 +33,12 @@ class TagWithCount(TagResponse):
     """A tag and how many items carry it, for the picker and the tags page"""
 
     count: int
+
+
+class TagAssign(BaseModel):
+    """Tags to put on, and take off, several items at once. Their other tags are left alone."""
+
+    kind: TaggedKind
+    item_ids: list[int] = Field(min_length=1)
+    add: list[int] = []
+    remove: list[int] = []

@@ -6,7 +6,7 @@ from typing import Literal, get_args
 from fastapi import HTTPException
 from sqlmodel import Session, col, delete, select
 
-from tables import Tag, TagLink
+from tables import Analysis, Prompt, Tag, TagLink
 
 # Mid-scale hues that read on both light and dark surfaces; the frontend maps each to a dot colour
 TagColor = Literal[
@@ -90,3 +90,55 @@ def clear_item_tags(session: Session, kind: TaggedKind, item_id: int) -> None:
     session.exec(
         delete(TagLink).where(TagLink.kind == kind, TagLink.item_id == item_id)
     )
+
+
+def add_and_remove_tags(
+    session: Session,
+    kind: TaggedKind,
+    item_ids: Iterable[int],
+    add: Iterable[int],
+    remove: Iterable[int],
+) -> None:
+    """Put the `add` tags on every item and take the `remove` tags off, leaving their other tags be.
+
+    A tag in both lists is added. Nothing is committed.
+    """
+    items = set(item_ids)
+    to_add = set(add)
+    to_remove = set(remove) - to_add
+
+    table = Prompt if kind == "prompt" else Analysis
+    known_items = set(
+        session.exec(select(table.id).where(col(table.id).in_(items))).all()
+    )
+    if missing := items - known_items:
+        raise HTTPException(
+            status_code=422, detail=f"Unknown {kind}s: {sorted(missing)}"
+        )
+    tag_ids = to_add | to_remove
+    known_tags = set(session.exec(select(Tag.id).where(col(Tag.id).in_(tag_ids))).all())
+    if missing := tag_ids - known_tags:
+        raise HTTPException(status_code=422, detail=f"Unknown tags: {sorted(missing)}")
+
+    if to_remove:
+        session.exec(
+            delete(TagLink).where(
+                TagLink.kind == kind,
+                col(TagLink.item_id).in_(items),
+                col(TagLink.tag_id).in_(to_remove),
+            )
+        )
+    if to_add:
+        present = set(
+            session.exec(
+                select(TagLink.item_id, TagLink.tag_id).where(
+                    TagLink.kind == kind,
+                    col(TagLink.item_id).in_(items),
+                    col(TagLink.tag_id).in_(to_add),
+                )
+            ).all()
+        )
+        for item_id in items:
+            for tag_id in to_add:
+                if (item_id, tag_id) not in present:
+                    session.add(TagLink(tag_id=tag_id, kind=kind, item_id=item_id))

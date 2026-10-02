@@ -5,9 +5,9 @@ from sqlalchemy import func
 from sqlmodel import Session, col, delete, select
 
 from db import get_session
-from schemas.tags import TagCreate, TagResponse, TagUpdate, TagWithCount
+from schemas.tags import TagAssign, TagCreate, TagResponse, TagUpdate, TagWithCount
 from tables import Tag, TagLink
-from tag_utils import normalize_tag_name
+from tag_utils import add_and_remove_tags, normalize_tag_name
 
 router = APIRouter(tags=["tags"])
 
@@ -53,6 +53,14 @@ def create_tag(data: TagCreate, session: Annotated[Session, Depends(get_session)
     session.commit()
     session.refresh(tag)
     return tag
+
+
+@router.post("/tags/assign")
+def assign_tags(data: TagAssign, session: Annotated[Session, Depends(get_session)]):
+    """Put tags on several items, take tags off them, or both, in one go."""
+    add_and_remove_tags(session, data.kind, data.item_ids, data.add, data.remove)
+    session.commit()
+    return {"message": "Tags updated successfully"}
 
 
 @router.put("/tags/{tag_id}", response_model=TagResponse)

@@ -185,3 +185,72 @@ def test_analysis_runs_still_round_trip(client):
         json={**ANALYSIS, "runs": [{"execution_id": 3, "agent_name": "g"}]},
     )
     assert json.loads(response.text)["runs"][0]["execution_id"] == 3
+
+
+def test_assign_adds_and_removes_tags_on_several_items(client):
+    a, b, c = make_tag(client, "a"), make_tag(client, "b"), make_tag(client, "c")
+    one = client.post(
+        "/prompts", json={"name": "1", "tag_ids": [a["id"], b["id"]]}
+    ).json()
+    two = client.post("/prompts", json={"name": "2", "tag_ids": [b["id"]]}).json()
+    three = client.post("/prompts", json={"name": "3"}).json()
+
+    response = client.post(
+        "/tags/assign",
+        json={
+            "kind": "prompt",
+            "item_ids": [one["id"], two["id"]],
+            "add": [c["id"]],
+            "remove": [b["id"]],
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    names = {
+        p["name"]: [t["name"] for t in p["tags"]] for p in client.get("/prompts").json()
+    }
+    assert names == {"1": ["a", "c"], "2": ["c"], "3": []}
+    assert three["id"]  # untouched
+
+
+def test_assign_twice_does_not_duplicate_links(client, engine):
+    a = make_tag(client, "a")
+    prompt = client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]}).json()
+    body = {"kind": "prompt", "item_ids": [prompt["id"]], "add": [a["id"]]}
+    assert client.post("/tags/assign", json=body).status_code == 200
+    assert client.post("/tags/assign", json=body).status_code == 200
+    with Session(engine) as s:
+        assert len(s.exec(select(TagLink)).all()) == 1
+
+
+def test_assign_works_on_analyses(client):
+    a = make_tag(client, "a")
+    analysis = client.post("/analyses", json=ANALYSIS).json()
+    client.post(
+        "/tags/assign",
+        json={"kind": "analysis", "item_ids": [analysis["id"]], "add": [a["id"]]},
+    )
+    assert [
+        t["name"] for t in client.get(f"/analyses/{analysis['id']}").json()["tags"]
+    ] == ["a"]
+
+
+def test_assign_refuses_unknown_items_and_tags_without_changing_anything(client):
+    a = make_tag(client, "a")
+    prompt = client.post("/prompts", json={"name": "P"}).json()
+
+    unknown_item = client.post(
+        "/tags/assign",
+        json={"kind": "prompt", "item_ids": [prompt["id"], 999], "add": [a["id"]]},
+    )
+    assert unknown_item.status_code == 422
+    unknown_tag = client.post(
+        "/tags/assign",
+        json={"kind": "prompt", "item_ids": [prompt["id"]], "add": [999]},
+    )
+    assert unknown_tag.status_code == 422
+    assert client.get(f"/prompts/{prompt['id']}").json()["tags"] == []
+    assert (
+        client.post("/tags/assign", json={"kind": "prompt", "item_ids": []}).status_code
+        == 422
+    )
