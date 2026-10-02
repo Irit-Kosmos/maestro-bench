@@ -32,13 +32,56 @@ const bars = computed<Bar[]>(() => props.runs.map((run, i) => {
 
 const hasValues = computed(() => bars.value.some(b => b.value !== null))
 
+// Lucide glyphs inline: the tooltip is an HTML string, outside Vue's icon components
+function icon(paths: string) {
+  return `<svg class="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+}
+const ICONS = {
+  run: icon('<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/>'),
+  value: icon('<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>'),
+  interval: icon('<path d="m18 8 4 4-4 4"/><path d="m6 8-4 4 4 4"/><path d="M2 12h20"/>'),
+  undefinedValue: icon('<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'),
+}
+
+const escapeHtml = (str: string) => str.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+
+// 1 = best run for this metric; null when there is nothing to rank
+function rank(b: Bar) {
+  const values = bars.value.map(o => o.value).filter((v): v is number => v !== null)
+  if (b.value === null || values.length < 2)
+    return null
+  const better = values.filter(v => props.metric.lower_is_better ? v < b.value! : v > b.value!).length
+  return { position: better + 1, total: values.length }
+}
+
 function tooltip(b: Bar) {
-  if (b.value === null)
-    return `<b>${b.label}</b><br>${b.reason ?? 'Undefined'}`
-  const ci = b.low !== null && b.high !== null
-    ? `<br>${Math.round(props.confidence * 100)}% CI [${formatMetric(b.low)}, ${formatMetric(b.high)}]`
+  const r = rank(b)
+  const rankLabel = r
+    ? `<span class="${r.position === 1 ? 'text-success' : 'text-muted'} tabular-nums">${r.position === 1 ? 'Best' : `${r.position} / ${r.total}`}</span>`
     : ''
-  return `<b>${b.label}</b><br>${props.metric.label} ${formatMetric(b.value)}${ci}`
+  const header = `<div class="flex items-center justify-between gap-6 pb-2 mb-2 border-b border-default">
+      <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-highlighted min-w-0"><span class="shrink-0">${ICONS.run}</span><span class="truncate max-w-56">${escapeHtml(b.label)}</span></span>
+      ${rankLabel}
+    </div>`
+  const line = (iconSvg: string, label: string, value: string) =>
+    `<div class="flex items-center justify-between gap-6"><span class="inline-flex items-center gap-1.5 text-muted">${iconSvg}${label}</span><span class="font-medium tabular-nums text-highlighted">${value}</span></div>`
+
+  if (b.value === null) {
+    return `<div class="min-w-44 max-w-64 text-xs">${header}
+      <div class="flex items-start gap-1.5 text-muted">${ICONS.undefinedValue}<span>${escapeHtml(b.reason ?? 'Undefined')}</span></div>
+    </div>`
+  }
+
+  const ci = b.low !== null && b.high !== null
+    ? line(ICONS.interval, `${Math.round(props.confidence * 100)}% CI`, `${formatMetric(b.low)} – ${formatMetric(b.high)}`)
+    : ''
+  return `<div class="min-w-44 text-xs">${header}
+    <div class="flex flex-col gap-1.5">
+      ${line(ICONS.value, escapeHtml(props.metric.label), formatMetric(b.value))}
+      ${ci}
+    </div>
+    ${props.metric.lower_is_better ? `<div class="mt-2 pt-2 border-t border-default text-dimmed">Lower is better</div>` : ''}
+  </div>`
 }
 
 const triggers = {
