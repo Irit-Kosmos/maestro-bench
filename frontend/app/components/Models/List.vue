@@ -113,15 +113,16 @@ function summary(group: ModelGroup) {
           >
             <NuxtLink
               to="/settings"
-              class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs outline-none hover:bg-elevated/60 focus-visible:outline-2 focus-visible:outline-primary"
-              :class="statusOf(group)!.configured ? 'text-muted' : 'text-warning'"
+              class="shrink-0 rounded-md outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <UIcon
-                :name="statusOf(group)!.configured ? 'i-lucide-key-round' : 'i-lucide-triangle-alert'"
-                class="size-3.5"
-                aria-hidden="true"
+              <UBadge
+                size="sm"
+                variant="subtle"
+                :color="statusOf(group)!.configured ? 'success' : 'warning'"
+                :icon="statusOf(group)!.configured ? 'i-lucide-key-round' : 'i-lucide-triangle-alert'"
+                :label="statusOf(group)!.configured ? 'Key set' : 'No API key'"
+                class="transition-colors hover:brightness-95 dark:hover:brightness-125"
               />
-              {{ statusOf(group)!.configured ? 'Key set' : 'No API key' }}
             </NuxtLink>
           </UTooltip>
         </header>
