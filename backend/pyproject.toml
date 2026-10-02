@@ -4,7 +4,7 @@ version = "2.0.0"
 description = "Standalone experiment benchmarking platform with direct LLM provider access"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi",
+    "fastapi>=0.135",
     "uvicorn[standard]",
     "sqlmodel",
     "pydantic",

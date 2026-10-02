@@ -6,6 +6,7 @@ Dataset files live in the top-level ``datasets/`` directory (next to
 to that directory.
 """
 
+import csv
 from pathlib import Path
 
 
@@ -46,3 +47,10 @@ def validate_dataset_file(file_path: str) -> Path:
             f"Dataset file not found: {file_path} (looked in {full_path})"
         )
     return full_path
+
+
+def count_csv_rows(file_path: Path) -> int:
+    """Number of data rows of a CSV file, counted without loading it."""
+    with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+        records = sum(1 for record in csv.reader(f) if record)
+    return max(records - 1, 0)

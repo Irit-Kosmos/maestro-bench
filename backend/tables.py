@@ -134,7 +134,9 @@ class Experiment(SQLModel, table=True):
     name: str
     description: str | None = None
     dataset_id: int = Field(foreign_key="dataset.id")
-    status: str = Field(default="pending")  # pending, running, completed, failed
+    status: str = Field(
+        default="pending"
+    )  # pending, running, completed, failed, cancelled
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
@@ -221,6 +223,11 @@ class ExperimentExecution(SQLModel, table=True):
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     status: str = Field(default="running")  # running, completed, failed, cancelled
+
+    # Live progress, in dataset rows; rows_failed are counted in rows_done
+    rows_total: int | None = None
+    rows_done: int = 0
+    rows_failed: int = 0
 
     # Dataset snapshot at execution time
     dataset_snapshot: str = Field(

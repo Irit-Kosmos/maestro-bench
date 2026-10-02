@@ -11,6 +11,9 @@ _ADDED_COLUMNS = [
     ("experiment", "batch_id", "INTEGER"),
     ("experiment", "variant", "VARCHAR"),
     ("batch", "sampling_seed", "INTEGER"),
+    ("experimentexecution", "rows_total", "INTEGER"),
+    ("experimentexecution", "rows_done", "INTEGER NOT NULL DEFAULT 0"),
+    ("experimentexecution", "rows_failed", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
