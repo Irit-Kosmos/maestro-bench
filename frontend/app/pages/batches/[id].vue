@@ -155,23 +155,26 @@ function formatCost(cost: number | null) {
       </AppPageActions>
 
       <div>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 class="text-xl font-semibold text-highlighted text-balance">
-            {{ batch.name }}
-          </h1>
-          <UIStatusBadge :status="batch.status" />
+        <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
+          <UIStatusIcon :status="batch.status" size="size-5" tooltip />
+          <span class="min-w-0 text-balance">{{ batch.name }}</span>
+        </h1>
+        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          <UIMetaItem icon="i-lucide-hash" label="Batch" class="tabular-nums">
+            {{ batch.id }}
+          </UIMetaItem>
+          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+            {{ formatDate(batch.created_at) }}
+          </UIMetaItem>
+          <UIMetaItem v-if="batch.dataset_name" icon="i-lucide-database" label="Dataset">
+            <span class="truncate text-toned">{{ batch.dataset_name }}</span>
+          </UIMetaItem>
+          <UIMetaItem v-if="batch.base_experiment_id" icon="i-lucide-git-fork" label="Derived from">
+            <NuxtLink :to="`/experiments/${batch.base_experiment_id}`" class="truncate text-toned underline-offset-2 hover:text-highlighted hover:underline">
+              {{ batch.base_experiment_name }}
+            </NuxtLink>
+          </UIMetaItem>
         </div>
-        <p class="mt-0.5 text-sm text-muted tabular-nums">
-          Batch #{{ batch.id }} · Created {{ formatDate(batch.created_at) }}<template v-if="batch.dataset_name">
-            · {{ batch.dataset_name }}
-          </template>
-        </p>
-        <p v-if="batch.base_experiment_id" class="mt-1 text-sm text-muted">
-          Derived from
-          <NuxtLink :to="`/experiments/${batch.base_experiment_id}`" class="text-toned underline-offset-2 hover:underline">
-            {{ batch.base_experiment_name }}
-          </NuxtLink>
-        </p>
         <p v-if="batch.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ batch.description }}
         </p>
@@ -254,7 +257,7 @@ function formatCost(cost: number | null) {
                   <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
                 </td>
                 <td class="px-4 py-2.5">
-                  <UIStatusBadge :status="experiment.status" size="xs" />
+                  <UIStatusBadge :status="experiment.status" />
                 </td>
                 <td class="px-4 py-2.5 text-right">
                   <UIRowCount :rows="experiment.row_count" tone="quiet" />
