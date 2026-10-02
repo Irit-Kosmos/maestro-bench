@@ -125,7 +125,7 @@ watch(() => route.params.id, () => {
       <BaseLoadingState v-if="loading" />
 
       <!-- Dataset Details -->
-      <div v-else-if="dataset" class="flex flex-col flex-1 min-h-0 gap-5">
+      <div v-else-if="dataset" class="flex flex-col flex-1 min-h-0 gap-3">
         <!-- Edit isn't available yet, so it isn't shown as a dead button -->
         <AppPageActions>
           <UDropdownMenu
@@ -136,48 +136,42 @@ watch(() => route.params.id, () => {
           </UDropdownMenu>
         </AppPageActions>
 
-        <div>
-          <h1 class="text-xl font-semibold text-highlighted text-balance">
-            {{ dataset.name }}
-          </h1>
-          <p v-if="dataset.description" class="mt-0.5 text-sm text-muted max-w-prose">
-            {{ dataset.description }}
-          </p>
-        </div>
-        <!-- Properties -->
-        <dl class="flex flex-wrap gap-x-8 gap-y-3 text-sm">
-          <div>
-            <dt class="text-xs text-muted">
-              Created
-            </dt>
-            <dd class="mt-0.5 text-highlighted tabular-nums" :title="formatDate(dataset.created_at)">
-              {{ formatRelativeDate(dataset.created_at) }}
-            </dd>
+        <!-- One line: name and description on the left, properties on the right. The rows get the space. -->
+        <header class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div class="flex min-w-0 flex-1 items-baseline gap-x-3 basis-64">
+            <h1 class="shrink-0 max-w-full truncate text-base font-semibold text-highlighted">
+              {{ dataset.name }}
+            </h1>
+            <p v-if="dataset.description" class="min-w-0 truncate text-sm text-muted" :title="dataset.description">
+              {{ dataset.description }}
+            </p>
           </div>
-          <div class="min-w-0">
-            <dt class="text-xs text-muted">
-              File
-            </dt>
-            <dd class="mt-0.5 text-highlighted font-mono text-xs leading-5 truncate max-w-xs" :title="dataset.file_path || undefined">
-              {{ dataset.file_path || 'No file' }}
-            </dd>
-          </div>
-          <div>
-            <dt class="text-xs text-muted">
-              Used in
-            </dt>
-            <dd class="mt-0.5 text-highlighted tabular-nums">
-              <template v-if="datasetStats">
-                {{ datasetStats.experiment_count }} experiment{{ datasetStats.experiment_count === 1 ? '' : 's' }}
-              </template>
-              <template v-else>
-                —
-              </template>
-            </dd>
-          </div>
-        </dl>
-
-        <USeparator />
+          <dl class="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1 text-xs text-muted">
+            <div class="flex items-baseline gap-1.5">
+              <dt>Created</dt>
+              <dd class="text-toned tabular-nums" :title="formatDate(dataset.created_at)">
+                {{ formatRelativeDate(dataset.created_at) }}
+              </dd>
+            </div>
+            <div class="flex min-w-0 items-baseline gap-1.5">
+              <dt>File</dt>
+              <dd class="min-w-0 max-w-56 truncate font-mono text-toned" :title="dataset.file_path || undefined">
+                {{ dataset.file_path || 'No file' }}
+              </dd>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <dt>Used in</dt>
+              <dd class="text-toned tabular-nums">
+                <template v-if="datasetStats">
+                  {{ datasetStats.experiment_count }} experiment{{ datasetStats.experiment_count === 1 ? '' : 's' }}
+                </template>
+                <template v-else>
+                  —
+                </template>
+              </dd>
+            </div>
+          </dl>
+        </header>
 
         <!-- Rows: browse, search and edit the whole file -->
         <DatasetsEditor
