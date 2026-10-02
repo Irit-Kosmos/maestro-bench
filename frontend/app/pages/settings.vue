@@ -64,6 +64,7 @@ async function recheck() {
             :class="p.configured ? 'text-success' : 'text-dimmed'"
             aria-hidden="true"
           />
+          <UIProviderIcon :provider="p.provider" />
           <span class="text-sm font-medium text-highlighted">{{ providerLabel(p.provider) }}</span>
           <code class="hidden sm:block min-w-0 truncate text-xs text-muted font-mono">{{ p.api_key_env }}</code>
           <span class="ms-auto shrink-0 text-xs" :class="p.configured ? 'text-toned' : 'text-muted'">

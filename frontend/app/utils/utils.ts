@@ -101,17 +101,3 @@ export function formatElapsed(seconds: number | null | undefined): string {
     return `${minutes}m ${String(total % 60).padStart(2, '0')}s`
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
 }
-
-const PROVIDER_LABELS: Record<string, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  mistral: 'Mistral',
-  groq: 'Groq',
-  together: 'Together AI',
-  deepseek: 'DeepSeek',
-}
-
-// "together" -> "Together AI"; unknown providers get capitalized
-export function providerLabel(provider: string): string {
-  return PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1)
-}
