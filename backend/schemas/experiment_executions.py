@@ -33,6 +33,8 @@ class AgentExecutionSnapshotResponse(BaseModel):
     model_provider_snapshot: str
     prompt_name_snapshot: str
     prompt_version_snapshot: str
+    prompt_id: int | None = None
+    prompt_version_id: int | None = None
     final_system_prompt: str | None
     final_user_prompt: str | None
     final_variables: str | None

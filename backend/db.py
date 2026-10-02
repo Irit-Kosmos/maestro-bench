@@ -14,6 +14,8 @@ _ADDED_COLUMNS = [
     ("experimentexecution", "rows_total", "INTEGER"),
     ("experimentexecution", "rows_done", "INTEGER NOT NULL DEFAULT 0"),
     ("experimentexecution", "rows_failed", "INTEGER NOT NULL DEFAULT 0"),
+    ("agentexecutionsnapshot", "prompt_id", "INTEGER"),
+    ("agentexecutionsnapshot", "prompt_version_id", "INTEGER"),
 ]
 
 

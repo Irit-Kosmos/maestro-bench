@@ -44,6 +44,8 @@ def _build_snapshot_responses(
             model_provider_snapshot=s.model_provider_snapshot,
             prompt_name_snapshot=s.prompt_name_snapshot,
             prompt_version_snapshot=s.prompt_version_snapshot,
+            prompt_id=s.prompt_id,
+            prompt_version_id=s.prompt_version_id,
             final_system_prompt=s.final_system_prompt,
             final_user_prompt=s.final_user_prompt,
             final_variables=s.final_variables,

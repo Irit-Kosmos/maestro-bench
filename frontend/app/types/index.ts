@@ -174,6 +174,8 @@ export interface AgentExecutionSnapshot {
   model_provider_snapshot: string
   prompt_name_snapshot: string
   prompt_version_snapshot: string
+  prompt_id?: number | null
+  prompt_version_id?: number | null
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string

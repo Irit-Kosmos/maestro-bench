@@ -36,6 +36,13 @@ function sourceOf(variable: string) {
   return { label: 'Fixed text', detail: mapping.staticValue ?? '', icon: 'i-lucide-text-cursor' }
 }
 
+const promptLink = computed(() => {
+  if (!props.snapshot.prompt_id)
+    return null
+  const version = props.snapshot.prompt_version_id
+  return `/prompts/${props.snapshot.prompt_id}${version ? `?v=${version}` : ''}`
+})
+
 const prompts = computed(() => [
   { label: 'System prompt', content: props.snapshot.final_system_prompt },
   { label: 'User prompt', content: props.snapshot.final_user_prompt },
@@ -75,7 +82,11 @@ const prompts = computed(() => [
     <section :aria-labelledby="`prompt-${snapshot.id}`">
       <h4 :id="`prompt-${snapshot.id}`" class="flex items-baseline gap-2 text-sm font-medium text-highlighted">
         <span>Prompt</span>
-        <span class="min-w-0 truncate font-normal text-muted">{{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}</span>
+        <!-- Opens the prompt on the version this run used; older snapshots have no ids to link to -->
+        <UIMetaLink v-if="promptLink" :to="promptLink" class="text-sm font-normal">
+          {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
+        </UIMetaLink>
+        <span v-else class="min-w-0 truncate font-normal text-muted">{{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}</span>
       </h4>
       <div class="mt-2 divide-y divide-default overflow-hidden rounded-lg border border-default bg-default">
         <ul v-if="variables.length > 0" class="divide-y divide-default">

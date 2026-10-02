@@ -262,6 +262,9 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     model_provider_snapshot: str = Field(description="Model provider")
     prompt_name_snapshot: str = Field(description="Prompt name used")
     prompt_version_snapshot: str = Field(description="Prompt version used")
+    # Where the prompt lives now, to link back to it; empty on snapshots made before these existed
+    prompt_id: int | None = None
+    prompt_version_id: int | None = None
 
     # Actual configuration used (resolved from defaults + overrides)
     final_system_prompt: str | None = None
