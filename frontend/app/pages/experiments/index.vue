@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import type { Batch, Experiment } from '~/types'
+import type { Experiment } from '~/types'
+import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
+import { byOrder, emptyFilterEntry } from '~/utils/filters'
+import { datasetFilter, dateFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
 // Page meta
 definePageMeta({
@@ -10,38 +13,38 @@ definePageMeta({
 // Fetch data directly in the page
 const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[]>('/experiments')
 
-// Quick test runs (a handful of rows) crowd the list; hide them on demand, remembered per browser
-const hideSmallRuns = useCookie<boolean>('experiments-hide-small-runs', { default: () => false })
 const route = useRoute()
-const { data: batches } = await useMyLazyFetch<Batch[]>('/batches')
 
-// ?batch=<id> narrows the list to one batch's experiments
-const ALL_BATCHES = 0
-const batchFilter = computed({
-  get: () => Number(route.query.batch) || ALL_BATCHES,
-  set: (id: number) => navigateTo({ path: '/experiments', query: id === ALL_BATCHES ? {} : { batch: id } }, { replace: true }),
+// Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
+const rowsEntry = useCookie<FilterEntry>('experiments-rows-filter', { default: emptyFilterEntry })
+
+// A link such as /experiments?batch=<id> opens the list on one batch
+const batchFromLink = Number(route.query.batch) || undefined
+const filterState = ref<FilterState>({
+  rows: rowsEntry.value,
+  batch: batchFromLink ? { mode: 'include', values: [batchFromLink] } : emptyFilterEntry(),
 })
-const batchItems = computed(() => [
-  { label: 'All experiments', value: ALL_BATCHES },
-  ...(batches.value ?? []).map(batch => ({ label: batch.name, value: batch.id })),
-])
 
-// Looking at one batch means looking at all of it, so small runs are only hidden in the full list
-const visibleExperiments = computed(() =>
-  (experiments.value ?? []).filter(exp => batchFilter.value === ALL_BATCHES
-    ? !hideSmallRuns.value || !isSmallSample(exp.row_count)
-    : exp.batch_id === batchFilter.value,
-  ),
-)
+watch(() => filterState.value.rows, (entry) => {
+  rowsEntry.value = entry ?? emptyFilterEntry()
+})
+
+// The link only seeds the filter: once it changes, the address would be claiming something untrue
+watch(() => filterState.value.batch, () => {
+  if (route.query.batch)
+    navigateTo({ path: '/experiments' }, { replace: true })
+})
 
 // Composables
-const { deleteExperiment } = useExperiments()
+const { deleteExperiment, cancelExperiment } = useExperiments()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
-const experimentId = ref<number | null>(null)
+// Experiments waiting for the delete confirmation: one from a row menu, several from the selection
+const pendingDeleteIds = ref<number[]>([])
+const selectedIds = ref<number[]>([])
 
 // Page meta
 useSeoMeta({
@@ -50,6 +53,7 @@ useSeoMeta({
 })
 
 // Table configuration
+const figureClass = 'text-sm text-toned tabular-nums'
 const columns = [
   {
     key: 'name',
@@ -69,6 +73,29 @@ const columns = [
     key: 'row_count',
     label: 'Rows',
   },
+  // The figures of the latest execution; the earlier ones are only counted
+  {
+    key: 'execution_count',
+    label: 'Runs',
+    class: figureClass,
+    formatter: (count: number | undefined) => count ? String(count) : '—',
+  },
+  {
+    key: 'total_tokens',
+    label: 'Tokens',
+    class: figureClass,
+  },
+  {
+    key: 'total_cost_usd',
+    label: 'Cost',
+    class: figureClass,
+  },
+  {
+    key: 'duration_seconds',
+    label: 'Duration',
+    class: figureClass,
+    formatter: (seconds: number | null | undefined) => formatElapsed(seconds),
+  },
   {
     key: 'status',
     label: 'Status',
@@ -79,6 +106,37 @@ const columns = [
   },
 ]
 
+// Batches are told apart by id, but read by the name their experiments carry
+const batchNames = computed(() => new Map((experiments.value ?? []).flatMap(exp =>
+  exp.batch_id ? [[exp.batch_id, exp.batch_name || `Batch #${exp.batch_id}`] as const] : [],
+)))
+
+const filters = computed<FilterSpec<Experiment>[]>(() => [
+  statusFilter(exp => exp.status ?? 'pending'),
+  datasetFilter(exp => exp.dataset?.name),
+  {
+    key: 'batch',
+    label: 'Batch',
+    icon: 'i-lucide-split',
+    plural: 'batches',
+    searchPlaceholder: 'Search a batch…',
+    value: exp => exp.batch_id,
+    present: id => ({ label: batchNames.value.get(Number(id)) ?? `Batch #${id}`, icon: 'i-lucide-split' }),
+  },
+  {
+    key: 'rows',
+    label: 'Rows',
+    icon: 'i-lucide-rows-3',
+    // Unknown until the run has results, which is neither small nor not
+    value: exp => exp.row_count == null ? undefined : isSmallSample(exp.row_count) ? 'small' : 'full',
+    present: value => ({ label: value === 'small' ? `Under ${SMALL_SAMPLE_ROWS} rows` : `${SMALL_SAMPLE_ROWS} rows or more` }),
+    compare: byOrder(['small', 'full']),
+  },
+  runsFilter(exp => exp.execution_count),
+  failuresFilter(exp => exp.rows_failed),
+  dateFilter(exp => exp.created_at),
+])
+
 const actions = [
   {
     label: 'Open',
@@ -86,11 +144,17 @@ const actions = [
     handler: (experiment: Experiment) => handleViewExperiment(experiment.id),
   },
   {
+    label: 'Cancel run',
+    icon: 'i-lucide-square',
+    show: (experiment: Experiment) => (runOf(experiment.id)?.status ?? experiment.status) === 'running',
+    handler: (experiment: Experiment) => handleCancelExperiment(experiment.id),
+  },
+  {
     label: 'Delete',
     icon: 'i-lucide-trash-2',
     variant: 'ghost' as const,
     color: 'error' as const,
-    handler: (experiment: Experiment) => handleDeleteExperiment(experiment.id),
+    handler: (experiment: Experiment) => handleDeleteExperiments([experiment.id]),
   },
 ]
 
@@ -99,47 +163,65 @@ async function handleViewExperiment(id: number) {
   await navigateTo(`/experiments/${id}`)
 }
 
-async function handleDeleteExperiment(_id: number) {
-  experimentId.value = _id
+async function handleCancelExperiment(id: number) {
+  const toast = useToast()
+  const result = await cancelExperiment(id)
+  if (!result.success) {
+    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-lucide:alert-circle' })
+    return
+  }
+  if (result.data.cancelled)
+    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-lucide:check-circle' })
+  else
+    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-lucide:info' })
+  await refresh()
+}
+
+function handleDeleteExperiments(ids: number[]) {
+  pendingDeleteIds.value = ids
   showDeleteDialog.value = true
 }
 
+const deleteCount = computed(() => pendingDeleteIds.value.length)
+
 async function confirmDelete() {
-  if (!experimentId.value)
+  if (!deleteCount.value)
     return
 
   isDeleting.value = true
+  const toast = useToast()
 
-  try {
-    await deleteExperiment(experimentId.value)
+  // One by one: they share a SQLite database, and a failure shouldn't stop the others
+  const failed: number[] = []
+  for (const id of pendingDeleteIds.value) {
+    const { success } = await deleteExperiment(id)
+    if (!success)
+      failed.push(id)
+  }
+  const deleted = deleteCount.value - failed.length
 
-    // Show success toast
-    const toast = useToast()
+  if (deleted > 0) {
     toast.add({
       title: 'Success',
-      description: 'Experiment deleted successfully',
+      description: deleted === 1 ? 'Experiment deleted successfully' : `${deleted} experiments deleted successfully`,
       color: 'success',
     })
-
-    // Close modal and reset state
-    showDeleteDialog.value = false
-    experimentId.value = null
-
-    // Refresh experiments list
-    await refresh()
   }
-  catch {
-    // Show error toast
-    const toast = useToast()
+  if (failed.length > 0) {
     toast.add({
       title: 'Error',
-      description: 'Failed to delete experiment',
+      description: failed.length === 1 ? 'Failed to delete experiment' : `Failed to delete ${failed.length} experiments`,
       color: 'error',
     })
   }
-  finally {
-    isDeleting.value = false
-  }
+
+  // Failed ones stay selected so the user can retry them
+  selectedIds.value = selectedIds.value.filter(id => failed.includes(id))
+  showDeleteDialog.value = false
+  pendingDeleteIds.value = []
+  isDeleting.value = false
+
+  await refresh()
 }
 
 async function handleCreateExperiment() {
@@ -169,38 +251,31 @@ async function handleCreateExperiment() {
     <!-- Experiments Table -->
     <div v-if="experiments && experiments.length > 0" class="flex flex-col flex-1 min-h-0">
       <BaseDataTable
+        v-model:selected="selectedIds"
+        v-model:filter-state="filterState"
         fill
-        :data="visibleExperiments"
-        :total-count="experiments.length"
+        :data="experiments"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
         :row-hint="(exp: Experiment) => `#${exp.id}`"
+        selectable
         item-name="experiment"
         searchable
         @refresh="refresh"
       >
-        <template #toolbar>
-          <USelectMenu
-            v-if="batchItems.length > 1"
-            v-model="batchFilter"
-            value-key="value"
-            :items="batchItems"
-            :search-input="{ placeholder: 'Search batches…' }"
-            icon="i-lucide-split"
-            size="xs"
+        <template #selection-actions>
+          <UButton
             variant="ghost"
-            color="neutral"
-            class="w-44"
-            aria-label="Filter by batch"
-          />
-          <USwitch
-            v-model="hideSmallRuns"
+            color="error"
+            icon="i-lucide-trash-2"
             size="sm"
-            :label="`Hide runs under ${SMALL_SAMPLE_ROWS} rows`"
-            :ui="{ label: 'text-xs font-normal text-muted' }"
-          />
+            @click="handleDeleteExperiments(selectedIds)"
+          >
+            Delete
+          </UButton>
         </template>
 
         <!-- Custom cell for status -->
@@ -227,6 +302,15 @@ async function handleCreateExperiment() {
 
         <template #row_count-cell="{ row }">
           <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
+          <span v-if="row.original.rows_failed" class="ms-2 text-xs text-error tabular-nums">{{ row.original.rows_failed }} failed</span>
+        </template>
+
+        <template #total_tokens-cell="{ row }">
+          <span :title="row.original.total_tokens?.toLocaleString()">{{ formatTokens(row.original.total_tokens) }}</span>
+        </template>
+
+        <template #total_cost_usd-cell="{ row }">
+          <span :title="row.original.total_cost_usd == null ? undefined : `$${row.original.total_cost_usd.toFixed(4)}`">{{ formatCost(row.original.total_cost_usd) }}</span>
         </template>
 
         <!-- Custom cell for created_at -->
@@ -249,10 +333,11 @@ async function handleCreateExperiment() {
       @action="handleCreateExperiment"
     />
 
-    <UModal v-model:open="showDeleteDialog" title="Delete experiment?">
+    <UModal v-model:open="showDeleteDialog" :title="deleteCount > 1 ? `Delete ${deleteCount} experiments?` : 'Delete experiment?'">
       <template #body>
         <p class="text-sm text-toned">
-          This deletes the experiment and all of its executions. This can’t be undone.
+          {{ deleteCount > 1 ? 'This deletes these experiments and all of their executions.' : 'This deletes the experiment and all of its executions.' }}
+          This can’t be undone.
         </p>
       </template>
 
@@ -271,7 +356,7 @@ async function handleCreateExperiment() {
             :loading="isDeleting"
             @click="confirmDelete"
           >
-            Delete experiment
+            {{ deleteCount > 1 ? `Delete ${deleteCount} experiments` : 'Delete experiment' }}
           </UButton>
         </div>
       </template>
