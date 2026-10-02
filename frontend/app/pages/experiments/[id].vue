@@ -330,9 +330,9 @@ watch(() => route.params.id, () => {
               {{ formatDate(experiment.created_at) }}
             </UIMetaItem>
             <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
-              <NuxtLink :to="`/batches/${experiment.batch_id}`" class="truncate text-toned underline-offset-2 hover:text-highlighted hover:underline">
+              <UIMetaLink :to="`/batches/${experiment.batch_id}`">
                 {{ experiment.batch_name }}
-              </NuxtLink>
+              </UIMetaLink>
             </UIMetaItem>
           </div>
           <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">

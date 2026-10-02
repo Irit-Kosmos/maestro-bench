@@ -167,12 +167,15 @@ function formatCost(cost: number | null) {
             {{ formatDate(batch.created_at) }}
           </UIMetaItem>
           <UIMetaItem v-if="batch.dataset_name" icon="i-lucide-database" label="Dataset">
-            <span class="truncate text-toned">{{ batch.dataset_name }}</span>
+            <UIMetaLink v-if="batch.dataset_id" :to="`/datasets/${batch.dataset_id}`">
+              {{ batch.dataset_name }}
+            </UIMetaLink>
+            <span v-else class="truncate text-toned">{{ batch.dataset_name }}</span>
           </UIMetaItem>
           <UIMetaItem v-if="batch.base_experiment_id" icon="i-lucide-git-fork" label="Derived from">
-            <NuxtLink :to="`/experiments/${batch.base_experiment_id}`" class="truncate text-toned underline-offset-2 hover:text-highlighted hover:underline">
+            <UIMetaLink :to="`/experiments/${batch.base_experiment_id}`">
               {{ batch.base_experiment_name }}
-            </NuxtLink>
+            </UIMetaLink>
           </UIMetaItem>
         </div>
         <p v-if="batch.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
