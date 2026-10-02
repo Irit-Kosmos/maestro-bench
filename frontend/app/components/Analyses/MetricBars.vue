@@ -2,11 +2,14 @@
 import type { AnalysisRunResult, MetricInfo } from '~/types'
 import { Boxplot, GroupedBar } from '@unovis/ts'
 import { VisAxis, VisBoxplot, VisGroupedBar, VisTooltip, VisXYContainer } from '@unovis/vue'
+import { useElementSize } from '@vueuse/core'
 
 const props = defineProps<{
   metric: MetricInfo
   runs: AnalysisRunResult[]
   confidence: number
+  /** Dim every bar but the best one */
+  highlightBest?: boolean
 }>()
 
 interface Bar {
@@ -30,7 +33,49 @@ const bars = computed<Bar[]>(() => props.runs.map((run, i) => {
   }
 }))
 
+// Width taken by the y axis and the chart's right edge, out of the space shared by the x labels
+const AXIS_GUTTER = 48
+const root = ref<HTMLElement>()
+const { width: rootWidth } = useElementSize(root)
+
+// Each label gets at most its slot, so neighbours never overlap; the full name stays in the tooltip
+const tickTextWidth = computed(() => {
+  if (!rootWidth.value || !bars.value.length)
+    return 110
+  return Math.max(32, Math.min(110, Math.floor((rootWidth.value - AXIS_GUTTER) / bars.value.length) - 8))
+})
+
 const hasValues = computed(() => bars.value.some(b => b.value !== null))
+
+const score = (b: Bar) => metricRankScore(props.metric, b.value!)
+
+// Bars sharing the best value (ties included); empty when there is nothing to rank
+const bestX = computed(() => {
+  const defined = bars.value.filter(b => b.value !== null)
+  if (defined.length < 2)
+    return new Set<number>()
+  const best = Math.min(...defined.map(score))
+  return new Set(defined.filter(b => score(b) === best).map(b => b.x))
+})
+
+// Unovis only re-renders when an accessor changes identity, so the state is read
+// while the computed evaluates (not inside the returned function) to get a new one per toggle
+const dimOthers = computed(() => props.highlightBest && bestX.value.size > 0)
+
+const barColor = computed(() => {
+  const dim = dimOthers.value
+  return (b: Bar) => dim && !bestX.value.has(b.x)
+    ? 'color-mix(in oklab, var(--viz-series-1) 25%, transparent)'
+    : undefined
+})
+
+// One neutral colour for every whisker, visible over the bars as well
+const whiskerColor = computed(() => {
+  const dim = dimOthers.value
+  return (b: Bar) => dim && !bestX.value.has(b.x)
+    ? 'color-mix(in oklab, var(--viz-reference) 25%, transparent)'
+    : 'var(--viz-reference)'
+})
 
 // Lucide glyphs inline: the tooltip is an HTML string, outside Vue's icon components
 function icon(paths: string) {
@@ -47,11 +92,12 @@ const escapeHtml = (str: string) => str.replace(/[&<>"']/g, c => `&#${c.charCode
 
 // 1 = best run for this metric; null when there is nothing to rank
 function rank(b: Bar) {
-  const values = bars.value.map(o => o.value).filter((v): v is number => v !== null)
-  if (b.value === null || values.length < 2)
+  const total = bars.value.filter(o => o.value !== null).length
+  if (b.value === null || total < 2)
     return null
-  const better = values.filter(v => props.metric.lower_is_better ? v < b.value! : v > b.value!).length
-  return { position: better + 1, total: values.length }
+  const mine = score(b)
+  const better = bars.value.filter(o => o.value !== null && score(o) < mine).length
+  return { position: better + 1, total }
 }
 
 function tooltip(b: Bar) {
@@ -86,12 +132,13 @@ function tooltip(b: Bar) {
 
 const triggers = {
   [GroupedBar.selectors.bar]: (d: Bar) => tooltip(d),
-  [Boxplot.selectors.boxGroup]: (d: Bar) => tooltip(d),
+  // Boxplot binds its own wrapper around the datum
+  [Boxplot.selectors.boxGroup]: (d: { datum: Bar }) => tooltip(d.datum),
 }
 </script>
 
 <template>
-  <div class="viz-root">
+  <div ref="root" class="viz-root">
     <div class="flex items-baseline justify-between mb-2">
       <h4 class="text-sm font-semibold text-highlighted">
         {{ metric.label }}
@@ -104,6 +151,8 @@ const triggers = {
         :y="[(d: Bar) => d.value ?? undefined]"
         :group-max-width="24"
         :rounded-corners="4"
+        :color="barColor"
+        :duration="0"
       />
       <VisBoxplot
         :x="(d: Bar) => d.x"
@@ -111,13 +160,15 @@ const triggers = {
         :quartiles="(d: Bar) => d.value !== null ? [d.value, d.value] : undefined"
         :whiskers="(d: Bar) => d.low !== null && d.high !== null ? [d.low, d.high] : undefined"
         :bar-width="12"
+        :color="whiskerColor"
+        :duration="0"
       />
       <VisAxis
         type="x"
         :tick-values="bars.map(b => b.x)"
         :tick-format="(i: number) => bars[i]?.label ?? ''"
         tick-text-fit-mode="trim"
-        :tick-text-width="110"
+        :tick-text-width="tickTextWidth"
         :grid-line="false"
       />
       <VisAxis type="y" :num-ticks="4" />
