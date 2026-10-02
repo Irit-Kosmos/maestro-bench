@@ -1,6 +1,6 @@
 # MAESTRO-bench
 
-**MAESTRO Experiment Bench** – a small, self-hosted platform to run and trace
+**MAESTRO Experiment Bench** - a small, self-hosted platform to run and trace
 experiments with pipelines of LLM agents over tabular datasets.
 
 You describe *agents* (a prompt + a model), assemble them into an ordered
@@ -14,24 +14,21 @@ engine is specific to education.
 
 ## Features
 
-- **Prompts with versions** – reusable prompts, each with versioned system/user
+- **Prompts with versions** - reusable prompts, each with versioned system/user
   templates and declared variables (`{{ variable }}` or `<variable></variable>`).
-- **Models** – any provider supported by [LiteLLM](https://docs.litellm.ai/docs/providers)
+- **Models** - any provider supported by [LiteLLM](https://docs.litellm.ai/docs/providers)
   (OpenAI, Anthropic, Mistral, Groq, Together, DeepSeek out of the box).
-- **Agents and teams** – an agent is a prompt version + a default model, grouped
+- **Agents and teams** - an agent is a prompt version + a default model, grouped
   into teams.
-- **Experiments** – a visual flow editor to chain agents, map dataset columns and
+- **Experiments** - a visual flow editor to chain agents, map dataset columns and
   previous agent outputs to prompt variables, and pick a sampling strategy
   (all rows, random sample, row range).
-- **Batches** – run one setup with several models, prompt versions or
-  temperatures at once. From an experiment, "Vary…" copies its configuration;
-  you pick the values to try per agent, and one experiment starts per
-  combination. The batch page follows them together and opens the analysis
-  editor pre-filled with its executions.
-- **Executions and traces** – every run stores a snapshot of the configuration
+- **Batches** - run one setup with several models, prompt versions or
+  temperatures at once, and follow the resulting experiments together.
+- **Executions and traces** - every run stores a snapshot of the configuration
   actually used, per-agent messages/outputs, token counts, cost and latency,
   and produces a downloadable JSON results file.
-- **Analyses** – compare one or more executions to a ground-truth dataset column:
+- **Analyses** - compare one or more executions to a ground-truth dataset column:
   RMSE, MAE, bias, Pearson and Spearman correlations for numeric outputs;
   accuracy, macro F1, Cohen's κ and quadratic weighted κ for labels. Every
   metric comes with a bootstrap confidence interval and the share of rows that
@@ -114,35 +111,34 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 
 ## Usage
 
-1. **Models** – register the models you want to use (name as expected by the
+1. **Models** - register the models you want to use (name as expected by the
    provider, e.g. `gpt-4o-mini`, `claude-sonnet-4-20250514`,
-   `mistral-medium-2505`). The dashboard shows which providers have an API key
+   `mistral-medium-2505`). **Settings** shows which providers have an API key
    configured.
-2. **Prompts** – create a prompt and at least one version. Declare the variables
+2. **Prompts** - create a prompt and at least one version. Declare the variables
    the templates use so they can be mapped later.
-3. **Agents** – create a team, then agents with a default prompt version and
+3. **Agents** - create a team, then agents with a default prompt version and
    model.
-4. **Datasets** – copy your CSV or JSON file into the top-level `datasets/`
+4. **Datasets** - copy your CSV or JSON file into the top-level `datasets/`
    directory, then create a dataset record pointing to it (path relative to
-   `datasets/`, e.g. `my_data.csv`). There is no file upload in the UI.
-5. **Experiments** – pick a dataset, drag agents onto the canvas, connect them
+   `datasets/`, e.g. `my_data.csv`). There is no file upload in the UI. Open a
+   dataset to browse, search and edit its rows in a keyboard-driven grid (`?`
+   lists the shortcuts; `⌘S` saves). Edits rewrite the file on disk, and a
+   file changed elsewhere since it was opened is never overwritten. Up to
+   100,000 rows.
+5. **Experiments** - pick a dataset, drag agents onto the canvas, connect them
    to define the execution order, map each prompt variable to a dataset column,
    a previous agent's output or a static value, choose a sampling strategy and
    launch. The experiment starts immediately; reload the page to see its status
    change.
-6. **Batches** – to try other models, prompt versions or temperatures on a
-   setup that works, open its experiment and click **Vary…**. The form is
-   pre-filled; add a variation (an agent, the field to change and the values to
-   try). One experiment is created per combination, all started at once and
-   grouped in a batch: the experiment you started from is not rerun. A prompt
-   version can only be tried if the agent's input mappings cover its variables.
-   With a random sample, all the experiments of a batch run on the same rows. Past 10 experiments you are asked to confirm, and 50 is the maximum. Deleting
-   a batch keeps its experiments. Providers' rate limits apply across the whole
-   batch (see `<PROVIDER>_MAX_RPS` below), so runs on the same provider share
-   its quota.
-7. **Results** – open an experiment to inspect its executions and per-agent
+6. **Batches** - on an experiment, click **Vary…**, pick the values to try
+   (model, prompt version or temperature) per agent, and one experiment starts
+   per combination (max 50, confirmation past 10). They share the same rows
+   when sampling randomly, and share provider rate limits
+   (`<PROVIDER>_MAX_RPS`). Deleting a batch keeps its experiments.
+7. **Results** - open an experiment to inspect its executions and per-agent
    traces, or download the full JSON results file.
-8. **Analyses** – click **Analyze** on an experiment (or create one from the
+8. **Analyses** - click **Analyze** on an experiment (or create one from the
    Analyses page), pick the dataset column holding the ground truth and the
    path to the prediction in the agent's JSON output (e.g. `score`), choose
    numeric or categorical metrics, and add other executions to compare.
@@ -183,9 +179,9 @@ uv run pytest
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | – | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY` are also recognised. |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | - | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY` are also recognised. |
 | `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
-| `<PROVIDER>_MAX_RPS` | – | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
+| `<PROVIDER>_MAX_RPS` | - | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
 | `DATABASE_URL` | `sqlite:///./app.db` | SQLAlchemy connection string. |
 | `DB_ECHO` | `false` | Log SQL statements. |
@@ -199,12 +195,11 @@ uv run pytest
 
 ## Sample datasets
 
-- `datasets/mohler_dataset.csv` – the short-answer grading dataset from
+- `datasets/mohler_dataset.csv` - the short-answer grading dataset from
   Mohler, Bunescu and Mihalcea, *Learning to Grade Short Answer Questions using
   Semantic Similarity Measures and Dependency Graph Alignments* (ACL 2011).
-- `datasets/diff_gt_2_mohler_dataset.csv` – the subset of the above where the
+- `datasets/diff_gt_2_mohler_dataset.csv` - the subset of the above where the
   two human graders disagree by more than 2 points.
-- `datasets/french_answers.csv` – a tiny synthetic French sample for smoke tests.
 
 ## Development notes
 

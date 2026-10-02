@@ -22,7 +22,9 @@ pnpm preview
 
 ## Layout
 
-- `app/pages/` – one route per resource (experiments, datasets, agents, prompts, models)
+- `app/pages/` – one route per resource (experiments, batches, analyses, datasets, agents, prompts, models, settings)
 - `app/components/` – auto-imported components, grouped by feature
 - `app/composables/` – API calls and page logic (`useMyLazyFetch` wraps `useLazyFetch` with the backend base URL)
 - `app/types/index.ts` – TypeScript mirror of the backend schemas
+
+Navigation is keyboard-first: press `?` in the app for the shortcuts, `⌘K` for the command palette.
