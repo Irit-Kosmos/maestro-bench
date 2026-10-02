@@ -55,7 +55,8 @@ maestro-bench/
 
 ### Prerequisites
 
-- At least one LLM provider API key (OpenAI, Anthropic or Mistral).
+- At least one LLM provider API key (OpenAI, Anthropic or Mistral), or a local
+  [Ollama](https://ollama.com) server (no key needed).
 - Either **Docker + Docker Compose**, or for local development
   [uv](https://docs.astral.sh/uv/) (Python 3.12+) and
   [pnpm](https://pnpm.io/) (Node.js 22+).
@@ -113,8 +114,9 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 
 1. **Models** - register the models you want to use (name as expected by the
    provider, e.g. `gpt-4o-mini`, `claude-sonnet-4-20250514`,
-   `mistral-medium-2505`). **Settings** shows which providers have an API key
-   configured.
+   `mistral-medium-2505`; for Ollama, the tag you pulled, e.g. `llama3.2:3b`,
+   under the `ollama` provider). **Settings** shows which providers have an API
+   key or server URL configured.
 2. **Prompts** - create a prompt and at least one version. Declare the variables
    the templates use so they can be mapped later.
 3. **Agents** - create a team, then agents with a default prompt version and
@@ -179,7 +181,8 @@ uv run pytest
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | - | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY` are also recognised. |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | - | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` (provider `google`), `XAI_API_KEY`, `CEREBRAS_API_KEY`, `PERPLEXITYAI_API_KEY` and `OPENROUTER_API_KEY` are also recognised. For any other [LiteLLM provider](https://docs.litellm.ai/docs/providers), add it to `SUPPORTED_PROVIDERS` in `backend/core/llm.py`. |
+| `OLLAMA_API_BASE` | - | URL of an [Ollama](https://ollama.com) server, e.g. `http://localhost:11434`. Setting it enables the `ollama` provider (no key). Under Docker use `http://host.docker.internal:11434`. Cost is reported as 0. |
 | `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
 | `<PROVIDER>_MAX_RPS` | - | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |

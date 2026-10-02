@@ -171,8 +171,10 @@ export interface AgentExecutionSnapshot {
 export interface ProviderStatus {
   provider: string
   configured: boolean
-  /** Environment variable the backend reads the API key from */
-  api_key_env: string
+  /** Environment variable the backend reads the key or URL from */
+  env_var: string
+  /** What that variable holds: an API key, or the URL of a self-hosted server that needs no key */
+  kind: 'key' | 'url'
 }
 
 // Dashboard: recent runs with what their latest execution produced, and the last days' activity

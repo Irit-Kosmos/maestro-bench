@@ -28,8 +28,11 @@ const PROVIDERS: Record<string, KnownProvider> = {
   cerebras: { label: 'Cerebras', icon: 'i-logos-cerebras-icon', mono: false },
   huggingface: { label: 'Hugging Face', icon: 'i-logos-hugging-face-icon', mono: false },
   azure: { label: 'Azure', icon: 'i-logos-azure-icon', mono: false },
-  // Supported by the backend but absent from the logos set
+  // Simple Icons (CC0), single colour: it follows the text colour, so it needs no dark-mode flip
+  ollama: { label: 'Ollama', icon: 'i-custom-ollama', mono: false },
+  // Supported by the backend but without any logo
   groq: { label: 'Groq', icon: 'i-lucide-zap', mono: false, generic: true },
+  openrouter: { label: 'OpenRouter', icon: 'i-lucide-route', mono: false, generic: true },
   other: { label: 'Other', icon: 'i-lucide-box', mono: false, generic: true },
 }
 
@@ -76,6 +79,6 @@ export function compareProviders(a: string, b: string): number {
 }
 
 /** The choices of a provider field: the providers the backend can call, plus a catch-all */
-export const PROVIDER_OPTIONS = ['openai', 'anthropic', 'google', 'mistral', 'meta', 'deepseek', 'groq', 'together', 'other']
+export const PROVIDER_OPTIONS = ['openai', 'anthropic', 'google', 'mistral', 'deepseek', 'groq', 'together', 'xai', 'cerebras', 'perplexity', 'openrouter', 'ollama', 'other']
   .toSorted(compareProviders)
   .map(value => ({ value, label: providerLabel(value), icon: providerMeta(value).icon }))

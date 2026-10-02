@@ -25,6 +25,9 @@ services:
       # LLM provider API keys; copy backend/.env.example to backend/.env
       - path: ./backend/.env
         required: false
+    extra_hosts:
+      # Reach an Ollama running on the host (OLLAMA_API_BASE=http://host.docker.internal:11434)
+      - "host.docker.internal:host-gateway"
     environment:
       - API_HOST=0.0.0.0
       - API_PORT=8000

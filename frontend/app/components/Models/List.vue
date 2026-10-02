@@ -12,7 +12,7 @@ const props = defineProps<{
   /** Groups already say which provider a row belongs to; otherwise the row has to */
   showProvider: boolean
   isCollapsed: (key: string) => boolean
-  /** Whether the backend has an API key, by canonical provider key */
+  /** Whether the backend has an API key or server URL, by canonical provider key */
   providerStatus: Readonly<Record<string, ProviderStatus>>
 }>()
 
@@ -55,6 +55,26 @@ function menuItems(model: Model): DropdownMenuItem[][] {
 
 function statusOf(group: ModelGroup) {
   return group.provider ? props.providerStatus[group.provider] : undefined
+}
+
+// A key for hosted providers, a server URL for self-hosted ones (Ollama)
+function statusLabel(status: ProviderStatus) {
+  if (status.kind === 'url')
+    return status.configured ? 'URL set' : 'No URL'
+  return status.configured ? 'Key set' : 'No API key'
+}
+
+function statusIcon(status: ProviderStatus) {
+  if (!status.configured)
+    return 'i-lucide-triangle-alert'
+  return status.kind === 'url' ? 'i-lucide-server' : 'i-lucide-key-round'
+}
+
+function statusTooltip(status: ProviderStatus) {
+  const what = status.kind === 'url' ? 'URL' : 'Key'
+  return status.configured
+    ? `${what} found in ${status.env_var}`
+    : `Set ${status.env_var} to run these models`
 }
 
 function summary(group: ModelGroup) {
@@ -109,7 +129,7 @@ function summary(group: ModelGroup) {
           <!-- Can this provider be called? -->
           <UTooltip
             v-if="statusOf(group)"
-            :text="statusOf(group)!.configured ? `Key found in ${statusOf(group)!.api_key_env}` : `Set ${statusOf(group)!.api_key_env} to run these models`"
+            :text="statusTooltip(statusOf(group)!)"
           >
             <NuxtLink
               to="/settings"
@@ -119,8 +139,8 @@ function summary(group: ModelGroup) {
                 size="sm"
                 variant="subtle"
                 :color="statusOf(group)!.configured ? 'success' : 'warning'"
-                :icon="statusOf(group)!.configured ? 'i-lucide-key-round' : 'i-lucide-triangle-alert'"
-                :label="statusOf(group)!.configured ? 'Key set' : 'No API key'"
+                :icon="statusIcon(statusOf(group)!)"
+                :label="statusLabel(statusOf(group)!)"
                 class="transition-colors hover:brightness-95 dark:hover:brightness-125"
               />
             </NuxtLink>
