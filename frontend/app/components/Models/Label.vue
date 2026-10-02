@@ -9,7 +9,7 @@ defineProps<{
 </script>
 
 <template>
-  <span class="inline-flex min-w-0 items-center gap-1.5 align-middle">
+  <span class="inline-flex min-w-0 max-w-full items-center gap-1.5 align-middle">
     <UIProviderIcon v-if="provider" :provider="provider" class="size-3.5" />
     <span class="truncate">{{ name }}</span>
     <span v-if="showProvider && provider" class="shrink-0 text-muted">{{ providerLabel(provider) }}</span>

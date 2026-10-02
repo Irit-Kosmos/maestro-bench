@@ -138,7 +138,7 @@ function summary(group: ModelGroup) {
               <div class="flex min-w-0 items-baseline gap-2">
                 <button
                   type="button"
-                  class="min-w-0 max-w-[65%] shrink-0 truncate self-center text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
+                  class="min-w-0 max-w-[65%] shrink-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
                   :class="model.is_active ? 'text-highlighted' : 'text-muted'"
                   :aria-label="`Edit ${model.name}`"
                   @click="emit('edit', model)"
