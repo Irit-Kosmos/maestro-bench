@@ -23,18 +23,8 @@ async function refresh() {
   }
 }
 
-// Runs are watched from here as well: refresh quietly while any is going
-const active = computed(() => dashboard.value?.activity.active ?? 0)
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => {
-    if (active.value) {
-      refreshDashboard()
-      refreshBatches()
-    }
-  }, 5000)
-})
-onBeforeUnmount(() => clearInterval(timer))
+// Runs are watched from here as well: the running count and the lists follow them
+useRefreshOnRunStatus(() => Promise.all([refreshDashboard(), refreshBatches()]))
 
 function latest<T extends { created_at: string }>(items: readonly T[] | null | undefined) {
   return [...(items ?? [])].sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime()).slice(0, 5)

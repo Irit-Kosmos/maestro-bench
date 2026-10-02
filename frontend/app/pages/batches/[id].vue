@@ -20,14 +20,8 @@ useSeoMeta({ title: () => batch.value?.name ?? 'Batch' })
 const isActive = computed(() => batch.value?.status === 'running' || batch.value?.status === 'pending')
 
 // The experiments run in the background: follow them until they are all done
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => {
-    if (isActive.value)
-      refresh()
-  }, 4000)
-})
-onBeforeUnmount(() => clearInterval(timer))
+const { runOf } = useLiveRuns()
+useRefreshOnRunStatus(refresh)
 
 // One column per varied field, named after the agent too when several agents are involved
 const multipleAgents = computed(() => new Set(batch.value?.variations.map(v => v.agent_id)).size > 1)
@@ -201,6 +195,14 @@ function formatCost(cost: number | null) {
             {{ batch.counts.failed }}
           </dd>
         </div>
+        <div v-if="batch.counts.cancelled">
+          <dt class="text-xs text-muted">
+            Cancelled
+          </dt>
+          <dd class="mt-0.5 text-lg font-semibold text-toned tabular-nums">
+            {{ batch.counts.cancelled }}
+          </dd>
+        </div>
         <div v-for="axis in axes" :key="axis.key">
           <dt class="text-xs text-muted">
             {{ axis.title }}
@@ -261,7 +263,10 @@ function formatCost(cost: number | null) {
                   <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
                 </td>
                 <td class="px-4 py-2.5">
-                  <UIStatusBadge :status="experiment.status" />
+                  <div class="flex items-center gap-3">
+                    <UIStatusBadge :status="experiment.status" />
+                    <UIRunProgress :run="runOf(experiment.id)" />
+                  </div>
                 </td>
                 <td class="px-4 py-2.5 text-right">
                   <UIRowCount :rows="experiment.row_count" tone="quiet" />

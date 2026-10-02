@@ -56,16 +56,8 @@ function progress(batch: Batch) {
   return `${batch.counts.completed ?? 0} / ${batch.experiments.length}`
 }
 
-// Runs are watched from the list as well: refresh while any is going
-const active = computed(() => (batches.value ?? []).some(b => b.status === 'running' || b.status === 'pending'))
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => {
-    if (active.value)
-      refresh()
-  }, 5000)
-})
-onBeforeUnmount(() => clearInterval(timer))
+// Runs are watched from the list as well
+useRefreshOnRunStatus(refresh)
 
 async function confirmDelete() {
   if (!batchId.value)

@@ -36,6 +36,8 @@ const visibleExperiments = computed(() =>
 
 // Composables
 const { deleteExperiment } = useExperiments()
+const { runOf } = useLiveRuns()
+useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
@@ -148,7 +150,7 @@ async function handleCreateExperiment() {
 <template>
   <BasePageContent
     fill
-    :loading="pending"
+    :loading="pending && !experiments"
   >
     <template #before-content>
       <UTooltip text="New experiment" :kbds="['C']">
@@ -203,7 +205,10 @@ async function handleCreateExperiment() {
 
         <!-- Custom cell for status -->
         <template #status-cell="{ row }">
-          <UIStatusBadge :status="row.original.status" />
+          <div class="flex items-center gap-3">
+            <UIStatusBadge :status="row.original.status" />
+            <UIRunProgress :run="runOf(row.original.id)" />
+          </div>
         </template>
 
         <template #batch_name-cell="{ row }">

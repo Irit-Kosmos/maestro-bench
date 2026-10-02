@@ -103,8 +103,21 @@ export interface Experiment {
   experiment_configs?: ExperimentAgentConfig[]
 }
 
-// 'partial' only exists for batches: some experiments completed, others failed
-export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'partial'
+// 'partial' only exists for batches: some experiments completed, others did not
+export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial'
+
+// Live state of an execution, as pushed by the /events stream (failed rows are counted in rows_done)
+export interface RunState {
+  experiment_id: number
+  batch_id: number | null
+  // null when the run failed before an execution was created
+  execution_id: number | null
+  status: string
+  // null until the rows have been counted
+  rows_total: number | null
+  rows_done: number
+  rows_failed: number
+}
 
 export interface ExperimentResults {
   total_questions?: number

@@ -11,6 +11,7 @@ const { fetchExperiment, deleteExperiment, rerunExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
+const { runOf, onStatus } = useLiveRuns()
 
 // State
 const experiment = ref<Experiment | null>(null)
@@ -21,6 +22,9 @@ const isDeleting = ref(false)
 const isRerunning = ref(false)
 
 // Computed
+const liveRun = computed(() => runOf(experimentId.value))
+const status = computed(() => liveRun.value?.status ?? experiment.value?.status)
+
 const pageTitle = computed(() => {
   return experiment.value ? experiment.value.name : 'Loading...'
 })
@@ -78,8 +82,9 @@ const datasetInfo = computed(() => {
 })
 
 // Methods
-async function loadExperiment() {
-  loading.value = true
+// A silent load keeps the page in place: it is how a run's start and end are picked up
+async function loadExperiment({ silent = false } = {}) {
+  loading.value = !silent
   try {
     const result = await fetchExperiment(experimentId.value)
     if (result.success && result.data) {
@@ -229,6 +234,12 @@ const executionRows = computed(() => [...executions.value]
     }
   }))
 
+// A new execution appears when a run starts, its figures when it ends
+onStatus((run) => {
+  if (!run || run.experiment_id === experimentId.value)
+    loadExperiment({ silent: true })
+})
+
 // Lifecycle
 onMounted(() => {
   loadExperiment()
@@ -267,10 +278,10 @@ watch(() => route.params.id, () => {
             icon="i-lucide-play"
             size="sm"
             :loading="isRerunning"
-            :disabled="!experiment || experiment.status === 'running'"
+            :disabled="!experiment || status === 'running'"
             @click="handleRerunExperiment"
           >
-            {{ experiment?.status === 'running' ? 'Running…' : 'Re-run' }}
+            {{ status === 'running' ? 'Running…' : 'Re-run' }}
           </UButton>
         </UTooltip>
         <UTooltip :text="latestCompletedExecution ? 'Compare this execution to a ground-truth column' : 'Available once an execution has completed'">
@@ -299,7 +310,7 @@ watch(() => route.params.id, () => {
       <!-- Identity only: what it is and when. Everything measurable lives with the thing it measures -->
       <header>
         <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
-          <UIStatusIcon :status="experiment.status" size="size-5" tooltip />
+          <UIStatusIcon :status="status" size="size-5" tooltip />
           <span class="min-w-0 text-balance">{{ experiment.name }}</span>
         </h1>
         <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
@@ -394,6 +405,7 @@ watch(() => route.params.id, () => {
                     <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
                     <span class="text-xs text-muted tabular-nums" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
                   </div>
+                  <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
                   <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
                   <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
                     <UIMetaItem v-if="row.duration" icon="i-lucide-clock" label="Duration">

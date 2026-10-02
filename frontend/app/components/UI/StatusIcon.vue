@@ -2,7 +2,7 @@
 import type { ExperimentStatus } from '~/types'
 
 // Each status has its own shape, so it still reads without color:
-// dashed (waiting), half-filled (in progress), check, cross, alert
+// dashed (waiting), half-filled (in progress), check, cross, slash (stopped), alert
 const props = withDefaults(defineProps<{
   status?: ExperimentStatus | string | null
   /** Tailwind size class of the icon */
@@ -19,6 +19,7 @@ const config = computed(() => {
     case 'completed': return { icon: 'i-lucide-circle-check', class: 'text-success' }
     case 'running': return { icon: null, class: 'text-warning' }
     case 'failed': return { icon: 'i-lucide-circle-x', class: 'text-error' }
+    case 'cancelled': return { icon: 'i-lucide-circle-slash', class: 'text-muted' }
     case 'partial': return { icon: 'i-lucide-circle-alert', class: 'text-warning' }
     default: return { icon: 'i-lucide-circle-dashed', class: 'text-muted' }
   }
@@ -29,7 +30,8 @@ const details: Record<string, string> = {
   running: 'In progress',
   completed: 'Finished successfully',
   failed: 'Failed',
-  partial: 'Finished, some runs failed',
+  cancelled: 'Stopped before the end',
+  partial: 'Finished, some runs did not complete',
 }
 
 const status = computed(() => props.status || 'pending')
