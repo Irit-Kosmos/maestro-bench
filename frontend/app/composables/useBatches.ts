@@ -34,6 +34,16 @@ export function useBatches() {
     }
   }
 
+  async function rerunBatch(id: number) {
+    try {
+      return { success: true as const, data: await $api<{ started: number, skipped: number }>(`/batches/${id}/rerun`, { method: 'POST' }) }
+    }
+    catch (error) {
+      console.error('Error re-running batch:', error)
+      return { success: false as const, error }
+    }
+  }
+
   async function deleteBatch(id: number) {
     try {
       await $api(`/batches/${id}`, { method: 'DELETE' })
@@ -45,5 +55,5 @@ export function useBatches() {
     }
   }
 
-  return { createBatch, cancelBatch, deleteBatch }
+  return { createBatch, cancelBatch, rerunBatch, deleteBatch }
 }

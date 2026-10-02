@@ -5,7 +5,7 @@ const route = useRoute()
 const batchId = computed(() => Number.parseInt(route.params.id as string))
 
 const toast = useToast()
-const { cancelBatch, deleteBatch } = useBatches()
+const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
 const { formatDate, formatDuration } = useUIHelpers()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
@@ -66,9 +66,12 @@ function providerOf(experiment: Batch['experiments'][number], axis: { agent_id: 
 
 const finished = computed(() => (batch.value?.experiments ?? []).filter(e => e.status === 'completed').length)
 
-const completed = computed(() => (batch.value?.experiments ?? []).filter(e => e.status === 'completed' && e.execution_id))
-const analyzeLink = computed(() => completed.value.length > 0
-  ? { path: '/analyses/new', query: { executions: completed.value.map(e => e.execution_id).join(','), name: batch.value?.name } }
+// The analysis takes the latest completed execution of each experiment, even when a later one failed or is running
+const completedExecutionIds = computed(() => (batch.value?.experiments ?? [])
+  .map(e => e.last_completed_execution_id)
+  .filter((id): id is number => id !== null))
+const analyzeLink = computed(() => completedExecutionIds.value.length > 0
+  ? { path: '/analyses/new', query: { executions: completedExecutionIds.value.join(','), name: batch.value?.name } }
   : undefined)
 
 // --- Actions ---
@@ -84,6 +87,24 @@ async function handleCancel() {
   }
   else {
     toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+  }
+}
+
+const isRerunning = ref(false)
+async function handleRerun() {
+  isRerunning.value = true
+  const result = await rerunBatch(batchId.value)
+  isRerunning.value = false
+  if (result.success) {
+    const { started, skipped } = result.data
+    const description = skipped
+      ? `${started} experiments started, ${skipped} already running.`
+      : `${started} experiments started. A new execution was created for each.`
+    toast.add({ title: 'Batch re-run started', description, color: 'success', icon: 'i-lucide:play' })
+    await refresh()
+  }
+  else {
+    toast.add({ title: 'Error', description: 'Failed to re-run the batch', color: 'error', icon: 'i-lucide:alert-circle' })
   }
 }
 
@@ -126,6 +147,19 @@ function formatCost(cost: number | null) {
         >
           Cancel all
         </UButton>
+        <UTooltip text="Create a new execution of every experiment that is not running">
+          <UButton
+            variant="soft"
+            color="neutral"
+            icon="i-lucide-play"
+            size="sm"
+            :loading="isRerunning"
+            :disabled="isActive"
+            @click="handleRerun"
+          >
+            Re-run
+          </UButton>
+        </UTooltip>
         <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'">
           <UButton
             color="neutral"
@@ -235,6 +269,9 @@ function formatCost(cost: number | null) {
                   Rows
                 </th>
                 <th scope="col" class="px-4 py-2 text-right font-medium">
+                  Runs
+                </th>
+                <th scope="col" class="px-4 py-2 text-right font-medium">
                   Tokens
                 </th>
                 <th scope="col" class="px-4 py-2 text-right font-medium">
@@ -270,6 +307,10 @@ function formatCost(cost: number | null) {
                 </td>
                 <td class="px-4 py-2.5 text-right">
                   <UIRowCount :rows="experiment.row_count" tone="quiet" />
+                  <span v-if="experiment.rows_failed" class="ms-2 text-xs text-error">{{ experiment.rows_failed }} failed</span>
+                </td>
+                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                  {{ experiment.execution_count || '—' }}
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-toned">
                   {{ experiment.total_tokens?.toLocaleString() ?? '—' }}

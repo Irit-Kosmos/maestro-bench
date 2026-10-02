@@ -94,6 +94,13 @@ export interface Experiment {
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
 
+  // Executions of the experiment: how many, and the figures of the latest one
+  execution_count?: number
+  duration_seconds?: number | null
+  rows_failed?: number | null
+  total_tokens?: number | null
+  total_cost_usd?: number | null
+
   // Batch the experiment belongs to, and its coordinates in the batch's grid ({ [agentId]: { [field]: value } })
   batch_id?: number | null
   batch_name?: string | null
@@ -430,10 +437,15 @@ export interface BatchExperiment {
   created_at: string
   execution_id: number | null
   execution_status: string | null
+  // Latest execution that completed, which is not always the latest one
+  last_completed_execution_id: number | null
   started_at: string | null
   completed_at: string | null
   duration_seconds: number | null
   row_count: number | null
+  // Executions of the experiment; the figures are those of the latest one
+  execution_count: number
+  rows_failed: number | null
   total_tokens: number | null
   total_cost_usd: number | null
   agent_names: string[]
@@ -451,5 +463,9 @@ export interface Batch {
   variations: BatchVariation[]
   status: ExperimentStatus
   counts: Record<string, number>
+  // Executions of all the experiments; tokens and cost add up the latest one of each
+  execution_count: number
+  total_tokens: number | null
+  total_cost_usd: number | null
   experiments: BatchExperiment[]
 }
