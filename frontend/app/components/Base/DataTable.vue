@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { FilterSpec, FilterState } from '~/utils/filters'
 import { h, resolveComponent } from 'vue'
 
 interface Column {
@@ -28,6 +29,8 @@ interface Props {
   title?: string
   emptyMessage?: string
   searchable?: boolean
+  /** Filters offered next to the search; their options are found in `data` (see `FilterSpec`) */
+  filters?: FilterSpec<any>[]
   actionTo?: string
   /** Makes every row a link: the first column becomes the row's link, the whole row is clickable */
   rowTo?: (item: any) => string
@@ -40,6 +43,10 @@ interface Props {
   totalCount?: number
   /** Fills the height of its parent: toolbar and column headers stay put, only the rows scroll */
   fill?: boolean
+  /** Adds a checkbox column; the toolbar turns into a selection bar (see the `selection-actions` slot) */
+  selectable?: boolean
+  /** Property that identifies a row in `v-model:selected` */
+  rowKey?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -48,12 +55,15 @@ const props = withDefaults(defineProps<Props>(), {
   title: undefined,
   emptyMessage: 'No data available',
   searchable: false,
+  filters: () => [],
   rowTo: undefined,
   rowHint: undefined,
   itemName: undefined,
   itemNamePlural: undefined,
   totalCount: undefined,
   fill: false,
+  selectable: false,
+  rowKey: 'id',
 })
 
 const emit = defineEmits<{
@@ -64,39 +74,51 @@ const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtLink = resolveComponent('NuxtLink')
 
+const UCheckbox = resolveComponent('UCheckbox')
+
 const slots = useSlots()
-// Every slot but the toolbar goes to UTable (custom cells, headers)
-const tableSlots = computed(() => Object.fromEntries(Object.entries(slots).filter(([name]) => name !== 'toolbar')))
+// Every slot but the toolbar ones goes to UTable (custom cells, headers)
+const tableSlots = computed(() => Object.fromEntries(Object.entries(slots).filter(([name]) => name !== 'toolbar' && name !== 'selection-actions')))
 
-// State
-const searchQuery = ref('')
-const searchInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('searchInput')
+// Keys of the selected rows
+const selected = defineModel<(string | number)[]>('selected', { default: () => [] })
 
-// Computed
-const filteredData = computed(() => {
-  if (!props.searchable || !searchQuery.value.trim()) {
-    return props.data
-  }
+// What is picked in the filters; bind it to seed or persist it, otherwise the table keeps it to itself
+const filterState = defineModel<FilterState>('filterState', { default: () => ({}) })
 
-  const query = searchQuery.value.toLowerCase()
-  return props.data.filter((item) => {
-    return props.columns.some((column) => {
-      const value = column.formatter ? column.formatter(item[column.key], item) : item[column.key]
-      return String(value).toLowerCase().includes(query)
-    })
-  })
-})
+// Search matches what the columns display
+const { search, definitions, filtered: filteredData, hasFilters, clear: clearFilters } = useListFilters(
+  () => props.data,
+  () => props.filters,
+  row => props.columns.map(column => renderValue(column, row[column.key], row) ?? '').join(' '),
+  filterState,
+)
 
-const countLabel = computed(() => {
-  if (!props.itemName)
-    return ''
-  const total = props.totalCount ?? props.data.length
-  const shown = filteredData.value.length
-  const noun = total === 1 ? props.itemName : (props.itemNamePlural ?? `${props.itemName}s`)
-  return shown === total ? `${total} ${noun}` : `${shown} of ${total} ${noun}`
-})
+const total = computed(() => props.totalCount ?? props.data.length)
 
 const hasActions = computed(() => props.actions.length > 0)
+
+// UTable tracks selection as { [rowId]: true }
+const rowSelection = computed({
+  get: () => Object.fromEntries(selected.value.map(key => [key, true])),
+  set: (state: Record<string, boolean>) => {
+    selected.value = filteredData.value
+      .map(row => row[props.rowKey])
+      .filter(key => state[String(key)])
+  },
+})
+
+// Rows that were filtered out or deleted can't stay selected, or a bulk action would hit rows nobody sees
+watch(filteredData, (rows) => {
+  if (!selected.value.length)
+    return
+  const visible = new Set(rows.map(row => row[props.rowKey]))
+  const kept = selected.value.filter(key => visible.has(key))
+  if (kept.length !== selected.value.length)
+    selected.value = kept
+})
+
+const selectedRows = computed(() => filteredData.value.filter(row => selected.value.includes(row[props.rowKey])))
 
 function renderValue(col: Column, value: any, row: any) {
   return col.formatter ? col.formatter(value, row) : value
@@ -140,6 +162,30 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     },
   }))
 
+  if (props.selectable) {
+    cols.unshift({
+      id: 'select',
+      header: ({ table }) => h(UCheckbox, {
+        'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
+        'aria-label': 'Select all rows',
+      }),
+      cell: ({ row }) => h(UCheckbox, {
+        'modelValue': row.getIsSelected(),
+        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
+        'aria-label': 'Select row',
+        // Above the row's stretched link, so ticking doesn't open the row
+        'class': 'relative z-1',
+      }),
+      meta: {
+        class: {
+          th: 'w-10 pe-0',
+          td: 'w-10 pe-0',
+        },
+      },
+    })
+  }
+
   if (hasActions.value) {
     cols.push({
       id: 'actions',
@@ -169,80 +215,66 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
 
   return cols
 })
-
-if (props.searchable) {
-  defineShortcuts({
-    '/': () => searchInput.value?.inputRef?.focus(),
-  })
-}
-
-// Methods
-function handleRefresh() {
-  emit('refresh')
-}
 </script>
 
 <template>
   <div class="flex flex-col rounded-lg border border-default overflow-hidden" :class="fill && 'flex-1 min-h-0'">
-    <!-- Toolbar -->
-    <div class="flex shrink-0 items-center gap-2 px-2 h-11 border-b border-default">
-      <UInput
-        v-if="searchable"
-        ref="searchInput"
-        v-model="searchQuery"
-        placeholder="Filter…"
-        icon="i-lucide-search"
+    <!-- Selection bar -->
+    <div v-if="selectable && selected.length" class="flex shrink-0 items-center gap-2 px-2 h-11 border-b border-default bg-elevated/50">
+      <span class="px-2 text-sm font-medium text-highlighted tabular-nums">
+        {{ selected.length }} selected
+      </span>
+      <slot name="selection-actions" :rows="selectedRows" />
+      <UButton
+        variant="ghost"
+        color="neutral"
+        icon="i-lucide-x"
         size="sm"
-        variant="none"
-        aria-label="Filter rows"
-        class="flex-1 max-w-sm"
-        @keydown.esc="searchQuery = ''"
+        class="ms-auto"
+        @click="selected = []"
       >
-        <template v-if="!searchQuery" #trailing>
-          <UKbd value="/" size="sm" />
-        </template>
-      </UInput>
-      <h3 v-else-if="title" class="px-2 text-sm font-medium text-highlighted">
-        {{ title }}
-      </h3>
+        Clear
+      </UButton>
+    </div>
 
+    <!-- Toolbar -->
+    <BaseListToolbar
+      v-else
+      v-model:search="search"
+      v-model:filters="filterState"
+      :definitions="definitions"
+      :total="total"
+      :shown="filteredData.length"
+      :item-name="itemName"
+      :item-name-plural="itemNamePlural"
+      :title="title"
+      :searchable="searchable"
+      :loading="loading"
+      @refresh="emit('refresh')"
+    >
       <!-- Page-specific filters -->
       <slot name="toolbar" />
-
-      <span v-if="countLabel" class="ms-auto text-xs text-muted tabular-nums">
-        {{ countLabel }}
-      </span>
-      <UTooltip text="Refresh">
-        <UButton
-          variant="ghost"
-          color="neutral"
-          icon="i-lucide-refresh-cw"
-          size="sm"
-          aria-label="Refresh"
-          :loading="loading"
-          :class="!countLabel && 'ms-auto'"
-          @click="handleRefresh"
-        />
-      </UTooltip>
-    </div>
+    </BaseListToolbar>
 
     <!-- Empty State -->
     <div v-if="!loading && filteredData.length === 0" class="p-6" :class="fill && 'flex-1 min-h-0 overflow-y-auto'">
       <BaseEmptyState
-        :title="searchQuery ? 'No matching rows' : 'Nothing here yet'"
-        :message="searchQuery ? `Nothing matches “${searchQuery}”. Try another term or clear the filter.` : emptyMessage"
-        :icon="searchQuery ? 'i-lucide-search-x' : 'i-lucide-folder-open'"
-        :action-label="searchQuery ? 'Clear filter' : undefined"
+        :title="hasFilters ? 'No matching rows' : 'Nothing here yet'"
+        :message="hasFilters ? 'Try another search, or clear the filters.' : emptyMessage"
+        :icon="hasFilters ? 'i-lucide-search-x' : 'i-lucide-folder-open'"
+        :action-label="hasFilters ? 'Clear filters' : undefined"
         action-icon="i-lucide-x"
-        @action="searchQuery = ''"
+        @action="clearFilters"
       />
     </div>
 
     <!-- UTable -->
     <UTable
       v-else
+      v-model:row-selection="rowSelection"
       :data="filteredData"
       :columns="tableColumns"
+      :get-row-id="(row: any) => String(row[rowKey])"
       :loading="loading"
       :empty="emptyMessage"
       class="min-w-full"

@@ -2,8 +2,6 @@
 import type { FilterDefinition, FilterEntry, FilterMode, FilterOption, FilterState, FilterValue } from '~/utils/filters'
 import { effectiveMode, emptyFilterEntry, emptyFilterState, filterModes, modeLabel } from '~/utils/filters'
 
-// Linear-style filters: a "Filter" button that opens a two-column picker, and one chip per active filter
-// ("Provider · is any of · 3 providers · x") whose operator and values can each be changed in place.
 const props = defineProps<{
   definitions: FilterDefinition[]
 }>()
@@ -69,7 +67,7 @@ function valueLabel(definition: FilterDefinition) {
   return `${labels.length} ${definition.plural ?? 'values'}`
 }
 
-// Past three icons, the rest collapse into an ellipsis square
+// Past three icons, the rest collapse into an ellipsis
 const CHIP_ICON_LIMIT = 3
 const iconOptions = (definition: FilterDefinition) => selectedOptions(definition).filter(option => option.icon)
 const chipIcons = (definition: FilterDefinition) => iconOptions(definition).slice(0, CHIP_ICON_LIMIT)
@@ -163,21 +161,21 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
           :class="SEGMENT"
           :aria-label="`Change ${definition.label} filter`"
         >
-          <!-- Each logo sits on top of the one to its left; the white tile keeps black logos readable in dark mode -->
+          <!-- Each icon sits on top of the one to its left, cut out by a ring in the chip's own colour -->
           <span v-if="chipIcons(definition).length" class="inline-flex items-center -space-x-1">
             <span
               v-for="option in chipIcons(definition)"
               :key="String(option.value)"
-              class="relative inline-flex size-4 items-center justify-center rounded-sm border border-black/10 bg-white text-neutral-600"
+              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated ring-2 ring-(--ui-bg-elevated)"
             >
-              <UIcon :name="option.icon!" class="size-2.5" />
+              <UIcon :name="option.icon!" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
             </span>
             <span
               v-if="hasMoreIcons(definition)"
-              class="relative inline-flex size-4 items-center justify-center rounded-sm border border-black/10 bg-white text-neutral-500"
+              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated text-muted ring-2 ring-(--ui-bg-elevated)"
               aria-hidden="true"
             >
-              <UIcon name="i-lucide-ellipsis" class="size-2.5" />
+              <UIcon name="i-lucide-ellipsis" class="size-3.5" />
             </span>
           </span>
           {{ valueLabel(definition) }}
