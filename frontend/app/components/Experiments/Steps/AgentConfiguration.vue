@@ -130,17 +130,30 @@ function defaultSummary(agent: Agent) {
 // --- Reordering ---
 
 const listRef = ref<HTMLElement | null>(null)
+const sortableRef = ref<HTMLElement | null>(null)
 const announcement = ref('')
+
+// Dragging is the main way; the grip also answers the arrow keys, for those who don't use a pointer
+useSortableList(sortableRef, {
+  onMove: (from, to) => {
+    const item = items.value[from]
+    if (item && pipeline.moveTo(item.agent.id, to))
+      announce(item.agent.id)
+  },
+})
+
+function announce(agentId: number) {
+  const item = items.value.find(i => i.agent.id === agentId)
+  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
+}
 
 async function move(agentId: number, delta: -1 | 1) {
   if (!pipeline.move(agentId, delta))
     return
-  const item = items.value.find(i => i.agent.id === agentId)
-  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
-  // Reordering re-inserts the row, which drops focus: put it back on the button that was used
+  announce(agentId)
+  // Reordering re-inserts the row, which drops focus: put it back on the grip that was used
   await nextTick()
-  const buttons = [delta, -delta].map(d => listRef.value?.querySelector<HTMLButtonElement>(`[data-move="${agentId}:${d}"]`))
-  buttons.find(button => button && !button.disabled)?.focus()
+  listRef.value?.querySelector<HTMLButtonElement>(`[data-drag-handle="${agentId}"]`)?.focus()
 }
 
 function removeAgent(agent: Agent) {
@@ -274,11 +287,9 @@ const problems = computed(() => items.value
     <div v-else class="flex flex-col gap-4">
       <!-- List view -->
       <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
-        <!-- Only the move transition is defined: rows that are added or removed appear and leave instantly -->
-        <TransitionGroup
+        <div
           v-if="items.length > 1"
-          tag="div"
-          move-class="agent-row-move"
+          ref="sortableRef"
           class="divide-y divide-default overflow-hidden rounded-lg border border-default"
         >
           <ExperimentsAgentListItem
@@ -300,7 +311,7 @@ const problems = computed(() => items.value
             @remove="removeAgent(item.agent)"
             @reset="pipeline.reset(item.agent.id)"
           />
-        </TransitionGroup>
+        </div>
 
         <div v-else>
           <ExperimentsAgentListItem
@@ -353,16 +364,3 @@ const problems = computed(() => items.value
     </div>
   </ExperimentsSection>
 </template>
-
-<style scoped>
-/* Reordering: the rows slide to their new place so you can follow the one you moved */
-.agent-row-move {
-  transition: transform 200ms var(--ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-row-move {
-    transition: none;
-  }
-}
-</style>

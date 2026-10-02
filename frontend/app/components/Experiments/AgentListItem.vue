@@ -84,12 +84,12 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
   </section>
 
   <!-- Several agents: an expandable row -->
-  <div v-else class="relative">
+  <div v-else class="group/row relative">
     <UCollapsible v-model:open="open" class="group/agent">
       <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose (frequent). -->
       <button
         type="button"
-        class="flex h-14 w-full items-center gap-3 ps-4 pe-28 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        class="flex h-14 w-full items-center gap-3 ps-8 pe-14 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
         :class="{ 'opacity-60': !enabled }"
       >
         <UIcon
@@ -128,7 +128,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
       </button>
 
       <template #content>
-        <div class="border-t border-default bg-elevated/30 px-4 py-4 ps-11">
+        <div class="border-t border-default bg-elevated/30 px-4 py-4 ps-15">
           <ExperimentsAgentSettings
             :config="item.config"
             :models="models"
@@ -155,27 +155,18 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
     </UCollapsible>
 
     <!-- Outside the trigger so the buttons aren't nested in it -->
+    <button
+      type="button"
+      :data-drag-handle="item.agent.id"
+      :aria-label="`Reorder ${item.agent.name}: drag, or use the up and down arrow keys`"
+      class="absolute start-1 top-0 flex h-14 w-6 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary group-hover/row:opacity-100 active:cursor-grabbing"
+      @keydown.up.prevent="emit('move', -1)"
+      @keydown.down.prevent="emit('move', 1)"
+    >
+      <UIcon name="i-lucide-grip-vertical" class="size-4" aria-hidden="true" />
+    </button>
+
     <div class="absolute end-2 top-0 flex h-14 items-center gap-0.5">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-arrow-up"
-        :disabled="item.position === 1"
-        :aria-label="`Run ${item.agent.name} earlier`"
-        :data-move="`${item.agent.id}:-1`"
-        @click="emit('move', -1)"
-      />
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-arrow-down"
-        :disabled="item.position === count"
-        :aria-label="`Run ${item.agent.name} later`"
-        :data-move="`${item.agent.id}:1`"
-        @click="emit('move', 1)"
-      />
       <UButton
         color="neutral"
         variant="ghost"

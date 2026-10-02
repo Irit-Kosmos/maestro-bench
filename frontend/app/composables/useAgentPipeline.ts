@@ -155,16 +155,21 @@ export function useAgentPipeline(options: {
     pruneMappings()
   }
 
-  function move(agentId: number, delta: -1 | 1) {
+  // Puts the agent at a 0-based position of the list
+  function moveTo(agentId: number, to: number) {
     const ids = items.value.map(item => item.agent.id)
     const from = ids.indexOf(agentId)
-    const to = from + delta
-    if (from < 0 || to < 0 || to >= ids.length)
+    if (from < 0 || to < 0 || to >= ids.length || from === to)
       return false
     ids.splice(to, 0, ids.splice(from, 1)[0]!)
     renumber(ids)
     pruneMappings()
     return true
+  }
+
+  function move(agentId: number, delta: -1 | 1) {
+    const from = items.value.findIndex(item => item.agent.id === agentId)
+    return moveTo(agentId, from + delta)
   }
 
   function update(agentId: number, field: keyof AgentConfiguration, value: unknown) {
@@ -239,6 +244,7 @@ export function useAgentPipeline(options: {
     add,
     remove,
     move,
+    moveTo,
     update,
     reset,
     setMapping,
