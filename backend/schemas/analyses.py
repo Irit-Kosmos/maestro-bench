@@ -119,6 +119,22 @@ class ExecutionFields(BaseModel):
     agents: list[AgentFields]
 
 
+class AgentRowOutput(BaseModel):
+    name: str | None
+    # Parsed when the agent answered with JSON, the raw text otherwise
+    output: Any = None
+    error: str | None = None
+
+
+class ExecutionRow(BaseModel):
+    """One dataset row of an execution: what went in, what each agent returned."""
+
+    row_index: int
+    input_data: dict[str, Any]
+    agents: list[AgentRowOutput]
+    error: str | None = None
+
+
 class AvailableExecution(BaseModel):
     execution_id: int
     experiment_id: int

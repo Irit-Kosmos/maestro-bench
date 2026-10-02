@@ -14,6 +14,7 @@ from db import get_session
 from results_files import execution_row_count
 from schemas.analyses import (
     AgentFields,
+    AgentRowOutput,
     AnalysisComputeRequest,
     AnalysisConfigSchema,
     AnalysisCreate,
@@ -23,6 +24,7 @@ from schemas.analyses import (
     AnalysisUpdate,
     AvailableExecution,
     ExecutionFields,
+    ExecutionRow,
     MetricInfo,
     RunResultResponse,
 )
@@ -265,6 +267,40 @@ def get_execution_fields(
         ]
     return ExecutionFields(
         execution_id=execution_id, columns=list(columns), agents=agents
+    )
+
+
+@router.get("/executions/{execution_id}/rows/{row_index}", response_model=ExecutionRow)
+def get_execution_row(
+    execution_id: int,
+    row_index: int,
+    session: Annotated[Session, Depends(get_session)],
+):
+    """One row of an execution, to look up a point of an analysis."""
+    execution = session.get(ExperimentExecution, execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    results = _load_results(execution)
+    if results is None:
+        raise HTTPException(status_code=404, detail="No results file available")
+
+    row = next(
+        (r for r in result_rows(results) if r.get("row_index") == row_index), None
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Row not found")
+    return ExecutionRow(
+        row_index=row_index,
+        input_data=row.get("input_data") or {},
+        agents=[
+            AgentRowOutput(
+                name=agent.get("name"),
+                output=parse_json_output(agent.get("output")),
+                error=agent.get("error"),
+            )
+            for agent in row.get("agents") or []
+        ],
+        error=row.get("error"),
     )
 
 
