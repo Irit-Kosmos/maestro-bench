@@ -30,15 +30,26 @@ function updateValue(value: string[]) {
 </script>
 
 <template>
-  <div>
-    <label class="block text-sm font-medium text-default mb-3">
+  <section>
+    <h3 class="mb-1.5 flex h-6 items-center text-xs font-medium text-muted">
       Variables
-    </label>
+    </h3>
+
     <UInputTags
+      v-if="editable"
       :model-value="parsedVariables"
-      :disabled="!editable"
+      placeholder="Type a name, press Enter"
       class="w-full"
       @update:model-value="updateValue"
     />
-  </div>
+
+    <ul v-else-if="parsedVariables.length" class="flex flex-wrap gap-1.5">
+      <li v-for="name in parsedVariables" :key="name">
+        <UBadge :label="name" color="neutral" variant="subtle" size="md" class="font-mono" />
+      </li>
+    </ul>
+    <p v-else class="text-sm text-dimmed">
+      None
+    </p>
+  </section>
 </template>
