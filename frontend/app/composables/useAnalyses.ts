@@ -5,6 +5,7 @@ import type {
   AnalysisResult,
   AnalysisRunRef,
   ExecutionFields,
+  ExecutionRow,
 } from '~/types'
 
 export const DEFAULT_ANALYSIS_CONFIG: AnalysisConfig = {
@@ -51,6 +52,9 @@ export function useAnalyses() {
   const fetchExecutionFields = (executionId: number) =>
     $api<ExecutionFields>(`/executions/${executionId}/analysis-fields`)
 
+  const fetchExecutionRow = (executionId: number, rowIndex: number) =>
+    $api<ExecutionRow>(`/executions/${executionId}/rows/${rowIndex}`)
+
   return {
     createAnalysis,
     updateAnalysis,
@@ -58,6 +62,7 @@ export function useAnalyses() {
     fetchResults,
     computeAnalysis,
     fetchExecutionFields,
+    fetchExecutionRow,
   }
 }
 

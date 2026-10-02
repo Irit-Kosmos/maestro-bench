@@ -20,6 +20,23 @@ const scatterDomain = computed<[number, number]>(() => {
   return [Math.min(...values) - 0.5, Math.max(...values) + 0.5]
 })
 
+// Row shown in the side panel after a click on a point
+const selected = ref<{ run: AnalysisRunResult, row: number } | null>(null)
+const panelOpen = ref(false)
+
+function selectPoint(run: AnalysisRunResult, row: number) {
+  selected.value = { run, row }
+  panelOpen.value = true
+}
+
+function selectedRowOf(run: AnalysisRunResult) {
+  const current = selected.value
+  return current && current.run.execution_id === run.execution_id
+    && current.run.agent_name === run.agent_name
+    ? current.row
+    : null
+}
+
 function coverageLabel(run: AnalysisRunResult) {
   if (run.coverage === null)
     return '—'
@@ -243,7 +260,7 @@ function exportCsv() {
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
         <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
-          Points are jittered to show overlapping values; dashed line is y = x
+          Dashed line is y = x; click a point to see its row
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -260,6 +277,8 @@ function exportCsv() {
             v-else-if="config.value_type === 'numeric'"
             :run="run"
             :domain="scatterDomain"
+            :selected-row="panelOpen ? selectedRowOf(run) : null"
+            @select="selectPoint(run, $event)"
           />
           <AnalysesConfusion
             v-else-if="run.confusion"
@@ -269,5 +288,12 @@ function exportCsv() {
         </div>
       </div>
     </UCard>
+
+    <AnalysesRowPanel
+      v-model:open="panelOpen"
+      :run="selected?.run ?? null"
+      :row-index="selected?.row ?? null"
+      :truth-column="config.truth_column"
+    />
   </div>
 </template>

@@ -365,6 +365,14 @@ export interface ExecutionFields {
   agents: { name: string, model: string | null, execution_order: number, paths: string[] }[]
 }
 
+/** One dataset row of an execution: what went in, what each agent returned */
+export interface ExecutionRow {
+  row_index: number
+  input_data: Record<string, unknown>
+  agents: { name: string | null, output: unknown, error: string | null }[]
+  error: string | null
+}
+
 export interface AvailableExecution {
   execution_id: number
   experiment_id: number
