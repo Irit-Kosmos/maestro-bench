@@ -147,6 +147,7 @@ async function handleCreateExperiment() {
 
 <template>
   <BasePageContent
+    fill
     :loading="pending"
   >
     <template #before-content>
@@ -163,8 +164,9 @@ async function handleCreateExperiment() {
     </template>
 
     <!-- Experiments Table -->
-    <div v-if="experiments && experiments.length > 0">
+    <div v-if="experiments && experiments.length > 0" class="flex flex-col flex-1 min-h-0">
       <BaseDataTable
+        fill
         :data="visibleExperiments"
         :total-count="experiments.length"
         :columns="columns"
