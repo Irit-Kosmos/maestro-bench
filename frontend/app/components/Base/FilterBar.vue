@@ -46,6 +46,8 @@ const activeDefinitions = computed(() => props.definitions.filter(definition => 
 const panelKey = ref(props.definitions[0]?.key)
 const panelDefinition = computed(() => props.definitions.find(definition => definition.key === panelKey.value) ?? props.definitions[0]!)
 
+const { containerEl: pickerEl, listEl: tabListEl, select: showPanel, onEnter: hoverTab, onMove: moveInTabs, onLeave: leaveTabs } = useSafeTriangle(panelKey)
+
 function operator(definition: FilterDefinition) {
   const entry = entryFor(definition.key)
   return modeLabel(effectiveMode(entry), entry.values.length)
@@ -90,8 +92,15 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
       />
 
       <template #content>
-        <div class="flex items-stretch">
-          <div role="tablist" aria-orientation="vertical" class="flex w-36 shrink-0 flex-col border-e border-default p-1">
+        <div ref="pickerEl" class="flex items-stretch">
+          <div
+            ref="tabListEl"
+            role="tablist"
+            aria-orientation="vertical"
+            class="flex w-36 shrink-0 flex-col border-e border-default p-1"
+            @pointermove="moveInTabs"
+            @pointerleave="leaveTabs"
+          >
             <button
               v-for="definition in definitions"
               :key="definition.key"
@@ -100,9 +109,9 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
               :aria-selected="panelDefinition.key === definition.key"
               class="flex h-7 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-left text-xs outline-none focus-visible:bg-elevated"
               :class="panelDefinition.key === definition.key ? 'bg-elevated text-highlighted' : 'text-muted'"
-              @pointerenter="panelKey = definition.key"
-              @focus="panelKey = definition.key"
-              @click="panelKey = definition.key"
+              @pointerenter="hoverTab(definition.key, $event)"
+              @focus="showPanel(definition.key)"
+              @click="showPanel(definition.key)"
             >
               <UIcon :name="definition.icon" class="size-3.5 shrink-0" aria-hidden="true" />
               <span class="flex-1 truncate">{{ definition.label }}</span>
