@@ -204,14 +204,14 @@ function formatCost(cost: number | null) {
           <dt class="text-xs text-muted">
             {{ axis.title }}
           </dt>
-          <dd v-if="axis.providerGroups.length" class="mt-0.5 flex flex-col gap-0.5 text-sm text-highlighted">
+          <dd v-if="axis.providerGroups.length" class="mt-1.5 flex flex-col gap-0.5 text-sm text-highlighted">
             <span v-for="group in axis.providerGroups" :key="group.key" class="inline-flex items-center gap-1.5">
               <UIProviderIcon v-if="group.key" :provider="group.key" />
               <span v-if="group.label" class="text-muted">{{ group.label }}</span>
               {{ group.names.join(', ') }}
             </span>
           </dd>
-          <dd v-else class="mt-0.5 text-sm text-highlighted">
+          <dd v-else class="mt-1.5 text-sm text-highlighted">
             {{ axis.values.join(', ') }}
           </dd>
         </div>
