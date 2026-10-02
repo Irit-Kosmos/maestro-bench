@@ -72,6 +72,14 @@ const analyzeLink = computed(() => analyzableExecutions.value.length > 0 && expe
   ? { path: '/analyses/new', query: { executions: analyzableExecutions.value.map(e => e.id).join(','), name: experiment.value.name } }
   : undefined)
 
+// The agents as the ordered list they were set up in, or wired as a graph. Only a sequence has a graph to show.
+const agentsView = ref<'list' | 'graph'>('list')
+const canShowGraph = computed(() => (latestExecution.value?.agent_executions.length ?? 0) > 1)
+const agentsViewOptions = [
+  { value: 'list', label: 'List', icon: 'i-lucide-list-ordered' },
+  { value: 'graph', label: 'Graph', icon: 'i-lucide-git-branch' },
+] as const
+
 // Parse dataset snapshot
 const datasetInfo = computed(() => {
   if (!latestExecution.value)
@@ -375,10 +383,35 @@ watch(() => route.params.id, () => {
           :count="latestExecution?.agent_executions.length ?? 0"
           :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
         >
-          <ExperimentsExecutionAgents
-            v-if="latestExecution && latestExecution.agent_executions.length > 0"
-            :agents="latestExecution.agent_executions"
-          />
+          <template v-if="canShowGraph" #actions>
+            <!-- Concentric radii: 8px outer, 2px padding, 6px inner -->
+            <div role="group" aria-label="View" class="inline-flex rounded-lg border border-default p-0.5">
+              <UButton
+                v-for="option in agentsViewOptions"
+                :key="option.value"
+                size="xs"
+                :variant="agentsView === option.value ? 'soft' : 'ghost'"
+                :color="agentsView === option.value ? 'primary' : 'neutral'"
+                :icon="option.icon"
+                class="rounded-md"
+                :aria-pressed="agentsView === option.value"
+                @click="() => { agentsView = option.value }"
+              >
+                {{ option.label }}
+              </UButton>
+            </div>
+          </template>
+
+          <template v-if="latestExecution && latestExecution.agent_executions.length > 0">
+            <ExperimentsExecutionAgentsGraph
+              v-if="canShowGraph && agentsView === 'graph'"
+              :agents="latestExecution.agent_executions"
+            />
+            <ExperimentsExecutionAgents
+              v-else
+              :agents="latestExecution.agent_executions"
+            />
+          </template>
           <BaseEmptyState
             v-else
             icon="i-lucide-bot"
