@@ -43,8 +43,8 @@ const prompts = computed(() => [
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="@container flex flex-col gap-4">
+    <dl class="flex flex-wrap gap-x-8 gap-y-3">
       <div class="min-w-0">
         <dt class="text-xs text-muted">
           Prompt

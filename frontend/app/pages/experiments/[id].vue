@@ -230,16 +230,23 @@ const duration = computed(() => {
   return formatDuration(averageDuration)
 })
 
-// Newest first, with what each run took
+const completedCount = computed(() => executions.value.filter(e => e.status === 'completed').length)
+
+const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
+
+// Newest first, with what each run took on one line
 const executionRows = computed(() => [...executions.value]
   .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-  .map(execution => ({
-    execution,
-    startedLabel: parseApiDate(execution.started_at).toLocaleString(),
-    durationLabel: execution.completed_at
-      ? formatDuration((parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000)
-      : null,
-  })))
+  .map((execution) => {
+    const parts = [parseApiDate(execution.started_at).toLocaleString()]
+    if (execution.completed_at)
+      parts.push(formatDuration((parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000))
+    if (execution.total_tokens)
+      parts.push(`${execution.total_tokens.toLocaleString()} tokens`)
+    if (execution.total_cost_usd)
+      parts.push(`$${execution.total_cost_usd.toFixed(4)}`)
+    return { execution, detail: parts.join(' · ') }
+  }))
 
 // Lifecycle
 onMounted(() => {
@@ -258,7 +265,7 @@ watch(() => route.params.id, () => {
     <BaseLoadingState v-if="loading" />
 
     <!-- Experiment Details -->
-    <div v-else-if="experiment" class="mx-auto flex max-w-5xl flex-col gap-8">
+    <div v-else-if="experiment" class="@container flex max-w-[96rem] flex-col gap-6">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
         <UTooltip text="Run this setup with other models, prompts or temperatures">
@@ -307,182 +314,182 @@ watch(() => route.params.id, () => {
         </UButton>
       </AppPageActions>
 
-      <div>
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 class="text-xl font-semibold text-highlighted text-balance">
-            {{ experiment.name }}
+      <!-- Title and figures share the top: the figures sit right of the title when there is room -->
+      <header class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+        <div class="min-w-0 flex-1 basis-80">
+          <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
+            <UIStatusIcon :status="experiment.status" size="size-5" tooltip />
+            <span class="min-w-0 text-balance">{{ experiment.name }}</span>
           </h1>
-          <UIStatusBadge v-if="experiment.status" :status="experiment.status" />
-        </div>
-        <p class="mt-0.5 text-sm text-muted tabular-nums">
-          Experiment #{{ experiment.id }} · Created {{ formatDate(experiment.created_at) }}
-        </p>
-        <p v-if="experiment.batch_id" class="mt-1 text-sm text-muted">
-          Part of batch
-          <NuxtLink :to="`/batches/${experiment.batch_id}`" class="text-toned underline-offset-2 hover:underline">
-            {{ experiment.batch_name }}
-          </NuxtLink>
-        </p>
-        <p v-if="experiment.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
-          {{ experiment.description }}
-        </p>
-      </div>
-
-      <!-- Figures: a plain row that wraps, so any number of them lines up -->
-      <dl class="flex flex-wrap gap-x-10 gap-y-4">
-        <div>
-          <dt class="text-xs text-muted">
-            Rows
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            <UIRowCount :rows="latestExecution?.row_count ?? experiment.row_count" />
-          </dd>
-          <p class="text-xs text-muted">
-            {{ samplingLabel }}
+          <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
+          <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+            <UIMetaItem icon="i-lucide-hash" label="Experiment" class="tabular-nums">
+              {{ experiment.id }}
+            </UIMetaItem>
+            <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+              {{ formatDate(experiment.created_at) }}
+            </UIMetaItem>
+            <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
+              <NuxtLink :to="`/batches/${experiment.batch_id}`" class="truncate text-toned underline-offset-2 hover:text-highlighted hover:underline">
+                {{ experiment.batch_name }}
+              </NuxtLink>
+            </UIMetaItem>
+          </div>
+          <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
+            {{ experiment.description }}
           </p>
         </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Agents
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ latestExecution?.agent_executions?.length || 0 }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Executions
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ executions.length }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-xs text-muted">
-            Duration
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ duration }}
-          </dd>
-          <p v-if="executions.filter(e => e.status === 'completed').length > 1" class="text-xs text-muted">
-            Average of {{ executions.filter(e => e.status === 'completed').length }}
-          </p>
-        </div>
-        <div v-if="latestExecution?.total_tokens">
-          <dt class="text-xs text-muted">
-            Tokens
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            {{ latestExecution.total_tokens.toLocaleString() }}
-          </dd>
-        </div>
-        <div v-if="latestExecution?.total_cost_usd !== undefined && latestExecution?.total_cost_usd !== null">
-          <dt class="text-xs text-muted">
-            Cost
-          </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-highlighted tabular-nums">
-            ${{ latestExecution.total_cost_usd.toFixed(4) }}
-          </dd>
-        </div>
-      </dl>
 
-      <ExperimentsSection
-        id="agents"
-        title="Agents"
-        :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
-      >
-        <ExperimentsExecutionAgents
-          v-if="latestExecution && latestExecution.agent_executions.length > 0"
-          :agents="latestExecution.agent_executions"
-        />
-        <BaseEmptyState
-          v-else
-          icon="i-lucide-bot"
-          title="No configuration recorded"
-          message="This experiment has no execution yet."
-        />
-      </ExperimentsSection>
-
-      <ExperimentsSection id="dataset" title="Dataset">
-        <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+        <dl class="flex flex-wrap gap-x-8 gap-y-3">
           <div>
             <dt class="text-xs text-muted">
-              Name
+              Rows
             </dt>
-            <dd class="mt-0.5 text-sm text-highlighted">
-              {{ datasetInfo?.name || experiment.dataset?.name || 'Unknown' }}
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              <UIRowCount :rows="latestExecution?.row_count ?? experiment.row_count" />
             </dd>
           </div>
           <div>
             <dt class="text-xs text-muted">
-              Rows used
+              Agents
             </dt>
-            <dd class="mt-0.5 text-sm text-highlighted">
-              {{ samplingLabel }}
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              {{ latestExecution?.agent_executions?.length || 0 }}
             </dd>
           </div>
-          <div v-if="datasetInfo?.description" class="sm:col-span-2">
+          <div>
             <dt class="text-xs text-muted">
-              Description
+              Executions
             </dt>
-            <dd class="mt-0.5 text-sm text-toned text-pretty">
-              {{ datasetInfo.description }}
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              {{ executions.length }}
             </dd>
           </div>
-          <div v-if="datasetInfo?.file_path" class="sm:col-span-2">
+          <div>
             <dt class="text-xs text-muted">
-              File
+              {{ completedCount > 1 ? 'Avg duration' : 'Duration' }}
             </dt>
-            <dd class="mt-0.5 break-all font-mono text-xs text-toned">
-              {{ datasetInfo.file_path }}
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              {{ duration }}
+            </dd>
+          </div>
+          <div v-if="latestExecution?.total_tokens">
+            <dt class="text-xs text-muted">
+              Tokens
+            </dt>
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              {{ latestExecution.total_tokens.toLocaleString() }}
+            </dd>
+          </div>
+          <div v-if="latestExecution?.total_cost_usd !== undefined && latestExecution?.total_cost_usd !== null">
+            <dt class="text-xs text-muted">
+              Cost
+            </dt>
+            <dd class="text-base font-semibold text-highlighted tabular-nums">
+              ${{ latestExecution.total_cost_usd.toFixed(4) }}
             </dd>
           </div>
         </dl>
-      </ExperimentsSection>
+      </header>
 
-      <ExperimentsSection v-if="executionRows.length > 0" id="executions" title="Executions">
-        <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
-          <li
-            v-for="row in executionRows"
-            :key="row.execution.id"
-            class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
-          >
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-sm font-medium text-highlighted tabular-nums">Execution #{{ row.execution.id }}</span>
-                <UIStatusBadge :status="row.execution.status" size="xs" />
-                <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+      <!-- Agents take the wide column; dataset and executions are short and stack beside them -->
+      <div class="grid gap-x-10 gap-y-6 @4xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <ExperimentsSection
+          id="agents"
+          title="Agents"
+          :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
+        >
+          <ExperimentsExecutionAgents
+            v-if="latestExecution && latestExecution.agent_executions.length > 0"
+            :agents="latestExecution.agent_executions"
+          />
+          <BaseEmptyState
+            v-else
+            icon="i-lucide-bot"
+            title="No configuration recorded"
+            message="This experiment has no execution yet."
+          />
+        </ExperimentsSection>
+
+        <div class="flex min-w-0 flex-col gap-5">
+          <ExperimentsSection id="dataset" title="Dataset" compact>
+            <dl class="flex flex-col gap-2.5">
+              <div class="flex items-baseline justify-between gap-4">
+                <dt class="shrink-0 text-xs text-muted">
+                  Name
+                </dt>
+                <dd class="min-w-0 truncate text-sm text-highlighted" :title="datasetName">
+                  <NuxtLink
+                    v-if="experiment.dataset_id"
+                    :to="`/datasets/${experiment.dataset_id}`"
+                    class="underline-offset-2 hover:underline"
+                  >
+                    {{ datasetName }}
+                  </NuxtLink>
+                  <template v-else>
+                    {{ datasetName }}
+                  </template>
+                </dd>
               </div>
-              <p class="mt-0.5 text-xs text-muted tabular-nums">
-                Started {{ row.startedLabel }}<template v-if="row.durationLabel">
-                  · took {{ row.durationLabel }}
-                </template>
-              </p>
-            </div>
-            <p v-if="row.execution.total_tokens || row.execution.total_cost_usd" class="text-xs text-muted tabular-nums">
-              <template v-if="row.execution.total_tokens">
-                {{ row.execution.total_tokens.toLocaleString() }} tokens
-              </template>
-              <template v-if="row.execution.total_tokens && row.execution.total_cost_usd">
-                ·
-              </template>
-              <template v-if="row.execution.total_cost_usd">
-                ${{ row.execution.total_cost_usd.toFixed(4) }}
-              </template>
-            </p>
-            <UButton
-              v-if="row.execution.results_file_path"
-              variant="ghost"
-              color="neutral"
-              icon="i-lucide-download"
-              size="sm"
-              @click="() => { downloadResultsFile(row.execution.id) }"
-            >
-              Results
-            </UButton>
-          </li>
-        </ul>
-      </ExperimentsSection>
+              <div class="flex items-baseline justify-between gap-4">
+                <dt class="shrink-0 text-xs text-muted">
+                  Rows used
+                </dt>
+                <dd class="text-sm text-highlighted tabular-nums">
+                  {{ samplingLabel }}
+                </dd>
+              </div>
+              <div v-if="datasetInfo?.file_path" class="flex items-baseline justify-between gap-4">
+                <dt class="shrink-0 text-xs text-muted">
+                  File
+                </dt>
+                <dd class="min-w-0 truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">
+                  {{ datasetInfo.file_path }}
+                </dd>
+              </div>
+              <div v-if="datasetInfo?.description">
+                <dt class="sr-only">
+                  Description
+                </dt>
+                <dd class="line-clamp-2 text-xs text-muted text-pretty" :title="datasetInfo.description">
+                  {{ datasetInfo.description }}
+                </dd>
+              </div>
+            </dl>
+          </ExperimentsSection>
+
+          <ExperimentsSection v-if="executionRows.length > 0" id="executions" title="Executions" compact>
+            <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+              <li
+                v-for="row in executionRows"
+                :key="row.execution.id"
+                class="flex items-center gap-2 py-2 pl-3 pr-2"
+              >
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
+                    <UIStatusBadge :status="row.execution.status" />
+                    <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+                  </div>
+                  <p class="mt-0.5 truncate text-xs text-muted tabular-nums" :title="row.detail">
+                    {{ row.detail }}
+                  </p>
+                </div>
+                <UTooltip v-if="row.execution.results_file_path" text="Download results">
+                  <UButton
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-lucide-download"
+                    size="sm"
+                    :aria-label="`Download results of execution #${row.execution.id}`"
+                    @click="() => { downloadResultsFile(row.execution.id) }"
+                  />
+                </UTooltip>
+              </li>
+            </ul>
+          </ExperimentsSection>
+        </div>
+      </div>
     </div>
 
     <!-- Error State -->
