@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Analysis } from '~/types'
-import type { FilterSpec } from '~/utils/filters'
-import { dateFilter, tagsFilter } from '~/utils/filterSpecs'
+import type { FilterSpec, FilterState } from '~/utils/filters'
+import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Analyses',
@@ -67,6 +67,9 @@ const filters: FilterSpec<Analysis>[] = [
   dateFilter(analysis => analysis.updated_at, 'Updated'),
 ]
 
+// Clicking a tag in a row filters the list on it
+const filterState = ref<FilterState>({})
+
 const actions = [
   {
     label: 'Open',
@@ -106,7 +109,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePageContent :loading="pending">
+  <BasePageContent :loading="pending && !analyses">
     <template #before-content>
       <UTooltip text="New analysis" :kbds="['C']">
         <UButton
@@ -123,6 +126,7 @@ async function confirmDelete() {
 
     <div v-if="analyses && analyses.length > 0">
       <BaseDataTable
+        v-model:filter-state="filterState"
         :data="[...(analyses || [])]"
         :columns="columns"
         :filters="filters"
@@ -132,10 +136,15 @@ async function confirmDelete() {
         item-name="analysis"
         item-name-plural="analyses"
         searchable
+        selectable
         @refresh="refresh"
       >
+        <template #selection-actions="{ rows }">
+          <TagsBulkMenu kind="analysis" :rows="rows" @changed="refresh" />
+        </template>
+
         <template #tags-cell="{ row }">
-          <TagsList :tags="row.original.tags" />
+          <TagsList :tags="row.original.tags" selectable @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
         </template>
 
         <template #updated_at-cell="{ row }">

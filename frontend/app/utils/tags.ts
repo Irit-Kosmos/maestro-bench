@@ -54,3 +54,13 @@ export function nextTagColor(tags: readonly Pick<Tag, 'color'>[]): TagColor {
   const colors = TAG_COLORS.filter(color => color !== 'gray')
   return [...colors, 'gray' as const].reduce((best, color) => (used.get(color) ?? 0) < (used.get(best) ?? 0) ? color : best)
 }
+
+/** How many of the items carry each tag, by tag id. */
+export function tagCoverage(items: readonly { tags: readonly Pick<Tag, 'id'>[] }[]): Map<number, number> {
+  const counts = new Map<number, number>()
+  for (const item of items) {
+    for (const tag of item.tags)
+      counts.set(tag.id, (counts.get(tag.id) ?? 0) + 1)
+  }
+  return counts
+}

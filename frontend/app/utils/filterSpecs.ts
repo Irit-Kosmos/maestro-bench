@@ -1,6 +1,6 @@
-import type { FilterSpec } from './filters'
+import type { FilterSpec, FilterState } from './filters'
 import type { Tag } from '~/types'
-import { byOrder } from './filters'
+import { byOrder, emptyFilterEntry } from './filters'
 import { tagDot } from './tags'
 import { parseApiDate } from './utils'
 
@@ -146,12 +146,14 @@ export function failuresFilter<T>(rowsFailed: (item: T) => number | null | undef
   }
 }
 
+const TAGS_KEY = 'tags'
+
 /** The tags an item carries, picked by name. An item can carry several, so "is all of" is offered. */
 export function tagsFilter<T>(tags: (item: T) => readonly Tag[] | null | undefined): FilterSpec<T> {
   // The colour of each tag, learnt from the items as the filter reads them
   const colors = new Map<string, string>()
   return {
-    key: 'tags',
+    key: TAGS_KEY,
     label: 'Tags',
     icon: 'i-lucide-tag',
     plural: 'tags',
@@ -165,4 +167,11 @@ export function tagsFilter<T>(tags: (item: T) => readonly Tag[] | null | undefin
     },
     present: value => ({ label: String(value), dot: tagDot(colors.get(String(value)) ?? 'gray') }),
   }
+}
+
+/** What clicking a tag in a list does: filter on that tag alone, or lift the filter when it already is the only one. */
+export function filterByTag(state: FilterState, name: string): FilterState {
+  const current = state[TAGS_KEY]
+  const alone = current?.values.length === 1 && current.values[0] === name
+  return { ...state, [TAGS_KEY]: alone ? emptyFilterEntry() : { mode: 'include', values: [name] } }
 }

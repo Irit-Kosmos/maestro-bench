@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Prompt } from '~/types'
-import type { FilterSpec } from '~/utils/filters'
-import { dateFilter, tagsFilter } from '~/utils/filterSpecs'
+import type { FilterSpec, FilterState } from '~/utils/filters'
+import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
 interface Props {
   data: Prompt[]
@@ -23,10 +23,6 @@ const columns = [
     label: 'Prompt',
   },
   {
-    key: 'category',
-    label: 'Category',
-  },
-  {
     key: 'tags',
     label: 'Tags',
     // What the search reads; the cell below shows the chips
@@ -43,21 +39,17 @@ const columns = [
 ]
 
 const filters: FilterSpec<Prompt>[] = [
-  {
-    key: 'category',
-    label: 'Category',
-    icon: 'i-lucide-tag',
-    plural: 'categories',
-    searchPlaceholder: 'Search a category…',
-    value: prompt => prompt.category,
-  },
   tagsFilter<Prompt>(prompt => prompt.tags),
   dateFilter(prompt => prompt.created_at),
 ]
+
+// Clicking a tag in a row filters the list on it
+const filterState = ref<FilterState>({})
 </script>
 
 <template>
   <BaseDataTable
+    v-model:filter-state="filterState"
     :data="data"
     :columns="columns"
     :filters="filters"
@@ -65,22 +57,15 @@ const filters: FilterSpec<Prompt>[] = [
     :row-to="(prompt: Prompt) => `/prompts/${prompt.id}`"
     item-name="prompt"
     searchable
+    selectable
     @refresh="emit('refresh')"
   >
-    <!-- Custom cell for category -->
-    <template #category-cell="{ row }">
-      <UBadge
-        v-if="row.original.category"
-        color="neutral"
-        variant="soft"
-      >
-        {{ row.original.category }}
-      </UBadge>
-      <span v-else class="text-dimmed text-sm">—</span>
+    <template #selection-actions="{ rows }">
+      <TagsBulkMenu kind="prompt" :rows="rows" @changed="emit('refresh')" />
     </template>
 
     <template #tags-cell="{ row }">
-      <TagsList :tags="row.original.tags" />
+      <TagsList :tags="row.original.tags" selectable @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
     </template>
 
     <!-- Custom cell for created_at -->

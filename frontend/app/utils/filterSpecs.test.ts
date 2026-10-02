@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFilterDefinitions, matchesSpecs } from './filters'
-import { dateFilter, dateRanges, failuresFilter, runsFilter, statusFilter } from './filterSpecs'
+import { dateFilter, dateRanges, failuresFilter, filterByTag, runsFilter, statusFilter, tagsFilter } from './filterSpecs'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const HOUR = 60 * 60 * 1000
@@ -104,5 +104,38 @@ describe('failuresFilter', () => {
     const items = [{ failed: 3 }, { failed: 0 }]
     const state = { [spec.key]: { mode: 'include' as const, values: ['failed'] } }
     expect(items.filter(item => matchesSpecs(item, [spec], state))).toEqual([items[0]])
+  })
+})
+
+describe('tagsFilter', () => {
+  interface Item { tags: { id: number, name: string, color: 'red' | 'blue' }[] }
+  const red = { id: 1, name: 'extraction', color: 'red' as const }
+  const blue = { id: 2, name: 'paper', color: 'blue' as const }
+  const items: Item[] = [{ tags: [red, blue] }, { tags: [blue] }, { tags: [] }]
+  const spec = tagsFilter<Item>(item => item.tags)
+
+  it('offers the tags that exist, with their colour and how many items carry them', () => {
+    const [definition] = buildFilterDefinitions(items, [spec])
+    expect(definition!.options.map(option => [option.label, option.count])).toEqual([['extraction', 1], ['paper', 2]])
+    expect(definition!.options.every(option => option.dot?.startsWith('bg-'))).toBe(true)
+  })
+
+  it('keeps the items carrying any, or every, picked tag', () => {
+    const pick = (mode: 'include' | 'all') => items.filter(item => matchesSpecs(item, [spec], { tags: { mode, values: ['extraction', 'paper'] } }))
+    expect(pick('include')).toHaveLength(2)
+    expect(pick('all')).toEqual([items[0]])
+  })
+})
+
+describe('filterByTag', () => {
+  it('filters on that tag alone, whatever was picked before', () => {
+    const state = filterByTag({ tags: { mode: 'all', values: ['a', 'b'] }, status: { mode: 'include', values: ['failed'] } }, 'c')
+    expect(state.tags).toEqual({ mode: 'include', values: ['c'] })
+    expect(state.status).toEqual({ mode: 'include', values: ['failed'] })
+  })
+
+  it('lifts the filter when that tag is already the only one', () => {
+    const once = filterByTag({}, 'a')
+    expect(filterByTag(once, 'a').tags).toEqual({ mode: 'include', values: [] })
   })
 })

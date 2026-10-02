@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findTag, matchTags, nextTagColor, normalizeTagName, TAG_COLORS, tagDot } from './tags'
+import { findTag, matchTags, nextTagColor, normalizeTagName, TAG_COLORS, tagCoverage, tagDot } from './tags'
 
 const tag = (name: string, color: any = 'gray') => ({ name, color })
 
@@ -65,5 +65,16 @@ describe('tagDot', () => {
 
   it('falls back to gray for an unknown colour', () => {
     expect(tagDot('chartreuse')).toBe(tagDot('gray'))
+  })
+})
+
+describe('tagCoverage', () => {
+  it('counts the items carrying each tag', () => {
+    const items = [{ tags: [{ id: 1 }, { id: 2 }] }, { tags: [{ id: 2 }] }, { tags: [] }]
+    expect([...tagCoverage(items)]).toEqual([[1, 1], [2, 2]])
+  })
+
+  it('has nothing for no items', () => {
+    expect(tagCoverage([]).size).toBe(0)
   })
 })

@@ -31,5 +31,11 @@ export function useTags() {
     await refresh()
   }
 
-  return { tags, pending, refreshTags: refresh, createTag, updateTag, deleteTag }
+  /** Put tags on several items and take tags off them, leaving the rest of their tags be. */
+  async function assignTags(kind: 'prompt' | 'analysis', itemIds: number[], change: { add?: number[], remove?: number[] }) {
+    await $api('/tags/assign', { method: 'POST', body: { kind, item_ids: itemIds, add: change.add ?? [], remove: change.remove ?? [] } })
+    await refresh()
+  }
+
+  return { tags, pending, refreshTags: refresh, createTag, updateTag, deleteTag, assignTags }
 }
