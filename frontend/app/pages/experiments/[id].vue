@@ -7,7 +7,7 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
 const toast = useToast()
-const { fetchExperiment, deleteExperiment, rerunExperiment } = useExperiments()
+const { fetchExperiment, deleteExperiment, rerunExperiment, cancelExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
@@ -20,6 +20,7 @@ const loading = ref(true)
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
 const isRerunning = ref(false)
+const isCancelling = ref(false)
 
 // Computed
 const liveRun = computed(() => runOf(experimentId.value))
@@ -62,12 +63,14 @@ const latestExecution = computed(() => {
   )[0]
 })
 
-// Latest execution that produced results, for the Analyze shortcut
-const latestCompletedExecution = computed(() => {
-  return [...executions.value]
-    .filter(e => e.status === 'completed' && e.results_file_path)
-    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0] ?? null
-})
+// Executions that produced results, oldest first, for the Analyze shortcut
+const analyzableExecutions = computed(() => [...executions.value]
+  .filter(e => e.status === 'completed' && e.results_file_path)
+  .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()))
+
+const analyzeLink = computed(() => analyzableExecutions.value.length > 0 && experiment.value
+  ? { path: '/analyses/new', query: { executions: analyzableExecutions.value.map(e => e.id).join(','), name: experiment.value.name } }
+  : undefined)
 
 // Parse dataset snapshot
 const datasetInfo = computed(() => {
@@ -208,6 +211,25 @@ async function handleRerunExperiment() {
   }
 }
 
+async function handleCancelExperiment() {
+  if (!experiment.value)
+    return
+
+  isCancelling.value = true
+  const result = await cancelExperiment(experiment.value.id)
+  isCancelling.value = false
+
+  if (!result.success) {
+    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-lucide:alert-circle' })
+    return
+  }
+  if (result.data.cancelled)
+    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-lucide:check-circle' })
+  else
+    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-lucide:info' })
+  await loadExperiment()
+}
+
 const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
 
 // Rows the run processed; before any run, what the sampling asks for
@@ -271,27 +293,39 @@ watch(() => route.params.id, () => {
             Vary
           </UButton>
         </UTooltip>
-        <UTooltip text="Create a new execution with the same configuration">
+        <UTooltip v-if="status === 'running'" text="Stop the run in progress">
+          <UButton
+            variant="soft"
+            color="error"
+            icon="i-lucide-square"
+            size="sm"
+            :loading="isCancelling"
+            @click="handleCancelExperiment"
+          >
+            Cancel run
+          </UButton>
+        </UTooltip>
+        <UTooltip v-else text="Create a new execution with the same configuration">
           <UButton
             variant="soft"
             color="neutral"
             icon="i-lucide-play"
             size="sm"
             :loading="isRerunning"
-            :disabled="!experiment || status === 'running'"
+            :disabled="!experiment"
             @click="handleRerunExperiment"
           >
-            {{ status === 'running' ? 'Running…' : 'Re-run' }}
+            Re-run
           </UButton>
         </UTooltip>
-        <UTooltip :text="latestCompletedExecution ? 'Compare this execution to a ground-truth column' : 'Available once an execution has completed'">
+        <UTooltip :text="analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'">
           <UButton
             color="neutral"
             variant="soft"
             icon="i-lucide-chart-column"
             size="sm"
-            :disabled="!latestCompletedExecution"
-            :to="latestCompletedExecution ? { path: '/analyses/new', query: { execution: latestCompletedExecution.id, name: experiment.name } } : undefined"
+            :disabled="!analyzeLink"
+            :to="analyzeLink"
           >
             Analyze
           </UButton>
