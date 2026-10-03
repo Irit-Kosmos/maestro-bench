@@ -12,7 +12,6 @@ interface Props {
     prompt?: {
       name?: string
       description?: string | null
-      category?: string | null
     }
   }
   showHeader?: boolean
@@ -100,7 +99,6 @@ const variableNames = computed(() => parseVariables(props.promptVersion.variable
     <PromptMetadata
       v-if="showMetadata"
       :created-at="promptVersion.created_at"
-      :category="promptVersion.prompt?.category"
       :prompt-name="promptVersion.prompt?.name"
     />
   </div>

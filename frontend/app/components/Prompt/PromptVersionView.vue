@@ -42,19 +42,19 @@ const baseItems = computed<DropdownMenuItem[][]>(() => [
 ])
 
 // The two ways to read a version; the same segmented control style as a pill, instant on purpose
-const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50'
+const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inverted disabled:pointer-events-none disabled:opacity-50'
 
 const menuItems = computed<DropdownMenuItem[][]>(() => [
   [
-    { label: 'Set as default', icon: 'i-lucide-star', disabled: props.version.is_default, onSelect: () => emit('setDefault') },
+    { label: 'Set as default', icon: 'i-ph-star-bold', disabled: props.version.is_default, onSelect: () => emit('setDefault') },
     {
       label: props.version.is_active ? 'Deactivate' : 'Activate',
-      icon: 'i-lucide-power',
+      icon: 'i-ph-power-bold',
       onSelect: () => emit('toggleActive'),
     },
   ],
   [
-    { label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => emit('delete') },
+    { label: 'Delete', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => emit('delete') },
   ],
 ])
 </script>
@@ -98,13 +98,13 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
             </template>
           </UTooltip>
         </div>
-        <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-pencil" @click="emit('edit')">
+        <UButton color="neutral" variant="soft" size="sm" icon="i-ph-pencil-simple-bold" @click="emit('edit')">
           Edit
           <UKbd value="e" size="sm" />
         </UButton>
         <UDropdownMenu :items="menuItems" :content="{ align: 'end' }">
           <UButton
-            icon="i-lucide-ellipsis"
+            icon="i-ph-dots-three-bold"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -124,7 +124,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
           color="neutral"
           variant="outline"
           size="xs"
-          trailing-icon="i-lucide-chevrons-up-down"
+          trailing-icon="i-ph-caret-up-down-bold"
           :label="base?.version ?? 'Pick a version'"
         />
       </UDropdownMenu>
@@ -156,7 +156,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
         This version has no prompt text yet.
         <button
           type="button"
-          class="rounded-sm text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+          class="rounded-sm text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
           @click="emit('edit')"
         >
           Write one

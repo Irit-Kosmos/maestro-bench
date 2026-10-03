@@ -34,6 +34,18 @@ const selectedAgent = ref<Agent | null>(null)
 // Rows currently expanded into their editor
 const openAgentIds = ref(new Set<number>())
 
+// A link such as /agents?agent=<id> opens that agent's editor and brings it into view, once the list is there
+const route = useRoute()
+const agentFromLink = Number(route.query.agent) || undefined
+if (agentFromLink)
+  openAgentIds.value = new Set([agentFromLink])
+const stopLinkScroll = watch(agents, (list) => {
+  if (!agentFromLink || !list?.some(agent => agent.id === agentFromLink))
+    return
+  nextTick(() => document.getElementById(`agent-${agentFromLink}`)?.scrollIntoView({ block: 'center' }))
+  stopLinkScroll()
+}, { immediate: true })
+
 function isOpen(id: number) {
   return openAgentIds.value.has(id)
 }
@@ -70,7 +82,7 @@ async function handleCreateTeam(data: any) {
       title: 'Success',
       description: 'Team created successfully',
       color: 'success',
-      icon: 'i-lucide:check',
+      icon: 'i-ph:check-bold',
     })
     await refreshTeams()
   }
@@ -79,7 +91,7 @@ async function handleCreateTeam(data: any) {
       title: 'Error',
       description: result.error || 'Failed to create team',
       color: 'error',
-      icon: 'i-lucide:x',
+      icon: 'i-ph:x-bold',
     })
   }
 }
@@ -91,7 +103,7 @@ async function handleCreateAgent(data: any) {
       title: 'Success',
       description: 'Agent created successfully',
       color: 'success',
-      icon: 'i-lucide:check',
+      icon: 'i-ph:check-bold',
     })
     await refreshAll()
   }
@@ -100,7 +112,7 @@ async function handleCreateAgent(data: any) {
       title: 'Error',
       description: result.error || 'Failed to create agent',
       color: 'error',
-      icon: 'i-lucide:x',
+      icon: 'i-ph:x-bold',
     })
   }
 }
@@ -112,7 +124,7 @@ async function handleDeleteAgent(agentId: number) {
       title: 'Success',
       description: 'Agent deleted successfully',
       color: 'success',
-      icon: 'i-lucide:check',
+      icon: 'i-ph:check-bold',
     })
     showDeleteAgentModal.value = false
     setOpen(agentId, false)
@@ -123,7 +135,7 @@ async function handleDeleteAgent(agentId: number) {
       title: 'Error',
       description: result.error || 'Failed to delete agent',
       color: 'error',
-      icon: 'i-lucide:x',
+      icon: 'i-ph:x-bold',
     })
   }
 }
@@ -137,7 +149,7 @@ async function handleDeleteAgent(agentId: number) {
       <UButton
         variant="soft"
         color="neutral"
-        icon="i-lucide-users-round"
+        icon="i-ph-users-three-bold"
         size="sm"
         @click="() => { showCreateTeamModal = true }"
       >
@@ -146,7 +158,7 @@ async function handleDeleteAgent(agentId: number) {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="() => { showCreateAgentModal = true }"
       >
@@ -156,7 +168,7 @@ async function handleDeleteAgent(agentId: number) {
 
     <BaseEmptyState
       v-if="!agentTeams?.length && !agents?.length"
-      icon="i-lucide-bot"
+      icon="i-ph-robot-bold"
       title="No agents yet"
       message="An agent pairs a prompt version with a model. Agents run together in a team."
       action-label="New team"
@@ -184,7 +196,7 @@ async function handleDeleteAgent(agentId: number) {
         </header>
 
         <ul v-if="team.agents.length" class="overflow-hidden rounded-lg border border-default divide-y divide-default">
-          <li v-for="agent in team.agents" :key="agent.id">
+          <li v-for="agent in team.agents" :id="`agent-${agent.id}`" :key="agent.id">
             <AgentsRow
               :open="isOpen(agent.id)"
               :agent="agent"

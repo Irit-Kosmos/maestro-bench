@@ -250,17 +250,17 @@ async function confirmDelete() {
   }
 }
 
-// Prompt details (name, description, category): rare, so a small modal is enough
+// Prompt details (name, description, tags): rare, so a small modal is enough
 const showEditPromptModal = ref(false)
 const updatingPrompt = ref(false)
-const editPromptData = ref({ name: '', description: '', category: '' })
+const editPromptData = ref({ name: '', description: '', tag_ids: [] as number[] })
 
 watch(prompt, (value) => {
   if (value) {
     editPromptData.value = {
       name: value.name,
       description: value.description || '',
-      category: value.category || '',
+      tag_ids: value.tags.map(tag => tag.id),
     }
   }
 }, { immediate: true })
@@ -343,7 +343,7 @@ onBeforeRouteLeave((to) => {
       <UButton
         variant="soft"
         color="neutral"
-        icon="i-lucide-pencil"
+        icon="i-ph-pencil-simple-bold"
         size="sm"
         @click="() => { showEditPromptModal = true }"
       >
@@ -352,7 +352,7 @@ onBeforeRouteLeave((to) => {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         :disabled="mode === 'create'"
         @click="guard(startCreate)"
@@ -368,7 +368,7 @@ onBeforeRouteLeave((to) => {
         v-else-if="versions.length === 0 && mode !== 'create'"
         title="No versions yet"
         message="Create the first version of this prompt to get started."
-        icon="i-lucide-file-text"
+        icon="i-ph-file-text-bold"
         action-label="New version"
         @action="startCreate"
       />
@@ -425,8 +425,8 @@ onBeforeRouteLeave((to) => {
       <UFormField label="Description">
         <UTextarea v-model="editPromptData.description" placeholder="What this prompt is for" :rows="3" class="w-full" />
       </UFormField>
-      <UFormField label="Category">
-        <UInput v-model="editPromptData.category" placeholder="e.g. evaluation, instruction" autocomplete="off" class="w-full" />
+      <UFormField label="Tags">
+        <TagsInput v-model="editPromptData.tag_ids" />
       </UFormField>
     </BaseCrudModal>
 

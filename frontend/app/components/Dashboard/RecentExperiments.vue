@@ -38,7 +38,7 @@ const head = 'text-xs text-dimmed truncate'
     </div>
 
     <div v-if="loading" class="divide-y divide-default">
-      <div v-for="i in 6" :key="i" class="h-11 px-4 flex items-center gap-3">
+      <div v-for="i in 6" :key="i" class="h-14 px-4 flex items-center gap-3">
         <USkeleton class="size-3.5 rounded-full" />
         <USkeleton class="h-3.5 w-56" />
         <USkeleton class="h-3 w-16 ms-auto" />
@@ -46,33 +46,38 @@ const head = 'text-xs text-dimmed truncate'
     </div>
 
     <ul v-else class="divide-y divide-default">
-      <!-- The name's link stretches over the row; the batch link sits above it -->
+      <!-- An empty link stretches over the row (the name can't be the link: the batch link sits inside it) -->
       <li
         v-for="exp in experiments"
         :key="exp.id"
         class="relative hover:bg-elevated/50"
       >
-        <div class="h-11" :class="[grid]">
+        <NuxtLink
+          :to="`/experiments/${exp.id}`"
+          :aria-label="`Open experiment ${exp.name}`"
+          class="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
+        />
+        <div class="h-14" :class="[grid]">
           <UIStatusIcon :status="exp.status" />
 
-          <div class="flex items-center gap-2 min-w-0">
-            <NuxtLink
-              :to="`/experiments/${exp.id}`"
-              class="min-w-0 truncate text-sm font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
-            >
-              {{ exp.name }}
-            </NuxtLink>
-            <span class="shrink-0 text-xs text-dimmed tabular-nums">#{{ exp.id }}</span>
-            <NuxtLink
-              v-if="exp.batch_id"
-              :to="`/batches/${exp.batch_id}`"
-              :title="`Batch: ${exp.batch_name}`"
-              :aria-label="`Open batch ${exp.batch_name}`"
-              class="relative z-1 shrink-0 rounded text-dimmed outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <UIcon name="i-lucide-split" class="size-3.5 block" aria-hidden="true" />
-            </NuxtLink>
-          </div>
+          <ExperimentsName
+            class="text-sm font-medium text-highlighted"
+            :name="exp.name"
+            :batch-name="exp.batch_name"
+            :hint="`#${exp.id}`"
+            stacked
+          >
+            <template v-if="exp.batch_id" #after>
+              <NuxtLink
+                :to="`/batches/${exp.batch_id}`"
+                :title="`Batch: ${exp.batch_name}`"
+                :aria-label="`Open batch ${exp.batch_name}`"
+                class="relative z-1 shrink-0 self-center rounded text-dimmed outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
+              >
+                <UIcon name="i-ph-arrows-split-bold" class="size-3.5 block" aria-hidden="true" />
+              </NuxtLink>
+            </template>
+          </ExperimentsName>
 
           <span
             class="truncate text-xs text-toned" :class="[show.models]"

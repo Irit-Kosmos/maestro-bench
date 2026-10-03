@@ -27,7 +27,6 @@ class Prompt(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)  # e.g., "Language Evaluator", "Content Scorer"
     description: str | None = None
-    category: str | None = None  # e.g., "evaluation", "generation", "analysis"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
@@ -134,7 +133,9 @@ class Experiment(SQLModel, table=True):
     name: str
     description: str | None = None
     dataset_id: int = Field(foreign_key="dataset.id")
-    status: str = Field(default="pending")  # pending, running, completed, failed
+    status: str = Field(
+        default="pending"
+    )  # pending, running, completed, failed, cancelled
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
@@ -222,6 +223,11 @@ class ExperimentExecution(SQLModel, table=True):
     completed_at: datetime | None = None
     status: str = Field(default="running")  # running, completed, failed, cancelled
 
+    # Live progress, in dataset rows; rows_failed are counted in rows_done
+    rows_total: int | None = None
+    rows_done: int = 0
+    rows_failed: int = 0
+
     # Dataset snapshot at execution time
     dataset_snapshot: str = Field(
         description="JSON snapshot of dataset metadata at execution"
@@ -255,6 +261,9 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     model_provider_snapshot: str = Field(description="Model provider")
     prompt_name_snapshot: str = Field(description="Prompt name used")
     prompt_version_snapshot: str = Field(description="Prompt version used")
+    # Where the prompt lives now, to link back to it; empty on snapshots made before these existed
+    prompt_id: int | None = None
+    prompt_version_id: int | None = None
 
     # Actual configuration used (resolved from defaults + overrides)
     final_system_prompt: str | None = None
@@ -296,3 +305,20 @@ class Analysis(SQLModel, table=True):
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Tag(SQLModel, table=True):
+    """A label shared by every kind of item that can be tagged"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)  # unique ignoring case, enforced by the API
+    color: str = "gray"  # one of tags.TAG_COLORS
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TagLink(SQLModel, table=True):
+    """Puts a tag on an item: `kind` says which table `item_id` belongs to"""
+
+    tag_id: int = Field(foreign_key="tag.id", primary_key=True)
+    kind: str = Field(primary_key=True)  # "prompt" | "analysis"
+    item_id: int = Field(primary_key=True)

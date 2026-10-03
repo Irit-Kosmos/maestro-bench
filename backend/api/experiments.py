@@ -8,6 +8,7 @@ from sqlmodel import Session, col, select
 import async_jobs
 from batch_utils import parse_point
 from db import get_session
+from execution_stats import latest_figures
 from experiment_utils import add_experiment
 from results_files import execution_row_count
 from schemas.experiments import (
@@ -50,14 +51,12 @@ def _build_experiment_response(
             )
         ).all()
 
-    latest_with_results = session.exec(
+    executions = session.exec(
         select(ExperimentExecution)
-        .where(
-            ExperimentExecution.experiment_id == experiment.id,
-            col(ExperimentExecution.results_file_path).is_not(None),
-        )
+        .where(ExperimentExecution.experiment_id == experiment.id)
         .order_by(col(ExperimentExecution.started_at).desc())
-    ).first()
+    ).all()
+    latest_with_results = next((e for e in executions if e.results_file_path), None)
 
     return ExperimentResponse(
         id=int(experiment.id) if experiment.id is not None else 0,
@@ -77,6 +76,7 @@ def _build_experiment_response(
         row_count=execution_row_count(latest_with_results)
         if latest_with_results
         else None,
+        **latest_figures(executions),
         dataset=DatasetResponse(
             id=int(dataset.id) if dataset.id is not None else 0,
             name=dataset.name,

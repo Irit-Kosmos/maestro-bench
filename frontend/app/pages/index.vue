@@ -5,7 +5,11 @@ definePageMeta({
   title: 'Dashboard',
 })
 
-const { data: dashboard, refresh: refreshDashboard } = await useMyLazyFetch<Dashboard>('/dashboard')
+const range = useDashboardRange()
+// The previous figures stay up until the new period's arrive
+const { data: dashboard, status, refresh: refreshDashboard } = await useMyLazyFetch<Dashboard>('/dashboard', {
+  query: computed(() => ({ range: range.value })),
+})
 const { data: batches, refresh: refreshBatches } = await useMyLazyFetch<Batch[]>('/batches')
 const { data: analyses, refresh: refreshAnalyses } = await useMyLazyFetch<Analysis[]>('/analyses')
 const { data: providers } = await useMyLazyFetch<ProviderStatus[]>('/providers')
@@ -23,18 +27,8 @@ async function refresh() {
   }
 }
 
-// Runs are watched from here as well: refresh quietly while any is going
-const active = computed(() => dashboard.value?.activity.active ?? 0)
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => {
-    if (active.value) {
-      refreshDashboard()
-      refreshBatches()
-    }
-  }, 5000)
-})
-onBeforeUnmount(() => clearInterval(timer))
+// Runs are watched from here as well: the running banner, the figures and the lists follow them
+useRefreshOnRunStatus(() => Promise.all([refreshDashboard(), refreshBatches()]))
 
 function latest<T extends { created_at: string }>(items: readonly T[] | null | undefined) {
   return [...(items ?? [])].sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime()).slice(0, 5)
@@ -52,7 +46,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
     <AppPageActions>
       <UTooltip text="Refresh">
         <UButton
-          icon="i-lucide-refresh-cw"
+          icon="i-ph-arrows-clockwise-bold"
           color="neutral"
           variant="ghost"
           size="sm"
@@ -62,7 +56,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         />
       </UTooltip>
       <UTooltip text="New experiment" :kbds="['C']">
-        <UButton to="/experiments/new" icon="i-lucide-plus" color="neutral" variant="soft" size="sm">
+        <UButton to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
           New experiment
         </UButton>
       </UTooltip>
@@ -71,17 +65,24 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
     <NuxtLink
       v-if="noProvider"
       to="/settings"
-      class="flex items-center gap-2.5 h-10 px-4 rounded-lg border border-warning/30 bg-warning/10 text-sm text-toned outline-none hover:bg-warning/15 focus-visible:ring-2 focus-visible:ring-primary"
+      class="flex items-center gap-2.5 h-10 px-4 rounded-lg border border-warning/30 bg-warning/10 text-sm text-toned outline-none hover:bg-warning/15 focus-visible:ring-2 focus-visible:ring-inverted"
     >
-      <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-warning" aria-hidden="true" />
+      <UIcon name="i-ph-warning-bold" class="size-4 shrink-0 text-warning" aria-hidden="true" />
       <span class="min-w-0 truncate">No LLM provider is set up, so experiments can’t run.</span>
       <span class="ms-auto shrink-0 inline-flex items-center gap-1 text-xs font-medium text-highlighted">
         Open settings
-        <UIcon name="i-lucide-arrow-right" class="size-3.5" aria-hidden="true" />
+        <UIcon name="i-ph-arrow-right-bold" class="size-3.5" aria-hidden="true" />
       </span>
     </NuxtLink>
 
-    <DashboardActivity :activity="dashboard?.activity" :loading="!dashboard" />
+    <DashboardRunning v-if="dashboard?.activity.active.length" :active="dashboard.activity.active" />
+
+    <DashboardActivity
+      v-model:range="range"
+      :activity="dashboard?.activity"
+      :loading="!dashboard"
+      :refreshing="!!dashboard && status === 'pending'"
+    />
 
     <BaseSection title="Recent experiments" to="/experiments">
       <DashboardRecentExperiments
@@ -93,7 +94,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         v-else
         title="No experiments yet"
         message="Run an agent team over a dataset to see results here."
-        icon="i-lucide-flask-conical"
+        icon="i-ph-flask-bold"
         action-label="New experiment"
         action-to="/experiments/new"
       />
@@ -125,11 +126,11 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         <ul v-if="recentAnalyses.length" class="divide-y divide-default">
           <li v-for="analysis in recentAnalyses" :key="analysis.id">
             <DashboardListRow :to="`/analyses/${analysis.id}`">
-              <UIcon name="i-lucide-chart-column" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+              <UIcon name="i-ph-chart-bar-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
               <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ analysis.name }}</span>
               <span class="shrink-0 text-xs text-dimmed tabular-nums">#{{ analysis.id }}</span>
               <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
-                {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'run' : 'runs' }}
+                {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
               </span>
               <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(analysis.updated_at)">
                 {{ formatRelativeDate(analysis.updated_at) }}

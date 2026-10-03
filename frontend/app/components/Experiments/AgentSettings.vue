@@ -91,7 +91,7 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
             variant="link"
             color="neutral"
             size="xs"
-            icon="i-lucide-eye"
+            icon="i-ph-eye-bold"
             class="-my-1"
             @click="emit('openPromptDetails', config.prompt_version_id!)"
           >
@@ -158,9 +158,10 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
         <li
           v-for="row in rows"
           :key="row.variable"
-          class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_11rem_minmax(0,1fr)]"
+          class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
         >
-          <code class="truncate font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
+          <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
+          <UIcon name="i-ph-arrow-right-bold" class="hidden size-3.5 shrink-0 text-dimmed @xl:block" aria-hidden="true" />
 
           <USelect
             :model-value="row.mapping?.source"
@@ -210,7 +211,7 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
               @update:model-value="(value: string | number) => patchMapping(row, { staticValue: String(value) })"
             />
             <p v-else class="inline-flex items-center gap-1.5 text-xs text-warning">
-              <UIcon name="i-lucide-triangle-alert" class="size-3.5 shrink-0" aria-hidden="true" />
+              <UIcon name="i-ph-warning-bold" class="size-3.5 shrink-0" aria-hidden="true" />
               Not mapped yet
             </p>
           </div>

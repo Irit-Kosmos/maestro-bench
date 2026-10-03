@@ -52,7 +52,7 @@ async function handleConfirm() {
         <template #header>
           <div class="flex items-center space-x-3">
             <div class="flex-shrink-0 flex items-center">
-              <UIcon name="i-lucide:alert-triangle" class="w-6 h-6 text-error" />
+              <UIcon name="i-ph:warning-bold" class="w-6 h-6 text-error" />
             </div>
             <div>
               <h2 class="text-lg font-semibold text-highlighted">
@@ -70,7 +70,7 @@ async function handleConfirm() {
 
           <div class="bg-error-50 border border-error-200 rounded-md p-3">
             <div class="flex">
-              <UIcon name="i-lucide:info" class="w-5 h-5 text-error-400 mt-0.5 mr-2" />
+              <UIcon name="i-ph:info-bold" class="w-5 h-5 text-error-400 mt-0.5 mr-2" />
               <div class="text-sm text-error-700">
                 <p class="font-medium">
                   This action cannot be undone.

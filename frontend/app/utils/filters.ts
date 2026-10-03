@@ -6,6 +6,8 @@ export interface FilterOption {
   icon?: string
   /** Extra classes for the icon in the option list, e.g. to flip a black logo on dark surfaces. */
   iconClass?: string
+  /** A coloured dot in front of the label (classes that paint it), for values that have a colour of their own. */
+  dot?: string
   /** How many items carry this value, shown next to the option. */
   count?: number
 }
@@ -95,7 +97,7 @@ export function matchesFilter(entry: FilterEntry | undefined, values: FilterValu
 }
 
 /** How many items carry each value, for the counts shown next to the options. */
-export function countBy<T>(items: T[], getValues: (item: T) => FilterValue | FilterValue[] | undefined) {
+export function countBy<T>(items: readonly T[], getValues: (item: T) => FilterValue | FilterValue[] | undefined) {
   const counts = new Map<FilterValue, number>()
   for (const item of items) {
     const values = getValues(item)
@@ -105,4 +107,79 @@ export function countBy<T>(items: T[], getValues: (item: T) => FilterValue | Fil
     }
   }
   return counts
+}
+
+/**
+ * A filter declared against the items of a list: how to read the value(s) an item carries, and how to present them.
+ * The options are found in the items, so only values that exist are offered (see `buildFilterDefinitions`).
+ */
+export interface FilterSpec<T> {
+  key: string
+  label: string
+  icon: string
+  /** Value(s) an item carries; none when null or undefined. */
+  value: (item: T) => FilterValue | FilterValue[] | null | undefined
+  /** Several values can be picked. Defaults to true; false for a single choice. */
+  multiple?: boolean
+  multiValued?: boolean
+  plural?: string
+  searchPlaceholder?: string
+  /** How a value reads in the option list and the chip. Defaults to the value as text. */
+  present?: (value: FilterValue) => Pick<FilterOption, 'label' | 'icon' | 'iconClass' | 'dot'>
+  /** Order of the options. Defaults to alphabetical by label. */
+  compare?: (a: FilterValue, b: FilterValue) => number
+}
+
+/** Orders values as listed, for a fixed vocabulary such as statuses. Unlisted values come last. */
+export function byOrder(order: readonly FilterValue[]) {
+  const rank = (value: FilterValue) => {
+    const index = order.indexOf(value)
+    return index === -1 ? order.length : index
+  }
+  return (a: FilterValue, b: FilterValue) => rank(a) - rank(b)
+}
+
+// A missing value is undefined everywhere downstream, whether the item said null or nothing
+const valueOf = <T>(spec: FilterSpec<T>, item: T) => spec.value(item) ?? undefined
+
+/**
+ * The definitions the filter bar needs, with the number of items each option has.
+ * A filter whose items carry no value at all is left out, since there is nothing to pick.
+ */
+export function buildFilterDefinitions<T>(items: readonly T[], specs: readonly FilterSpec<T>[]): FilterDefinition[] {
+  return specs
+    .map((spec) => {
+      const counts = countBy(items, item => valueOf(spec, item))
+      const present = spec.present ?? ((value: FilterValue) => ({ label: String(value) }))
+      const compare = spec.compare ?? ((a: FilterValue, b: FilterValue) => present(a).label.localeCompare(present(b).label))
+      return {
+        key: spec.key,
+        label: spec.label,
+        icon: spec.icon,
+        multiple: spec.multiple ?? true,
+        multiValued: spec.multiValued,
+        plural: spec.plural,
+        searchPlaceholder: spec.searchPlaceholder,
+        options: [...counts.keys()].sort(compare).map(value => ({ value, ...present(value), count: counts.get(value) })),
+      }
+    })
+    .filter(definition => definition.options.length)
+}
+
+/** Whether an item passes every filter. */
+export function matchesSpecs<T>(item: T, specs: readonly FilterSpec<T>[], state: FilterState) {
+  return specs.every(spec => matchesFilter(state[spec.key], valueOf(spec, item)))
+}
+
+/** The words of a search box. */
+export function searchTerms(search: string) {
+  return search.toLowerCase().split(/\s+/).filter(Boolean)
+}
+
+/** Every word must match somewhere: "claude opus" finds "claude-opus-4", whatever the order of the words. */
+export function matchesTerms(text: string, terms: readonly string[]) {
+  if (!terms.length)
+    return true
+  const haystack = text.toLowerCase()
+  return terms.every(term => haystack.includes(term))
 }

@@ -25,7 +25,7 @@ function changed(id: number) {
   return counts && (counts.added || counts.removed) ? counts : null
 }
 
-const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary'
+const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted'
 </script>
 
 <template>
@@ -37,7 +37,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
       </h2>
       <UTooltip :delay-duration="400">
         <UButton
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           color="neutral"
           variant="ghost"
           size="sm"
@@ -53,7 +53,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
     <ul class="min-h-0 flex-1 divide-y divide-default overflow-y-auto">
       <li v-if="drafting">
         <div :class="rowClass" class="bg-elevated text-highlighted" aria-current="true">
-          <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+          <UIcon name="i-ph-plus-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
           <span class="truncate font-medium">New version</span>
         </div>
       </li>
@@ -61,7 +61,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
       <li v-for="version in versions" :key="version.id">
         <button
           type="button"
-          class="flex w-full flex-col gap-0.5 px-4 py-2 text-left text-sm outline-none hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          class="flex w-full flex-col gap-0.5 px-4 py-2 text-left text-sm outline-none hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
           :aria-current="!drafting && version.id === selectedId ? 'true' : undefined"
           :data-selected="!drafting && version.id === selectedId ? '' : undefined"
           @click="emit('select', version.id)"

@@ -15,8 +15,9 @@ from typing import Any
 import pandas as pd
 from sqlmodel import Session, select
 
+import event_bus
 from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
-from dataset_utils import validate_dataset_file
+from dataset_utils import count_csv_rows, validate_dataset_file
 from db import engine
 from experiment_utils import (
     apply_dataset_sampling,
@@ -24,6 +25,7 @@ from experiment_utils import (
     create_execution_snapshot,
     process_pipeline_results,
 )
+from schemas.events import RunEvent, RunState
 from tables import Experiment, ExperimentExecution
 
 logger = logging.getLogger(__name__)
@@ -96,8 +98,12 @@ async def run_experiment_async(experiment_id: int) -> None:
             execution = create_execution_snapshot(experiment_id, db_session)
             logger.info("Created execution snapshot %s", execution.id)
 
+            progress = _RunProgress(db_session, execution, experiment.batch_id)
+            progress.announce("running")
+
             # Run the experiment pipeline
             processor = _ExperimentProcessor(
+                progress,
                 chunk_size=DEFAULT_CHUNK_SIZE,
                 max_concurrent=DEFAULT_MAX_CONCURRENT,
             )
@@ -113,44 +119,94 @@ async def run_experiment_async(experiment_id: int) -> None:
             db_session.add(execution)
             db_session.add(experiment)
             db_session.commit()
+            progress.announce("completed")
 
             logger.info("Experiment %s completed: %s", experiment_id, results_summary)
 
     except asyncio.CancelledError:
         logger.info("Experiment %s cancelled", experiment_id)
-        await _mark_experiment_failed(experiment_id, "cancelled")
+        _close_run(experiment_id, "cancelled", "cancelled")
         raise
 
     except Exception as e:
         logger.exception("Error in experiment %s", experiment_id)
-        await _mark_experiment_failed(experiment_id, str(e))
+        _close_run(experiment_id, "failed", str(e))
 
 
-async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
-    """Mark experiment and any running executions as failed."""
+def _close_run(experiment_id: int, status: str, reason: str) -> None:
+    """Mark an experiment and its running executions as failed or cancelled."""
     try:
         with Session(engine) as db_session:
             experiment = db_session.get(Experiment, experiment_id)
-            if experiment:
-                experiment.status = "failed"
-                db_session.add(experiment)
+            if not experiment:
+                return
+            experiment.status = status
+            db_session.add(experiment)
 
-                running_executions = db_session.exec(
-                    select(ExperimentExecution).where(
-                        ExperimentExecution.experiment_id == experiment_id,
-                        ExperimentExecution.status == "running",
-                    )
-                ).all()
+            running_executions = db_session.exec(
+                select(ExperimentExecution).where(
+                    ExperimentExecution.experiment_id == experiment_id,
+                    ExperimentExecution.status == "running",
+                )
+            ).all()
 
-                for exc in running_executions:
-                    exc.status = "failed"
-                    exc.completed_at = datetime.now(UTC)
-                    db_session.add(exc)
+            for exc in running_executions:
+                exc.status = status
+                exc.completed_at = datetime.now(UTC)
+                db_session.add(exc)
 
-                db_session.commit()
-                logger.info("Marked experiment %s as failed: %s", experiment_id, error_msg)
+            db_session.commit()
+            logger.info("Marked experiment %s as %s: %s", experiment_id, status, reason)
+
+            states = [
+                RunState.from_execution(exc, experiment.batch_id)
+                for exc in running_executions
+            ] or [
+                RunState(
+                    experiment_id=experiment_id,
+                    batch_id=experiment.batch_id,
+                    status=status,
+                )
+            ]
+        for state in states:
+            event_bus.publish(RunEvent(name="status", state=state))
     except Exception:
-        logger.exception("Failed to mark experiment %s as failed", experiment_id)
+        logger.exception("Failed to mark experiment %s as %s", experiment_id, status)
+
+
+class _RunProgress:
+    """Counts the rows of an execution as they finish and publishes the count."""
+
+    def __init__(
+        self,
+        session: Session,
+        execution: ExperimentExecution,
+        batch_id: int | None,
+    ):
+        self._session = session
+        self._execution = execution
+        self._state = RunState.from_execution(execution, batch_id)
+
+    def start(self, total: int) -> None:
+        self._state.rows_total = total
+        self._save()
+
+    def row_done(self, *, failed: bool) -> None:
+        self._state.rows_done += 1
+        self._state.rows_failed += int(failed)
+        self._save()
+
+    def announce(self, status: str) -> None:
+        """Publish a status the caller has already committed."""
+        self._state.status = status
+        event_bus.publish(RunEvent(name="status", state=self._state.model_copy()))
+
+    def _save(self) -> None:
+        self._execution.rows_total = self._state.rows_total
+        self._execution.rows_done = self._state.rows_done
+        self._execution.rows_failed = self._state.rows_failed
+        self._session.commit()
+        event_bus.publish(RunEvent(name="progress", state=self._state.model_copy()))
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +217,13 @@ async def _mark_experiment_failed(experiment_id: int, error_msg: str) -> None:
 class _ExperimentProcessor:
     """Processes experiments using the core pipeline engine."""
 
-    def __init__(self, chunk_size: int = 5, max_concurrent: int = 2):
+    def __init__(
+        self,
+        progress: _RunProgress,
+        chunk_size: int = 5,
+        max_concurrent: int = 2,
+    ):
+        self.progress = progress
         self.chunk_size = chunk_size
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
@@ -187,14 +249,15 @@ class _ExperimentProcessor:
         if not dataset_file_path:
             raise ValueError("Dataset file path not found in snapshot")
 
+        chunks, total = await self._open_dataset(dataset_file_path, sampling_config)
+        self.progress.start(total)
+
         # Process all rows
         all_results: list[PipelineResult] = []
         total_processed = 0
 
         async for chunk_results, chunk_size in self._process_chunks(
-            dataset_file_path,
-            sampling_config,
-            agent_configs,
+            chunks, agent_configs
         ):
             all_results.extend(chunk_results)
             total_processed += chunk_size
@@ -202,32 +265,36 @@ class _ExperimentProcessor:
 
         return process_pipeline_results(execution, all_results, db_session)
 
-    async def _process_chunks(
-        self,
-        dataset_file_path: str,
-        sampling_config: dict,
-        agent_configs: list[AgentConfig],
-    ) -> AsyncGenerator[tuple, None]:
-        """Yield (chunk_results, chunk_size) for each processed chunk."""
+    async def _open_dataset(
+        self, dataset_file_path: str, sampling_config: dict
+    ) -> tuple[AsyncGenerator[pd.DataFrame, None], int]:
+        """Chunks of the rows to run, and how many rows there are in all."""
         dataset_full_path = validate_dataset_file(dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")
 
-        if sampling_type == "all":
-            chunk_iter = self._read_csv_chunks(dataset_full_path)
-        elif sampling_type == "random":
+        if sampling_type == "random":
             df = apply_dataset_sampling(dataset_file_path, sampling_config)
-            chunk_iter = self._dataframe_to_chunks(df)
-        elif sampling_type == "range":
+            return self._dataframe_to_chunks(df), len(df)
+
+        file_rows = await asyncio.to_thread(count_csv_rows, dataset_full_path)
+        if sampling_type == "range":
             start_row = sampling_config.get("sampling_start_row", 1) - 1
             end_row = sampling_config.get("sampling_end_row")
-            chunk_iter = self._read_csv_range_chunks(
-                dataset_full_path, start_row, end_row
+            last_row = file_rows if end_row is None else min(end_row, file_rows)
+            return (
+                self._read_csv_range_chunks(dataset_full_path, start_row, end_row),
+                max(last_row - start_row, 0),
             )
-        else:
-            chunk_iter = self._read_csv_chunks(dataset_full_path)
+        return self._read_csv_chunks(dataset_full_path), file_rows
 
+    async def _process_chunks(
+        self,
+        chunks: AsyncGenerator[pd.DataFrame, None],
+        agent_configs: list[AgentConfig],
+    ) -> AsyncGenerator[tuple, None]:
+        """Yield (chunk_results, chunk_size) for each processed chunk."""
         chunk_number = 0
-        async for chunk_df in chunk_iter:
+        async for chunk_df in chunks:
             chunk_number += 1
             logger.info("Processing chunk %d (%d rows)", chunk_number, len(chunk_df))
             chunk_results = await self._process_chunk(
@@ -284,7 +351,15 @@ class _ExperimentProcessor:
     ) -> PipelineResult:
         """Run the orchestrator pipeline with concurrency limiting."""
         async with self.semaphore:
-            return await run_pipeline(agent_configs, row, row_index, dataset_row_id)
+            try:
+                result = await run_pipeline(
+                    agent_configs, row, row_index, dataset_row_id
+                )
+            except Exception:
+                self.progress.row_done(failed=True)
+                raise
+        self.progress.row_done(failed=bool(result.error))
+        return result
 
     # ------------------------------------------------------------------
     # CSV reading helpers

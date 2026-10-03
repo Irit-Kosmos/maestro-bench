@@ -54,6 +54,16 @@ export function formatMetric(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : value.toFixed(3)
 }
 
+// Metrics where the best value is the one closest to zero, whatever its sign
+const CLOSEST_TO_ZERO_METRICS = new Set(['bias'])
+
+// Rank score of a metric value across runs: the lowest score is the best run
+export function metricRankScore(metric: { key: string, lower_is_better: boolean }, value: number): number {
+  if (CLOSEST_TO_ZERO_METRICS.has(metric.key))
+    return Math.abs(value)
+  return metric.lower_is_better ? value : -value
+}
+
 // Below this many rows, metrics are too noisy to compare: flag the run instead of hiding it
 export const SMALL_SAMPLE_ROWS = 30
 

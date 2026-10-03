@@ -1,0 +1,76 @@
+import type { FilterSpec } from './filters'
+import type { ExecutionListItem } from '~/types'
+import { byOrder } from './filters'
+
+/** Whether an execution is a problem to look into: it failed, or went on with failed rows. Cancelling is a choice, so it never is. */
+export function hasFailures(execution: Pick<ExecutionListItem, 'status' | 'rows_failed'>): boolean {
+  return execution.status !== 'cancelled' && (execution.status === 'failed' || execution.rows_failed > 0)
+}
+
+/** Whether an analysis can read the execution: it ended well and left its results behind. */
+export function isAnalyzable(execution: Pick<ExecutionListItem, 'status' | 'has_results'>): boolean {
+  return execution.status === 'completed' && execution.has_results
+}
+
+const FAILURES = {
+  failed: { label: 'Failed or with failed rows', icon: 'i-ph-warning-bold', iconClass: 'text-error' },
+  clean: { label: 'No failures' },
+} as const
+
+/** Same reading as the dashboard's count of executions with failures. */
+export function executionFailuresFilter(): FilterSpec<ExecutionListItem> {
+  return {
+    key: 'failures',
+    label: 'Failures',
+    icon: 'i-ph-warning-bold',
+    multiple: false,
+    value: execution => hasFailures(execution) ? 'failed' : 'clean',
+    present: value => FAILURES[value as keyof typeof FAILURES] ?? { label: String(value) },
+    compare: byOrder(Object.keys(FAILURES)),
+  }
+}
+
+/** The models of the agents. An execution can use several, so "is all of" is offered. */
+export function executionModelsFilter(): FilterSpec<ExecutionListItem> {
+  return {
+    key: 'model',
+    label: 'Model',
+    icon: 'i-ph-cpu-bold',
+    plural: 'models',
+    multiValued: true,
+    searchPlaceholder: 'Search a model…',
+    value: execution => [...new Set(execution.agents.map(agent => agent.model))],
+  }
+}
+
+/** The experiment an execution belongs to, picked by id and read by name. */
+export function executionExperimentFilter(items: () => readonly ExecutionListItem[]): FilterSpec<ExecutionListItem> {
+  return {
+    key: 'experiment',
+    label: 'Experiment',
+    icon: 'i-ph-flask-bold',
+    plural: 'experiments',
+    searchPlaceholder: 'Search an experiment…',
+    value: execution => execution.experiment_id,
+    present: (id) => {
+      const found = items().find(execution => execution.experiment_id === Number(id))
+      return { label: found?.experiment_name ?? `Experiment #${id}`, icon: 'i-ph-flask-bold' }
+    },
+  }
+}
+
+/** The batch an execution's experiment belongs to, picked by id and read by name. */
+export function executionBatchFilter(items: () => readonly ExecutionListItem[]): FilterSpec<ExecutionListItem> {
+  return {
+    key: 'batch',
+    label: 'Batch',
+    icon: 'i-ph-arrows-split-bold',
+    plural: 'batches',
+    searchPlaceholder: 'Search a batch…',
+    value: execution => execution.batch_id,
+    present: (id) => {
+      const found = items().find(execution => execution.batch_id === Number(id))
+      return { label: found?.batch_name ?? `Batch #${id}`, icon: 'i-ph-arrows-split-bold' }
+    },
+  }
+}

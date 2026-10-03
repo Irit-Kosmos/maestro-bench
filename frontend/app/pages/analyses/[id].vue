@@ -43,8 +43,8 @@ const isSaving = ref(false)
 function openEditor() {
   if (!analysis.value)
     return
-  const { name, description, config, runs } = analysis.value
-  draft.value = structuredClone({ name, description, config, runs })
+  const { name, description, config, runs, tags } = analysis.value
+  draft.value = structuredClone({ name, description, config, runs, tag_ids: tags.map(tag => tag.id) })
   showEditor.value = true
 }
 
@@ -93,21 +93,21 @@ async function confirmDelete() {
         <UButton
           variant="ghost"
           color="neutral"
-          icon="i-lucide-refresh-cw"
+          icon="i-ph-arrows-clockwise-bold"
           size="sm"
           :loading="isComputing"
           @click="compute"
         >
           Recompute
         </UButton>
-        <UButton variant="soft" color="neutral" icon="i-lucide-pencil" size="sm" @click="openEditor">
+        <UButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
           Edit
         </UButton>
         <UDropdownMenu
-          :items="[{ label: 'Delete analysis', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+          :items="[{ label: 'Delete analysis', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
           :content="{ align: 'end' }"
         >
-          <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+          <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
         </UDropdownMenu>
       </AppPageActions>
 
@@ -125,6 +125,9 @@ async function confirmDelete() {
         <p v-if="analysis.description" class="mt-1 text-sm text-toned max-w-prose">
           {{ analysis.description }}
         </p>
+        <div v-if="analysis.tags.length" class="mt-2 flex flex-wrap gap-1">
+          <TagsChip v-for="tag in analysis.tags" :key="tag.id" :tag="tag" />
+        </div>
       </div>
 
       <BaseErrorState v-if="computeError" :message="computeError" />
@@ -133,7 +136,7 @@ async function confirmDelete() {
         v-else-if="result && result.runs.length === 0"
         title="No executions"
         message="Edit the analysis to add executions to compare."
-        icon="i-lucide:chart-column"
+        icon="i-ph:chart-bar-bold"
       />
       <AnalysesResults v-else-if="result" :result="result" :config="analysis.config" :name="analysis.name" />
     </div>
@@ -147,7 +150,7 @@ async function confirmDelete() {
           <UButton variant="outline" color="neutral" @click="() => { showEditor = false }">
             Cancel
           </UButton>
-          <UButton color="primary" icon="i-lucide-save" :loading="isSaving" @click="saveDraft">
+          <UButton color="primary" icon="i-ph-floppy-disk-bold" :loading="isSaving" @click="saveDraft">
             Save and recompute
           </UButton>
         </div>

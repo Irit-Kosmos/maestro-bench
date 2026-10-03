@@ -111,13 +111,22 @@ def test_empty_database(client):
     body = client.get("/dashboard").json()
 
     assert body["recent_experiments"] == []
-    assert body["activity"] == {
-        "days": 7,
+    activity = body["activity"]
+    assert activity["range"] == "7d"
+    assert activity["current"] == {
         "experiments": 0,
+        "completed": 0,
+        "failed": 0,
         "total_tokens": 0,
         "total_cost_usd": 0.0,
-        "active": 0,
+        "rows_done": 0,
+        "rows_failed": 0,
+        "executions_with_failures": 0,
     }
+    assert activity["previous"]["experiments"] == 0
+    assert activity["active"] == []
+    # A week in slices of six hours
+    assert len(activity["buckets"]) == 28
 
 
 def test_recent_experiment_carries_its_latest_execution(client, engine, world):
@@ -197,7 +206,7 @@ def test_recent_experiments_are_newest_first_and_capped(client, engine, world):
     assert [r["id"] for r in recent] == [8, 7, 6, 5, 4]
 
 
-def test_activity_counts_the_last_week_only(client, engine, world):
+def test_activity_counts_the_period_only(client, engine, world):
     old = add_experiment(
         engine, world, status="completed", created_at=now() - timedelta(days=30)
     )
@@ -210,14 +219,179 @@ def test_activity_counts_the_last_week_only(client, engine, world):
         total_cost_usd=9.0,
     )
     fresh = add_experiment(engine, world, status="completed")
-    add_execution(engine, fresh, ["m-a"], total_tokens=100, total_cost_usd=0.25)
+    add_execution(
+        engine,
+        fresh,
+        ["m-a"],
+        total_tokens=100,
+        total_cost_usd=0.25,
+        rows_done=10,
+        rows_failed=2,
+    )
+    add_experiment(engine, world, status="failed")
     add_experiment(engine, world, status="running")
-    add_experiment(engine, world, status="pending")
 
-    activity = client.get("/dashboard").json()["activity"]
+    current = client.get("/dashboard").json()["activity"]["current"]
 
-    assert activity["experiments"] == 3
-    assert activity["total_tokens"] == 100
-    assert activity["total_cost_usd"] == 0.25
-    # Active counts running and pending experiments, however old
-    assert activity["active"] == 2
+    assert current["experiments"] == 3
+    assert current["completed"] == 1
+    assert current["failed"] == 1
+    assert current["total_tokens"] == 100
+    assert current["total_cost_usd"] == 0.25
+    assert current["rows_done"] == 10
+    assert current["rows_failed"] == 2
+
+
+def test_executions_with_failures_are_the_failed_ones_and_those_with_failed_rows(
+    client, engine, world
+):
+    exp = add_experiment(engine, world, status="completed")
+    add_execution(engine, exp, ["m-a"], status="completed", rows_done=10)
+    add_execution(engine, exp, ["m-a"], status="completed", rows_done=10, rows_failed=2)
+    add_execution(engine, exp, ["m-a"], status="failed")
+    add_execution(engine, exp, ["m-a"], status="running", rows_done=4, rows_failed=1)
+    # Cancelling is a choice, not a problem, even with failed rows behind it
+    add_execution(engine, exp, ["m-a"], status="cancelled", rows_done=4, rows_failed=3)
+    add_execution(
+        engine,
+        exp,
+        ["m-a"],
+        status="failed",
+        started_at=now() - timedelta(days=30),
+    )
+
+    current = client.get("/dashboard").json()["activity"]["current"]
+
+    assert current["executions_with_failures"] == 3
+
+
+def test_active_lists_running_and_pending_experiments_however_old(
+    client, engine, world
+):
+    running = add_experiment(
+        engine, world, status="running", created_at=now() - timedelta(days=30)
+    )
+    pending = add_experiment(engine, world, status="pending")
+    add_experiment(engine, world, status="completed")
+
+    active = client.get("/dashboard").json()["activity"]["active"]
+
+    # Newest first
+    assert [a["id"] for a in active] == [pending, running]
+    assert [a["status"] for a in active] == ["pending", "running"]
+
+
+def test_previous_period_is_the_stretch_right_before(client, engine, world):
+    for days_ago, tokens in ((2, 100), (10, 40), (20, 7)):
+        exp = add_experiment(
+            engine,
+            world,
+            status="completed",
+            created_at=now() - timedelta(days=days_ago),
+        )
+        add_execution(
+            engine,
+            exp,
+            ["m-a"],
+            started_at=now() - timedelta(days=days_ago),
+            total_tokens=tokens,
+        )
+
+    activity = client.get("/dashboard", params={"range": "7d"}).json()["activity"]
+
+    assert activity["current"]["total_tokens"] == 100
+    # 7 to 14 days ago: the 20-day-old one belongs to neither
+    assert activity["previous"]["experiments"] == 1
+    assert activity["previous"]["total_tokens"] == 40
+
+
+def test_buckets_add_up_to_the_period(client, engine, world):
+    for hours_ago in (1, 1, 30):
+        exp = add_experiment(
+            engine,
+            world,
+            status="completed",
+            created_at=now() - timedelta(hours=hours_ago),
+        )
+        add_execution(
+            engine,
+            exp,
+            ["m-a"],
+            started_at=now() - timedelta(hours=hours_ago),
+            total_tokens=10,
+        )
+
+    activity = client.get("/dashboard", params={"range": "7d"}).json()["activity"]
+    buckets = activity["buckets"]
+
+    assert (
+        sum(b["experiments"] for b in buckets)
+        == activity["current"]["experiments"]
+        == 3
+    )
+    assert sum(b["total_tokens"] for b in buckets) == 30
+    # Newest last: the two recent ones share the last slice
+    assert buckets[-1]["experiments"] == 2
+    assert [b["start"] for b in buckets] == sorted(b["start"] for b in buckets)
+
+
+@pytest.mark.parametrize(
+    ("range_", "slices"), [("24h", 24), ("7d", 28), ("30d", 30), ("90d", 30)]
+)
+def test_each_period_is_cut_in_its_own_slices(client, range_, slices):
+    activity = client.get("/dashboard", params={"range": range_}).json()["activity"]
+
+    assert activity["range"] == range_
+    assert len(activity["buckets"]) == slices
+    assert activity["previous"] is not None
+
+
+def test_all_starts_at_the_first_experiment(client, engine, world):
+    add_experiment(engine, world, created_at=now() - timedelta(days=400))
+    add_experiment(engine, world)
+
+    activity = client.get("/dashboard", params={"range": "all"}).json()["activity"]
+
+    assert activity["since"] is None
+    assert activity["current"]["experiments"] == 2
+    assert 1 < len(activity["buckets"]) <= 31
+    assert sum(b["experiments"] for b in activity["buckets"]) == 2
+
+
+def test_all_is_compared_with_what_it_was_30_days_ago(client, engine, world):
+    for days_ago in (400, 45, 2):
+        exp = add_experiment(
+            engine,
+            world,
+            status="completed",
+            created_at=now() - timedelta(days=days_ago),
+        )
+        add_execution(
+            engine,
+            exp,
+            ["m-a"],
+            started_at=now() - timedelta(days=days_ago),
+            total_tokens=10,
+        )
+
+    activity = client.get("/dashboard", params={"range": "all"}).json()["activity"]
+
+    assert activity["current"]["experiments"] == 3
+    assert activity["current"]["total_tokens"] == 30
+    # Everything but the last 30 days
+    assert activity["previous"]["experiments"] == 2
+    assert activity["previous"]["total_tokens"] == 20
+
+
+def test_all_has_nothing_to_compare_with_while_it_is_younger_than_30_days(
+    client, engine, world
+):
+    add_experiment(engine, world, created_at=now() - timedelta(days=5))
+
+    activity = client.get("/dashboard", params={"range": "all"}).json()["activity"]
+
+    assert activity["previous"] is None
+
+
+def test_unknown_range_is_rejected(client):
+    assert client.get("/dashboard", params={"range": "1y"}).status_code == 422

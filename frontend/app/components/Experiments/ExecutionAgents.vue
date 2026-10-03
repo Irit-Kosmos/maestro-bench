@@ -9,6 +9,11 @@ const props = defineProps<{
 
 const ordered = computed(() => [...props.agents].sort((a, b) => a.execution_order - b.execution_order))
 
+// A team named like its only agent adds nothing under the title
+function showTeam(agent: AgentExecutionSnapshot) {
+  return !!agent.agent_team_name_snapshot && agent.agent_team_name_snapshot !== agent.agent_name_snapshot
+}
+
 const openIds = ref(new Set<number>())
 
 function setOpen(id: number, open: boolean) {
@@ -25,12 +30,12 @@ function setOpen(id: number, open: boolean) {
   <!-- One agent: a card -->
   <section v-if="ordered.length === 1" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon name="i-lucide-bot" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon name="i-ph-robot-bold" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ ordered[0]!.agent_name_snapshot }}
         </h3>
-        <p v-if="ordered[0]!.agent_team_name_snapshot" class="text-xs text-muted">
+        <p v-if="showTeam(ordered[0]!)" class="text-xs text-muted">
           {{ ordered[0]!.agent_team_name_snapshot }}
         </p>
       </div>
@@ -47,10 +52,10 @@ function setOpen(id: number, open: boolean) {
         <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose. -->
         <button
           type="button"
-          class="flex h-14 w-full items-center gap-3 px-4 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+          class="flex h-14 w-full items-center gap-3 px-4 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
         >
           <UIcon
-            name="i-lucide-chevron-right"
+            name="i-ph-caret-right-bold"
             class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none group-data-[state=open]/agent:rotate-90"
             aria-hidden="true"
           />
@@ -60,7 +65,7 @@ function setOpen(id: number, open: boolean) {
           <span class="min-w-0 flex-1">
             <span class="flex min-w-0 items-center gap-2">
               <span class="truncate text-sm font-medium text-highlighted">{{ agent.agent_name_snapshot }}</span>
-              <span v-if="agent.agent_team_name_snapshot" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
+              <span v-if="showTeam(agent)" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
             </span>
             <span class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
               <span class="shrink-0">{{ agent.prompt_name_snapshot }} v{{ agent.prompt_version_snapshot }}</span>

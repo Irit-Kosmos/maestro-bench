@@ -21,14 +21,25 @@ logger = logging.getLogger(__name__)
 litellm.suppress_debug_info = True
 
 # Providers supported out of the box: LiteLLM model prefix (None = no prefix)
-# and the environment variable holding the API key.
+# and the environment variable that makes them callable. "kind" says what that
+# variable holds: an API key ("key", the default) or the URL of a server you
+# host yourself ("url"), which needs no key. Any other LiteLLM provider can be
+# added here: https://docs.litellm.ai/docs/providers
 SUPPORTED_PROVIDERS: dict[str, dict] = {
-    "openai": {"prefix": None, "api_key_env": "OPENAI_API_KEY"},
-    "anthropic": {"prefix": None, "api_key_env": "ANTHROPIC_API_KEY"},
-    "mistral": {"prefix": "mistral", "api_key_env": "MISTRAL_API_KEY"},
-    "groq": {"prefix": "groq", "api_key_env": "GROQ_API_KEY"},
-    "together": {"prefix": "together_ai", "api_key_env": "TOGETHER_API_KEY"},
-    "deepseek": {"prefix": "deepseek", "api_key_env": "DEEPSEEK_API_KEY"},
+    "openai": {"prefix": None, "env_var": "OPENAI_API_KEY"},
+    "anthropic": {"prefix": None, "env_var": "ANTHROPIC_API_KEY"},
+    "mistral": {"prefix": "mistral", "env_var": "MISTRAL_API_KEY"},
+    "groq": {"prefix": "groq", "env_var": "GROQ_API_KEY"},
+    "together": {"prefix": "together_ai", "env_var": "TOGETHER_API_KEY"},
+    "deepseek": {"prefix": "deepseek", "env_var": "DEEPSEEK_API_KEY"},
+    # LiteLLM calls Google AI Studio "gemini"; the provider keeps the name people know
+    "google": {"prefix": "gemini", "env_var": "GEMINI_API_KEY"},
+    "xai": {"prefix": "xai", "env_var": "XAI_API_KEY"},
+    "cerebras": {"prefix": "cerebras", "env_var": "CEREBRAS_API_KEY"},
+    "perplexity": {"prefix": "perplexity", "env_var": "PERPLEXITYAI_API_KEY"},
+    "openrouter": {"prefix": "openrouter", "env_var": "OPENROUTER_API_KEY"},
+    # LiteLLM reads OLLAMA_API_BASE itself (default http://localhost:11434)
+    "ollama": {"prefix": "ollama_chat", "env_var": "OLLAMA_API_BASE", "kind": "url"},
 }
 
 
@@ -203,10 +214,10 @@ def _resolve_model_id(model: str, provider: str) -> str:
 
 def check_provider_available(provider: str) -> bool:
     """
-    Check if a provider's API key is configured.
-    Returns True if the key env var is set (doesn't validate the key).
+    Check if a provider is configured: its API key or server URL is set.
+    Returns True if the env var is set (doesn't validate it or reach the server).
     """
     spec = SUPPORTED_PROVIDERS.get(provider.lower())
     if not spec:
         return False
-    return bool(os.getenv(spec["api_key_env"]))
+    return bool(os.getenv(spec["env_var"]))

@@ -14,7 +14,7 @@ const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/prov
 
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
-const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, hasFilters, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
+const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
 
 // Whether the backend holds an API key for a provider, by canonical key
@@ -222,7 +222,7 @@ function handleDeleteLeave() {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="handleCreateClick"
       >
@@ -239,7 +239,6 @@ function handleDeleteLeave() {
         :definitions="filterDefinitions"
         :total="models.length"
         :shown="filtered.length"
-        :has-filters="hasFilters"
         :loading="pending"
         @refresh="refresh"
       />
@@ -262,9 +261,9 @@ function handleDeleteLeave() {
         <BaseEmptyState
           title="No models match your filters"
           message="Try another search, or clear the filters."
-          icon="i-lucide-search-x"
+          icon="i-ph-magnifying-glass-bold"
           action-label="Clear filters"
-          action-icon="i-lucide-x"
+          action-icon="i-ph-x-bold"
           @action="clearFilters"
         />
       </div>
@@ -275,7 +274,7 @@ function handleDeleteLeave() {
       v-else-if="!pending"
       title="No models yet"
       message="Start by adding your first AI model"
-      icon="i-lucide-cpu"
+      icon="i-ph-cpu-bold"
       action-label="Add model"
       @action="handleCreateClick"
     />

@@ -41,7 +41,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
   <!-- One agent: a plain form -->
   <section v-if="single" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon name="i-lucide-bot" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon name="i-ph-robot-bold" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0 flex-1">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ item.agent.name }}
@@ -57,7 +57,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         color="neutral"
         variant="ghost"
         size="sm"
-        icon="i-lucide-repeat"
+        icon="i-ph-repeat-bold"
         @click="emit('remove')"
       >
         Change agent
@@ -76,7 +76,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         @open-prompt-details="id => emit('openPromptDetails', id)"
       />
       <div class="mt-4">
-        <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-rotate-ccw" @click="emit('reset')">
+        <UButton color="neutral" variant="ghost" size="sm" icon="i-ph-arrow-counter-clockwise-bold" @click="emit('reset')">
           Reset to agent defaults
         </UButton>
       </div>
@@ -84,16 +84,16 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
   </section>
 
   <!-- Several agents: an expandable row -->
-  <div v-else class="relative">
+  <div v-else class="group/row relative">
     <UCollapsible v-model:open="open" class="group/agent">
       <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose (frequent). -->
       <button
         type="button"
-        class="flex h-14 w-full items-center gap-3 ps-4 pe-28 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        class="flex h-14 w-full items-center gap-3 ps-8 pe-14 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
         :class="{ 'opacity-60': !enabled }"
       >
         <UIcon
-          name="i-lucide-chevron-right"
+          name="i-ph-caret-right-bold"
           class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none group-data-[state=open]/agent:rotate-90"
           aria-hidden="true"
         />
@@ -104,7 +104,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         </span>
 
         <span class="min-w-0 flex-1">
-          <span class="flex items-center gap-2 min-w-0">
+          <span class="flex items-baseline gap-2 min-w-0">
             <span class="truncate text-sm font-medium text-highlighted">{{ item.agent.name }}</span>
             <span v-if="item.team" class="hidden shrink-0 text-xs text-muted sm:inline">{{ item.team.name }}</span>
           </span>
@@ -119,16 +119,16 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
 
         <span
           v-if="enabled && issues.length > 0"
-          class="hidden shrink-0 items-center gap-1 text-xs text-warning sm:inline-flex"
+          class="hidden h-5 shrink-0 items-center gap-1 rounded-full bg-warning/10 px-2 text-xs font-medium text-warning sm:inline-flex"
           :title="issues.join('\n')"
         >
-          <UIcon name="i-lucide-triangle-alert" class="size-3.5" aria-hidden="true" />
-          {{ issueSummary }}
+          <UIcon name="i-ph-warning-bold" class="size-3 shrink-0" aria-hidden="true" />
+          <span class="leading-none">{{ issueSummary }}</span>
         </span>
       </button>
 
       <template #content>
-        <div class="border-t border-default bg-elevated/30 px-4 py-4 ps-11">
+        <div class="border-t border-default bg-elevated/30 px-4 py-4 ps-15">
           <ExperimentsAgentSettings
             :config="item.config"
             :models="models"
@@ -146,7 +146,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
               size="sm"
               @update:model-value="(value: boolean) => emit('update', 'is_active', value)"
             />
-            <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-rotate-ccw" @click="emit('reset')">
+            <UButton color="neutral" variant="ghost" size="sm" icon="i-ph-arrow-counter-clockwise-bold" @click="emit('reset')">
               Reset to agent defaults
             </UButton>
           </div>
@@ -155,32 +155,23 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
     </UCollapsible>
 
     <!-- Outside the trigger so the buttons aren't nested in it -->
+    <button
+      type="button"
+      :data-drag-handle="item.agent.id"
+      :aria-label="`Reorder ${item.agent.name}: drag, or use the up and down arrow keys`"
+      class="absolute start-1 top-0 flex h-14 w-6 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover/row:opacity-100 active:cursor-grabbing"
+      @keydown.up.prevent="emit('move', -1)"
+      @keydown.down.prevent="emit('move', 1)"
+    >
+      <UIcon name="i-ph-dots-six-vertical-bold" class="size-4" aria-hidden="true" />
+    </button>
+
     <div class="absolute end-2 top-0 flex h-14 items-center gap-0.5">
       <UButton
         color="neutral"
         variant="ghost"
         size="sm"
-        icon="i-lucide-arrow-up"
-        :disabled="item.position === 1"
-        :aria-label="`Run ${item.agent.name} earlier`"
-        :data-move="`${item.agent.id}:-1`"
-        @click="emit('move', -1)"
-      />
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-arrow-down"
-        :disabled="item.position === count"
-        :aria-label="`Run ${item.agent.name} later`"
-        :data-move="`${item.agent.id}:1`"
-        @click="emit('move', 1)"
-      />
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-x"
+        icon="i-ph-x-bold"
         :aria-label="`Remove ${item.agent.name}`"
         @click="emit('remove')"
       />

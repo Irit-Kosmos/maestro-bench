@@ -62,7 +62,7 @@ function showView(next: 'list' | 'graph') {
       toast.add({
         title: 'Agents now run in list order',
         description: 'Agents that were not connected to each other run one after another.',
-        icon: 'i-lucide-info',
+        icon: 'i-ph-info-bold',
       })
     }
   }
@@ -130,17 +130,30 @@ function defaultSummary(agent: Agent) {
 // --- Reordering ---
 
 const listRef = ref<HTMLElement | null>(null)
+const sortableRef = ref<HTMLElement | null>(null)
 const announcement = ref('')
+
+// Dragging is the main way; the grip also answers the arrow keys, for those who don't use a pointer
+useSortableList(sortableRef, {
+  onMove: (from, to) => {
+    const item = items.value[from]
+    if (item && pipeline.moveTo(item.agent.id, to))
+      announce(item.agent.id)
+  },
+})
+
+function announce(agentId: number) {
+  const item = items.value.find(i => i.agent.id === agentId)
+  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
+}
 
 async function move(agentId: number, delta: -1 | 1) {
   if (!pipeline.move(agentId, delta))
     return
-  const item = items.value.find(i => i.agent.id === agentId)
-  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
-  // Reordering re-inserts the row, which drops focus: put it back on the button that was used
+  announce(agentId)
+  // Reordering re-inserts the row, which drops focus: put it back on the grip that was used
   await nextTick()
-  const buttons = [delta, -delta].map(d => listRef.value?.querySelector<HTMLButtonElement>(`[data-move="${agentId}:${d}"]`))
-  buttons.find(button => button && !button.disabled)?.focus()
+  listRef.value?.querySelector<HTMLButtonElement>(`[data-drag-handle="${agentId}"]`)?.focus()
 }
 
 function removeAgent(agent: Agent) {
@@ -185,6 +198,7 @@ const description = computed(() => {
 const problems = computed(() => items.value
   .map(item => ({ item, issues: pipeline.issuesOf(item.agent.id) }))
   .filter(entry => entry.issues.length > 0))
+const problemCount = computed(() => problems.value.reduce((total, entry) => total + entry.issues.length, 0))
 </script>
 
 <template>
@@ -196,7 +210,7 @@ const problems = computed(() => items.value
           size="xs"
           :variant="view === 'list' ? 'soft' : 'ghost'"
           :color="view === 'list' ? 'primary' : 'neutral'"
-          icon="i-lucide-list-ordered"
+          icon="i-ph-list-numbers-bold"
           class="rounded-md"
           :aria-pressed="view === 'list'"
           @click="showView('list')"
@@ -207,7 +221,7 @@ const problems = computed(() => items.value
           size="xs"
           :variant="view === 'graph' ? 'soft' : 'ghost'"
           :color="view === 'graph' ? 'primary' : 'neutral'"
-          icon="i-lucide-git-branch"
+          icon="i-ph-git-branch-bold"
           class="rounded-md"
           :aria-pressed="view === 'graph'"
           @click="showView('graph')"
@@ -215,20 +229,6 @@ const problems = computed(() => items.value
           Graph
         </UButton>
       </div>
-
-      <USelectMenu
-        v-if="view === 'list' && !allAdded"
-        v-model="picked"
-        value-key="value"
-        :items="pickerItems"
-        :ui="{ content: 'min-w-60' }"
-        icon="i-lucide-plus"
-        placeholder="Add an agent"
-        :search-input="{ placeholder: 'Search agents…' }"
-        class="w-48"
-        aria-label="Add an agent"
-        @update:model-value="(id) => addById(id as number | undefined)"
-      />
     </template>
 
     <!-- Nothing chosen yet -->
@@ -243,16 +243,16 @@ const problems = computed(() => items.value
               <!-- Native button: a full-width row shouldn't inherit the press scale of UButton -->
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                 @click="addAgent(agent)"
               >
-                <UIcon name="i-lucide-bot" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon name="i-ph-robot-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
                   <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
                 </span>
                 <span v-if="defaultSummary(agent)" class="hidden shrink-0 text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
-                <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon name="i-ph-plus-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
               </button>
             </li>
           </ul>
@@ -261,7 +261,7 @@ const problems = computed(() => items.value
 
       <BaseEmptyState
         v-else-if="agentTeams"
-        icon="i-lucide-bot"
+        icon="i-ph-robot-bold"
         title="No agents yet"
         message="Create an agent first, then come back to create the experiment."
         action-label="New agent"
@@ -274,11 +274,23 @@ const problems = computed(() => items.value
     <div v-else class="flex flex-col gap-4">
       <!-- List view -->
       <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
-        <!-- Only the move transition is defined: rows that are added or removed appear and leave instantly -->
-        <TransitionGroup
+        <USelectMenu
+          v-if="!allAdded"
+          v-model="picked"
+          value-key="value"
+          :items="pickerItems"
+          :ui="{ content: 'min-w-60' }"
+          icon="i-ph-plus-bold"
+          placeholder="Add an agent"
+          :search-input="{ placeholder: 'Search agents…' }"
+          class="w-full sm:w-64"
+          aria-label="Add an agent"
+          @update:model-value="(id) => addById(id as number | undefined)"
+        />
+
+        <div
           v-if="items.length > 1"
-          tag="div"
-          move-class="agent-row-move"
+          ref="sortableRef"
           class="divide-y divide-default overflow-hidden rounded-lg border border-default"
         >
           <ExperimentsAgentListItem
@@ -300,7 +312,7 @@ const problems = computed(() => items.value
             @remove="removeAgent(item.agent)"
             @reset="pipeline.reset(item.agent.id)"
           />
-        </TransitionGroup>
+        </div>
 
         <div v-else>
           <ExperimentsAgentListItem
@@ -321,15 +333,35 @@ const problems = computed(() => items.value
           />
         </div>
 
-        <!-- What still blocks "Create and start", in words -->
-        <ul v-if="problems.length > 0" class="flex flex-col gap-1 text-sm text-warning" aria-label="To fix before creating">
-          <li v-for="entry in problems" :key="entry.item.agent.id" class="flex items-start gap-1.5">
-            <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span>
-              <template v-if="items.length > 1">{{ entry.item.agent.name }}: </template>{{ entry.issues.join(' · ') }}
-            </span>
-          </li>
-        </ul>
+        <!-- What still blocks "Create and start": a count, then the issues grouped by agent -->
+        <section
+          v-if="problems.length > 0"
+          class="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3"
+          aria-labelledby="agents-problems-title"
+        >
+          <h3 id="agents-problems-title" class="flex items-center gap-2 text-sm font-medium text-highlighted">
+            <UIcon name="i-ph-warning-bold" class="size-4 shrink-0 text-warning" aria-hidden="true" />
+            {{ problemCount }} {{ problemCount === 1 ? 'thing' : 'things' }} to fix before creating
+          </h3>
+          <ul class="mt-2 flex flex-col gap-2 ps-6">
+            <li v-for="entry in problems" :key="entry.item.agent.id" class="text-sm">
+              <template v-if="items.length > 1">
+                <button
+                  type="button"
+                  class="rounded-sm font-medium text-highlighted underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
+                  @click="setOpen(entry.item.agent.id, true)"
+                >
+                  {{ entry.item.agent.name }}
+                </button>
+              </template>
+              <ul class="list-disc ps-4 text-muted marker:text-warning" :class="{ 'mt-0.5': items.length > 1 }">
+                <li v-for="issue in entry.issues" :key="issue">
+                  {{ issue }}
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <!-- Graph view -->
@@ -353,16 +385,3 @@ const problems = computed(() => items.value
     </div>
   </ExperimentsSection>
 </template>
-
-<style scoped>
-/* Reordering: the rows slide to their new place so you can follow the one you moved */
-.agent-row-move {
-  transition: transform 200ms var(--ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-row-move {
-    transition: none;
-  }
-}
-</style>

@@ -12,11 +12,26 @@ export interface Model {
   created_at: string
 }
 
+/** The palette tags choose from (see `TAG_COLORS` in utils/tags.ts) */
+export type TagColor = 'red' | 'orange' | 'amber' | 'green' | 'teal' | 'blue' | 'indigo' | 'purple' | 'pink' | 'gray'
+
+/** A label shared by every kind of item that can be tagged */
+export interface Tag {
+  id: number
+  name: string
+  color: TagColor
+}
+
+export interface TagWithCount extends Tag {
+  /** How many items carry the tag */
+  count: number
+}
+
 export interface Prompt {
   id: number
   name: string
   description: string | null
-  category: string | null
+  tags: Tag[]
   created_at: string
   versions?: PromptVersion[]
 }
@@ -94,6 +109,15 @@ export interface Experiment {
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
 
+  // Executions of the experiment: how many, and the figures of the latest one
+  execution_count?: number
+  // Status of each execution, from the newest to the oldest
+  execution_statuses?: string[]
+  duration_seconds?: number | null
+  rows_failed?: number | null
+  total_tokens?: number | null
+  total_cost_usd?: number | null
+
   // Batch the experiment belongs to, and its coordinates in the batch's grid ({ [agentId]: { [field]: value } })
   batch_id?: number | null
   batch_name?: string | null
@@ -103,8 +127,21 @@ export interface Experiment {
   experiment_configs?: ExperimentAgentConfig[]
 }
 
-// 'partial' only exists for batches: some experiments completed, others failed
-export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'partial'
+// 'partial' only exists for batches: some experiments completed, others did not
+export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial'
+
+// Live state of an execution, as pushed by the /events stream (failed rows are counted in rows_done)
+export interface RunState {
+  experiment_id: number
+  batch_id: number | null
+  // null when the run failed before an execution was created
+  execution_id: number | null
+  status: string
+  // null until the rows have been counted
+  rows_total: number | null
+  rows_done: number
+  rows_failed: number
+}
 
 export interface ExperimentResults {
   total_questions?: number
@@ -138,6 +175,8 @@ export interface AgentExecutionSnapshot {
   model_provider_snapshot: string
   prompt_name_snapshot: string
   prompt_version_snapshot: string
+  prompt_id?: number | null
+  prompt_version_id?: number | null
   final_system_prompt?: string
   final_user_prompt?: string
   final_variables?: string
@@ -151,8 +190,10 @@ export interface AgentExecutionSnapshot {
 export interface ProviderStatus {
   provider: string
   configured: boolean
-  /** Environment variable the backend reads the API key from */
-  api_key_env: string
+  /** Environment variable the backend reads the key or URL from */
+  env_var: string
+  /** What that variable holds: an API key, or the URL of a self-hosted server that needs no key */
+  kind: 'key' | 'url'
 }
 
 // Dashboard: recent runs with what their latest execution produced, and the last days' activity
@@ -172,13 +213,45 @@ export interface DashboardExperiment {
   total_cost_usd: number | null
 }
 
-export interface DashboardActivity {
-  days: number
+/** What was run over a stretch of time */
+export interface DashboardTotals {
   experiments: number
+  /** Of those experiments, by how they ended */
+  completed: number
+  failed: number
   total_tokens: number
   total_cost_usd: number
-  /** Experiments pending or running right now */
-  active: number
+  /** Rows the executions went through, the failed ones included */
+  rows_done: number
+  rows_failed: number
+  /** Executions that failed, or went on with failed rows; the cancelled ones are not counted */
+  executions_with_failures: number
+}
+
+/** The totals of one slice of the period, `start` being its first instant */
+export interface DashboardBucket extends DashboardTotals {
+  start: string
+}
+
+export interface DashboardActiveExperiment {
+  id: number
+  name: string
+  status: ExperimentStatus
+}
+
+export type DashboardRange = '24h' | '7d' | '30d' | '90d' | 'all'
+
+export interface DashboardActivity {
+  range: DashboardRange
+  /** First instant of the period; null for "all" */
+  since: string | null
+  current: DashboardTotals
+  /** The stretch of the same length right before; null for "all", which has no before */
+  previous: DashboardTotals | null
+  /** The period cut in even slices, oldest first */
+  buckets: DashboardBucket[]
+  /** Experiments pending or running right now, newest first */
+  active: DashboardActiveExperiment[]
 }
 
 export interface Dashboard {
@@ -289,6 +362,7 @@ export interface Analysis {
   description?: string | null
   config: AnalysisConfig
   runs: AnalysisRunRef[]
+  tags: Tag[]
   created_at: string
   updated_at: string
 }
@@ -298,6 +372,7 @@ export interface AnalysisForm {
   description?: string | null
   config: AnalysisConfig
   runs: AnalysisRunRef[]
+  tag_ids: number[]
 }
 
 export interface MetricInfo {
@@ -350,6 +425,40 @@ export interface ExecutionFields {
   execution_id: number
   columns: string[]
   agents: { name: string, model: string | null, execution_order: number, paths: string[] }[]
+}
+
+/** One dataset row of an execution: what went in, what each agent returned */
+export interface ExecutionRow {
+  row_index: number
+  input_data: Record<string, unknown>
+  agents: { name: string | null, output: unknown, error: string | null }[]
+  error: string | null
+}
+
+/** One execution in the list spanning every experiment */
+export interface ExecutionListItem {
+  id: number
+  experiment_id: number
+  experiment_name: string
+  batch_id: number | null
+  batch_name: string | null
+  dataset_name: string | null
+  status: string
+  started_at: string
+  completed_at: string | null
+  duration_seconds: number | null
+  /** Live progress, in dataset rows; failed rows are counted in the rows done */
+  rows_total: number | null
+  rows_done: number
+  rows_failed: number
+  /** Dataset rows processed; null until the results file exists */
+  row_count: number | null
+  has_results: boolean
+  total_tokens: number | null
+  total_cost_usd: number | null
+  /** In the order they ran */
+  /** agent_id is null once the agent has been deleted */
+  agents: { agent_id: number | null, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
 }
 
 export interface AvailableExecution {
@@ -409,10 +518,17 @@ export interface BatchExperiment {
   created_at: string
   execution_id: number | null
   execution_status: string | null
+  // Latest execution that completed, which is not always the latest one
+  last_completed_execution_id: number | null
   started_at: string | null
   completed_at: string | null
   duration_seconds: number | null
   row_count: number | null
+  // Executions of the experiment; the figures are those of the latest one
+  execution_count: number
+  // Status of each execution, from the newest to the oldest
+  execution_statuses: string[]
+  rows_failed: number | null
   total_tokens: number | null
   total_cost_usd: number | null
   agent_names: string[]
@@ -430,5 +546,11 @@ export interface Batch {
   variations: BatchVariation[]
   status: ExperimentStatus
   counts: Record<string, number>
+  // Executions of all the experiments; tokens and cost add up the latest one of each
+  execution_count: number
+  // Status of the executions that are not the latest of their experiment, from the newest to the oldest
+  earlier_execution_statuses: string[]
+  total_tokens: number | null
+  total_cost_usd: number | null
   experiments: BatchExperiment[]
 }

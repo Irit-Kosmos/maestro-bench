@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Analysis } from '~/types'
+import type { FilterSpec, FilterState } from '~/utils/filters'
+import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Analyses',
@@ -24,6 +26,12 @@ const analysisId = ref<number | null>(null)
 const columns = [
   { key: 'name', label: 'Analysis' },
   {
+    key: 'tags',
+    label: 'Tags',
+    // What the search reads; the cell below shows the chips
+    formatter: (_: unknown, row: Analysis) => row.tags.map(tag => tag.name).join(' '),
+  },
+  {
     key: 'config',
     label: 'Ground truth vs prediction',
     formatter: (_: unknown, row: Analysis) =>
@@ -37,15 +45,40 @@ const columns = [
   { key: 'updated_at', label: 'Updated' },
 ]
 
+const filters: FilterSpec<Analysis>[] = [
+  {
+    key: 'value_type',
+    label: 'Type',
+    icon: 'i-ph-shapes-bold',
+    value: analysis => analysis.config.value_type,
+    present: value => value === 'numeric'
+      ? { label: 'Numeric', icon: 'i-ph-hash-bold' }
+      : { label: 'Categorical', icon: 'i-ph-tag-bold' },
+  },
+  {
+    key: 'truth_column',
+    label: 'Ground truth',
+    icon: 'i-ph-columns-bold',
+    plural: 'columns',
+    searchPlaceholder: 'Search a column…',
+    value: analysis => analysis.config.truth_column,
+  },
+  tagsFilter<Analysis>(analysis => analysis.tags),
+  dateFilter(analysis => analysis.updated_at, 'Updated'),
+]
+
+// Clicking a tag in a row filters the list on it
+const filterState = ref<FilterState>({})
+
 const actions = [
   {
     label: 'Open',
-    icon: 'i-lucide-arrow-up-right',
+    icon: 'i-ph-arrow-up-right-bold',
     handler: (analysis: Analysis) => navigateTo(`/analyses/${analysis.id}`),
   },
   {
     label: 'Delete',
-    icon: 'i-lucide-trash-2',
+    icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
     handler: (analysis: Analysis) => {
@@ -76,13 +109,13 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePageContent :loading="pending">
+  <BasePageContent :loading="pending && !analyses">
     <template #before-content>
       <UTooltip text="New analysis" :kbds="['C']">
         <UButton
           color="neutral"
           variant="soft"
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           size="sm"
           to="/analyses/new"
         >
@@ -93,16 +126,27 @@ async function confirmDelete() {
 
     <div v-if="analyses && analyses.length > 0">
       <BaseDataTable
+        v-model:filter-state="filterState"
         :data="[...(analyses || [])]"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(analysis: Analysis) => `/analyses/${analysis.id}`"
         item-name="analysis"
         item-name-plural="analyses"
         searchable
+        selectable
         @refresh="refresh"
       >
+        <template #selection-actions="{ rows }">
+          <TagsBulkMenu kind="analysis" :rows="rows" @changed="refresh" />
+        </template>
+
+        <template #tags-cell="{ row }">
+          <TagsList :id="row.original.id" :tags="row.original.tags" kind="analysis" selectable @changed="refresh" @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
+        </template>
+
         <template #updated_at-cell="{ row }">
           <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.updated_at)">
             {{ formatRelativeDate(row.original.updated_at) }}
@@ -115,7 +159,7 @@ async function confirmDelete() {
       v-else-if="!pending"
       title="No analyses yet"
       message="Compare the outputs of one or more executions to a ground-truth column: RMSE, correlation, accuracy, kappa…"
-      icon="i-lucide-chart-column"
+      icon="i-ph-chart-bar-bold"
       action-label="New analysis"
       action-to="/analyses/new"
     />

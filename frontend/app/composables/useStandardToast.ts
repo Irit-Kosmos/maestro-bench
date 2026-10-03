@@ -10,7 +10,7 @@ export function useStandardToast() {
       title: 'Success',
       description: `${entityName} created successfully!`,
       color: 'success',
-      icon: 'i-lucide:check-circle',
+      icon: 'i-ph:check-circle-bold',
     })
   }
 
@@ -19,7 +19,7 @@ export function useStandardToast() {
       title: 'Success',
       description: `${entityName} updated successfully!`,
       color: 'success',
-      icon: 'i-lucide:check-circle',
+      icon: 'i-ph:check-circle-bold',
     })
   }
 
@@ -28,7 +28,7 @@ export function useStandardToast() {
       title: 'Success',
       description: `${entityName} deleted successfully!`,
       color: 'success',
-      icon: 'i-lucide:check-circle',
+      icon: 'i-ph:check-circle-bold',
     })
   }
 
@@ -38,7 +38,7 @@ export function useStandardToast() {
       title: 'Error',
       description: error || `Failed to create ${entityName.toLowerCase()}. Please try again.`,
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
 
@@ -47,7 +47,7 @@ export function useStandardToast() {
       title: 'Error',
       description: error || `Failed to update ${entityName.toLowerCase()}. Please try again.`,
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
 
@@ -56,7 +56,7 @@ export function useStandardToast() {
       title: 'Error',
       description: error || `Failed to delete ${entityName.toLowerCase()}. Please try again.`,
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
 

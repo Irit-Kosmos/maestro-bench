@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AnalysisConfig, AnalysisResult, AnalysisRunResult } from '~/types'
+import type { AnalysisConfig, AnalysisResult, AnalysisRunResult, MetricInfo } from '~/types'
 import { EXCLUSION_LABELS } from '~/composables/useAnalyses'
 
 const props = defineProps<{
@@ -20,15 +20,63 @@ const scatterDomain = computed<[number, number]>(() => {
   return [Math.min(...values) - 0.5, Math.max(...values) + 0.5]
 })
 
-function coverageLabel(run: AnalysisRunResult) {
-  if (run.coverage === null)
-    return '—'
-  return `${run.n_valid}/${run.n_total} (${Math.round(run.coverage * 100)}%)`
+// Row shown in the side panel after a click on a point
+const selected = ref<{ run: AnalysisRunResult, row: number } | null>(null)
+const panelOpen = ref(false)
+
+function selectPoint(run: AnalysisRunResult, row: number) {
+  selected.value = { run, row }
+  panelOpen.value = true
+}
+
+function selectedRowOf(run: AnalysisRunResult) {
+  const current = selected.value
+  return current && current.run.execution_id === run.execution_id
+    && current.run.agent_name === run.agent_name
+    ? current.row
+    : null
+}
+
+// Default labels read "Experiment · model"; the model id goes on the secondary line
+function splitLabel(label: string) {
+  const [name = label, ...rest] = label.split(' · ')
+  return { name, detail: rest.join(' · ') }
+}
+
+// Only shown below 100%: at full coverage "250/250" says it all
+function coveragePct(run: AnalysisRunResult) {
+  if (run.coverage === null || run.coverage >= 1)
+    return null
+  return `${Math.floor(run.coverage * 100)}%`
 }
 
 function exclusionSummary(run: AnalysisRunResult) {
   return Object.entries(run.exclusions)
-    .map(([reason, count]) => `${EXCLUSION_LABELS[reason] ?? reason}: ${count}`)
+    .map(([reason, count]) => `${EXCLUSION_LABELS[reason] ?? reason} ${count}`)
+    .join(', ')
+}
+
+// Lowest rank score of each metric across runs, to emphasise the best run in the table
+const bestScores = computed(() => {
+  const best: Record<string, number> = {}
+  if (okRuns.value.length < 2)
+    return best
+  for (const m of props.result.metrics) {
+    const scores = okRuns.value
+      .map(r => r.metrics[m.key]?.value)
+      .filter((v): v is number => v !== null && v !== undefined)
+      .map(v => metricRankScore(m, v))
+    if (scores.length >= 2)
+      best[m.key] = Math.min(...scores)
+  }
+  return best
+})
+
+// Hovering (or focusing) the trophy dims every bar but the best of each chart
+const highlightBest = ref(false)
+
+function isBest(m: MetricInfo, value: number | null | undefined) {
+  return value !== null && value !== undefined && bestScores.value[m.key] === metricRankScore(m, value)
 }
 
 function excludedRowsByReason(run: AnalysisRunResult) {
@@ -74,21 +122,21 @@ function exportCsv() {
       :key="warning"
       color="warning"
       variant="subtle"
-      icon="i-lucide-triangle-alert"
+      icon="i-ph-warning-bold"
       :title="warning"
-      description="Metrics are computed independently per run; differences may come from the data, not the model."
+      description="Metrics are computed independently per execution; differences may come from the data, not the model."
     />
     <UAlert
       v-for="run in failedRuns"
       :key="`failed-${run.execution_id}`"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-x"
+      icon="i-ph-x-circle-bold"
       :title="`${run.label}: ${run.status === 'missing' ? 'execution not found' : 'results unavailable'}`"
       :description="run.error ?? undefined"
     />
 
-    <UCard v-if="okRuns.length">
+    <UCard v-if="okRuns.length" :ui="{ body: 'p-3 sm:p-3' }">
       <template #header>
         <div class="flex items-center justify-between">
           <div>
@@ -96,13 +144,13 @@ function exportCsv() {
               Metrics
             </h3>
             <p class="text-sm text-muted">
-              Value [{{ confidencePct }}% bootstrap CI, {{ config.n_boot }} resamples]
+              Value and {{ confidencePct }}% bootstrap CI ({{ config.n_boot }} resamples) · best execution in bold
             </p>
           </div>
           <UButton
             variant="outline"
             color="neutral"
-            icon="i-lucide-download"
+            icon="i-ph-download-simple-bold"
             size="sm"
             @click="exportCsv"
           >
@@ -111,23 +159,23 @@ function exportCsv() {
         </div>
       </template>
 
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto -mx-1">
         <table class="w-full text-sm">
           <thead>
-            <tr class="text-left text-muted border-b border-default">
-              <th class="py-2 pr-4 font-medium">
-                Run
+            <tr class="text-left text-xs text-muted border-b border-default">
+              <th class="px-1 pb-2 pr-4 font-medium">
+                Execution
               </th>
-              <th class="py-2 pr-4 font-medium">
+              <th class="px-1 pb-2 pr-4 font-medium whitespace-nowrap">
                 Rows used
               </th>
               <th
                 v-for="m in result.metrics"
                 :key="m.key"
-                class="py-2 pr-4 font-medium whitespace-nowrap"
+                class="px-1 pb-2 pl-4 font-medium whitespace-nowrap text-right"
               >
                 <UTooltip :text="m.description">
-                  <span class="underline decoration-dotted underline-offset-4">{{ m.label }}</span>
+                  <span class="cursor-help">{{ m.label }}</span>
                 </UTooltip>
               </th>
             </tr>
@@ -138,74 +186,85 @@ function exportCsv() {
               :key="`${run.execution_id}-${run.agent_name}`"
               class="border-b border-muted last:border-0 align-top"
             >
-              <td class="py-2 pr-4">
-                <div class="font-medium text-highlighted">
-                  {{ run.label }}
+              <td class="px-1 py-1.5 pr-4 max-w-72">
+                <div class="truncate font-medium text-highlighted" :title="run.label">
+                  {{ splitLabel(run.label).name }}
                 </div>
-                <NuxtLink
-                  :to="`/experiments/${run.experiment_id}`"
-                  class="text-xs text-muted hover:text-primary"
-                >
-                  Execution #{{ run.execution_id }} · {{ run.agent_name }}
-                </NuxtLink>
+                <div class="flex flex-wrap gap-x-1.5 text-xs text-muted">
+                  <span v-if="splitLabel(run.label).detail" class="break-all">
+                    {{ splitLabel(run.label).detail }}
+                  </span>
+                  <NuxtLink
+                    :to="`/experiments/${run.experiment_id}`"
+                    class="whitespace-nowrap hover:text-primary"
+                  >
+                    #{{ run.execution_id }} · {{ run.agent_name }}
+                  </NuxtLink>
+                </div>
               </td>
-              <td class="py-2 pr-4 whitespace-nowrap">
-                <div class="flex items-center gap-1">
-                  <span class="tabular-nums">{{ coverageLabel(run) }}</span>
+              <td class="px-1 py-1.5 pr-4 whitespace-nowrap">
+                <div class="flex items-center gap-1.5">
+                  <span v-if="run.coverage === null" class="text-dimmed">—</span>
+                  <span v-else class="tabular-nums text-highlighted">
+                    {{ run.n_valid }}<span class="text-muted">/{{ run.n_total }}</span>
+                  </span>
+                  <span v-if="coveragePct(run)" class="text-xs tabular-nums text-muted">
+                    {{ coveragePct(run) }}
+                  </span>
                   <UTooltip
                     v-if="isSmallSample(run.n_valid)"
                     :text="`Small sample: metrics from ${formatRows(run.n_valid)} aren’t reliable (under ${SMALL_SAMPLE_ROWS})`"
                   >
-                    <UBadge color="warning" variant="soft" size="sm" icon="i-lucide-triangle-alert">
-                      Small sample
-                    </UBadge>
+                    <UIcon name="i-ph-warning-bold" class="size-3.5 text-warning" />
                   </UTooltip>
-                  <UPopover v-if="run.excluded_rows.length">
-                    <UButton
-                      size="xs"
-                      variant="ghost"
-                      :color="run.warnings.length ? 'warning' : 'neutral'"
-                      :icon="run.warnings.length ? 'i-lucide-triangle-alert' : 'i-lucide-info'"
-                      :aria-label="`Excluded rows for ${run.label}`"
-                    />
-                    <template #content>
-                      <div class="p-3 text-sm space-y-2 max-w-xs">
-                        <p v-for="w in run.warnings" :key="w" class="text-warning-700">
-                          {{ w }}
-                        </p>
-                        <div
-                          v-for="(rows, reason) in excludedRowsByReason(run)"
-                          :key="reason"
-                        >
-                          <div class="font-medium">
-                            {{ EXCLUSION_LABELS[reason] ?? reason }} ({{ rows.length }})
-                          </div>
-                          <div class="text-xs text-muted break-words">
-                            Rows {{ rows.join(', ') }}
-                          </div>
+                </div>
+                <UPopover v-if="run.excluded_rows.length" :content="{ align: 'start' }">
+                  <button
+                    type="button"
+                    class="flex items-center gap-1 text-xs hover:underline underline-offset-2 cursor-pointer"
+                    :class="run.warnings.length ? 'text-warning' : 'text-muted'"
+                    :aria-label="`Excluded rows for ${run.label}`"
+                  >
+                    {{ exclusionSummary(run) }}
+                  </button>
+                  <template #content>
+                    <div class="p-3 text-sm space-y-2 max-w-xs">
+                      <p v-for="w in run.warnings" :key="w" class="text-warning-700">
+                        {{ w }}
+                      </p>
+                      <div
+                        v-for="(rows, reason) in excludedRowsByReason(run)"
+                        :key="reason"
+                      >
+                        <div class="font-medium">
+                          {{ EXCLUSION_LABELS[reason] ?? reason }} ({{ rows.length }})
+                        </div>
+                        <div class="text-xs text-muted break-words">
+                          Rows {{ rows.join(', ') }}
                         </div>
                       </div>
-                    </template>
-                  </UPopover>
-                </div>
-                <div
-                  v-for="line in exclusionSummary(run)"
-                  :key="line"
-                  class="text-xs text-muted"
-                >
-                  {{ line }}
+                    </div>
+                  </template>
+                </UPopover>
+                <div v-else-if="exclusionSummary(run)" class="text-xs text-muted">
+                  {{ exclusionSummary(run) }}
                 </div>
               </td>
               <td
                 v-for="m in result.metrics"
                 :key="m.key"
-                class="py-2 pr-4 whitespace-nowrap tabular-nums"
+                class="px-1 py-1.5 pl-4 whitespace-nowrap tabular-nums text-right"
               >
                 <template v-if="run.metrics[m.key]?.value !== null && run.metrics[m.key]?.value !== undefined">
-                  <span class="font-medium text-highlighted">{{ formatMetric(run.metrics[m.key]!.value) }}</span>
-                  <span v-if="run.metrics[m.key]!.ci_low !== null" class="text-muted">
+                  <div
+                    :class="isBest(m, run.metrics[m.key]!.value) ? 'font-semibold text-highlighted' : 'text-default'"
+                    :title="isBest(m, run.metrics[m.key]!.value) ? 'Best execution for this metric' : undefined"
+                  >
+                    {{ formatMetric(run.metrics[m.key]!.value) }}
+                  </div>
+                  <div v-if="run.metrics[m.key]!.ci_low !== null" class="text-xs text-muted">
                     [{{ formatMetric(run.metrics[m.key]!.ci_low) }}, {{ formatMetric(run.metrics[m.key]!.ci_high) }}]
-                  </span>
+                  </div>
                 </template>
                 <UTooltip v-else :text="run.metrics[m.key]?.undefined_reason ?? 'Undefined'">
                   <span class="text-dimmed">—</span>
@@ -219,12 +278,32 @@ function exportCsv() {
 
     <UCard v-if="okRuns.length">
       <template #header>
-        <h3 class="font-semibold">
-          Comparison
-        </h3>
-        <p class="text-sm text-muted">
-          Bars show the value, whiskers the {{ confidencePct }}% confidence interval
-        </p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold">
+              Comparison
+            </h3>
+            <p class="text-sm text-muted">
+              Bars show the value, whiskers the {{ confidencePct }}% confidence interval
+            </p>
+          </div>
+          <UTooltip v-if="okRuns.length > 1" text="Highlight the best execution of each chart" :content="{ align: 'end' }">
+            <UButton
+              icon="i-ph-trophy-bold"
+              size="sm"
+              color="neutral"
+              variant="outline"
+              aria-label="Highlight the best execution of each chart"
+              :class="highlightBest && 'bg-elevated'"
+              @mouseenter="highlightBest = true"
+              @mouseleave="highlightBest = false"
+              @focus="highlightBest = true"
+              @blur="highlightBest = false"
+            >
+              Best
+            </UButton>
+          </UTooltip>
+        </div>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <AnalysesMetricBars
@@ -233,6 +312,7 @@ function exportCsv() {
           :metric="m"
           :runs="okRuns"
           :confidence="config.confidence"
+          :highlight-best="highlightBest"
         />
       </div>
     </UCard>
@@ -243,7 +323,7 @@ function exportCsv() {
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
         <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
-          Points are jittered to show overlapping values; dashed line is y = x
+          Dashed line is y = x; click a point to see its row
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -260,6 +340,8 @@ function exportCsv() {
             v-else-if="config.value_type === 'numeric'"
             :run="run"
             :domain="scatterDomain"
+            :selected-row="panelOpen ? selectedRowOf(run) : null"
+            @select="selectPoint(run, $event)"
           />
           <AnalysesConfusion
             v-else-if="run.confusion"
@@ -269,5 +351,12 @@ function exportCsv() {
         </div>
       </div>
     </UCard>
+
+    <AnalysesRowPanel
+      v-model:open="panelOpen"
+      :run="selected?.run ?? null"
+      :row-index="selected?.row ?? null"
+      :truth-column="config.truth_column"
+    />
   </div>
 </template>

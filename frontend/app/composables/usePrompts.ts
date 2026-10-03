@@ -5,7 +5,7 @@ export function usePrompts() {
   const { $api } = useNuxtApp()
 
   // Create a new prompt
-  async function createPrompt(promptData: { name: string, description?: string, category?: string }) {
+  async function createPrompt(promptData: { name: string, description?: string, tag_ids?: number[] }) {
     try {
       const response = await $api('/prompts', {
         method: 'POST',
@@ -21,7 +21,7 @@ export function usePrompts() {
   }
 
   // Update a prompt
-  async function updatePrompt(promptId: number, promptData: { name?: string, description?: string, category?: string }) {
+  async function updatePrompt(promptId: number, promptData: { name?: string, description?: string, tag_ids?: number[] }) {
     try {
       const response = await $api(`/prompts/${promptId}`, {
         method: 'PUT',

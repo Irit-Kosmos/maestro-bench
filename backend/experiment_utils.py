@@ -248,6 +248,8 @@ def create_execution_snapshot(
             if prompt_version.prompt
             else "Unknown",
             prompt_version_snapshot=prompt_version.version,
+            prompt_id=prompt_version.prompt_id,
+            prompt_version_id=prompt_version.id,
             final_system_prompt=prompt_version.system_prompt,
             final_user_prompt=prompt_version.user_prompt,
             final_variables=prompt_version.variables,

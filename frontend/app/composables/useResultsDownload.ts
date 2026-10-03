@@ -39,7 +39,7 @@ export function useResultsDownload() {
         title: 'Success',
         description: 'Results downloaded successfully',
         color: 'success',
-        icon: 'i-lucide:download',
+        icon: 'i-ph:download-simple-bold',
       })
 
       return { success: true }
@@ -51,7 +51,7 @@ export function useResultsDownload() {
         title: 'Download Failed',
         description: error.message || 'Failed to download results file',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
 
       return { success: false, error: error.message }

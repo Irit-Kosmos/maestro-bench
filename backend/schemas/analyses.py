@@ -9,6 +9,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from schemas.tags import TagResponse
+
 
 class AnalysisConfigSchema(BaseModel):
     truth_column: str
@@ -34,6 +36,7 @@ class AnalysisCreate(BaseModel):
     description: str | None = None
     config: AnalysisConfigSchema
     runs: list[AnalysisRunRef] = []
+    tag_ids: list[int] = []
 
 
 class AnalysisUpdate(BaseModel):
@@ -41,6 +44,8 @@ class AnalysisUpdate(BaseModel):
     description: str | None = None
     config: AnalysisConfigSchema | None = None
     runs: list[AnalysisRunRef] | None = None
+    # Left out: the tags stay as they are. Sent: they become exactly these.
+    tag_ids: list[int] | None = None
 
 
 class AnalysisResponse(BaseModel):
@@ -49,6 +54,7 @@ class AnalysisResponse(BaseModel):
     description: str | None
     config: AnalysisConfigSchema
     runs: list[AnalysisRunRef]
+    tags: list[TagResponse] = []
     created_at: datetime
     updated_at: datetime
 
@@ -117,6 +123,22 @@ class ExecutionFields(BaseModel):
     execution_id: int
     columns: list[str]
     agents: list[AgentFields]
+
+
+class AgentRowOutput(BaseModel):
+    name: str | None
+    # Parsed when the agent answered with JSON, the raw text otherwise
+    output: Any = None
+    error: str | None = None
+
+
+class ExecutionRow(BaseModel):
+    """One dataset row of an execution: what went in, what each agent returned."""
+
+    row_index: int
+    input_data: dict[str, Any]
+    agents: list[AgentRowOutput]
+    error: str | None = None
 
 
 class AvailableExecution(BaseModel):

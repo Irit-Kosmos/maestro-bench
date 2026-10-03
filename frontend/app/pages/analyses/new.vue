@@ -23,6 +23,7 @@ const executionIds = String(route.query.executions ?? '')
 const form = ref<AnalysisForm>({
   name: route.query.name ? `${route.query.name} analysis` : '',
   description: null,
+  tag_ids: [],
   config: structuredClone(DEFAULT_ANALYSIS_CONFIG),
   runs: executionIds.length > 0
     ? executionIds.map(id => ({ execution_id: id, agent_name: '', label: null }))
@@ -41,6 +42,8 @@ const canCompute = computed(() =>
   && !!form.value.config.truth_column
   && form.value.config.metrics.length > 0,
 )
+
+const canSave = computed(() => canCompute.value && !!form.value.name.trim())
 
 async function runPreview() {
   isComputing.value = true
@@ -69,37 +72,58 @@ async function save() {
     isSaving.value = false
   }
 }
+
+// ⌘↵ creates the analysis, from any field
+defineShortcuts({
+  meta_enter: {
+    usingInput: true,
+    handler: () => {
+      if (canSave.value && !isSaving.value)
+        save()
+    },
+  },
+})
 </script>
 
 <template>
-  <div class="space-y-4 pb-6">
-    <UCard>
-      <AnalysesEditor v-model="form" />
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <UButton
-            variant="outline"
-            color="neutral"
-            icon="i-lucide-refresh-cw"
-            :loading="isComputing"
-            :disabled="!canCompute"
-            @click="runPreview"
-          >
-            Preview
-          </UButton>
-          <UButton
-            color="primary"
-            icon="i-lucide-save"
-            :loading="isSaving"
-            :disabled="!canCompute || !form.name"
-            @click="save"
-          >
-            Save analysis
-          </UButton>
-        </div>
-      </template>
-    </UCard>
+  <BasePageContent>
+    <AppPageActions>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        icon="i-ph-arrows-clockwise-bold"
+        size="sm"
+        :loading="isComputing"
+        :disabled="!canCompute"
+        @click="runPreview"
+      >
+        Preview
+      </UButton>
+      <UButton
+        variant="soft"
+        color="neutral"
+        icon="i-ph-check-bold"
+        size="sm"
+        :loading="isSaving"
+        :disabled="!canSave"
+        @click="save"
+      >
+        Create analysis
+        <template #trailing>
+          <span class="flex gap-0.5">
+            <UKbd value="meta" size="sm" />
+            <UKbd value="enter" size="sm" />
+          </span>
+        </template>
+      </UButton>
+    </AppPageActions>
 
-    <AnalysesResults v-if="preview" :result="preview" :config="form.config" :name="form.name" />
-  </div>
+    <div class="mx-auto max-w-3xl space-y-10 pb-10">
+      <AnalysesEditor v-model="form" />
+
+      <section v-if="preview" class="border-t border-default pt-8">
+        <AnalysesResults :result="preview" :config="form.config" :name="form.name" />
+      </section>
+    </div>
+  </BasePageContent>
 </template>

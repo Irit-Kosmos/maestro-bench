@@ -92,7 +92,7 @@ async function doSave() {
       title: 'Dataset saved',
       description: `${changes} change${changes === 1 ? '' : 's'} written to the file.`,
       color: 'success',
-      icon: 'i-lucide:check-circle',
+      icon: 'i-ph:check-circle-bold',
     })
     return
   }
@@ -102,7 +102,7 @@ async function doSave() {
     title: 'Couldn’t save the dataset',
     description: result.message,
     color: 'error',
-    icon: 'i-lucide:alert-circle',
+    icon: 'i-ph:warning-circle-bold',
   })
 }
 
@@ -216,7 +216,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
       v-else-if="error"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      icon="i-ph-warning-circle-bold"
       title="Couldn’t open the dataset"
       :description="error"
       :actions="[{ label: 'Try again', color: 'error', variant: 'outline', onClick: () => { editor.load() } }]"
@@ -227,7 +227,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
         v-if="isReadOnly"
         color="neutral"
         variant="subtle"
-        icon="i-lucide-lock"
+        icon="i-ph-lock-bold"
         title="Read-only"
         :description="`${readOnlyReason}. You can search and read it, not edit it.`"
       />
@@ -236,7 +236,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
         v-if="conflict"
         color="warning"
         variant="subtle"
-        icon="i-lucide-triangle-alert"
+        icon="i-ph-warning-bold"
         title="The file changed on disk"
         description="It was modified after you opened it, so saving would overwrite that change. Reload to see it; your unsaved edits will be lost."
         :actions="[{ label: 'Reload and discard my edits', color: 'warning', variant: 'outline', onClick: reloadFromDisk }]"
@@ -249,7 +249,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             ref="searchInput"
             v-model="query"
             placeholder="Search all columns…"
-            icon="i-lucide-search"
+            icon="i-ph-magnifying-glass-bold"
             size="sm"
             variant="none"
             aria-label="Search rows"
@@ -270,7 +270,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             <template v-if="selected.size && !isReadOnly">
               <span class="text-xs text-muted tabular-nums">{{ selected.size.toLocaleString('en-US') }} selected</span>
               <UButton
-                icon="i-lucide-trash-2"
+                icon="i-ph-trash-bold"
                 label="Delete"
                 color="error"
                 variant="ghost"
@@ -303,7 +303,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
 
             <UButton
               v-if="!isReadOnly"
-              icon="i-lucide-plus"
+              icon="i-ph-plus-bold"
               label="Add row"
               color="neutral"
               variant="ghost"
@@ -333,7 +333,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
               <p class="text-sm text-muted">
                 This file has no rows yet.
               </p>
-              <UButton v-if="!isReadOnly" icon="i-lucide-plus" label="Add row" size="sm" @click="addRow" />
+              <UButton v-if="!isReadOnly" icon="i-ph-plus-bold" label="Add row" size="sm" @click="addRow" />
             </template>
           </div>
         </div>

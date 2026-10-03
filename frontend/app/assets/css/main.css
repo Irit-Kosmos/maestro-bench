@@ -160,3 +160,16 @@ html:root.dark {
 .vue-flow__edge.selected .vue-flow__edge-path {
   stroke: var(--ui-primary);
 }
+
+/* Reordering by drag: the slot left behind recedes, the row in hand lifts */
+.sortable-ghost {
+  opacity: 0.35;
+}
+
+.sortable-drag {
+  background-color: var(--ui-bg-elevated);
+  border-radius: var(--ui-radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  cursor: grabbing;
+  opacity: 1 !important;
+}

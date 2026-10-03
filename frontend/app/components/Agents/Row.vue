@@ -90,11 +90,11 @@ async function save() {
   saving.value = false
 
   if (result.success) {
-    toast.add({ title: 'Agent saved', description: name, color: 'success', icon: 'i-lucide:check' })
+    toast.add({ title: 'Agent saved', description: name, color: 'success', icon: 'i-ph:check-bold' })
     emit('saved')
   }
   else {
-    toast.add({ title: 'Could not save', description: result.error || 'Failed to update agent', color: 'error', icon: 'i-lucide:x' })
+    toast.add({ title: 'Could not save', description: result.error || 'Failed to update agent', color: 'error', icon: 'i-ph:x-bold' })
   }
 }
 
@@ -113,10 +113,10 @@ const teamItems = computed(() => props.teams.map(team => ({ label: team.name, va
     <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose (frequent). -->
     <button
       type="button"
-      class="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      class="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
     >
       <UIcon
-        name="i-lucide-chevron-right"
+        name="i-ph-caret-right-bold"
         class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none group-data-[state=open]/agent:rotate-90"
         aria-hidden="true"
       />
@@ -139,7 +139,7 @@ const teamItems = computed(() => props.teams.map(team => ({ label: team.name, va
 
       <div class="hidden md:flex flex-col items-end gap-0.5 shrink-0 text-xs text-toned">
         <span v-if="savedPromptLabel" class="inline-flex items-center gap-1">
-          <UIcon name="i-lucide-message-square-text" class="size-3 text-muted" aria-hidden="true" />
+          <UIcon name="i-ph-chat-text-bold" class="size-3 text-muted" aria-hidden="true" />
           {{ savedPromptLabel }}
         </span>
         <ModelsLabel v-if="savedModel" :name="savedModel.name" :provider="savedModel.provider" />
@@ -200,7 +200,7 @@ const teamItems = computed(() => props.teams.map(team => ({ label: team.name, va
             color="error"
             variant="ghost"
             size="sm"
-            icon="i-lucide-trash-2"
+            icon="i-ph-trash-bold"
             @click="emit('delete', agent)"
           >
             Delete

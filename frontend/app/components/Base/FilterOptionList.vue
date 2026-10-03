@@ -51,7 +51,7 @@ const isSelected = (option: FilterOption) => props.selected.includes(option.valu
           :class="isSelected(option) ? 'border-inverted bg-inverted text-inverted' : 'border-accented'"
           aria-hidden="true"
         >
-          <UIcon v-if="isSelected(option)" name="i-lucide-check" class="size-2.5" />
+          <UIcon v-if="isSelected(option)" name="i-ph-check-bold" class="size-2.5" />
         </span>
         <!-- Ring and dot in one SVG: a CSS border snaps to device pixels but its content does not,
              so a dot nested in a bordered box drifts off-center at fractional positions -->
@@ -66,6 +66,7 @@ const isSelected = (option: FilterOption) => props.selected.includes(option.valu
           <circle v-if="isSelected(option)" cx="7" cy="7" r="3" class="fill-(--ui-bg)" />
         </svg>
         <UIcon v-if="option.icon" :name="option.icon" class="size-3.5 shrink-0" :class="option.iconClass" aria-hidden="true" />
+        <span v-else-if="option.dot" class="size-2 shrink-0 rounded-full" :class="option.dot" aria-hidden="true" />
         <span class="flex-1 truncate">{{ option.label }}</span>
         <span v-if="option.count !== undefined" class="text-xs text-dimmed tabular-nums">{{ option.count }}</span>
       </button>

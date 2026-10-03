@@ -62,10 +62,26 @@ export function useExperiments() {
     }
   }
 
+  // Stop a running experiment; `cancelled` is false when nothing was running
+  const cancelExperiment = async (id: number) => {
+    try {
+      const response = await $api<{ cancelled: boolean }>(`/experiments/${id}/cancel`, {
+        method: 'POST',
+      })
+
+      return { success: true as const, data: response }
+    }
+    catch (error) {
+      console.error('Error cancelling experiment:', error)
+      return { success: false as const, error }
+    }
+  }
+
   return {
     createExperiment,
     fetchExperiment,
     deleteExperiment,
     rerunExperiment,
+    cancelExperiment,
   }
 }

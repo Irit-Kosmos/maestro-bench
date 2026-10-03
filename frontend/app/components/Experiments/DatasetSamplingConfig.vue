@@ -157,7 +157,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
   <div>
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center gap-2 text-toned">
-      <UIcon name="i-lucide-loader-2" class="w-4 h-4 animate-spin" />
+      <UIcon name="i-ph-circle-notch-bold" class="w-4 h-4 animate-spin" />
       <span class="text-sm">Loading dataset information...</span>
     </div>
 
@@ -247,7 +247,7 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
 
     <!-- No Dataset Selected -->
     <div v-else class="text-center py-8">
-      <UIcon name="i-lucide-info" class="w-8 h-8 text-dimmed mx-auto mb-2" />
+      <UIcon name="i-ph-info-bold" class="w-8 h-8 text-dimmed mx-auto mb-2" />
       <p class="text-sm text-muted">
         Select a dataset to configure sampling options
       </p>

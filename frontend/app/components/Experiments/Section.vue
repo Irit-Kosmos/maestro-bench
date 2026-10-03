@@ -25,7 +25,7 @@ defineSlots<{
     class="scroll-mt-6 border-t border-default first:border-t-0 first:pt-0"
     :class="compact ? 'pt-5' : 'pt-8'"
   >
-    <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+    <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap">
       <div class="min-w-0">
         <h2 :id="`${id}-title`" class="flex items-center gap-2 text-base font-semibold text-highlighted">
           <UIcon v-if="icon" :name="icon" class="size-4 shrink-0 text-muted" aria-hidden="true" />
@@ -36,7 +36,7 @@ defineSlots<{
           {{ description }}
         </p>
       </div>
-      <div v-if="$slots.actions" class="flex items-center gap-2">
+      <div v-if="$slots.actions" class="flex shrink-0 items-center gap-2">
         <slot name="actions" />
       </div>
     </div>

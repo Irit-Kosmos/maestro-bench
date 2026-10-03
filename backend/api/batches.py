@@ -23,12 +23,14 @@ from batch_utils import (
     variant_label,
 )
 from db import get_session
+from execution_stats import latest_figures
 from experiment_utils import add_experiment
 from results_files import execution_row_count
 from schemas.batches import (
     BatchCancelResponse,
     BatchCreate,
     BatchExperimentResponse,
+    BatchRerunResponse,
     BatchResponse,
     VariantCoordinate,
     VariationResponse,
@@ -229,6 +231,7 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
     ]
 
     experiment_responses = []
+    earlier_executions: list[ExperimentExecution] = []
     for experiment in experiments:
         point = parse_point(experiment.variant)
         coordinates = [
@@ -241,14 +244,18 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
             for v in variations
             if v["field"] in point.get(v["agent_id"], {})
         ]
-        execution = session.exec(
+        executions = session.exec(
             select(ExperimentExecution)
             .where(ExperimentExecution.experiment_id == experiment.id)
             .order_by(col(ExperimentExecution.started_at).desc())
-        ).first()
+        ).all()
+        execution = executions[0] if executions else None
+        earlier_executions.extend(executions[1:])
+        # The latest execution may have failed or be running again: analyses
+        # work from the latest one that completed
+        last_completed = next((e for e in executions if e.status == "completed"), None)
 
         agent_names: list[str] = []
-        duration = None
         if execution:
             agent_names = [
                 s.agent_name_snapshot
@@ -258,8 +265,6 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
                     .order_by(col(AgentExecutionSnapshot.execution_order))
                 ).all()
             ]
-            if execution.completed_at:
-                duration = (execution.completed_at - execution.started_at).total_seconds()
 
         experiment_responses.append(
             BatchExperimentResponse(
@@ -270,17 +275,20 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
                 created_at=experiment.created_at,
                 execution_id=execution.id if execution else None,
                 execution_status=execution.status if execution else None,
+                last_completed_execution_id=last_completed.id if last_completed else None,
                 started_at=execution.started_at if execution else None,
                 completed_at=execution.completed_at if execution else None,
-                duration_seconds=duration,
                 row_count=execution_row_count(execution) if execution else None,
-                total_tokens=execution.total_tokens if execution else None,
-                total_cost_usd=execution.total_cost_usd if execution else None,
                 agent_names=agent_names,
+                **latest_figures(executions),
             )
         )
 
     statuses = [e.status for e in experiments]
+    tokens = [e.total_tokens for e in experiment_responses if e.total_tokens is not None]
+    costs = [
+        e.total_cost_usd for e in experiment_responses if e.total_cost_usd is not None
+    ]
     return BatchResponse(
         id=int(batch.id) if batch.id is not None else 0,
         name=batch.name,
@@ -293,6 +301,15 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
         variations=axis_responses,
         status=batch_status(statuses),
         counts=dict(Counter(statuses)),
+        execution_count=sum(e.execution_count for e in experiment_responses),
+        earlier_execution_statuses=[
+            e.status
+            for e in sorted(
+                earlier_executions, key=lambda e: e.started_at, reverse=True
+            )
+        ],
+        total_tokens=sum(tokens) if tokens else None,
+        total_cost_usd=sum(costs) if costs else None,
         experiments=experiment_responses,
     )
 
@@ -407,6 +424,42 @@ def cancel_batch(batch_id: int, session: Annotated[Session, Depends(get_session)
         async_jobs.cancel_experiment(int(e.id)) for e in experiments if e.id is not None
     )
     return BatchCancelResponse(batch_id=batch_id, cancelled=cancelled)
+
+
+@router.post("/batches/{batch_id}/rerun", response_model=BatchRerunResponse)
+async def rerun_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
+    """Run again every experiment of the batch that is not running.
+
+    Each one gets a new execution with its own configuration, and the batch's
+    sample, so the variants stay comparable. Running experiments are left alone:
+    restarting one would cancel its current run.
+
+    Async, unlike the other handlers that read the batch: starting an experiment
+    schedules an asyncio task, which needs the event loop a sync handler (run in
+    a worker thread) does not have.
+    """
+    batch = session.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    experiments = session.exec(
+        select(Experiment).where(Experiment.batch_id == batch_id)
+    ).all()
+
+    started = 0
+    skipped = 0
+    for experiment in experiments:
+        if experiment.id is None:
+            continue
+        if experiment.status == "running":
+            skipped += 1
+            continue
+        try:
+            async_jobs.start_experiment(int(experiment.id))
+            started += 1
+        except Exception:
+            logger.exception("Failed to start experiment %s", experiment.id)
+    logger.info("Batch %s re-run (%d experiments)", batch_id, started)
+    return BatchRerunResponse(batch_id=batch_id, started=started, skipped=skipped)
 
 
 @router.delete("/batches/{batch_id}")

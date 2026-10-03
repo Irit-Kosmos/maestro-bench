@@ -114,3 +114,55 @@ def test_rate_limiter_spaces_out_requests(no_sleep):
     asyncio.run(burst())
     # First request goes immediately, the next two wait for their slot
     assert no_sleep == [pytest.approx(0.5, abs=0.05), pytest.approx(1.0, abs=0.05)]
+
+
+def test_ollama_models_are_routed_through_ollama_chat():
+    assert llm._resolve_model_id("llama3.2:3b", "ollama") == "ollama_chat/llama3.2:3b"
+    # Already prefixed names are left alone
+    assert (
+        llm._resolve_model_id("ollama_chat/llama3.2", "ollama")
+        == "ollama_chat/llama3.2"
+    )
+
+
+def test_ollama_is_configured_by_its_url_not_a_key(monkeypatch):
+    monkeypatch.delenv("OLLAMA_API_BASE", raising=False)
+    assert not llm.check_provider_available("ollama")
+
+    monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
+    assert llm.check_provider_available("ollama")
+
+
+def test_providers_endpoint_says_what_each_env_var_holds(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api import providers
+
+    monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    app = FastAPI()
+    app.include_router(providers.router)
+
+    by_name = {p["provider"]: p for p in TestClient(app).get("/providers").json()}
+
+    assert by_name["ollama"] == {
+        "provider": "ollama",
+        "configured": True,
+        "env_var": "OLLAMA_API_BASE",
+        "kind": "url",
+    }
+    assert by_name["mistral"]["kind"] == "key"
+    assert by_name["mistral"]["configured"] is False
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "expected"),
+    [
+        ("google", "gemini-2.5-flash", "gemini/gemini-2.5-flash"),
+        ("xai", "grok-4", "xai/grok-4"),
+        ("openrouter", "openai/gpt-4o-mini", "openrouter/openai/gpt-4o-mini"),
+    ],
+)
+def test_added_providers_get_their_litellm_prefix(provider, model, expected):
+    assert llm._resolve_model_id(model, provider) == expected

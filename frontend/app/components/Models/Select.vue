@@ -82,7 +82,7 @@ function onUpdate(value: unknown) {
       <span v-if="leadingProviders.length" class="flex items-center -space-x-1.5">
         <UIProviderIcon v-for="key in leadingProviders" :key="key" :provider="key" />
       </span>
-      <UIcon v-else name="i-lucide-cpu" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
+      <UIcon v-else name="i-ph-cpu-bold" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
     </template>
 
     <template #item-leading="{ item }">

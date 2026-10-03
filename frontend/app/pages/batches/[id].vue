@@ -5,7 +5,7 @@ const route = useRoute()
 const batchId = computed(() => Number.parseInt(route.params.id as string))
 
 const toast = useToast()
-const { cancelBatch, deleteBatch } = useBatches()
+const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
 const { formatDate, formatDuration } = useUIHelpers()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
@@ -20,14 +20,8 @@ useSeoMeta({ title: () => batch.value?.name ?? 'Batch' })
 const isActive = computed(() => batch.value?.status === 'running' || batch.value?.status === 'pending')
 
 // The experiments run in the background: follow them until they are all done
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => {
-    if (isActive.value)
-      refresh()
-  }, 4000)
-})
-onBeforeUnmount(() => clearInterval(timer))
+const { runOf } = useLiveRuns()
+useRefreshOnRunStatus(refresh)
 
 // One column per varied field, named after the agent too when several agents are involved
 const multipleAgents = computed(() => new Set(batch.value?.variations.map(v => v.agent_id)).size > 1)
@@ -72,9 +66,12 @@ function providerOf(experiment: Batch['experiments'][number], axis: { agent_id: 
 
 const finished = computed(() => (batch.value?.experiments ?? []).filter(e => e.status === 'completed').length)
 
-const completed = computed(() => (batch.value?.experiments ?? []).filter(e => e.status === 'completed' && e.execution_id))
-const analyzeLink = computed(() => completed.value.length > 0
-  ? { path: '/analyses/new', query: { executions: completed.value.map(e => e.execution_id).join(','), name: batch.value?.name } }
+// The analysis takes the latest completed execution of each experiment, even when a later one failed or is running
+const completedExecutionIds = computed(() => (batch.value?.experiments ?? [])
+  .map(e => e.last_completed_execution_id)
+  .filter((id): id is number => id !== null))
+const analyzeLink = computed(() => completedExecutionIds.value.length > 0
+  ? { path: '/analyses/new', query: { executions: completedExecutionIds.value.join(','), name: batch.value?.name } }
   : undefined)
 
 // --- Actions ---
@@ -85,11 +82,29 @@ async function handleCancel() {
   const result = await cancelBatch(batchId.value)
   isCancelling.value = false
   if (result.success) {
-    toast.add({ title: 'Batch cancelled', description: `${result.data.cancelled} running experiments stopped.`, color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Batch cancelled', description: `${result.data.cancelled} running experiments stopped.`, color: 'success', icon: 'i-ph:check-circle-bold' })
     await refresh()
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
+  }
+}
+
+const isRerunning = ref(false)
+async function handleRerun() {
+  isRerunning.value = true
+  const result = await rerunBatch(batchId.value)
+  isRerunning.value = false
+  if (result.success) {
+    const { started, skipped } = result.data
+    const description = skipped
+      ? `${started} experiments started, ${skipped} already running.`
+      : `${started} experiments started. A new execution was created for each.`
+    toast.add({ title: 'Batch re-run started', description, color: 'success', icon: 'i-ph:play-bold' })
+    await refresh()
+  }
+  else {
+    toast.add({ title: 'Error', description: 'Failed to re-run the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
   }
 }
 
@@ -101,11 +116,11 @@ async function handleDelete() {
   isDeleting.value = false
   showDeleteDialog.value = false
   if (result.success) {
-    toast.add({ title: 'Batch deleted', description: 'Its experiments were kept.', color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Batch deleted', description: 'Its experiments were kept.', color: 'success', icon: 'i-ph:check-circle-bold' })
     await navigateTo('/batches')
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to delete the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to delete the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
   }
 }
 
@@ -125,18 +140,31 @@ function formatCost(cost: number | null) {
           v-if="isActive"
           variant="soft"
           color="neutral"
-          icon="i-lucide-circle-stop"
+          icon="i-ph-stop-circle-bold"
           size="sm"
           :loading="isCancelling"
           @click="handleCancel"
         >
           Cancel all
         </UButton>
+        <UTooltip text="Create a new execution of every experiment that is not running">
+          <UButton
+            variant="soft"
+            color="neutral"
+            icon="i-ph-play-bold"
+            size="sm"
+            :loading="isRerunning"
+            :disabled="isActive"
+            @click="handleRerun"
+          >
+            Re-run
+          </UButton>
+        </UTooltip>
         <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'">
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lucide-chart-column"
+            icon="i-ph-chart-bar-bold"
             size="sm"
             :disabled="!analyzeLink"
             :to="analyzeLink"
@@ -147,7 +175,7 @@ function formatCost(cost: number | null) {
         <UButton
           variant="soft"
           color="error"
-          icon="i-lucide-trash-2"
+          icon="i-ph-trash-bold"
           size="sm"
           @click="() => { showDeleteDialog = true }"
         >
@@ -159,21 +187,22 @@ function formatCost(cost: number | null) {
         <h1 class="flex items-center gap-2.5 text-xl font-semibold text-highlighted">
           <UIStatusIcon :status="batch.status" size="size-5" tooltip />
           <span class="min-w-0 text-balance">{{ batch.name }}</span>
+          <UIStatusHistory :earlier="batch.earlier_execution_statuses" />
         </h1>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-          <UIMetaItem icon="i-lucide-hash" label="Batch" class="tabular-nums">
+          <UIMetaItem icon="i-ph-hash-bold" label="Batch" class="tabular-nums">
             {{ batch.id }}
           </UIMetaItem>
-          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created" class="tabular-nums">
             {{ formatDate(batch.created_at) }}
           </UIMetaItem>
-          <UIMetaItem v-if="batch.dataset_name" icon="i-lucide-database" label="Dataset">
+          <UIMetaItem v-if="batch.dataset_name" icon="i-ph-database-bold" label="Dataset">
             <UIMetaLink v-if="batch.dataset_id" :to="`/datasets/${batch.dataset_id}`">
               {{ batch.dataset_name }}
             </UIMetaLink>
             <span v-else class="truncate text-toned">{{ batch.dataset_name }}</span>
           </UIMetaItem>
-          <UIMetaItem v-if="batch.base_experiment_id" icon="i-lucide-git-fork" label="Derived from">
+          <UIMetaItem v-if="batch.base_experiment_id" icon="i-ph-git-fork-bold" label="Derived from">
             <UIMetaLink :to="`/experiments/${batch.base_experiment_id}`">
               {{ batch.base_experiment_name }}
             </UIMetaLink>
@@ -199,6 +228,14 @@ function formatCost(cost: number | null) {
           </dt>
           <dd class="mt-0.5 text-lg font-semibold text-error tabular-nums">
             {{ batch.counts.failed }}
+          </dd>
+        </div>
+        <div v-if="batch.counts.cancelled">
+          <dt class="text-xs text-muted">
+            Cancelled
+          </dt>
+          <dd class="mt-0.5 text-lg font-semibold text-orange-600 tabular-nums dark:text-orange-400">
+            {{ batch.counts.cancelled }}
           </dd>
         </div>
         <div v-for="axis in axes" :key="axis.key">
@@ -233,6 +270,9 @@ function formatCost(cost: number | null) {
                   Rows
                 </th>
                 <th scope="col" class="px-4 py-2 text-right font-medium">
+                  Runs
+                </th>
+                <th scope="col" class="px-4 py-2 text-right font-medium">
                   Tokens
                 </th>
                 <th scope="col" class="px-4 py-2 text-right font-medium">
@@ -250,7 +290,7 @@ function formatCost(cost: number | null) {
                   <NuxtLink
                     v-if="index === 0"
                     :to="`/experiments/${experiment.id}`"
-                    class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
+                    class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   >
                     <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
                     <template v-else>
@@ -261,10 +301,18 @@ function formatCost(cost: number | null) {
                   <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
                 </td>
                 <td class="px-4 py-2.5">
-                  <UIStatusBadge :status="experiment.status" />
+                  <div class="flex items-center gap-3">
+                    <UIStatusBadge :status="experiment.status" />
+                    <UIStatusHistory :earlier="experiment.execution_statuses?.slice(1)" />
+                    <UIRunProgress :run="runOf(experiment.id)" />
+                  </div>
                 </td>
                 <td class="px-4 py-2.5 text-right">
                   <UIRowCount :rows="experiment.row_count" tone="quiet" />
+                  <span v-if="experiment.rows_failed" class="ms-2 text-xs text-error">{{ experiment.rows_failed }} failed</span>
+                </td>
+                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                  {{ experiment.execution_count || '—' }}
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-toned">
                   {{ experiment.total_tokens?.toLocaleString() ?? '—' }}

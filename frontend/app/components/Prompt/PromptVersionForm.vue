@@ -51,7 +51,7 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
           Cancel
           <UKbd value="esc" size="sm" />
         </UButton>
-        <UButton type="submit" size="sm" :loading="saving" :disabled="!valid">
+        <UButton type="submit" color="neutral" variant="soft" size="sm" :loading="saving" :disabled="!valid">
           {{ mode === 'create' ? 'Create' : 'Save' }}
           <UKbd value="meta" size="sm" /><UKbd value="enter" size="sm" />
         </UButton>

@@ -10,7 +10,7 @@ interface Props {
 withDefaults(defineProps<Props>(), {
   message: 'Something went wrong. Check that the backend is running, then try again.',
   title: 'Couldn’t load this page',
-  icon: 'i-lucide-circle-alert',
+  icon: 'i-ph-warning-circle-bold',
   actionLabel: 'Back to dashboard',
   actionTo: '/',
 })
@@ -32,7 +32,7 @@ function retry() {
       {{ message }}
     </p>
     <div class="mt-5 flex items-center gap-2">
-      <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-rotate-cw" @click="retry">
+      <UButton color="neutral" variant="outline" size="sm" icon="i-ph-arrow-clockwise-bold" @click="retry">
         Try again
       </UButton>
       <UButton :to="actionTo" color="neutral" variant="ghost" size="sm">

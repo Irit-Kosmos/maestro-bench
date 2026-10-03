@@ -15,9 +15,9 @@ const props = withDefaults(defineProps<Props>(), {
   title: 'No items found',
   message: undefined,
   description: undefined,
-  icon: 'i-lucide-folder-open',
+  icon: 'i-ph-folder-open-bold',
   actionLabel: undefined,
-  actionIcon: 'i-lucide-plus',
+  actionIcon: 'i-ph-plus-bold',
   actionTo: undefined,
 })
 
@@ -52,7 +52,8 @@ function onAction() {
       <slot>
         <UButton
           :to="actionTo"
-          color="primary"
+          color="neutral"
+          variant="soft"
           :icon="actionIcon"
           size="sm"
           @click="onAction"

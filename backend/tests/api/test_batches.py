@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -17,6 +18,7 @@ from tables import (
     Dataset,
     Experiment,
     ExperimentAgentConfig,
+    ExperimentExecution,
     Model,
     Prompt,
     PromptVersion,
@@ -32,6 +34,9 @@ def engine():
     )
     SQLModel.metadata.create_all(engine)
     return engine
+
+
+REAL_START_EXPERIMENT = async_jobs.start_experiment
 
 
 @pytest.fixture
@@ -420,6 +425,43 @@ class TestManageBatch:
         assert response.json()["cancelled"] == 2
         assert sorted(jobs.cancelled) == sorted(e["id"] for e in body["experiments"])
 
+    def test_rerun_starts_every_experiment_that_is_not_running(
+        self, client, world, engine, jobs
+    ):
+        body = self.create(client, world)
+        running, idle = body["experiments"][0]["id"], body["experiments"][1]["id"]
+        jobs.started.clear()
+        with Session(engine) as s:
+            for experiment_id, status in ((running, "running"), (idle, "completed")):
+                experiment = s.get(Experiment, experiment_id)
+                experiment.status = status
+                s.add(experiment)
+            s.commit()
+
+        response = client.post(f"/batches/{body['id']}/rerun")
+
+        assert response.json() == {"batch_id": body["id"], "started": 1, "skipped": 1}
+        assert jobs.started == [idle]
+
+    def test_rerun_schedules_the_runs_on_the_event_loop(
+        self, client, world, engine, jobs, monkeypatch
+    ):
+        # `jobs` replaces start_experiment, which hides that the real one needs
+        # a running loop: use it, with the run itself stubbed out
+        async def no_run(experiment_id):
+            return None
+
+        monkeypatch.setattr(async_jobs, "start_experiment", REAL_START_EXPERIMENT)
+        monkeypatch.setattr(async_jobs, "run_experiment_async", no_run)
+        body = self.create(client, world)
+
+        response = client.post(f"/batches/{body['id']}/rerun")
+
+        assert response.json()["started"] == 2
+
+    def test_rerun_of_an_unknown_batch_is_a_404(self, client):
+        assert client.post("/batches/999/rerun").status_code == 404
+
     def test_deleting_a_batch_keeps_its_experiments(self, client, world, engine):
         body = self.create(client, world)
 
@@ -447,3 +489,148 @@ class TestManageBatch:
 
         batch = client.get(f"/batches/{batch_id}").json()
         assert batch["base_experiment_id"] is None
+
+
+class TestExecutionFigures:
+    """What the lists say about the executions of an experiment."""
+
+    start = datetime(2026, 10, 1, 12, 0, 0, tzinfo=UTC)
+
+    def create(self, client, world):
+        return client.post(
+            "/batches", json=payload(world, [model_axis(world, 0, 1)])
+        ).json()
+
+    def execute(
+        self, engine, experiment_id, hours, seconds, status="completed", **figures
+    ):
+        """An execution that started `hours` after `start` and lasted `seconds`."""
+        started = self.start + timedelta(hours=hours)
+        with Session(engine) as s:
+            execution = ExperimentExecution(
+                experiment_id=experiment_id,
+                started_at=started,
+                completed_at=started + timedelta(seconds=seconds),
+                status=status,
+                dataset_snapshot="{}",
+                **figures,
+            )
+            s.add(execution)
+            s.commit()
+            return execution.id
+
+    def test_experiment_without_execution_has_no_figures(self, client, world):
+        body = self.create(client, world)
+
+        experiment = client.get(f"/experiments/{body['experiments'][0]['id']}").json()
+
+        assert experiment["execution_count"] == 0
+        assert experiment["duration_seconds"] is None
+        assert experiment["total_tokens"] is None
+
+    def test_experiment_shows_its_latest_execution_and_counts_the_others(
+        self, client, world, engine
+    ):
+        experiment_id = self.create(client, world)["experiments"][0]["id"]
+        self.execute(engine, experiment_id, 0, 30, total_tokens=100, total_cost_usd=1)
+        self.execute(
+            engine,
+            experiment_id,
+            1,
+            90,
+            total_tokens=250,
+            total_cost_usd=2.5,
+            rows_failed=3,
+        )
+
+        experiment = client.get(f"/experiments/{experiment_id}").json()
+
+        assert experiment["execution_count"] == 2
+        assert experiment["duration_seconds"] == 90
+        assert experiment["total_tokens"] == 250
+        assert experiment["total_cost_usd"] == 2.5
+        assert experiment["rows_failed"] == 3
+
+    def test_experiment_list_carries_the_figures(self, client, world, engine):
+        experiment_id = self.create(client, world)["experiments"][0]["id"]
+        self.execute(engine, experiment_id, 0, 30, total_tokens=100)
+
+        listed = {e["id"]: e for e in client.get("/experiments").json()}
+
+        assert listed[experiment_id]["execution_count"] == 1
+        assert listed[experiment_id]["total_tokens"] == 100
+
+    def test_a_running_execution_has_no_duration_yet(self, client, world, engine):
+        experiment_id = self.create(client, world)["experiments"][0]["id"]
+        with Session(engine) as s:
+            s.add(
+                ExperimentExecution(
+                    experiment_id=experiment_id,
+                    started_at=self.start,
+                    status="running",
+                    dataset_snapshot="{}",
+                )
+            )
+            s.commit()
+
+        experiment = client.get(f"/experiments/{experiment_id}").json()
+
+        assert experiment["execution_count"] == 1
+        assert experiment["duration_seconds"] is None
+
+    def test_batch_experiments_carry_the_same_figures(self, client, world, engine):
+        body = self.create(client, world)
+        first = body["experiments"][0]["id"]
+        self.execute(engine, first, 0, 30, total_tokens=100)
+        self.execute(engine, first, 1, 60, total_tokens=300, rows_failed=2)
+
+        experiments = {
+            e["id"]: e for e in client.get(f"/batches/{body['id']}").json()["experiments"]
+        }
+
+        assert experiments[first]["execution_count"] == 2
+        assert experiments[first]["duration_seconds"] == 60
+        assert experiments[first]["total_tokens"] == 300
+        assert experiments[first]["rows_failed"] == 2
+        other = next(i for i in experiments if i != first)
+        assert experiments[other]["execution_count"] == 0
+
+    def test_batch_adds_up_its_experiments(self, client, world, engine):
+        body = self.create(client, world)
+        first, second = (e["id"] for e in body["experiments"])
+        self.execute(engine, first, 0, 30, total_tokens=100, total_cost_usd=1)
+        # Replaced by the next execution: only counted
+        self.execute(engine, second, 0, 30, total_tokens=999, total_cost_usd=9)
+        self.execute(engine, second, 1, 30, total_tokens=200, total_cost_usd=0.5)
+
+        batch = client.get(f"/batches/{body['id']}").json()
+
+        assert batch["execution_count"] == 3
+        assert batch["total_tokens"] == 300
+        assert batch["total_cost_usd"] == 1.5
+
+    def test_batch_without_execution_has_no_totals(self, client, world):
+        batch = client.get(f"/batches/{self.create(client, world)['id']}").json()
+
+        assert batch["execution_count"] == 0
+        assert batch["total_tokens"] is None
+        assert batch["total_cost_usd"] is None
+
+
+    def test_batch_experiment_points_at_its_latest_completed_execution(
+        self, client, world, engine
+    ):
+        body = self.create(client, world)
+        first, second, *_ = (e["id"] for e in body["experiments"])
+        self.execute(engine, first, 0, 30)
+        completed = self.execute(engine, first, 1, 30)
+        self.execute(engine, first, 2, 30, status="failed")
+        self.execute(engine, second, 0, 30, status="failed")
+
+        experiments = {
+            e["id"]: e for e in client.get(f"/batches/{body['id']}").json()["experiments"]
+        }
+
+        assert experiments[first]["execution_status"] == "failed"
+        assert experiments[first]["last_completed_execution_id"] == completed
+        assert experiments[second]["last_completed_execution_id"] is None

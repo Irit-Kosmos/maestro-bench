@@ -27,7 +27,7 @@ const isCreating = ref(false)
 const createForm = ref({
   name: '',
   description: '',
-  category: '',
+  tag_ids: [] as number[],
 })
 
 // Computed
@@ -40,7 +40,7 @@ function resetCreateForm() {
   createForm.value = {
     name: '',
     description: '',
-    category: '',
+    tag_ids: [],
   }
 }
 
@@ -53,7 +53,7 @@ async function handleCreatePrompt() {
     const result = await createPrompt({
       name: createForm.value.name,
       description: createForm.value.description || undefined,
-      category: createForm.value.category || undefined,
+      tag_ids: createForm.value.tag_ids,
     })
 
     if (result.success) {
@@ -77,14 +77,14 @@ async function handleCreatePrompt() {
 
 <template>
   <BasePageContent
-    :loading="pending"
+    :loading="pending && !prompts"
     :error="error?.message || null"
   >
     <template #before-content>
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="() => { showCreateModal = true }"
       >
@@ -95,7 +95,7 @@ async function handleCreatePrompt() {
     <!-- Empty State -->
     <BaseEmptyState
       v-if="!prompts || prompts.length === 0"
-      icon="i-lucide-message-square-text"
+      icon="i-ph-chat-text-bold"
       title="No prompts yet"
       message="Prompts are versioned, so you can change one and compare results across versions."
       action-label="New prompt"
@@ -130,14 +130,6 @@ async function handleCreatePrompt() {
               />
             </UFormField>
 
-            <UFormField label="Category">
-              <UInput
-                v-model="createForm.category"
-                placeholder="e.g., evaluation, generation, analysis"
-                class="w-full"
-              />
-            </UFormField>
-
             <UFormField label="Description">
               <UTextarea
                 v-model="createForm.description"
@@ -145,6 +137,10 @@ async function handleCreatePrompt() {
                 class="w-full"
                 :rows="3"
               />
+            </UFormField>
+
+            <UFormField label="Tags">
+              <TagsInput v-model="createForm.tag_ids" />
             </UFormField>
 
             <div class="flex justify-end gap-2 pt-4 border-t border-default">

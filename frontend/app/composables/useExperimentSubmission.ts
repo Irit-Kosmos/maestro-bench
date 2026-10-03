@@ -17,7 +17,7 @@ export function useExperimentSubmission() {
           title: 'Success',
           description: 'Experiment created successfully!',
           color: 'success',
-          icon: 'i-lucide:check-circle',
+          icon: 'i-ph:check-circle-bold',
         })
         await navigateTo('/')
         return { success: true }
@@ -27,7 +27,7 @@ export function useExperimentSubmission() {
           title: 'Error',
           description: 'Failed to create experiment. Please try again.',
           color: 'error',
-          icon: 'i-lucide:alert-circle',
+          icon: 'i-ph:warning-circle-bold',
         })
         return { success: false, error: 'Creation failed' }
       }
@@ -38,7 +38,7 @@ export function useExperimentSubmission() {
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
       return { success: false, error }
     }
@@ -52,7 +52,7 @@ export function useExperimentSubmission() {
         title: 'Batch started',
         description: `${experimentCount} experiments are running.`,
         color: 'success',
-        icon: 'i-lucide:check-circle',
+        icon: 'i-ph:check-circle-bold',
       })
       await navigateTo(`/batches/${result.data.id}`)
       return { success: true }
@@ -61,7 +61,7 @@ export function useExperimentSubmission() {
       title: 'Error',
       description: apiErrorMessage(result.error) ?? 'Failed to create the batch. Please try again.',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
     return { success: false, error: result.error }
   }

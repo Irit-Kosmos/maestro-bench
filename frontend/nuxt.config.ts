@@ -20,6 +20,13 @@ export default defineNuxtConfig({
     ],
   },
 
+  // Logos missing from the logos set live in app/assets/icons: i-custom-<file name>
+  icon: {
+    customCollections: [
+      { prefix: 'custom', dir: './app/assets/icons' },
+    ],
+  },
+
   css: ['~/assets/css/main.css'],
 
   future: {

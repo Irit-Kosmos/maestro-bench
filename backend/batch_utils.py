@@ -149,4 +149,6 @@ def batch_status(statuses: list[str]) -> str:
         return "completed"
     if any(s == "completed" for s in statuses):
         return "partial"
-    return "failed"
+    if any(s == "failed" for s in statuses):
+        return "failed"
+    return "cancelled"

@@ -144,7 +144,7 @@ async function handleSubmit() {
               color="primary"
               :disabled="!formValid || isSubmitting"
               :loading="isSubmitting"
-              icon="i-lucide:plus"
+              icon="i-ph:plus-bold"
             >
               Create Dataset
             </UButton>

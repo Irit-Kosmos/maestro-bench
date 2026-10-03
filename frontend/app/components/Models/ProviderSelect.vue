@@ -19,7 +19,7 @@ const items = computed(() => {
   >
     <template #leading="{ modelValue }">
       <UIProviderIcon v-if="modelValue" :provider="modelValue as string" />
-      <UIcon v-else name="i-lucide-building-2" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
+      <UIcon v-else name="i-ph-buildings-bold" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
     </template>
     <template #item-leading="{ item }">
       <UIProviderIcon :provider="(item as { value: string }).value" />

@@ -2,8 +2,6 @@
 import type { FilterDefinition, FilterEntry, FilterMode, FilterOption, FilterState, FilterValue } from '~/utils/filters'
 import { effectiveMode, emptyFilterEntry, emptyFilterState, filterModes, modeLabel } from '~/utils/filters'
 
-// Linear-style filters: a "Filter" button that opens a two-column picker, and one chip per active filter
-// ("Provider · is any of · 3 providers · x") whose operator and values can each be changed in place.
 const props = defineProps<{
   definitions: FilterDefinition[]
 }>()
@@ -48,6 +46,8 @@ const activeDefinitions = computed(() => props.definitions.filter(definition => 
 const panelKey = ref(props.definitions[0]?.key)
 const panelDefinition = computed(() => props.definitions.find(definition => definition.key === panelKey.value) ?? props.definitions[0]!)
 
+const { containerEl: pickerEl, listEl: tabListEl, select: showPanel, onEnter: hoverTab, onMove: moveInTabs, onLeave: leaveTabs } = useSafeTriangle(panelKey)
+
 function operator(definition: FilterDefinition) {
   const entry = entryFor(definition.key)
   return modeLabel(effectiveMode(entry), entry.values.length)
@@ -69,9 +69,9 @@ function valueLabel(definition: FilterDefinition) {
   return `${labels.length} ${definition.plural ?? 'values'}`
 }
 
-// Past three icons, the rest collapse into an ellipsis square
+// Past three icons (or dots), the rest collapse into an ellipsis
 const CHIP_ICON_LIMIT = 3
-const iconOptions = (definition: FilterDefinition) => selectedOptions(definition).filter(option => option.icon)
+const iconOptions = (definition: FilterDefinition) => selectedOptions(definition).filter(option => option.icon || option.dot)
 const chipIcons = (definition: FilterDefinition) => iconOptions(definition).slice(0, CHIP_ICON_LIMIT)
 const hasMoreIcons = (definition: FilterDefinition) => iconOptions(definition).length > CHIP_ICON_LIMIT
 
@@ -87,13 +87,20 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
         color="neutral"
         variant="ghost"
         size="xs"
-        icon="i-lucide-list-filter"
+        icon="i-ph-funnel-simple-bold"
         label="Filter"
       />
 
       <template #content>
-        <div class="flex items-stretch">
-          <div role="tablist" aria-orientation="vertical" class="flex w-36 shrink-0 flex-col border-e border-default p-1">
+        <div ref="pickerEl" class="flex items-stretch">
+          <div
+            ref="tabListEl"
+            role="tablist"
+            aria-orientation="vertical"
+            class="flex w-36 shrink-0 flex-col border-e border-default p-1"
+            @pointermove="moveInTabs"
+            @pointerleave="leaveTabs"
+          >
             <button
               v-for="definition in definitions"
               :key="definition.key"
@@ -102,9 +109,9 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
               :aria-selected="panelDefinition.key === definition.key"
               class="flex h-7 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-left text-xs outline-none focus-visible:bg-elevated"
               :class="panelDefinition.key === definition.key ? 'bg-elevated text-highlighted' : 'text-muted'"
-              @pointerenter="panelKey = definition.key"
-              @focus="panelKey = definition.key"
-              @click="panelKey = definition.key"
+              @pointerenter="hoverTab(definition.key, $event)"
+              @focus="showPanel(definition.key)"
+              @click="showPanel(definition.key)"
             >
               <UIcon :name="definition.icon" class="size-3.5 shrink-0" aria-hidden="true" />
               <span class="flex-1 truncate">{{ definition.label }}</span>
@@ -143,7 +150,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
           :aria-label="`Change ${definition.label} operator`"
         >
           {{ operator(definition) }}
-          <UIcon name="i-lucide-chevron-down" class="size-3" aria-hidden="true" />
+          <UIcon name="i-ph-caret-down-bold" class="size-3" aria-hidden="true" />
         </button>
         <template #content>
           <BaseFilterOptionList
@@ -163,25 +170,27 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
           :class="SEGMENT"
           :aria-label="`Change ${definition.label} filter`"
         >
-          <!-- Each logo sits on top of the one to its left; the white tile keeps black logos readable in dark mode -->
+          <!-- Each icon sits on top of the one to its left, cut out by a ring in the chip's own colour -->
           <span v-if="chipIcons(definition).length" class="inline-flex items-center -space-x-1">
             <span
               v-for="option in chipIcons(definition)"
               :key="String(option.value)"
-              class="relative inline-flex size-4 items-center justify-center rounded-sm border border-black/10 bg-white text-neutral-600"
+              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated ring-(--ui-bg-elevated)"
+              :class="option.icon ? 'ring-2' : 'ring-1'"
             >
-              <UIcon :name="option.icon!" class="size-2.5" />
+              <UIcon v-if="option.icon" :name="option.icon" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
+              <span v-else class="size-3 rounded-full" :class="option.dot" aria-hidden="true" />
             </span>
             <span
               v-if="hasMoreIcons(definition)"
-              class="relative inline-flex size-4 items-center justify-center rounded-sm border border-black/10 bg-white text-neutral-500"
+              class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated text-muted ring-2 ring-(--ui-bg-elevated)"
               aria-hidden="true"
             >
-              <UIcon name="i-lucide-ellipsis" class="size-2.5" />
+              <UIcon name="i-ph-dots-three-bold" class="size-3.5" />
             </span>
           </span>
           {{ valueLabel(definition) }}
-          <UIcon name="i-lucide-chevron-down" class="size-3 text-dimmed" aria-hidden="true" />
+          <UIcon name="i-ph-caret-down-bold" class="size-3 text-dimmed" aria-hidden="true" />
         </button>
         <template #content>
           <BaseFilterOptionList
@@ -201,7 +210,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
         :aria-label="`Remove ${definition.label} filter`"
         @click="remove(definition)"
       >
-        <UIcon name="i-lucide-x" class="size-3.5" />
+        <UIcon name="i-ph-x-bold" class="size-3.5" />
       </button>
     </div>
 

@@ -29,7 +29,7 @@ const titleId = useId()
           color="neutral"
           variant="link"
           size="xs"
-          trailing-icon="i-lucide-arrow-right"
+          trailing-icon="i-ph-arrow-right-bold"
           class="-me-1.5"
         >
           View all

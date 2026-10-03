@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { CreateDatasetForm, Dataset } from '~/types'
+import type { FilterSpec } from '~/utils/filters'
+import { dateFilter } from '~/utils/filterSpecs'
 
 // Page meta
 definePageMeta({
@@ -44,15 +46,19 @@ const columns = [
   },
 ]
 
+const filters: FilterSpec<Dataset>[] = [
+  dateFilter(dataset => dataset.created_at),
+]
+
 const actions = [
   {
     label: 'Open',
-    icon: 'i-lucide-arrow-up-right',
+    icon: 'i-ph-arrow-up-right-bold',
     handler: (dataset: Dataset) => handleViewDataset(dataset.id),
   },
   {
     label: 'Delete',
-    icon: 'i-lucide-trash-2',
+    icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
     handler: (dataset: Dataset) => confirmDelete(dataset),
@@ -132,7 +138,7 @@ function handleCreateClick() {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="handleCreateClick"
       >
@@ -145,6 +151,7 @@ function handleCreateClick() {
       <BaseDataTable
         :data="[...(datasets || [])]"
         :columns="columns"
+        :filters="filters"
         :actions="actions"
         :loading="pending"
         :row-to="(dataset: Dataset) => `/datasets/${dataset.id}`"
@@ -166,7 +173,7 @@ function handleCreateClick() {
       v-else-if="!pending"
       title="No datasets yet"
       message="Upload a CSV or JSON file. Each row becomes one input for your experiments."
-      icon="i-lucide-database"
+      icon="i-ph-database-bold"
       action-label="New dataset"
       @action="handleCreateClick"
     />

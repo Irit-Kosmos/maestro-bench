@@ -8,6 +8,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from schemas.experiment_executions import LatestExecutionFigures
+
 
 class DatasetResponse(BaseModel):
     id: int
@@ -47,7 +49,7 @@ class ExperimentCreate(BaseModel):
     sampling_end_row: int | None = None
 
 
-class ExperimentResponse(BaseModel):
+class ExperimentResponse(LatestExecutionFigures):
     id: int
     name: str
     description: str | None

@@ -142,6 +142,9 @@ class TestBatchStatus:
             (["pending", "completed"], "pending"),
             (["completed", "failed"], "partial"),
             (["failed", "failed"], "failed"),
+            (["completed", "cancelled"], "partial"),
+            (["failed", "cancelled"], "failed"),
+            (["cancelled", "cancelled"], "cancelled"),
         ],
     )
     def test_overall_status(self, statuses, expected):

@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from schemas.experiment_executions import LatestExecutionFigures
+
 VariableField = Literal["model_id", "prompt_version_id", "temperature"]
 
 
@@ -68,7 +70,7 @@ class VariantCoordinate(BaseModel):
     label: str
 
 
-class BatchExperimentResponse(BaseModel):
+class BatchExperimentResponse(LatestExecutionFigures):
     id: int
     name: str
     status: str
@@ -77,12 +79,11 @@ class BatchExperimentResponse(BaseModel):
     # Latest execution of the experiment
     execution_id: int | None = None
     execution_status: str | None = None
+    # Latest execution that completed, which is not always the latest one
+    last_completed_execution_id: int | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
-    duration_seconds: float | None = None
     row_count: int | None = None
-    total_tokens: int | None = None
-    total_cost_usd: float | None = None
     # Agents of the latest execution, in run order
     agent_names: list[str] = []
 
@@ -97,12 +98,26 @@ class BatchResponse(BaseModel):
     dataset_id: int | None = None
     dataset_name: str | None = None
     variations: list[VariationResponse]
-    # pending, running, completed, partial (some failed) or failed
+    # pending, running, completed, partial (not all completed), failed or cancelled
     status: str
     counts: dict[str, int]
+    # Executions of all the experiments. The tokens and cost add up the latest
+    # execution of each, which are the ones the experiments table shows
+    execution_count: int = 0
+    # Status of the executions that are not the latest of their experiment,
+    # from the newest to the oldest
+    earlier_execution_statuses: list[str] = []
+    total_tokens: int | None = None
+    total_cost_usd: float | None = None
     experiments: list[BatchExperimentResponse]
 
 
 class BatchCancelResponse(BaseModel):
     batch_id: int
     cancelled: int
+
+
+class BatchRerunResponse(BaseModel):
+    batch_id: int
+    started: int
+    skipped: int
