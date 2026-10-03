@@ -65,7 +65,7 @@ const filterState = ref<FilterState>({})
     </template>
 
     <template #tags-cell="{ row }">
-      <TagsList :tags="row.original.tags" selectable @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
+      <TagsList :id="row.original.id" :tags="row.original.tags" kind="prompt" selectable @changed="emit('refresh')" @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
     </template>
 
     <!-- Custom cell for created_at -->

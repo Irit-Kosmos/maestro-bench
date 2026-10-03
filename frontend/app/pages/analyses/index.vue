@@ -49,16 +49,16 @@ const filters: FilterSpec<Analysis>[] = [
   {
     key: 'value_type',
     label: 'Type',
-    icon: 'i-lucide-shapes',
+    icon: 'i-ph-shapes-bold',
     value: analysis => analysis.config.value_type,
     present: value => value === 'numeric'
-      ? { label: 'Numeric', icon: 'i-lucide-hash' }
-      : { label: 'Categorical', icon: 'i-lucide-tags' },
+      ? { label: 'Numeric', icon: 'i-ph-hash-bold' }
+      : { label: 'Categorical', icon: 'i-ph-tag-bold' },
   },
   {
     key: 'truth_column',
     label: 'Ground truth',
-    icon: 'i-lucide-columns-3',
+    icon: 'i-ph-columns-bold',
     plural: 'columns',
     searchPlaceholder: 'Search a column…',
     value: analysis => analysis.config.truth_column,
@@ -73,12 +73,12 @@ const filterState = ref<FilterState>({})
 const actions = [
   {
     label: 'Open',
-    icon: 'i-lucide-arrow-up-right',
+    icon: 'i-ph-arrow-up-right-bold',
     handler: (analysis: Analysis) => navigateTo(`/analyses/${analysis.id}`),
   },
   {
     label: 'Delete',
-    icon: 'i-lucide-trash-2',
+    icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
     handler: (analysis: Analysis) => {
@@ -115,7 +115,7 @@ async function confirmDelete() {
         <UButton
           color="neutral"
           variant="soft"
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           size="sm"
           to="/analyses/new"
         >
@@ -144,7 +144,7 @@ async function confirmDelete() {
         </template>
 
         <template #tags-cell="{ row }">
-          <TagsList :tags="row.original.tags" selectable @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
+          <TagsList :id="row.original.id" :tags="row.original.tags" kind="analysis" selectable @changed="refresh" @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
         </template>
 
         <template #updated_at-cell="{ row }">
@@ -159,7 +159,7 @@ async function confirmDelete() {
       v-else-if="!pending"
       title="No analyses yet"
       message="Compare the outputs of one or more executions to a ground-truth column: RMSE, correlation, accuracy, kappa…"
-      icon="i-lucide-chart-column"
+      icon="i-ph-chart-bar-bold"
       action-label="New analysis"
       action-to="/analyses/new"
     />
