@@ -1,19 +1,22 @@
 import json
+from collections import defaultdict
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from db import get_session
 from results_files import execution_row_count
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
+    ExecutionListAgent,
+    ExecutionListItem,
     ExperimentExecutionResponse,
     ExperimentTrace,
 )
-from tables import AgentExecutionSnapshot, Experiment, ExperimentExecution
+from tables import Agent, AgentExecutionSnapshot, Batch, Experiment, ExperimentExecution
 
 router = APIRouter(tags=["experiment-executions"])
 
@@ -94,6 +97,73 @@ def get_experiment_executions(
         )
     ).all()
     return [_build_execution_response(exc, session) for exc in executions]
+
+
+@router.get("/executions", response_model=list[ExecutionListItem])
+def list_executions(session: Annotated[Session, Depends(get_session)]):
+    """Every execution of every experiment, newest first, whatever its status."""
+    executions = session.exec(
+        select(ExperimentExecution).order_by(
+            col(ExperimentExecution.started_at).desc(),
+            col(ExperimentExecution.id).desc(),
+        )
+    ).all()
+
+    experiments = {e.id: e for e in session.exec(select(Experiment)).all()}
+    batches = {b.id: b for b in session.exec(select(Batch)).all()}
+    live_agents = set(session.exec(select(Agent.id)).all())
+    agents_of: dict[int, list[AgentExecutionSnapshot]] = defaultdict(list)
+    for snapshot in session.exec(
+        select(AgentExecutionSnapshot).order_by(
+            col(AgentExecutionSnapshot.execution_order)
+        )
+    ).all():
+        agents_of[snapshot.execution_id].append(snapshot)
+
+    items = []
+    for execution in executions:
+        experiment = experiments.get(execution.experiment_id)
+        batch = batches.get(experiment.batch_id) if experiment else None
+        try:
+            dataset_name = json.loads(execution.dataset_snapshot or "{}").get("name")
+        except ValueError:
+            dataset_name = None
+        duration = None
+        if execution.completed_at:
+            duration = (execution.completed_at - execution.started_at).total_seconds()
+        items.append(
+            ExecutionListItem(
+                id=int(execution.id or 0),
+                experiment_id=execution.experiment_id,
+                experiment_name=experiment.name if experiment else "Unknown",
+                batch_id=batch.id if batch else None,
+                batch_name=batch.name if batch else None,
+                dataset_name=dataset_name,
+                status=execution.status,
+                started_at=execution.started_at,
+                completed_at=execution.completed_at,
+                duration_seconds=duration,
+                rows_total=execution.rows_total,
+                rows_done=execution.rows_done,
+                rows_failed=execution.rows_failed,
+                row_count=execution_row_count(execution),
+                has_results=bool(execution.results_file_path),
+                total_tokens=execution.total_tokens,
+                total_cost_usd=execution.total_cost_usd,
+                agents=[
+                    ExecutionListAgent(
+                        agent_id=s.agent_id if s.agent_id in live_agents else None,
+                        name=s.agent_name_snapshot,
+                        model=s.model_name_snapshot,
+                        provider=s.model_provider_snapshot,
+                        prompt=s.prompt_name_snapshot,
+                        prompt_version=s.prompt_version_snapshot,
+                    )
+                    for s in agents_of.get(int(execution.id or 0), [])
+                ],
+            )
+        )
+    return items
 
 
 @router.get("/executions/{execution_id}", response_model=ExperimentExecutionResponse)

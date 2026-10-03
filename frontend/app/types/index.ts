@@ -213,13 +213,45 @@ export interface DashboardExperiment {
   total_cost_usd: number | null
 }
 
-export interface DashboardActivity {
-  days: number
+/** What was run over a stretch of time */
+export interface DashboardTotals {
   experiments: number
+  /** Of those experiments, by how they ended */
+  completed: number
+  failed: number
   total_tokens: number
   total_cost_usd: number
-  /** Experiments pending or running right now */
-  active: number
+  /** Rows the executions went through, the failed ones included */
+  rows_done: number
+  rows_failed: number
+  /** Executions that failed, or went on with failed rows; the cancelled ones are not counted */
+  executions_with_failures: number
+}
+
+/** The totals of one slice of the period, `start` being its first instant */
+export interface DashboardBucket extends DashboardTotals {
+  start: string
+}
+
+export interface DashboardActiveExperiment {
+  id: number
+  name: string
+  status: ExperimentStatus
+}
+
+export type DashboardRange = '24h' | '7d' | '30d' | '90d' | 'all'
+
+export interface DashboardActivity {
+  range: DashboardRange
+  /** First instant of the period; null for "all" */
+  since: string | null
+  current: DashboardTotals
+  /** The stretch of the same length right before; null for "all", which has no before */
+  previous: DashboardTotals | null
+  /** The period cut in even slices, oldest first */
+  buckets: DashboardBucket[]
+  /** Experiments pending or running right now, newest first */
+  active: DashboardActiveExperiment[]
 }
 
 export interface Dashboard {
@@ -401,6 +433,32 @@ export interface ExecutionRow {
   input_data: Record<string, unknown>
   agents: { name: string | null, output: unknown, error: string | null }[]
   error: string | null
+}
+
+/** One execution in the list spanning every experiment */
+export interface ExecutionListItem {
+  id: number
+  experiment_id: number
+  experiment_name: string
+  batch_id: number | null
+  batch_name: string | null
+  dataset_name: string | null
+  status: string
+  started_at: string
+  completed_at: string | null
+  duration_seconds: number | null
+  /** Live progress, in dataset rows; failed rows are counted in the rows done */
+  rows_total: number | null
+  rows_done: number
+  rows_failed: number
+  /** Dataset rows processed; null until the results file exists */
+  row_count: number | null
+  has_results: boolean
+  total_tokens: number | null
+  total_cost_usd: number | null
+  /** In the order they ran */
+  /** agent_id is null once the agent has been deleted */
+  agents: { agent_id: number | null, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
 }
 
 export interface AvailableExecution {

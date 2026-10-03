@@ -17,20 +17,25 @@ const { data: experiments } = await useMyLazyFetch<Experiment[]>('/experiments')
 const sections: { label?: string, items: NavItem[] }[] = [
   {
     items: [
-      { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/', kbds: ['G', 'H'] },
-      { label: 'Experiments', icon: 'i-lucide-flask-conical', to: '/experiments', kbds: ['G', 'E'] },
-      { label: 'Batches', icon: 'i-lucide-split', to: '/batches', kbds: ['G', 'B'] },
-      { label: 'Analyses', icon: 'i-lucide-chart-column', to: '/analyses', kbds: ['G', 'N'] },
-      { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', kbds: ['G', 'D'] },
+      { label: 'Dashboard', icon: 'i-ph-squares-four-bold', to: '/', kbds: ['G', 'H'] },
     ],
   },
   {
-    label: 'Configuration',
+    label: 'Evaluation',
     items: [
-      { label: 'Agents', icon: 'i-lucide-bot', to: '/agents', kbds: ['G', 'A'] },
-      { label: 'Prompts', icon: 'i-lucide-message-square-text', to: '/prompts', kbds: ['G', 'P'] },
-      { label: 'Models', icon: 'i-lucide-cpu', to: '/models', kbds: ['G', 'M'] },
-      { label: 'Settings', icon: 'i-lucide-settings', to: '/settings', kbds: ['G', 'S'] },
+      { label: 'Experiments', icon: 'i-ph-flask-bold', to: '/experiments', kbds: ['G', 'E'] },
+      { label: 'Batches', icon: 'i-ph-arrows-split-bold', to: '/batches', kbds: ['G', 'B'] },
+      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold', to: '/executions', kbds: ['G', 'X'] },
+      { label: 'Analyses', icon: 'i-ph-chart-bar-bold', to: '/analyses', kbds: ['G', 'N'] },
+    ],
+  },
+  {
+    label: 'Library',
+    items: [
+      { label: 'Datasets', icon: 'i-ph-database-bold', to: '/datasets', kbds: ['G', 'D'] },
+      { label: 'Agents', icon: 'i-ph-robot-bold', to: '/agents', kbds: ['G', 'A'] },
+      { label: 'Prompts', icon: 'i-ph-chat-text-bold', to: '/prompts', kbds: ['G', 'P'] },
+      { label: 'Models', icon: 'i-ph-cpu-bold', to: '/models', kbds: ['G', 'M'] },
     ],
   },
 ]
@@ -45,7 +50,7 @@ function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
 }
 
-const itemClass = 'group flex items-center gap-2 h-8 px-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary'
+const itemClass = 'group flex items-center gap-2 h-8 px-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted'
 
 // Same key as Linear: the fastest users toggle the sidebar without the mouse.
 // No animation on purpose: a keyboard toggle should feel instant.
@@ -78,7 +83,7 @@ defineShortcuts({
       <NuxtLink
         v-if="!isCollapsed"
         to="/"
-        class="flex items-center gap-2 min-w-0 flex-1 h-8 px-1 rounded-md outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-primary"
+        class="flex items-center gap-2 min-w-0 flex-1 h-8 px-1 rounded-md outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inverted"
       >
         <img
           src="/MAESTRO-bench.png"
@@ -108,7 +113,7 @@ defineShortcuts({
         <UTooltip text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
           <UButton
             to="/experiments/new"
-            icon="i-lucide-square-pen"
+            icon="i-ph-note-pencil-bold"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -153,7 +158,7 @@ defineShortcuts({
               <UIcon
                 :name="item.icon"
                 class="size-4 shrink-0"
-                :class="isActive(item.to) ? 'text-primary' : 'text-muted group-hover:text-toned'"
+                :class="isActive(item.to) ? 'text-highlighted' : 'text-muted group-hover:text-toned'"
               />
               <span v-if="!isCollapsed" class="truncate">{{ item.label }}</span>
             </NuxtLink>
@@ -194,7 +199,7 @@ defineShortcuts({
           :content="{ side: 'right' }"
         >
           <UButton
-            icon="i-lucide-keyboard"
+            icon="i-ph-keyboard-bold"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -208,6 +213,18 @@ defineShortcuts({
               <UKbd value="?" size="sm" />
             </template>
           </UButton>
+        </UTooltip>
+
+        <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: 'right' }">
+          <UButton
+            to="/settings"
+            icon="i-ph-gear-bold"
+            color="neutral"
+            :variant="isActive('/settings') ? 'soft' : 'ghost'"
+            size="sm"
+            aria-label="Settings"
+            :aria-current="isActive('/settings') ? 'page' : undefined"
+          />
         </UTooltip>
 
         <AppThemeToggle :collapsed="isCollapsed" />

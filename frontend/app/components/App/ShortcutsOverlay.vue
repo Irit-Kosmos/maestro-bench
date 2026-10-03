@@ -5,6 +5,7 @@ const shortcuts = [
   { section: 'Navigation', items: [
     { keys: ['G', 'H'], label: 'Go to Dashboard' },
     { keys: ['G', 'E'], label: 'Go to Experiments' },
+    { keys: ['G', 'X'], label: 'Go to Executions' },
     { keys: ['G', 'B'], label: 'Go to Batches' },
     { keys: ['G', 'N'], label: 'Go to Analyses' },
     { keys: ['G', 'D'], label: 'Go to Datasets' },

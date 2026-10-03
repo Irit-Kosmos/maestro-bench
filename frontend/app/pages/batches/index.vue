@@ -29,7 +29,7 @@ const columns = [
   { key: 'experiments', label: 'Experiments' },
   { key: 'status', label: 'Status' },
   // Across the experiments; the tokens and cost are those of their latest execution
-  { key: 'execution_count', label: 'Runs', class: figureClass, formatter: (count: number) => count ? String(count) : '—' },
+  { key: 'execution_count', label: 'Executions', class: figureClass, formatter: (count: number) => count ? String(count) : '—' },
   { key: 'total_tokens', label: 'Tokens', class: figureClass, formatter: (tokens: number | null) => formatTokens(tokens) },
   { key: 'total_cost_usd', label: 'Cost', class: figureClass, formatter: (cost: number | null) => formatCost(cost) },
   {
@@ -51,12 +51,12 @@ const filters: FilterSpec<Batch>[] = [
 const actions = [
   {
     label: 'Open',
-    icon: 'i-lucide-arrow-up-right',
+    icon: 'i-ph-arrow-up-right-bold',
     handler: (batch: Batch) => navigateTo(`/batches/${batch.id}`),
   },
   {
     label: 'Delete',
-    icon: 'i-lucide-trash-2',
+    icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
     handler: (batch: Batch) => {
@@ -103,7 +103,7 @@ async function confirmDelete() {
         <UButton
           color="neutral"
           variant="soft"
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           size="sm"
           to="/experiments/new"
         >
@@ -149,7 +149,7 @@ async function confirmDelete() {
       v-else-if="!pending"
       title="No batches yet"
       message="A batch runs the same setup with several models, prompt versions or temperatures at once. Open an experiment and choose “Vary…”, or add a variation when you create one."
-      icon="i-lucide-split"
+      icon="i-ph-arrows-split-bold"
       action-label="New experiment"
       action-to="/experiments/new"
     />

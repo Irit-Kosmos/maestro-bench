@@ -122,16 +122,16 @@ function exportCsv() {
       :key="warning"
       color="warning"
       variant="subtle"
-      icon="i-lucide-triangle-alert"
+      icon="i-ph-warning-bold"
       :title="warning"
-      description="Metrics are computed independently per run; differences may come from the data, not the model."
+      description="Metrics are computed independently per execution; differences may come from the data, not the model."
     />
     <UAlert
       v-for="run in failedRuns"
       :key="`failed-${run.execution_id}`"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-x"
+      icon="i-ph-x-circle-bold"
       :title="`${run.label}: ${run.status === 'missing' ? 'execution not found' : 'results unavailable'}`"
       :description="run.error ?? undefined"
     />
@@ -144,13 +144,13 @@ function exportCsv() {
               Metrics
             </h3>
             <p class="text-sm text-muted">
-              Value and {{ confidencePct }}% bootstrap CI ({{ config.n_boot }} resamples) · best run in bold
+              Value and {{ confidencePct }}% bootstrap CI ({{ config.n_boot }} resamples) · best execution in bold
             </p>
           </div>
           <UButton
             variant="outline"
             color="neutral"
-            icon="i-lucide-download"
+            icon="i-ph-download-simple-bold"
             size="sm"
             @click="exportCsv"
           >
@@ -164,7 +164,7 @@ function exportCsv() {
           <thead>
             <tr class="text-left text-xs text-muted border-b border-default">
               <th class="px-1 pb-2 pr-4 font-medium">
-                Run
+                Execution
               </th>
               <th class="px-1 pb-2 pr-4 font-medium whitespace-nowrap">
                 Rows used
@@ -215,7 +215,7 @@ function exportCsv() {
                     v-if="isSmallSample(run.n_valid)"
                     :text="`Small sample: metrics from ${formatRows(run.n_valid)} aren’t reliable (under ${SMALL_SAMPLE_ROWS})`"
                   >
-                    <UIcon name="i-lucide-triangle-alert" class="size-3.5 text-warning" />
+                    <UIcon name="i-ph-warning-bold" class="size-3.5 text-warning" />
                   </UTooltip>
                 </div>
                 <UPopover v-if="run.excluded_rows.length" :content="{ align: 'start' }">
@@ -258,7 +258,7 @@ function exportCsv() {
                 <template v-if="run.metrics[m.key]?.value !== null && run.metrics[m.key]?.value !== undefined">
                   <div
                     :class="isBest(m, run.metrics[m.key]!.value) ? 'font-semibold text-highlighted' : 'text-default'"
-                    :title="isBest(m, run.metrics[m.key]!.value) ? 'Best run for this metric' : undefined"
+                    :title="isBest(m, run.metrics[m.key]!.value) ? 'Best execution for this metric' : undefined"
                   >
                     {{ formatMetric(run.metrics[m.key]!.value) }}
                   </div>
@@ -287,13 +287,13 @@ function exportCsv() {
               Bars show the value, whiskers the {{ confidencePct }}% confidence interval
             </p>
           </div>
-          <UTooltip v-if="okRuns.length > 1" text="Highlight the best run of each chart" :content="{ align: 'end' }">
+          <UTooltip v-if="okRuns.length > 1" text="Highlight the best execution of each chart" :content="{ align: 'end' }">
             <UButton
-              icon="i-lucide-trophy"
+              icon="i-ph-trophy-bold"
               size="sm"
               color="neutral"
               variant="outline"
-              aria-label="Highlight the best run of each chart"
+              aria-label="Highlight the best execution of each chart"
               :class="highlightBest && 'bg-elevated'"
               @mouseenter="highlightBest = true"
               @mouseleave="highlightBest = false"

@@ -175,7 +175,7 @@ const triggers = {
       <VisTooltip :triggers="triggers" />
     </VisXYContainer>
     <p v-else class="text-sm text-muted py-8 text-center">
-      Undefined for every run
+      Undefined for every execution
     </p>
   </div>
 </template>
