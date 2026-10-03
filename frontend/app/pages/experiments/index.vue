@@ -60,55 +60,63 @@ const columns = [
   {
     key: 'name',
     label: 'Experiment',
-    // Capped so a long name truncates instead of pushing the status out of view
-    class: 'max-w-72',
+    // The one column without a width: it takes what the others leave, and truncates
     // A batch's experiments drop the batch prefix: the Batch column already says it
     formatter: (_: any, row: Experiment) => shortExperimentName(row.name, row.batch_name),
     render: (row: Experiment, hint?: string) => h(ExperimentsName, { name: row.name, batchName: row.batch_name, hint, stacked: true }),
   },
   {
     key: 'dataset',
+    width: 160,
     label: 'Dataset',
     formatter: (_: any, row: Experiment) => row.dataset?.name || 'Unknown',
   },
   {
     key: 'batch_name',
+    width: 176,
     label: 'Batch',
     formatter: (_: any, row: Experiment) => row.batch_name || '',
   },
   {
     key: 'row_count',
+    width: 150,
     label: 'Rows',
   },
   // The figures of the latest execution; the earlier ones are only counted
   {
     key: 'execution_count',
-    label: 'Runs',
+    width: 104,
+    label: 'Executions',
     class: figureClass,
     formatter: (count: number | undefined) => count ? String(count) : '—',
   },
   {
     key: 'total_tokens',
+    width: 88,
     label: 'Tokens',
     class: figureClass,
   },
   {
     key: 'total_cost_usd',
+    width: 88,
     label: 'Cost',
     class: figureClass,
   },
   {
     key: 'duration_seconds',
+    width: 96,
     label: 'Duration',
     class: figureClass,
     formatter: (seconds: number | null | undefined) => formatElapsed(seconds),
   },
   {
     key: 'status',
+    width: 200,
     label: 'Status',
   },
   {
     key: 'created_at',
+    width: 112,
     label: 'Created',
   },
 ]
@@ -125,16 +133,16 @@ const filters = computed<FilterSpec<Experiment>[]>(() => [
   {
     key: 'batch',
     label: 'Batch',
-    icon: 'i-lucide-split',
+    icon: 'i-ph-arrows-split-bold',
     plural: 'batches',
     searchPlaceholder: 'Search a batch…',
     value: exp => exp.batch_id,
-    present: id => ({ label: batchNames.value.get(Number(id)) ?? `Batch #${id}`, icon: 'i-lucide-split' }),
+    present: id => ({ label: batchNames.value.get(Number(id)) ?? `Batch #${id}`, icon: 'i-ph-arrows-split-bold' }),
   },
   {
     key: 'rows',
     label: 'Rows',
-    icon: 'i-lucide-rows-3',
+    icon: 'i-ph-rows-bold',
     // Unknown until the run has results, which is neither small nor not
     value: exp => exp.row_count == null ? undefined : isSmallSample(exp.row_count) ? 'small' : 'full',
     present: value => ({ label: value === 'small' ? `Under ${SMALL_SAMPLE_ROWS} rows` : `${SMALL_SAMPLE_ROWS} rows or more` }),
@@ -148,18 +156,18 @@ const filters = computed<FilterSpec<Experiment>[]>(() => [
 const actions = [
   {
     label: 'Open',
-    icon: 'i-lucide-arrow-up-right',
+    icon: 'i-ph-arrow-up-right-bold',
     handler: (experiment: Experiment) => handleViewExperiment(experiment.id),
   },
   {
     label: 'Cancel run',
-    icon: 'i-lucide-square',
+    icon: 'i-ph-square-bold',
     show: (experiment: Experiment) => (runOf(experiment.id)?.status ?? experiment.status) === 'running',
     handler: (experiment: Experiment) => handleCancelExperiment(experiment.id),
   },
   {
     label: 'Delete',
-    icon: 'i-lucide-trash-2',
+    icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
     handler: (experiment: Experiment) => handleDeleteExperiments([experiment.id]),
@@ -175,13 +183,13 @@ async function handleCancelExperiment(id: number) {
   const toast = useToast()
   const result = await cancelExperiment(id)
   if (!result.success) {
-    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-ph:warning-circle-bold' })
     return
   }
   if (result.data.cancelled)
-    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-ph:check-circle-bold' })
   else
-    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-lucide:info' })
+    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-ph:info-bold' })
   await refresh()
 }
 
@@ -247,7 +255,7 @@ async function handleCreateExperiment() {
         <UButton
           color="neutral"
           variant="soft"
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           size="sm"
           @click="handleCreateExperiment"
         >
@@ -262,6 +270,7 @@ async function handleCreateExperiment() {
         v-model:selected="selectedIds"
         v-model:filter-state="filterState"
         fill
+        :row-height="57"
         :data="experiments"
         :columns="columns"
         :filters="filters"
@@ -278,7 +287,7 @@ async function handleCreateExperiment() {
           <UButton
             variant="ghost"
             color="error"
-            icon="i-lucide-trash-2"
+            icon="i-ph-trash-bold"
             size="sm"
             @click="handleDeleteExperiments(selectedIds)"
           >
@@ -300,10 +309,10 @@ async function handleCreateExperiment() {
           <NuxtLink
             v-if="row.original.batch_id"
             :to="`/batches/${row.original.batch_id}`"
-            class="relative z-1 inline-flex max-w-48 items-center gap-1 rounded text-sm text-toned outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary"
+            class="relative z-1 inline-flex max-w-48 items-center gap-1 rounded text-sm text-toned outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
             :title="`Open batch ${row.original.batch_name}`"
           >
-            <UIcon name="i-lucide-split" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+            <UIcon name="i-ph-arrows-split-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
             <span class="truncate">{{ row.original.batch_name }}</span>
           </NuxtLink>
           <span v-else class="text-dimmed">—</span>
@@ -336,7 +345,7 @@ async function handleCreateExperiment() {
       v-else-if="!pending"
       title="No experiments yet"
       message="An experiment runs an agent team over a dataset, so you can compare outputs and analyze them."
-      icon="i-lucide-flask-conical"
+      icon="i-ph-flask-bold"
       action-label="New experiment"
       action-to="/experiments/new"
       @action="handleCreateExperiment"

@@ -2,6 +2,7 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { VNodeChild } from 'vue'
 import type { FilterSpec, FilterState } from '~/utils/filters'
+import { useVirtualizer } from '@tanstack/vue-virtual'
 import { h, resolveComponent } from 'vue'
 
 interface Column {
@@ -9,6 +10,9 @@ interface Column {
   label: string
   sortable?: boolean
   class?: string
+  /** Width in px. Once a column has one, the table stops sizing columns by their content (see `fixedLayout`) and
+   * the columns without one share what is left; their content is truncated to fit */
+  width?: number
   formatter?: (value: any, row: any) => string
   /** Rich content for the first column of a linked row (see `rowTo`); it places the row hint itself. `formatter` still feeds the search */
   render?: (row: any, hint?: string) => VNodeChild
@@ -37,6 +41,11 @@ interface Props {
   actionTo?: string
   /** Makes every row a link: the first column becomes the row's link, the whole row is clickable */
   rowTo?: (item: any) => string
+  /** Like `rowTo`, for a row that opens something on the page (a panel) instead of going elsewhere: the first column
+   * becomes a button. `rowTo` wins when both are given */
+  rowOpen?: (item: any) => void
+  /** Key of the row whose panel is open, to mark it in the list */
+  activeKey?: string | number | null
   /** Muted text next to the first column, e.g. an id */
   rowHint?: (item: any) => string | undefined
   /** Noun used in the count, e.g. "experiment" → "12 experiments" */
@@ -50,6 +59,9 @@ interface Props {
   selectable?: boolean
   /** Property that identifies a row in `v-model:selected` */
   rowKey?: string
+  /** Virtualizes the rows so a long list stays light: only those in view are in the DOM. Needs `fill` (the rows scroll
+   * inside the table) and a fixed row height in px, which every row must fit in, so no wrapping content */
+  rowHeight?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -60,6 +72,8 @@ const props = withDefaults(defineProps<Props>(), {
   searchable: false,
   filters: () => [],
   rowTo: undefined,
+  rowOpen: undefined,
+  activeKey: null,
   rowHint: undefined,
   itemName: undefined,
   itemNamePlural: undefined,
@@ -67,6 +81,7 @@ const props = withDefaults(defineProps<Props>(), {
   fill: false,
   selectable: false,
   rowKey: 'id',
+  rowHeight: undefined,
 })
 
 const emit = defineEmits<{
@@ -101,6 +116,52 @@ const total = computed(() => props.totalCount ?? props.data.length)
 
 const hasActions = computed(() => props.actions.length > 0)
 
+// Columns sized by their content shift as rows come and go (filtering, scrolling a virtualized list), so widths are
+// declared instead. Opt-in: a table that never sets a `width` keeps sizing itself
+const SELECT_WIDTH = 40
+const ACTIONS_WIDTH = 48
+const FLEX_MIN_WIDTH = 200
+const fixedLayout = computed(() => props.columns.some(column => column.width))
+// Below this the table scrolls sideways instead of squeezing the flexible columns to nothing
+const tableMinWidth = computed(() => props.columns.reduce((sum, column) => sum + (column.width ?? FLEX_MIN_WIDTH), 0)
+  + (props.selectable ? SELECT_WIDTH : 0) + (hasActions.value ? ACTIONS_WIDTH : 0))
+
+// Virtualized rows: UTable is given only the rows in view, and two spacer rows stand in for the others. That keeps the
+// table as tall as the whole list, which is what lets the header stay stuck to the top all the way down
+const virtualized = computed(() => props.fill && !!props.rowHeight)
+const tableEl = ref<{ $el: HTMLElement } | null>(null)
+const virtualizer = useVirtualizer(computed(() => ({
+  count: filteredData.value.length,
+  getScrollElement: () => tableEl.value?.$el ?? null,
+  estimateSize: () => props.rowHeight ?? 0,
+  getItemKey: (index: number) => filteredData.value[index]?.[props.rowKey] ?? index,
+  overscan: 12,
+  enabled: virtualized.value,
+  // Something to render before the scroll area is measured, server side included
+  initialRect: { width: 0, height: 800 },
+})))
+const virtualItems = computed(() => virtualizer.value.getVirtualItems())
+const tableRows = computed(() => virtualized.value
+  ? virtualItems.value.flatMap(item => filteredData.value[item.index] ?? [])
+  : filteredData.value)
+const spaceBefore = computed(() => virtualItems.value[0]?.start ?? 0)
+const spaceAfter = computed(() => {
+  const last = virtualItems.value.at(-1)
+  return last ? virtualizer.value.getTotalSize() - last.end : 0
+})
+
+// The header checkbox covers every row of the list, not only those in the DOM
+const allSelectedState = computed<boolean | 'indeterminate'>(() => {
+  if (!selected.value.length)
+    return false
+  const keys = new Set(selected.value)
+  return filteredData.value.every(row => keys.has(row[props.rowKey])) ? true : 'indeterminate'
+})
+
+function toggleSelectAll(value: boolean | 'indeterminate') {
+  selected.value = value ? filteredData.value.map(row => row[props.rowKey]) : []
+}
+
 // UTable tracks selection as { [rowId]: true }
 const rowSelection = computed({
   get: () => Object.fromEntries(selected.value.map(key => [key, true])),
@@ -121,6 +182,9 @@ watch(filteredData, (rows) => {
     selected.value = kept
 })
 
+// What the table shows, once searched and filtered, for pages that move through it
+defineExpose({ rows: filteredData })
+
 const selectedRows = computed(() => filteredData.value.filter(row => selected.value.includes(row[props.rowKey])))
 
 function renderValue(col: Column, value: any, row: any) {
@@ -138,6 +202,16 @@ function menuItems(row: any): DropdownMenuItem[] {
     }))
 }
 
+// A row is exactly this tall, which is what the spacers rely on
+const rowStyle = computed(() => virtualized.value ? { height: `${props.rowHeight}px` } : undefined)
+
+// The row whose panel is open stays marked
+const tableMeta = computed(() => ({
+  class: {
+    tr: (row: { original: any }) => props.activeKey != null && row.original[props.rowKey] === props.activeKey ? 'bg-elevated/70' : '',
+  },
+}))
+
 // Convert our column format to UTable format
 const tableColumns = computed<TableColumn<any>[]>(() => {
   const cols: TableColumn<any>[] = props.columns.map((col, index) => ({
@@ -145,24 +219,30 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     header: col.label,
     cell: ({ row }) => {
       const value = renderValue(col, row.getValue(col.key), row.original)
-      if (index !== 0 || !props.rowTo)
+      if (index !== 0 || !(props.rowTo || props.rowOpen))
         return value
 
       // Stretched link: the ::after covers the row, so the whole row is one target
       const hint = props.rowHint?.(row.original)
-      return h(NuxtLink, {
-        to: props.rowTo(row.original),
-        class: 'flex items-baseline gap-2 min-w-0 font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary',
-      }, () => col.render
+      const linkClass = 'flex items-baseline gap-2 min-w-0 font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted'
+      const content = () => col.render
         ? col.render(row.original, hint)
         : [
             h('span', { class: 'truncate' }, value),
             hint ? h('span', { class: 'shrink-0 text-xs font-normal text-dimmed tabular-nums' }, hint) : null,
-          ])
+          ]
+      if (props.rowTo)
+        return h(NuxtLink, { to: props.rowTo(row.original), class: linkClass }, content)
+      // Native button, which the table's own row click leaves alone
+      return h('button', { type: 'button', class: `${linkClass} w-full text-left`, onClick: () => props.rowOpen?.(row.original) }, [content()])
     },
     meta: {
       class: {
         td: col.class,
+      },
+      style: {
+        th: col.width ? { width: `${col.width}px` } : undefined,
+        td: rowStyle.value,
       },
     },
   }))
@@ -170,9 +250,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
   if (props.selectable) {
     cols.unshift({
       id: 'select',
-      header: ({ table }) => h(UCheckbox, {
-        'modelValue': table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => table.toggleAllPageRowsSelected(!!value),
+      header: () => h(UCheckbox, {
+        'modelValue': allSelectedState.value,
+        'onUpdate:modelValue': toggleSelectAll,
         'aria-label': 'Select all rows',
       }),
       cell: ({ row }) => h(UCheckbox, {
@@ -187,6 +267,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
           th: 'w-10 pe-0',
           td: 'w-10 pe-0',
         },
+        style: { td: rowStyle.value },
       },
     })
   }
@@ -201,7 +282,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
           return null
         return h(UDropdownMenu, { items, content: { align: 'end' } }, () =>
           h(UButton, {
-            'icon': 'i-lucide-ellipsis',
+            'icon': 'i-ph-dots-three-bold',
             'color': 'neutral',
             'variant': 'ghost',
             'size': 'sm',
@@ -214,6 +295,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
           th: 'w-12',
           td: 'w-12 text-right',
         },
+        style: { td: rowStyle.value },
       },
     })
   }
@@ -233,7 +315,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       <UButton
         variant="ghost"
         color="neutral"
-        icon="i-lucide-x"
+        icon="i-ph-x-bold"
         size="sm"
         class="ms-auto"
         @click="selected = []"
@@ -266,9 +348,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       <BaseEmptyState
         :title="hasFilters ? 'No matching rows' : 'Nothing here yet'"
         :message="hasFilters ? 'Try another search, or clear the filters.' : emptyMessage"
-        :icon="hasFilters ? 'i-lucide-search-x' : 'i-lucide-folder-open'"
+        :icon="hasFilters ? 'i-ph-magnifying-glass-bold' : 'i-ph-folder-open-bold'"
         :action-label="hasFilters ? 'Clear filters' : undefined"
-        action-icon="i-lucide-x"
+        action-icon="i-ph-x-bold"
         @action="clearFilters"
       />
     </div>
@@ -276,8 +358,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     <!-- UTable -->
     <UTable
       v-else
+      ref="tableEl"
       v-model:row-selection="rowSelection"
-      :data="filteredData"
+      :data="tableRows"
       :columns="tableColumns"
       :get-row-id="(row: any) => String(row[rowKey])"
       :loading="loading"
@@ -285,14 +368,31 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       class="min-w-full"
       :class="fill && 'flex-1 min-h-0'"
       :sticky="fill"
+      :meta="tableMeta"
+      :style="fixedLayout ? { '--table-min-width': `${tableMinWidth}px` } : undefined"
       :ui="{
+        base: fixedLayout ? 'w-full min-w-(--table-min-width) table-fixed' : '',
         // Opaque when sticky, so rows don't show through while scrolling under it
         thead: fill ? 'bg-muted' : 'bg-muted/60',
+        // Virtualized, the separators are drawn inside the cells: a border would add to the fixed row height
+        tbody: virtualized ? 'divide-y-0' : '',
         th: 'px-4 py-2 text-xs font-medium text-muted',
-        tr: rowTo ? 'relative hover:bg-elevated/50' : '',
-        td: 'px-4 py-2.5 text-sm text-toned',
+        tr: rowTo || rowOpen ? 'relative hover:bg-elevated/50' : '',
+        td: ['px-4 py-2.5 text-sm text-toned', fixedLayout && 'overflow-hidden text-ellipsis', virtualized && 'shadow-[inset_0_-1px_0_var(--ui-border)]'],
       }"
     >
+      <!-- Stand-ins for the rows above and below the ones in the DOM -->
+      <template v-if="virtualized" #body-top>
+        <tr v-if="spaceBefore > 0" aria-hidden="true">
+          <td :colspan="tableColumns.length" class="p-0" :style="{ height: `${spaceBefore}px` }" />
+        </tr>
+      </template>
+      <template v-if="virtualized" #body-bottom>
+        <tr v-if="spaceAfter > 0" aria-hidden="true">
+          <td :colspan="tableColumns.length" class="p-0" :style="{ height: `${spaceAfter}px` }" />
+        </tr>
+      </template>
+
       <!-- Forward all dynamic slots to UTable -->
       <template v-for="(_, slotName) in tableSlots" :key="slotName" #[slotName]="slotProps">
         <slot :name="slotName" v-bind="slotProps" />
