@@ -84,7 +84,7 @@ async function handleCreatePrompt() {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="() => { showCreateModal = true }"
       >
@@ -95,7 +95,7 @@ async function handleCreatePrompt() {
     <!-- Empty State -->
     <BaseEmptyState
       v-if="!prompts || prompts.length === 0"
-      icon="i-lucide-message-square-text"
+      icon="i-ph-chat-text-bold"
       title="No prompts yet"
       message="Prompts are versioned, so you can change one and compare results across versions."
       action-label="New prompt"

@@ -287,7 +287,7 @@ const confidenceItems = [
           class="w-auto shrink-0"
         >
           <span class="flex items-center gap-1.5">
-            <UIcon name="i-lucide-plus" class="size-4 shrink-0" aria-hidden="true" />
+            <UIcon name="i-ph-plus-bold" class="size-4 shrink-0" aria-hidden="true" />
             Add execution
           </span>
           <template #item-trailing="{ item }">
@@ -306,11 +306,11 @@ const confidenceItems = [
             type="button"
             :data-drag-handle="runKey(run)"
             aria-label="Reorder: drag, or use the up and down arrow keys"
-            class="mt-0.5 flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary group-hover:opacity-100 active:cursor-grabbing"
+            class="mt-0.5 flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover:opacity-100 active:cursor-grabbing"
             @keydown.up.prevent="moveRun(run, -1)"
             @keydown.down.prevent="moveRun(run, 1)"
           >
-            <UIcon name="i-lucide-grip-vertical" class="size-4" aria-hidden="true" />
+            <UIcon name="i-ph-dots-six-vertical-bold" class="size-4" aria-hidden="true" />
           </button>
 
           <span
@@ -329,7 +329,7 @@ const confidenceItems = [
               aria-label="Name in this comparison"
               :placeholder="executionOf(run.execution_id)?.experiment_name"
               autocomplete="off"
-              class="w-full rounded bg-elevated px-1.5 py-0.5 -my-0.5 text-sm text-highlighted outline-none ring-1 ring-primary"
+              class="w-full rounded bg-elevated px-1.5 py-0.5 -my-0.5 text-sm text-highlighted outline-none ring-1 ring-inverted"
               @input="run.label = ($event.target as HTMLInputElement).value || null"
               @keydown.enter.prevent="renaming = null"
               @keydown.esc.prevent="stopRenaming(run)"
@@ -340,20 +340,20 @@ const confidenceItems = [
             </p>
 
             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-              <UIMetaItem v-if="executionOf(run.execution_id)?.dataset_name" icon="i-lucide-database" label="Dataset">
+              <UIMetaItem v-if="executionOf(run.execution_id)?.dataset_name" icon="i-ph-database-bold" label="Dataset">
                 <span class="truncate">{{ executionOf(run.execution_id)!.dataset_name }}</span>
               </UIMetaItem>
-              <UIMetaItem v-if="executionOf(run.execution_id)" icon="i-lucide-calendar" label="Started">
+              <UIMetaItem v-if="executionOf(run.execution_id)" icon="i-ph-calendar-blank-bold" label="Started">
                 {{ formatShortDate(executionOf(run.execution_id)!.started_at) }}
               </UIMetaItem>
-              <UIMetaItem v-if="executionOf(run.execution_id)" icon="i-lucide-rows-3" label="Rows">
+              <UIMetaItem v-if="executionOf(run.execution_id)" icon="i-ph-rows-bold" label="Rows">
                 <UIRowCount :rows="executionOf(run.execution_id)!.row_count" size="xs" class="text-xs" />
               </UIMetaItem>
               <template v-if="agentsOf(run.execution_id).length <= 1">
-                <UIMetaItem v-if="run.agent_name" icon="i-lucide-bot" label="Agent">
+                <UIMetaItem v-if="run.agent_name" icon="i-ph-robot-bold" label="Agent">
                   <span class="truncate">{{ run.agent_name }}</span>
                 </UIMetaItem>
-                <UIMetaItem v-if="modelOf(run)" icon="i-lucide-cpu" label="Model">
+                <UIMetaItem v-if="modelOf(run)" icon="i-ph-cpu-bold" label="Model">
                   <span class="truncate">{{ modelOf(run) }}</span>
                 </UIMetaItem>
               </template>
@@ -365,7 +365,7 @@ const confidenceItems = [
             v-if="agentsOf(run.execution_id).length > 1"
             v-model="run.agent_name"
             :items="agentItems(run.execution_id)"
-            icon="i-lucide-bot"
+            icon="i-ph-robot-bold"
             variant="subtle"
             color="neutral"
             size="xs"
@@ -376,7 +376,7 @@ const confidenceItems = [
           <div class="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
             <UTooltip text="Rename in this comparison">
               <UButton
-                icon="i-lucide-pencil"
+                icon="i-ph-pencil-simple-bold"
                 variant="ghost"
                 color="neutral"
                 size="xs"
@@ -387,7 +387,7 @@ const confidenceItems = [
             </UTooltip>
             <UTooltip v-if="canAddAgent(run)" text="Compare another agent">
               <UButton
-                icon="i-lucide-copy-plus"
+                icon="i-ph-copy-bold"
                 variant="ghost"
                 color="neutral"
                 size="xs"
@@ -396,7 +396,7 @@ const confidenceItems = [
               />
             </UTooltip>
             <UButton
-              icon="i-lucide-x"
+              icon="i-ph-x-bold"
               variant="ghost"
               color="neutral"
               size="xs"
@@ -468,7 +468,7 @@ const confidenceItems = [
           <UTooltip v-for="metric in kindMetrics" :key="metric.key" :text="metric.description">
             <UButton
               :label="metric.label"
-              :icon="form.config.metrics.includes(metric.key) ? 'i-lucide-check' : undefined"
+              :icon="form.config.metrics.includes(metric.key) ? 'i-ph-check-bold' : undefined"
               :variant="form.config.metrics.includes(metric.key) ? 'subtle' : 'outline'"
               color="neutral"
               size="xs"
@@ -490,7 +490,7 @@ const confidenceItems = [
               size="sm"
               block
               class="justify-between rounded-none px-4 py-2.5 text-muted active:scale-100!"
-              :trailing-icon="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              :trailing-icon="open ? 'i-ph-caret-up-bold' : 'i-ph-caret-down-bold'"
             >
               Confidence intervals
             </UButton>

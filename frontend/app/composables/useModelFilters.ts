@@ -21,7 +21,7 @@ const modelFilterSpecs: FilterSpec<Model>[] = [
   {
     key: 'provider',
     label: 'Provider',
-    icon: 'i-lucide-building-2',
+    icon: 'i-ph-buildings-bold',
     plural: 'providers',
     searchPlaceholder: 'Search a provider…',
     value: modelProvider,
@@ -38,12 +38,12 @@ const modelFilterSpecs: FilterSpec<Model>[] = [
   {
     key: 'status',
     label: 'Status',
-    icon: 'i-lucide-circle-dot',
+    icon: 'i-ph-radio-button-bold',
     multiple: false,
     value: model => model.is_active ? 'active' : 'inactive',
     present: value => value === 'active'
-      ? { label: 'Active', icon: 'i-lucide-circle-check', iconClass: 'text-success' }
-      : { label: 'Inactive', icon: 'i-lucide-circle-slash', iconClass: 'text-muted' },
+      ? { label: 'Active', icon: 'i-ph-check-circle-bold', iconClass: 'text-success' }
+      : { label: 'Inactive', icon: 'i-ph-prohibit-bold', iconClass: 'text-muted' },
     compare: byOrder(['active', 'inactive']),
   },
 ]

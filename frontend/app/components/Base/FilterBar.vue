@@ -87,7 +87,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
         color="neutral"
         variant="ghost"
         size="xs"
-        icon="i-lucide-list-filter"
+        icon="i-ph-funnel-simple-bold"
         label="Filter"
       />
 
@@ -150,7 +150,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
           :aria-label="`Change ${definition.label} operator`"
         >
           {{ operator(definition) }}
-          <UIcon name="i-lucide-chevron-down" class="size-3" aria-hidden="true" />
+          <UIcon name="i-ph-caret-down-bold" class="size-3" aria-hidden="true" />
         </button>
         <template #content>
           <BaseFilterOptionList
@@ -179,18 +179,18 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
               :class="option.icon ? 'ring-2' : 'ring-1'"
             >
               <UIcon v-if="option.icon" :name="option.icon" class="size-3.5" :class="option.iconClass" aria-hidden="true" />
-              <span v-else class="size-2 rounded-full" :class="option.dot" aria-hidden="true" />
+              <span v-else class="size-3 rounded-full" :class="option.dot" aria-hidden="true" />
             </span>
             <span
               v-if="hasMoreIcons(definition)"
               class="relative inline-flex size-4 items-center justify-center rounded-full bg-elevated text-muted ring-2 ring-(--ui-bg-elevated)"
               aria-hidden="true"
             >
-              <UIcon name="i-lucide-ellipsis" class="size-3.5" />
+              <UIcon name="i-ph-dots-three-bold" class="size-3.5" />
             </span>
           </span>
           {{ valueLabel(definition) }}
-          <UIcon name="i-lucide-chevron-down" class="size-3 text-dimmed" aria-hidden="true" />
+          <UIcon name="i-ph-caret-down-bold" class="size-3 text-dimmed" aria-hidden="true" />
         </button>
         <template #content>
           <BaseFilterOptionList
@@ -210,7 +210,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
         :aria-label="`Remove ${definition.label} filter`"
         @click="remove(definition)"
       >
-        <UIcon name="i-lucide-x" class="size-3.5" />
+        <UIcon name="i-ph-x-bold" class="size-3.5" />
       </button>
     </div>
 

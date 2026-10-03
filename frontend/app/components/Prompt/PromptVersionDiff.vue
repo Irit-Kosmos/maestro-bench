@@ -23,7 +23,7 @@ function toggle(key: string, byDefault: boolean) {
   toggled.value = { ...toggled.value, [key]: !isOpen(key, byDefault) }
 }
 
-const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary'
+const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted'
 </script>
 
 <template>
@@ -43,7 +43,7 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
               @click="toggle(field.key, moved(field) && field.key !== 'notes')"
             >
               <UIcon
-                name="i-lucide-chevron-right"
+                name="i-ph-caret-right-bold"
                 class="size-3.5 transition-transform duration-150 ease-out"
                 :class="{ 'rotate-90': isOpen(field.key, moved(field) && field.key !== 'notes') }"
                 aria-hidden="true"
@@ -71,7 +71,7 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
             @click="toggle('variables', variablesMoved)"
           >
             <UIcon
-              name="i-lucide-chevron-right"
+              name="i-ph-caret-right-bold"
               class="size-3.5 transition-transform duration-150 ease-out"
               :class="{ 'rotate-90': isOpen('variables', variablesMoved) }"
               aria-hidden="true"

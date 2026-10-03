@@ -19,9 +19,9 @@ const filters = defineModel<FilterState>('filters', { required: true })
 const groupBy = defineModel<ModelGroupBy>('groupBy', { required: true })
 
 const groupItems = [
-  { label: 'Group by provider', value: 'provider', icon: 'i-lucide-layers' },
-  { label: 'Group by status', value: 'status', icon: 'i-lucide-list-checks' },
-  { label: 'No grouping', value: 'none', icon: 'i-lucide-list' },
+  { label: 'Group by provider', value: 'provider', icon: 'i-ph-stack-bold' },
+  { label: 'Group by status', value: 'status', icon: 'i-ph-list-checks-bold' },
+  { label: 'No grouping', value: 'none', icon: 'i-ph-list-bold' },
 ]
 </script>
 

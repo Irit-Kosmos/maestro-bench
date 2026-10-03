@@ -82,7 +82,7 @@ defineShortcuts({
         <div class="flex items-center gap-1">
           <UTooltip text="Previous row" :kbds="['k']">
             <UButton
-              icon="i-lucide-chevron-up"
+              icon="i-ph-caret-up-bold"
               color="neutral"
               variant="outline"
               size="sm"
@@ -93,7 +93,7 @@ defineShortcuts({
           </UTooltip>
           <UTooltip text="Next row" :kbds="['j']">
             <UButton
-              icon="i-lucide-chevron-down"
+              icon="i-ph-caret-down-bold"
               color="neutral"
               variant="outline"
               size="sm"
@@ -105,7 +105,7 @@ defineShortcuts({
         </div>
         <UButton
           v-if="!isReadOnly"
-          icon="i-lucide-trash-2"
+          icon="i-ph-trash-bold"
           label="Delete row"
           color="error"
           variant="ghost"

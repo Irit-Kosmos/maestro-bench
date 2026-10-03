@@ -26,14 +26,14 @@ const mappings = computed<AgentInputMapping[]>(() => {
 function sourceOf(variable: string) {
   const mapping = mappings.value.find(m => m.variable === variable)
   if (!mapping)
-    return { label: 'Matched by name', detail: '', icon: 'i-lucide-equal' }
+    return { label: 'Matched by name', detail: '', icon: 'i-ph-equals-bold' }
   if (mapping.source === 'dataset')
-    return { label: 'Dataset column', detail: mapping.sourceColumn ?? '', icon: 'i-lucide-table-2' }
+    return { label: 'Dataset column', detail: mapping.sourceColumn ?? '', icon: 'i-ph-table-bold' }
   if (mapping.source === 'agent') {
     const source = props.agents.find(a => a.agent_id === mapping.sourceAgentId)
-    return { label: 'Output of', detail: source?.agent_name_snapshot ?? `agent #${mapping.sourceAgentId}`, icon: 'i-lucide-corner-down-right' }
+    return { label: 'Output of', detail: source?.agent_name_snapshot ?? `agent #${mapping.sourceAgentId}`, icon: 'i-ph-arrow-elbow-down-right-bold' }
   }
-  return { label: 'Fixed text', detail: mapping.staticValue ?? '', icon: 'i-lucide-text-cursor' }
+  return { label: 'Fixed text', detail: mapping.staticValue ?? '', icon: 'i-ph-cursor-text-bold' }
 }
 
 const promptLink = computed(() => {
@@ -96,7 +96,7 @@ const prompts = computed(() => [
             class="grid items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:grid-cols-[minmax(6rem,10rem)_auto_minmax(0,1fr)]"
           >
             <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="variable">{{ variable }}</code>
-            <UIcon name="i-lucide-arrow-right" class="hidden size-3.5 shrink-0 text-dimmed sm:block" aria-hidden="true" />
+            <UIcon name="i-ph-arrow-right-bold" class="hidden size-3.5 shrink-0 text-dimmed sm:block" aria-hidden="true" />
             <span class="flex min-w-0 items-center gap-1.5 text-sm text-toned">
               <UIcon :name="sourceOf(variable).icon" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
               <span class="shrink-0">{{ sourceOf(variable).label }}</span>
@@ -106,8 +106,8 @@ const prompts = computed(() => [
         </ul>
 
         <details v-for="prompt in prompts" :key="prompt.label" class="group">
-          <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
-            <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+          <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted [&::-webkit-details-marker]:hidden">
+            <UIcon name="i-ph-caret-right-bold" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
             {{ prompt.label }}
           </summary>
           <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>

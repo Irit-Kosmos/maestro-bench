@@ -108,7 +108,7 @@ function onNodeClick(event: { node: Node }) {
               {{ selected.agent_team_name_snapshot }}
             </p>
           </div>
-          <UButton variant="ghost" size="sm" icon="i-lucide-x" color="neutral" aria-label="Close panel" @click="() => { selectedId = null }" />
+          <UButton variant="ghost" size="sm" icon="i-ph-x-bold" color="neutral" aria-label="Close panel" @click="() => { selectedId = null }" />
         </header>
         <div class="flex-1 overflow-y-auto p-4">
           <ExperimentsAgentSnapshotDetails :snapshot="selected" :agents="ordered" />

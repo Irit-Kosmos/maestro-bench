@@ -60,7 +60,7 @@ function handleCancel() {
             <UButton
               variant="ghost"
               color="neutral"
-              icon="i-lucide-x"
+              icon="i-ph-x-bold"
               size="sm"
               @click="handleCancel"
             />

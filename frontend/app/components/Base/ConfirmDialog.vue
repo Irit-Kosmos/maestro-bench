@@ -33,17 +33,17 @@ const variantConfig = computed(() => {
   const configs = {
     error: {
       color: 'error' as const,
-      icon: 'i-lucide-alert-triangle',
+      icon: 'i-ph-warning-bold',
       iconColor: 'text-error',
     },
     warning: {
       color: 'warning' as const,
-      icon: 'i-lucide-alert-circle',
+      icon: 'i-ph-warning-circle-bold',
       iconColor: 'text-warning',
     },
     info: {
       color: 'primary' as const,
-      icon: 'i-lucide-info',
+      icon: 'i-ph-info-bold',
       iconColor: 'text-info',
     },
   }

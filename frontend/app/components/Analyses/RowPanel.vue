@@ -70,7 +70,7 @@ function outputText(output: unknown): string {
         v-else-if="error"
         color="error"
         variant="subtle"
-        icon="i-lucide-circle-x"
+        icon="i-ph-x-circle-bold"
         :title="error"
       />
       <div v-else-if="row" class="flex flex-col gap-6">
@@ -97,7 +97,7 @@ function outputText(output: unknown): string {
           v-if="row.error"
           color="error"
           variant="subtle"
-          icon="i-lucide-circle-x"
+          icon="i-ph-x-circle-bold"
           :title="row.error"
         />
 
@@ -156,7 +156,7 @@ function outputText(output: unknown): string {
               v-if="agent.error"
               color="error"
               variant="subtle"
-              icon="i-lucide-circle-x"
+              icon="i-ph-x-circle-bold"
               :title="agent.error"
             />
             <UTextarea

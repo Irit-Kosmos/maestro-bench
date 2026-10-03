@@ -97,7 +97,7 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
       v-else-if="error"
       color="error"
       variant="subtle"
-      icon="i-lucide-circle-alert"
+      icon="i-ph-warning-circle-bold"
       title="Couldn’t load the preview"
       :description="String(error)"
       :actions="datasetId ? [{ label: 'Try again', color: 'error', variant: 'outline', onClick: () => { loadPreview(datasetId!) } }] : undefined"

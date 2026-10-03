@@ -38,12 +38,12 @@ const emit = defineEmits<{
         <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose. -->
         <button
           type="button"
-          class="flex w-full items-start gap-3 px-4 py-3 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+          class="flex w-full items-start gap-3 px-4 py-3 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
           @click="emit('jump', row.id)"
         >
           <!-- Three shapes, so state never rests on color alone -->
           <UIcon
-            :name="row.done ? 'i-lucide-circle-check' : row.attention ? 'i-lucide-triangle-alert' : 'i-lucide-circle'"
+            :name="row.done ? 'i-ph-check-circle-bold' : row.attention ? 'i-ph-warning-bold' : 'i-ph-circle-bold'"
             class="mt-0.5 size-4 shrink-0"
             :class="row.done ? 'text-success' : row.attention ? 'text-warning' : 'text-muted'"
             aria-hidden="true"
@@ -63,7 +63,7 @@ const emit = defineEmits<{
       <UTooltip :text="canSubmit ? submitLabel : 'Complete the sections above first'" :kbds="canSubmit ? ['meta', 'enter'] : undefined">
         <UButton
           block
-          icon="i-lucide-play"
+          icon="i-ph-play-bold"
           :disabled="!canSubmit"
           :loading="submitting"
           aria-keyshortcuts="Meta+Enter Control+Enter"

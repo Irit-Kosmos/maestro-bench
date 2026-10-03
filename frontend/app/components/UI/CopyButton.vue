@@ -37,8 +37,8 @@ onBeforeUnmount(() => clearTimeout(timer))
       @click="copy"
     >
       <span class="relative block size-4" aria-hidden="true">
-        <UIcon name="i-lucide-copy" class="copy-icon absolute inset-0 size-4" :data-hidden="copied || undefined" />
-        <UIcon name="i-lucide-check" class="copy-icon absolute inset-0 size-4 text-success" :data-hidden="!copied || undefined" />
+        <UIcon name="i-ph-copy-bold" class="copy-icon absolute inset-0 size-4" :data-hidden="copied || undefined" />
+        <UIcon name="i-ph-check-bold" class="copy-icon absolute inset-0 size-4 text-success" :data-hidden="!copied || undefined" />
       </span>
     </UButton>
   </UTooltip>

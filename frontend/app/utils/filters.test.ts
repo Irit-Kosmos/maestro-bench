@@ -8,8 +8,8 @@ interface Item {
   tags?: string[]
 }
 
-const kind: FilterSpec<Item> = { key: 'kind', label: 'Kind', icon: 'i-lucide-tag', value: item => item.kind }
-const tags: FilterSpec<Item> = { key: 'tags', label: 'Tags', icon: 'i-lucide-tags', multiValued: true, value: item => item.tags }
+const kind: FilterSpec<Item> = { key: 'kind', label: 'Kind', icon: 'i-ph-tag-bold', value: item => item.kind }
+const tags: FilterSpec<Item> = { key: 'tags', label: 'Tags', icon: 'i-ph-tag-bold', multiValued: true, value: item => item.tags }
 
 const items: Item[] = [
   { name: 'a', kind: 'beta', tags: ['x', 'y'] },

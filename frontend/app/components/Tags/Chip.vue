@@ -25,7 +25,7 @@ const emit = defineEmits<{
     :title="selectable ? `Filter by ${tag.name}` : undefined"
     class="inline-flex shrink-0 items-center rounded-full border border-default bg-elevated/40 text-default"
     :class="[
-      selectable ? 'cursor-pointer outline-none transition-colors duration-150 hover:bg-accented/50 focus-visible:ring-2 focus-visible:ring-primary' : undefined,
+      selectable ? 'cursor-pointer outline-none transition-colors duration-150 hover:bg-accented/50 focus-visible:ring-2 focus-visible:ring-inverted' : undefined,
       size === 'md' ? 'h-7 max-w-56 gap-2 ps-2.5 text-sm' : 'h-5 max-w-40 gap-1.5 ps-2 text-xs',
       removable ? 'pe-1' : size === 'md' ? 'pe-2.5' : 'pe-2',
     ]"
@@ -41,7 +41,7 @@ const emit = defineEmits<{
       :class="size === 'md' ? 'size-5' : 'size-4'"
       @click="emit('remove')"
     >
-      <UIcon name="i-lucide-x" :class="size === 'md' ? 'size-3.5' : 'size-3'" aria-hidden="true" />
+      <UIcon name="i-ph-x-bold" :class="size === 'md' ? 'size-3.5' : 'size-3'" aria-hidden="true" />
     </button>
   </component>
 </template>

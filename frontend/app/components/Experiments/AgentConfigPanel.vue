@@ -35,7 +35,7 @@ const emit = defineEmits<{
       <UButton
         variant="ghost"
         size="sm"
-        icon="i-lucide-x"
+        icon="i-ph-x-bold"
         color="neutral"
         aria-label="Close panel"
         @click="emit('close')"
@@ -62,10 +62,10 @@ const emit = defineEmits<{
           @update:model-value="(value: boolean) => emit('updateConfig', 'is_active', value)"
         />
         <div class="flex items-center justify-between">
-          <UButton variant="ghost" color="neutral" size="sm" icon="i-lucide-rotate-ccw" @click="emit('reset')">
+          <UButton variant="ghost" color="neutral" size="sm" icon="i-ph-arrow-counter-clockwise-bold" @click="emit('reset')">
             Reset to agent defaults
           </UButton>
-          <UButton variant="ghost" color="error" size="sm" icon="i-lucide-trash-2" @click="emit('remove')">
+          <UButton variant="ghost" color="error" size="sm" icon="i-ph-trash-bold" @click="emit('remove')">
             Remove
           </UButton>
         </div>

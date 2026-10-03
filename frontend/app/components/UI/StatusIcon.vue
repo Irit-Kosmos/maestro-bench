@@ -16,12 +16,12 @@ const props = withDefaults(defineProps<{
 
 const config = computed(() => {
   switch (props.status) {
-    case 'completed': return { icon: 'i-lucide-circle-check', class: 'text-success' }
+    case 'completed': return { icon: 'i-ph-check-circle-bold', class: 'text-success' }
     case 'running': return { icon: null, class: 'text-warning' }
-    case 'failed': return { icon: 'i-lucide-circle-x', class: 'text-error' }
-    case 'cancelled': return { icon: 'i-lucide-circle-slash', class: 'text-orange-600 dark:text-orange-400' }
-    case 'partial': return { icon: 'i-lucide-circle-alert', class: 'text-warning' }
-    default: return { icon: 'i-lucide-circle-dashed', class: 'text-muted' }
+    case 'failed': return { icon: 'i-ph-x-circle-bold', class: 'text-error' }
+    case 'cancelled': return { icon: 'i-ph-prohibit-bold', class: 'text-orange-600 dark:text-orange-400' }
+    case 'partial': return { icon: 'i-ph-warning-circle-bold', class: 'text-warning' }
+    default: return { icon: 'i-ph-circle-dashed-bold', class: 'text-muted' }
   }
 })
 

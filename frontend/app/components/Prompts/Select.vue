@@ -83,7 +83,7 @@ function onUpdate(value: unknown) {
     @update:model-value="onUpdate"
   >
     <template #leading>
-      <UIcon name="i-lucide-message-square-text" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
+      <UIcon name="i-ph-chat-text-bold" class="size-4 shrink-0 text-dimmed" aria-hidden="true" />
     </template>
 
     <template #item-label="{ item }">
@@ -91,7 +91,7 @@ function onUpdate(value: unknown) {
         <span class="tabular-nums">{{ (item as any).version }}</span>
         <UIcon
           v-if="(item as any).isDefault"
-          name="i-lucide-star"
+          name="i-ph-star-bold"
           class="size-3.5 shrink-0 text-dimmed"
           title="Default version"
           aria-label="Default version"

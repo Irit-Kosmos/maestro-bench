@@ -246,7 +246,7 @@ defineExpose({
           v-if="nodes.length === 0"
           class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
         >
-          <UIcon name="i-lucide-git-branch" class="w-12 h-12 text-dimmed mb-4" />
+          <UIcon name="i-ph-git-branch-bold" class="w-12 h-12 text-dimmed mb-4" />
           <p class="text-sm font-medium text-muted mb-1">
             Build Your Agent Flow
           </p>

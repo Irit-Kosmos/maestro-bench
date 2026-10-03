@@ -82,11 +82,11 @@ async function handleCancel() {
   const result = await cancelBatch(batchId.value)
   isCancelling.value = false
   if (result.success) {
-    toast.add({ title: 'Batch cancelled', description: `${result.data.cancelled} running experiments stopped.`, color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Batch cancelled', description: `${result.data.cancelled} running experiments stopped.`, color: 'success', icon: 'i-ph:check-circle-bold' })
     await refresh()
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
   }
 }
 
@@ -100,11 +100,11 @@ async function handleRerun() {
     const description = skipped
       ? `${started} experiments started, ${skipped} already running.`
       : `${started} experiments started. A new execution was created for each.`
-    toast.add({ title: 'Batch re-run started', description, color: 'success', icon: 'i-lucide:play' })
+    toast.add({ title: 'Batch re-run started', description, color: 'success', icon: 'i-ph:play-bold' })
     await refresh()
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to re-run the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to re-run the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
   }
 }
 
@@ -116,11 +116,11 @@ async function handleDelete() {
   isDeleting.value = false
   showDeleteDialog.value = false
   if (result.success) {
-    toast.add({ title: 'Batch deleted', description: 'Its experiments were kept.', color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Batch deleted', description: 'Its experiments were kept.', color: 'success', icon: 'i-ph:check-circle-bold' })
     await navigateTo('/batches')
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to delete the batch', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to delete the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
   }
 }
 
@@ -140,7 +140,7 @@ function formatCost(cost: number | null) {
           v-if="isActive"
           variant="soft"
           color="neutral"
-          icon="i-lucide-circle-stop"
+          icon="i-ph-stop-circle-bold"
           size="sm"
           :loading="isCancelling"
           @click="handleCancel"
@@ -151,7 +151,7 @@ function formatCost(cost: number | null) {
           <UButton
             variant="soft"
             color="neutral"
-            icon="i-lucide-play"
+            icon="i-ph-play-bold"
             size="sm"
             :loading="isRerunning"
             :disabled="isActive"
@@ -164,7 +164,7 @@ function formatCost(cost: number | null) {
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lucide-chart-column"
+            icon="i-ph-chart-bar-bold"
             size="sm"
             :disabled="!analyzeLink"
             :to="analyzeLink"
@@ -175,7 +175,7 @@ function formatCost(cost: number | null) {
         <UButton
           variant="soft"
           color="error"
-          icon="i-lucide-trash-2"
+          icon="i-ph-trash-bold"
           size="sm"
           @click="() => { showDeleteDialog = true }"
         >
@@ -190,19 +190,19 @@ function formatCost(cost: number | null) {
           <UIStatusHistory :earlier="batch.earlier_execution_statuses" />
         </h1>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-          <UIMetaItem icon="i-lucide-hash" label="Batch" class="tabular-nums">
+          <UIMetaItem icon="i-ph-hash-bold" label="Batch" class="tabular-nums">
             {{ batch.id }}
           </UIMetaItem>
-          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created" class="tabular-nums">
             {{ formatDate(batch.created_at) }}
           </UIMetaItem>
-          <UIMetaItem v-if="batch.dataset_name" icon="i-lucide-database" label="Dataset">
+          <UIMetaItem v-if="batch.dataset_name" icon="i-ph-database-bold" label="Dataset">
             <UIMetaLink v-if="batch.dataset_id" :to="`/datasets/${batch.dataset_id}`">
               {{ batch.dataset_name }}
             </UIMetaLink>
             <span v-else class="truncate text-toned">{{ batch.dataset_name }}</span>
           </UIMetaItem>
-          <UIMetaItem v-if="batch.base_experiment_id" icon="i-lucide-git-fork" label="Derived from">
+          <UIMetaItem v-if="batch.base_experiment_id" icon="i-ph-git-fork-bold" label="Derived from">
             <UIMetaLink :to="`/experiments/${batch.base_experiment_id}`">
               {{ batch.base_experiment_name }}
             </UIMetaLink>
@@ -290,7 +290,7 @@ function formatCost(cost: number | null) {
                   <NuxtLink
                     v-if="index === 0"
                     :to="`/experiments/${experiment.id}`"
-                    class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
+                    class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   >
                     <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
                     <template v-else>

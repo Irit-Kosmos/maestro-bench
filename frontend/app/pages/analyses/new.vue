@@ -91,7 +91,7 @@ defineShortcuts({
       <UButton
         variant="ghost"
         color="neutral"
-        icon="i-lucide-refresh-cw"
+        icon="i-ph-arrows-clockwise-bold"
         size="sm"
         :loading="isComputing"
         :disabled="!canCompute"
@@ -102,7 +102,7 @@ defineShortcuts({
       <UButton
         variant="soft"
         color="neutral"
-        icon="i-lucide-check"
+        icon="i-ph-check-bold"
         size="sm"
         :loading="isSaving"
         :disabled="!canSave"

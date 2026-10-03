@@ -31,9 +31,9 @@ const PROVIDERS: Record<string, KnownProvider> = {
   // Simple Icons (CC0), single colour: it follows the text colour, so it needs no dark-mode flip
   ollama: { label: 'Ollama', icon: 'i-custom-ollama', mono: false },
   // Supported by the backend but without any logo
-  groq: { label: 'Groq', icon: 'i-lucide-zap', mono: false, generic: true },
-  openrouter: { label: 'OpenRouter', icon: 'i-lucide-route', mono: false, generic: true },
-  other: { label: 'Other', icon: 'i-lucide-box', mono: false, generic: true },
+  groq: { label: 'Groq', icon: 'i-ph-lightning-bold', mono: false, generic: true },
+  openrouter: { label: 'OpenRouter', icon: 'i-ph-path-bold', mono: false, generic: true },
+  other: { label: 'Other', icon: 'i-ph-cube-bold', mono: false, generic: true },
 }
 
 const ALIASES: Record<string, string> = {
@@ -62,7 +62,7 @@ export function providerMeta(provider: string | null | undefined): ProviderMeta 
   return {
     key,
     label: raw.charAt(0).toUpperCase() + raw.slice(1),
-    icon: 'i-lucide-cpu',
+    icon: 'i-ph-cpu-bold',
     mono: false,
     generic: true,
   }

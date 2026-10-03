@@ -222,7 +222,7 @@ function handleDeleteLeave() {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         @click="handleCreateClick"
       >
@@ -261,9 +261,9 @@ function handleDeleteLeave() {
         <BaseEmptyState
           title="No models match your filters"
           message="Try another search, or clear the filters."
-          icon="i-lucide-search-x"
+          icon="i-ph-magnifying-glass-bold"
           action-label="Clear filters"
-          action-icon="i-lucide-x"
+          action-icon="i-ph-x-bold"
           @action="clearFilters"
         />
       </div>
@@ -274,7 +274,7 @@ function handleDeleteLeave() {
       v-else-if="!pending"
       title="No models yet"
       message="Start by adding your first AI model"
-      icon="i-lucide-cpu"
+      icon="i-ph-cpu-bold"
       action-label="Add model"
       @action="handleCreateClick"
     />

@@ -51,7 +51,7 @@ const isSelected = (option: FilterOption) => props.selected.includes(option.valu
           :class="isSelected(option) ? 'border-inverted bg-inverted text-inverted' : 'border-accented'"
           aria-hidden="true"
         >
-          <UIcon v-if="isSelected(option)" name="i-lucide-check" class="size-2.5" />
+          <UIcon v-if="isSelected(option)" name="i-ph-check-bold" class="size-2.5" />
         </span>
         <!-- Ring and dot in one SVG: a CSS border snaps to device pixels but its content does not,
              so a dot nested in a bordered box drifts off-center at fractional positions -->

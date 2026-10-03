@@ -131,7 +131,7 @@ function toggleAgent(agentId: number) {
             </p>
 
             <div v-if="availableAgents.length === 0" class="text-center py-8 border-2 border-dashed border-accented rounded-lg">
-              <UIcon name="i-lucide:users" class="w-8 h-8 text-dimmed mx-auto mb-2" />
+              <UIcon name="i-ph:users-bold" class="w-8 h-8 text-dimmed mx-auto mb-2" />
               <p class="text-sm text-muted">
                 No agents available. Create agents first.
               </p>

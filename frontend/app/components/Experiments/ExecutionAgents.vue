@@ -30,7 +30,7 @@ function setOpen(id: number, open: boolean) {
   <!-- One agent: a card -->
   <section v-if="ordered.length === 1" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon name="i-lucide-bot" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon name="i-ph-robot-bold" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ ordered[0]!.agent_name_snapshot }}
@@ -52,10 +52,10 @@ function setOpen(id: number, open: boolean) {
         <!-- Native button: a full-width row shouldn't inherit the press scale of UButton. Hover is instant on purpose. -->
         <button
           type="button"
-          class="flex h-14 w-full items-center gap-3 px-4 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+          class="flex h-14 w-full items-center gap-3 px-4 text-left outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
         >
           <UIcon
-            name="i-lucide-chevron-right"
+            name="i-ph-caret-right-bold"
             class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none group-data-[state=open]/agent:rotate-90"
             aria-hidden="true"
           />

@@ -62,7 +62,7 @@ function showView(next: 'list' | 'graph') {
       toast.add({
         title: 'Agents now run in list order',
         description: 'Agents that were not connected to each other run one after another.',
-        icon: 'i-lucide-info',
+        icon: 'i-ph-info-bold',
       })
     }
   }
@@ -210,7 +210,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
           size="xs"
           :variant="view === 'list' ? 'soft' : 'ghost'"
           :color="view === 'list' ? 'primary' : 'neutral'"
-          icon="i-lucide-list-ordered"
+          icon="i-ph-list-numbers-bold"
           class="rounded-md"
           :aria-pressed="view === 'list'"
           @click="showView('list')"
@@ -221,7 +221,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
           size="xs"
           :variant="view === 'graph' ? 'soft' : 'ghost'"
           :color="view === 'graph' ? 'primary' : 'neutral'"
-          icon="i-lucide-git-branch"
+          icon="i-ph-git-branch-bold"
           class="rounded-md"
           :aria-pressed="view === 'graph'"
           @click="showView('graph')"
@@ -243,16 +243,16 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
               <!-- Native button: a full-width row shouldn't inherit the press scale of UButton -->
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                 @click="addAgent(agent)"
               >
-                <UIcon name="i-lucide-bot" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon name="i-ph-robot-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
                   <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
                 </span>
                 <span v-if="defaultSummary(agent)" class="hidden shrink-0 text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
-                <UIcon name="i-lucide-plus" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon name="i-ph-plus-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
               </button>
             </li>
           </ul>
@@ -261,7 +261,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
 
       <BaseEmptyState
         v-else-if="agentTeams"
-        icon="i-lucide-bot"
+        icon="i-ph-robot-bold"
         title="No agents yet"
         message="Create an agent first, then come back to create the experiment."
         action-label="New agent"
@@ -280,7 +280,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
           value-key="value"
           :items="pickerItems"
           :ui="{ content: 'min-w-60' }"
-          icon="i-lucide-plus"
+          icon="i-ph-plus-bold"
           placeholder="Add an agent"
           :search-input="{ placeholder: 'Search agents…' }"
           class="w-full sm:w-64"
@@ -340,7 +340,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
           aria-labelledby="agents-problems-title"
         >
           <h3 id="agents-problems-title" class="flex items-center gap-2 text-sm font-medium text-highlighted">
-            <UIcon name="i-lucide-triangle-alert" class="size-4 shrink-0 text-warning" aria-hidden="true" />
+            <UIcon name="i-ph-warning-bold" class="size-4 shrink-0 text-warning" aria-hidden="true" />
             {{ problemCount }} {{ problemCount === 1 ? 'thing' : 'things' }} to fix before creating
           </h3>
           <ul class="mt-2 flex flex-col gap-2 ps-6">
@@ -348,7 +348,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
               <template v-if="items.length > 1">
                 <button
                   type="button"
-                  class="rounded-sm font-medium text-highlighted underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  class="rounded-sm font-medium text-highlighted underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                   @click="setOpen(entry.item.agent.id, true)"
                 >
                   {{ entry.item.agent.name }}

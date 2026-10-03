@@ -53,7 +53,7 @@ function isAgentInFlow(agentId: number): boolean {
       >
         <!-- Team header -->
         <div class="flex items-center gap-2 px-2 py-1.5">
-          <UIcon name="i-lucide-users" class="w-3.5 h-3.5 text-dimmed" />
+          <UIcon name="i-ph-users-bold" class="w-3.5 h-3.5 text-dimmed" />
           <span class="text-xs font-medium text-default truncate">
             {{ team.name }}
           </span>
@@ -76,19 +76,19 @@ function isAgentInFlow(agentId: number): boolean {
             @click="addAgent(agent)"
           >
             <UIcon
-              name="i-lucide-bot"
+              name="i-ph-robot-bold"
               class="w-3.5 h-3.5 flex-shrink-0"
               :class="isAgentInFlow(agent.id) ? 'text-primary' : 'text-dimmed'"
             />
             <span class="truncate">{{ agent.name }}</span>
             <UIcon
               v-if="isAgentInFlow(agent.id)"
-              name="i-lucide-check"
+              name="i-ph-check-bold"
               class="w-3.5 h-3.5 text-primary ml-auto flex-shrink-0"
             />
             <UIcon
               v-else
-              name="i-lucide-plus"
+              name="i-ph-plus-bold"
               class="w-3.5 h-3.5 text-dimmed ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100"
             />
           </button>
@@ -97,7 +97,7 @@ function isAgentInFlow(agentId: number): boolean {
 
       <!-- Empty state -->
       <div v-if="teamsWithAgents.length === 0" class="text-center py-8 px-4">
-        <UIcon name="i-lucide-users-x" class="w-8 h-8 text-dimmed mx-auto mb-2" />
+        <UIcon name="i-ph-user-minus-bold" class="w-8 h-8 text-dimmed mx-auto mb-2" />
         <p class="text-xs text-muted">
           No agents available
         </p>

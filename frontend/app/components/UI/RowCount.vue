@@ -26,7 +26,7 @@ const tooltip = computed(() =>
       color="warning"
       variant="soft"
       :size="size"
-      icon="i-lucide-triangle-alert"
+      icon="i-ph-warning-bold"
       class="tabular-nums"
     >
       {{ formatRows(rows) }}<span class="sr-only">, small sample</span>

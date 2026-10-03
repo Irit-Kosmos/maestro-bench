@@ -7,7 +7,7 @@ const { tags, pending, updateTag, deleteTag } = useTags()
 const toast = useToast()
 
 function fail(title: string, error: unknown, fallback: string) {
-  toast.add({ title, description: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-lucide:alert-circle' })
+  toast.add({ title, description: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
 }
 
 async function rename(tag: TagWithCount, event: Event) {
@@ -120,7 +120,7 @@ const deleteMessage = computed(() => {
         {{ tag.count === 0 ? 'Unused' : `${tag.count} item${tag.count === 1 ? '' : 's'}` }}
       </span>
       <UButton
-        icon="i-lucide-trash-2"
+        icon="i-ph-trash-bold"
         color="neutral"
         variant="ghost"
         size="xs"

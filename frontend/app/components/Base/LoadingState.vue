@@ -19,7 +19,7 @@ const sizeClasses = {
 <template>
   <div class="flex justify-center items-center gap-2 py-16" role="status">
     <UIcon
-      name="i-lucide-loader-circle"
+      name="i-ph-circle-notch-bold"
       class="animate-spin text-muted"
       :class="sizeClasses[size]"
       aria-hidden="true"

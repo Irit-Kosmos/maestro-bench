@@ -3,20 +3,21 @@ const route = useRoute()
 const labels = useBreadcrumbLabels()
 
 const labelMap: Record<string, { label: string, icon: string }> = {
-  experiments: { label: 'Experiments', icon: 'i-lucide-flask-conical' },
-  batches: { label: 'Batches', icon: 'i-lucide-split' },
-  analyses: { label: 'Analyses', icon: 'i-lucide-chart-column' },
-  datasets: { label: 'Datasets', icon: 'i-lucide-database' },
-  agents: { label: 'Agents', icon: 'i-lucide-bot' },
-  prompts: { label: 'Prompts', icon: 'i-lucide-message-square-text' },
-  models: { label: 'Models', icon: 'i-lucide-cpu' },
-  settings: { label: 'Settings', icon: 'i-lucide-settings' },
-  new: { label: 'New', icon: 'i-lucide-plus' },
+  experiments: { label: 'Experiments', icon: 'i-ph-flask-bold' },
+  executions: { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold' },
+  batches: { label: 'Batches', icon: 'i-ph-arrows-split-bold' },
+  analyses: { label: 'Analyses', icon: 'i-ph-chart-bar-bold' },
+  datasets: { label: 'Datasets', icon: 'i-ph-database-bold' },
+  agents: { label: 'Agents', icon: 'i-ph-robot-bold' },
+  prompts: { label: 'Prompts', icon: 'i-ph-chat-text-bold' },
+  models: { label: 'Models', icon: 'i-ph-cpu-bold' },
+  settings: { label: 'Settings', icon: 'i-ph-gear-bold' },
+  new: { label: 'New', icon: 'i-ph-plus-bold' },
 }
 
 const breadcrumbs = computed(() => {
   if (route.path === '/')
-    return [{ label: 'Dashboard', icon: 'i-lucide-layout-dashboard' }]
+    return [{ label: 'Dashboard', icon: 'i-ph-squares-four-bold' }]
 
   const paths = route.path.split('/').filter(Boolean)
   const items: { label: string, to?: string, icon?: string }[] = []

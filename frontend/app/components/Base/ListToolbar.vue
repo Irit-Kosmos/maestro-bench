@@ -52,7 +52,7 @@ const countLabel = computed(() => {
       ref="searchInput"
       v-model="search"
       placeholder="Filter…"
-      icon="i-lucide-search"
+      icon="i-ph-magnifying-glass-bold"
       size="sm"
       variant="none"
       :aria-label="`Filter ${plural ?? 'rows'}`"
@@ -80,7 +80,7 @@ const countLabel = computed(() => {
       <UButton
         variant="ghost"
         color="neutral"
-        icon="i-lucide-refresh-cw"
+        icon="i-ph-arrows-clockwise-bold"
         size="sm"
         aria-label="Refresh"
         :loading="loading"

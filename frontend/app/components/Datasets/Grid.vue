@@ -79,7 +79,7 @@ function textAt(row: EditorRow, header: string): string {
 
 function cellClass(row: EditorRow, header: string, index: number, col: number) {
   return [
-    active.value.row === index && active.value.col === col && 'ring-1 ring-inset ring-primary',
+    active.value.row === index && active.value.col === col && 'ring-1 ring-inset ring-inverted',
     row.original === null || props.editor.isCellChanged(row, header) ? 'bg-warning/10' : '',
   ]
 }
@@ -335,7 +335,7 @@ defineExpose({
               </div>
               <UTooltip text="Open row" :kbds="['space']">
                 <UButton
-                  icon="i-lucide-panel-right-open"
+                  icon="i-ph-square-half-bold"
                   color="neutral"
                   variant="ghost"
                   size="xs"

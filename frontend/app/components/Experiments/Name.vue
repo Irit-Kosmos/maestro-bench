@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// An experiment's name in a list. Inside a batch the batch is shown elsewhere, so only the variant is
-// kept: its first part reads as the name, the rest (model, temperature…) recedes. The full name stays
-// in the tooltip. Inline, everything shares one truncating line; stacked, the rest goes under the name
-// so that rows can be narrow, and keeps the height of two lines so rows stay even.
 const props = defineProps<{
   name: string
   batchName?: string | null

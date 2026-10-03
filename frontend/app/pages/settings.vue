@@ -37,7 +37,7 @@ async function recheck() {
     <AppPageActions>
       <UTooltip text="Check again">
         <UButton
-          icon="i-lucide-refresh-cw"
+          icon="i-ph-arrows-clockwise-bold"
           color="neutral"
           variant="ghost"
           size="sm"
@@ -62,7 +62,7 @@ async function recheck() {
       <ul v-else-if="providers?.length" class="divide-y divide-default">
         <li v-for="p in sortedProviders" :key="p.provider" class="flex items-center gap-3 h-11 px-4">
           <UIcon
-            :name="p.configured ? 'i-lucide-circle-check' : 'i-lucide-circle-dashed'"
+            :name="p.configured ? 'i-ph-check-circle-bold' : 'i-ph-circle-dashed-bold'"
             class="size-3.5 shrink-0"
             :class="p.configured ? 'text-success' : 'text-dimmed'"
             aria-hidden="true"
@@ -120,11 +120,11 @@ async function recheck() {
           </dt>
           <dd class="ms-auto inline-flex items-center gap-1.5 text-xs text-toned tabular-nums">
             <template v-if="healthError">
-              <UIcon name="i-lucide-circle-x" class="size-3.5 text-error" aria-hidden="true" />
+              <UIcon name="i-ph-x-circle-bold" class="size-3.5 text-error" aria-hidden="true" />
               Unreachable
             </template>
             <template v-else-if="health">
-              <UIcon name="i-lucide-circle-check" class="size-3.5 text-success" aria-hidden="true" />
+              <UIcon name="i-ph-check-circle-bold" class="size-3.5 text-success" aria-hidden="true" />
               Healthy · v{{ health.version }}
             </template>
             <template v-else>

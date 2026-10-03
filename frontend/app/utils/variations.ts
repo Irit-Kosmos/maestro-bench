@@ -4,9 +4,9 @@ import type { AgentConfiguration, Experiment, PromptVersion, Variation, Variatio
 export const BATCH_CONFIRM_THRESHOLD = 10
 
 export const VARIATION_FIELDS: { value: VariationField, label: string, icon: string }[] = [
-  { value: 'model_id', label: 'Model', icon: 'i-lucide-cpu' },
-  { value: 'prompt_version_id', label: 'Prompt version', icon: 'i-lucide-message-square-text' },
-  { value: 'temperature', label: 'Temperature', icon: 'i-lucide-thermometer' },
+  { value: 'model_id', label: 'Model', icon: 'i-ph-cpu-bold' },
+  { value: 'prompt_version_id', label: 'Prompt version', icon: 'i-ph-chat-text-bold' },
+  { value: 'temperature', label: 'Temperature', icon: 'i-ph-thermometer-bold' },
 ]
 
 /** Value of a varied field in the base configuration (a temperature left empty is the model's default: null) */

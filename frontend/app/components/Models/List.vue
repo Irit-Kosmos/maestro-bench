@@ -44,11 +44,11 @@ const head = 'text-xs text-dimmed truncate'
 function menuItems(model: Model): DropdownMenuItem[][] {
   return [
     [
-      { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => emit('edit', model) },
-      { label: model.is_active ? 'Deactivate' : 'Activate', icon: 'i-lucide-power', onSelect: () => emit('toggleStatus', model) },
+      { label: 'Edit', icon: 'i-ph-pencil-simple-bold', onSelect: () => emit('edit', model) },
+      { label: model.is_active ? 'Deactivate' : 'Activate', icon: 'i-ph-power-bold', onSelect: () => emit('toggleStatus', model) },
     ],
     [
-      { label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => emit('delete', model) },
+      { label: 'Delete', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => emit('delete', model) },
     ],
   ]
 }
@@ -66,8 +66,8 @@ function statusLabel(status: ProviderStatus) {
 
 function statusIcon(status: ProviderStatus) {
   if (!status.configured)
-    return 'i-lucide-triangle-alert'
-  return status.kind === 'url' ? 'i-lucide-server' : 'i-lucide-key-round'
+    return 'i-ph-warning-bold'
+  return status.kind === 'url' ? 'i-ph-hard-drives-bold' : 'i-ph-key-bold'
 }
 
 function statusTooltip(status: ProviderStatus) {
@@ -104,12 +104,12 @@ function summary(group: ModelGroup) {
         <header v-if="grouped" class="flex h-9 items-center gap-2 bg-muted/40 ps-2 pe-4">
           <button
             type="button"
-            class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left outline-none hover:bg-elevated/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+            class="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left outline-none hover:bg-elevated/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
             :aria-expanded="!isCollapsed(group.key)"
             @click="emit('toggleGroup', group.key)"
           >
             <UIcon
-              name="i-lucide-chevron-right"
+              name="i-ph-caret-right-bold"
               class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none"
               :class="!isCollapsed(group.key) && 'rotate-90'"
               aria-hidden="true"
@@ -117,7 +117,7 @@ function summary(group: ModelGroup) {
             <UIProviderIcon v-if="group.provider" :provider="group.provider" class="size-4" />
             <UIcon
               v-else
-              :name="group.key === 'active' ? 'i-lucide-circle-check' : 'i-lucide-circle-slash'"
+              :name="group.key === 'active' ? 'i-ph-check-circle-bold' : 'i-ph-prohibit-bold'"
               class="size-4 shrink-0"
               :class="group.key === 'active' ? 'text-success' : 'text-dimmed'"
               aria-hidden="true"
@@ -133,7 +133,7 @@ function summary(group: ModelGroup) {
           >
             <NuxtLink
               to="/settings"
-              class="shrink-0 rounded-md outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              class="shrink-0 rounded-md outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
             >
               <UBadge
                 size="sm"
@@ -158,7 +158,7 @@ function summary(group: ModelGroup) {
               <div class="flex min-w-0 items-baseline gap-2">
                 <button
                   type="button"
-                  class="min-w-0 max-w-[65%] shrink-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary"
+                  class="min-w-0 max-w-[65%] shrink-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   :class="model.is_active ? 'text-highlighted' : 'text-muted'"
                   :aria-label="`Edit ${model.name}`"
                   @click="emit('edit', model)"
@@ -201,7 +201,7 @@ function summary(group: ModelGroup) {
 
               <UDropdownMenu :items="menuItems(model)" :content="{ align: 'end' }">
                 <UButton
-                  icon="i-lucide-ellipsis"
+                  icon="i-ph-dots-three-bold"
                   color="neutral"
                   variant="ghost"
                   size="sm"

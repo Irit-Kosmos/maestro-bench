@@ -35,7 +35,7 @@ const variables = computed(() => parsePromptVariables(snapshot.value.final_varia
 
       <div class="mt-2 space-y-1.5 border-t border-muted pt-2">
         <div class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-lucide-message-square" class="size-3 shrink-0" aria-hidden="true" />
+          <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" aria-hidden="true" />
           <span class="truncate" :title="`${snapshot.prompt_name_snapshot} v${snapshot.prompt_version_snapshot}`">
             {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
           </span>

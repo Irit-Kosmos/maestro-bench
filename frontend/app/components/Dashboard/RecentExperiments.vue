@@ -55,7 +55,7 @@ const head = 'text-xs text-dimmed truncate'
         <NuxtLink
           :to="`/experiments/${exp.id}`"
           :aria-label="`Open experiment ${exp.name}`"
-          class="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+          class="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
         />
         <div class="h-14" :class="[grid]">
           <UIStatusIcon :status="exp.status" />
@@ -72,9 +72,9 @@ const head = 'text-xs text-dimmed truncate'
                 :to="`/batches/${exp.batch_id}`"
                 :title="`Batch: ${exp.batch_name}`"
                 :aria-label="`Open batch ${exp.batch_name}`"
-                class="relative z-1 shrink-0 self-center rounded text-dimmed outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-primary"
+                class="relative z-1 shrink-0 self-center rounded text-dimmed outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
               >
-                <UIcon name="i-lucide-split" class="size-3.5 block" aria-hidden="true" />
+                <UIcon name="i-ph-arrows-split-bold" class="size-3.5 block" aria-hidden="true" />
               </NuxtLink>
             </template>
           </ExperimentsName>

@@ -73,7 +73,7 @@ function togglePreview(datasetId: number) {
               variant="ghost"
               color="neutral"
               size="sm"
-              :trailing-icon="expandedDataset === dataset.id ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              :trailing-icon="expandedDataset === dataset.id ? 'i-ph-caret-up-bold' : 'i-ph-caret-down-bold'"
               :aria-expanded="expandedDataset === dataset.id"
               :aria-controls="`dataset-preview-${dataset.id}`"
               @click="togglePreview(dataset.id)"
@@ -94,7 +94,7 @@ function togglePreview(datasetId: number) {
 
       <BaseEmptyState
         v-else-if="datasets && datasets.length === 0"
-        icon="i-lucide-database"
+        icon="i-ph-database-bold"
         title="No datasets yet"
         message="Add a dataset first, then come back to create the experiment."
         action-label="New dataset"

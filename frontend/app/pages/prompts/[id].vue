@@ -343,7 +343,7 @@ onBeforeRouteLeave((to) => {
       <UButton
         variant="soft"
         color="neutral"
-        icon="i-lucide-pencil"
+        icon="i-ph-pencil-simple-bold"
         size="sm"
         @click="() => { showEditPromptModal = true }"
       >
@@ -352,7 +352,7 @@ onBeforeRouteLeave((to) => {
       <UButton
         color="neutral"
         variant="soft"
-        icon="i-lucide-plus"
+        icon="i-ph-plus-bold"
         size="sm"
         :disabled="mode === 'create'"
         @click="guard(startCreate)"
@@ -368,7 +368,7 @@ onBeforeRouteLeave((to) => {
         v-else-if="versions.length === 0 && mode !== 'create'"
         title="No versions yet"
         message="Create the first version of this prompt to get started."
-        icon="i-lucide-file-text"
+        icon="i-ph-file-text-bold"
         action-label="New version"
         @action="startCreate"
       />

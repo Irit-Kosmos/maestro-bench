@@ -8,9 +8,9 @@ const { colorMode } = useTheme()
 type Preference = 'light' | 'dark' | 'system'
 
 const options: { value: Preference, label: string, icon: string }[] = [
-  { value: 'light', label: 'Light', icon: 'i-lucide-sun' },
-  { value: 'dark', label: 'Dark', icon: 'i-lucide-moon' },
-  { value: 'system', label: 'System', icon: 'i-lucide-monitor' },
+  { value: 'light', label: 'Light', icon: 'i-ph-sun-bold' },
+  { value: 'dark', label: 'Dark', icon: 'i-ph-moon-bold' },
+  { value: 'system', label: 'System', icon: 'i-ph-monitor-bold' },
 ]
 
 const items = computed<DropdownMenuItem[]>(() => options.map(option => ({
@@ -40,12 +40,12 @@ const items = computed<DropdownMenuItem[]>(() => options.map(option => ({
         <!-- Both icons stay mounted and crossfade: the blur hides the overlap between the two shapes -->
         <span class="relative block size-4" aria-hidden="true">
           <UIcon
-            name="i-lucide-sun"
+            name="i-ph-sun-bold"
             data-theme-icon
             class="theme-icon absolute inset-0 size-4 dark:scale-90 dark:opacity-0 dark:blur-[2px]"
           />
           <UIcon
-            name="i-lucide-moon"
+            name="i-ph-moon-bold"
             data-theme-icon
             class="theme-icon absolute inset-0 size-4 scale-90 opacity-0 blur-[2px] dark:scale-100 dark:opacity-100 dark:blur-none"
           />

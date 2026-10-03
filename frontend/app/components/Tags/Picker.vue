@@ -80,7 +80,7 @@ async function create() {
       query.value = ''
     }
     else {
-      toast.add({ title: 'Error', description: apiErrorMessage(error) ?? 'Failed to create the tag', color: 'error', icon: 'i-lucide:alert-circle' })
+      toast.add({ title: 'Error', description: apiErrorMessage(error) ?? 'Failed to create the tag', color: 'error', icon: 'i-ph:warning-circle-bold' })
     }
   }
   finally {
@@ -171,8 +171,8 @@ function onKeydown(event: KeyboardEvent) {
             :class="isSelected(row.tag) || isPartial(row.tag) ? 'border-inverted bg-inverted text-inverted' : 'border-accented'"
             aria-hidden="true"
           >
-            <UIcon v-if="isSelected(row.tag)" name="i-lucide-check" class="size-2.5" />
-            <UIcon v-else-if="isPartial(row.tag)" name="i-lucide-minus" class="size-2.5" />
+            <UIcon v-if="isSelected(row.tag)" name="i-ph-check-bold" class="size-2.5" />
+            <UIcon v-else-if="isPartial(row.tag)" name="i-ph-minus-bold" class="size-2.5" />
           </span>
           <span class="size-2 shrink-0 rounded-full" :class="tagDot(row.tag.color)" aria-hidden="true" />
           <span class="flex-1 truncate">{{ row.tag.name }}</span>
@@ -180,7 +180,7 @@ function onKeydown(event: KeyboardEvent) {
           <span class="text-xs text-dimmed tabular-nums">{{ row.tag.count }}</span>
         </template>
         <template v-else>
-          <UIcon name="i-lucide-plus" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+          <UIcon name="i-ph-plus-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
           <span class="size-2 shrink-0 rounded-full" :class="tagDot(color)" aria-hidden="true" />
           <span class="flex-1 truncate">Create “{{ typed }}”</span>
           <UKbd value="enter" size="sm" />

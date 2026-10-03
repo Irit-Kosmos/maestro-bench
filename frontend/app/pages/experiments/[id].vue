@@ -76,8 +76,8 @@ const analyzeLink = computed(() => analyzableExecutions.value.length > 0 && expe
 const agentsView = ref<'list' | 'graph'>('list')
 const canShowGraph = computed(() => (latestExecution.value?.agent_executions.length ?? 0) > 1)
 const agentsViewOptions = [
-  { value: 'list', label: 'List', icon: 'i-lucide-list-ordered' },
-  { value: 'graph', label: 'Graph', icon: 'i-lucide-git-branch' },
+  { value: 'list', label: 'List', icon: 'i-ph-list-numbers-bold' },
+  { value: 'graph', label: 'Graph', icon: 'i-ph-git-branch-bold' },
 ] as const
 
 // Parse dataset snapshot
@@ -106,7 +106,7 @@ async function loadExperiment({ silent = false } = {}) {
         title: 'Error',
         description: 'Experiment not found',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
       await navigateTo('/experiments')
       return
@@ -124,7 +124,7 @@ async function loadExperiment({ silent = false } = {}) {
       title: 'Error',
       description: 'Failed to load experiment',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
     await navigateTo('/experiments')
   }
@@ -145,7 +145,7 @@ async function handleDeleteExperiment() {
         title: 'Success',
         description: 'Experiment deleted successfully',
         color: 'success',
-        icon: 'i-lucide:check-circle',
+        icon: 'i-ph:check-circle-bold',
       })
       await navigateTo('/experiments')
     }
@@ -154,7 +154,7 @@ async function handleDeleteExperiment() {
         title: 'Error',
         description: 'Failed to delete experiment',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
     }
   }
@@ -164,7 +164,7 @@ async function handleDeleteExperiment() {
       title: 'Error',
       description: 'Failed to delete experiment',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
   finally {
@@ -185,7 +185,7 @@ async function handleRerunExperiment() {
         title: 'Success',
         description: 'Experiment re-run started successfully! A new execution has been created.',
         color: 'success',
-        icon: 'i-lucide:play',
+        icon: 'i-ph:play-bold',
       })
 
       // Refresh the experiment and executions to show the new execution
@@ -201,7 +201,7 @@ async function handleRerunExperiment() {
         title: 'Error',
         description: 'Failed to start experiment re-run',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
     }
   }
@@ -211,7 +211,7 @@ async function handleRerunExperiment() {
       title: 'Error',
       description: 'Failed to start experiment re-run',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
   finally {
@@ -228,13 +228,13 @@ async function handleCancelExperiment() {
   isCancelling.value = false
 
   if (!result.success) {
-    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-lucide:alert-circle' })
+    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-ph:warning-circle-bold' })
     return
   }
   if (result.data.cancelled)
-    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-lucide:check-circle' })
+    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-ph:check-circle-bold' })
   else
-    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-lucide:info' })
+    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-ph:info-bold' })
   await loadExperiment()
 }
 
@@ -294,7 +294,7 @@ watch(() => route.params.id, () => {
           <UButton
             variant="soft"
             color="neutral"
-            icon="i-lucide-split"
+            icon="i-ph-arrows-split-bold"
             size="sm"
             :to="{ path: '/experiments/new', query: { from: experiment.id } }"
           >
@@ -305,7 +305,7 @@ watch(() => route.params.id, () => {
           <UButton
             variant="soft"
             color="error"
-            icon="i-lucide-square"
+            icon="i-ph-square-bold"
             size="sm"
             :loading="isCancelling"
             @click="handleCancelExperiment"
@@ -317,7 +317,7 @@ watch(() => route.params.id, () => {
           <UButton
             variant="soft"
             color="neutral"
-            icon="i-lucide-play"
+            icon="i-ph-play-bold"
             size="sm"
             :loading="isRerunning"
             :disabled="!experiment"
@@ -330,7 +330,7 @@ watch(() => route.params.id, () => {
           <UButton
             color="neutral"
             variant="soft"
-            icon="i-lucide-chart-column"
+            icon="i-ph-chart-bar-bold"
             size="sm"
             :disabled="!analyzeLink"
             :to="analyzeLink"
@@ -341,7 +341,7 @@ watch(() => route.params.id, () => {
         <UButton
           variant="soft"
           color="error"
-          icon="i-lucide-trash-2"
+          icon="i-ph-trash-bold"
           size="sm"
           @click="() => { showDeleteDialog = true }"
         >
@@ -357,13 +357,13 @@ watch(() => route.params.id, () => {
         </h1>
         <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-          <UIMetaItem icon="i-lucide-hash" label="Experiment" class="tabular-nums">
+          <UIMetaItem icon="i-ph-hash-bold" label="Experiment" class="tabular-nums">
             {{ experiment.id }}
           </UIMetaItem>
-          <UIMetaItem icon="i-lucide-calendar" label="Created" class="tabular-nums">
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created" class="tabular-nums">
             {{ formatDate(experiment.created_at) }}
           </UIMetaItem>
-          <UIMetaItem v-if="experiment.batch_id" icon="i-lucide-split" label="Batch">
+          <UIMetaItem v-if="experiment.batch_id" icon="i-ph-arrows-split-bold" label="Batch">
             <UIMetaLink :to="`/batches/${experiment.batch_id}`">
               {{ experiment.batch_name }}
             </UIMetaLink>
@@ -379,7 +379,7 @@ watch(() => route.params.id, () => {
         <ExperimentsSection
           id="agents"
           title="Agents"
-          icon="i-lucide-bot"
+          icon="i-ph-robot-bold"
           :count="latestExecution?.agent_executions.length ?? 0"
           :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
         >
@@ -414,7 +414,7 @@ watch(() => route.params.id, () => {
           </template>
           <BaseEmptyState
             v-else
-            icon="i-lucide-bot"
+            icon="i-ph-robot-bold"
             title="No configuration recorded"
             message="This experiment has no execution yet."
           />
@@ -422,10 +422,10 @@ watch(() => route.params.id, () => {
 
         <div class="flex min-w-0 flex-col gap-5">
           <!-- Values describe themselves, so the icon names the fact (and the title says it on hover) -->
-          <ExperimentsSection id="dataset" title="Dataset" icon="i-lucide-database" compact>
+          <ExperimentsSection id="dataset" title="Dataset" icon="i-ph-database-bold" compact>
             <ul class="flex flex-col gap-2 text-sm text-highlighted">
               <li>
-                <UIMetaItem icon="i-lucide-tag" label="Name">
+                <UIMetaItem icon="i-ph-tag-bold" label="Name">
                   <UIMetaLink v-if="experiment.dataset_id" :to="`/datasets/${experiment.dataset_id}`">
                     {{ datasetName }}
                   </UIMetaLink>
@@ -433,13 +433,13 @@ watch(() => route.params.id, () => {
                 </UIMetaItem>
               </li>
               <li>
-                <UIMetaItem icon="i-lucide-rows-3" label="Rows used" class="tabular-nums">
+                <UIMetaItem icon="i-ph-rows-bold" label="Rows used" class="tabular-nums">
                   <UIRowCount :rows="datasetRows" />
                   <span class="text-muted">· {{ samplingHint }}</span>
                 </UIMetaItem>
               </li>
               <li v-if="datasetInfo?.file_path">
-                <UIMetaItem icon="i-lucide-file-spreadsheet" label="File">
+                <UIMetaItem icon="i-ph-file-xls-bold" label="File">
                   <span class="truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">{{ datasetInfo.file_path }}</span>
                 </UIMetaItem>
               </li>
@@ -455,7 +455,7 @@ watch(() => route.params.id, () => {
             v-if="executionRows.length > 0"
             id="executions"
             title="Executions"
-            icon="i-lucide-history"
+            icon="i-ph-clock-counter-clockwise-bold"
             :count="executionRows.length"
             compact
           >
@@ -475,13 +475,13 @@ watch(() => route.params.id, () => {
                   <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
                   <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
                   <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
-                    <UIMetaItem v-if="row.duration" icon="i-lucide-clock" label="Duration">
+                    <UIMetaItem v-if="row.duration" icon="i-ph-clock-bold" label="Duration">
                       {{ row.duration }}
                     </UIMetaItem>
-                    <UIMetaItem v-if="row.tokens" icon="i-lucide-type" label="Tokens">
+                    <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
                       <span :title="row.execution.total_tokens?.toLocaleString()">{{ row.tokens }}</span>
                     </UIMetaItem>
-                    <UIMetaItem v-if="row.cost" icon="i-lucide-coins" label="Cost">
+                    <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
                       <span :title="`$${row.execution.total_cost_usd?.toFixed(4)}`">{{ row.cost }}</span>
                     </UIMetaItem>
                   </div>
@@ -490,7 +490,7 @@ watch(() => route.params.id, () => {
                   <UButton
                     variant="ghost"
                     color="neutral"
-                    icon="i-lucide-download"
+                    icon="i-ph-download-simple-bold"
                     size="sm"
                     :aria-label="`Download results of execution #${row.execution.id}`"
                     @click="() => { downloadResultsFile(row.execution.id) }"
@@ -505,7 +505,7 @@ watch(() => route.params.id, () => {
 
     <!-- Error State -->
     <div v-else class="text-center py-12">
-      <UIcon name="i-lucide:alert-circle" class="w-12 h-12 text-error mx-auto mb-4" />
+      <UIcon name="i-ph:warning-circle-bold" class="w-12 h-12 text-error mx-auto mb-4" />
       <h3 class="text-lg font-medium text-highlighted mb-2">
         Experiment Not Found
       </h3>

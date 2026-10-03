@@ -89,14 +89,14 @@ watch(agents, (list) => {
     description="Optional. Also run this setup with other models, prompts or temperatures: one experiment per combination, the current setup included."
   >
     <template v-if="variations.length > 0" #actions>
-      <UButton icon="i-lucide-plus" color="neutral" variant="outline" size="xs" @click="add">
+      <UButton icon="i-ph-plus-bold" color="neutral" variant="outline" size="xs" @click="add">
         Add a variation
       </UButton>
     </template>
 
     <div v-if="variations.length === 0">
       <UButton
-        icon="i-lucide-split"
+        icon="i-ph-arrows-split-bold"
         color="neutral"
         variant="outline"
         :disabled="agents.length === 0"
@@ -178,7 +178,7 @@ watch(agents, (list) => {
           </div>
 
           <UButton
-            icon="i-lucide-x"
+            icon="i-ph-x-bold"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -203,7 +203,7 @@ watch(agents, (list) => {
       </p>
       <ul v-if="issues.length > 0" class="flex flex-col gap-1 text-sm text-warning">
         <li v-for="issue in issues" :key="issue" class="flex items-start gap-1.5">
-          <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <UIcon name="i-ph-warning-bold" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {{ issue }}
         </li>
       </ul>

@@ -49,7 +49,7 @@ async function loadDataset() {
         title: 'Error',
         description: 'Dataset not found',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
       await navigateTo('/datasets')
     }
@@ -60,7 +60,7 @@ async function loadDataset() {
       title: 'Error',
       description: 'Failed to load dataset',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
   finally {
@@ -79,7 +79,7 @@ async function handleDeleteDataset() {
         title: 'Success',
         description: 'Dataset deleted successfully',
         color: 'success',
-        icon: 'i-lucide:check-circle',
+        icon: 'i-ph:check-circle-bold',
       })
       await navigateTo('/datasets')
     }
@@ -88,7 +88,7 @@ async function handleDeleteDataset() {
         title: 'Error',
         description: 'Failed to delete dataset',
         color: 'error',
-        icon: 'i-lucide:alert-circle',
+        icon: 'i-ph:warning-circle-bold',
       })
     }
   }
@@ -98,7 +98,7 @@ async function handleDeleteDataset() {
       title: 'Error',
       description: 'Failed to delete dataset',
       color: 'error',
-      icon: 'i-lucide:alert-circle',
+      icon: 'i-ph:warning-circle-bold',
     })
   }
   finally {
@@ -129,10 +129,10 @@ watch(() => route.params.id, () => {
         <!-- Edit isn't available yet, so it isn't shown as a dead button -->
         <AppPageActions>
           <UDropdownMenu
-            :items="[{ label: 'Delete dataset', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+            :items="[{ label: 'Delete dataset', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
             :content="{ align: 'end' }"
           >
-            <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+            <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
           </UDropdownMenu>
         </AppPageActions>
 
@@ -183,7 +183,7 @@ watch(() => route.params.id, () => {
 
         <BaseEmptyState
           v-else
-          icon="i-lucide-file-x"
+          icon="i-ph-file-x-bold"
           title="No file attached"
           message="This dataset has no file yet. Create a new dataset with a CSV or JSON file to use it in experiments."
           action-label="New dataset"

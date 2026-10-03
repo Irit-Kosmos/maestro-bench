@@ -48,10 +48,10 @@ const markClass = {
       <button
         v-if="entry.type === 'fold'"
         type="button"
-        class="flex w-full items-center gap-2 border-s-2 border-transparent bg-elevated/40 px-3 py-1 text-start font-sans text-xs text-muted outline-none first:rounded-t-[calc(var(--radius-md)-1px)] last:rounded-b-[calc(var(--radius-md)-1px)] hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        class="flex w-full items-center gap-2 border-s-2 border-transparent bg-elevated/40 px-3 py-1 text-start font-sans text-xs text-muted outline-none first:rounded-t-[calc(var(--radius-md)-1px)] last:rounded-b-[calc(var(--radius-md)-1px)] hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
         @click="open(entry.index)"
       >
-        <UIcon name="i-lucide-chevrons-up-down" class="size-3.5 shrink-0" aria-hidden="true" />
+        <UIcon name="i-ph-caret-up-down-bold" class="size-3.5 shrink-0" aria-hidden="true" />
         {{ entry.fold.rows.length }} unchanged {{ entry.fold.rows.length === 1 ? 'line' : 'lines' }}
       </button>
 
