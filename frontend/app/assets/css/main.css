@@ -79,6 +79,56 @@ html {
   }
 }
 
+/*
+ * A block that shows up or leaves on its own (a run starting or ending), not from a click:
+ * the content below would jump by its height. Grid rows go 0fr <-> 1fr, and `--reveal-gap`
+ * (the parent's flex gap, when it has one) is cancelled while collapsed so the gap doesn't pop either.
+ * Put `.reveal` on the element and wrap it in <Transition name="reveal">. Exits faster than it enters.
+ */
+.reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-bottom: 0;
+}
+
+.reveal > * {
+  min-height: 0;
+}
+
+.reveal-enter-active {
+  transition: grid-template-rows 200ms var(--ease-out), margin-bottom 200ms var(--ease-out), opacity 200ms var(--ease-out);
+}
+
+.reveal-leave-active {
+  transition: grid-template-rows 150ms var(--ease-out), margin-bottom 150ms var(--ease-out), opacity 150ms var(--ease-out);
+}
+
+/* Clipped only while moving, so focus rings are not cut off at rest */
+.reveal-enter-active > *,
+.reveal-leave-active > * {
+  overflow: hidden;
+}
+
+.reveal-enter-from,
+.reveal-leave-to {
+  grid-template-rows: 0fr;
+  margin-bottom: calc(var(--reveal-gap, 0px) * -1);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-enter-active,
+  .reveal-leave-active {
+    transition: opacity 150ms ease;
+  }
+
+  .reveal-enter-from,
+  .reveal-leave-to {
+    grid-template-rows: 1fr;
+    margin-bottom: 0;
+  }
+}
+
 /* Headings use Geist */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);

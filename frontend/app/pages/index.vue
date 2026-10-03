@@ -75,7 +75,12 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
       </span>
     </NuxtLink>
 
-    <DashboardRunning v-if="dashboard?.activity.active.length" :active="dashboard.activity.active" />
+    <!-- Appears and leaves on its own as runs start and end: the cards below glide instead of jumping (gap-6 = 1.5rem) -->
+    <Transition name="reveal">
+      <div v-if="dashboard?.activity.active.length" class="reveal [--reveal-gap:1.5rem]">
+        <DashboardRunning :active="dashboard.activity.active" />
+      </div>
+    </Transition>
 
     <DashboardActivity
       v-model:range="range"

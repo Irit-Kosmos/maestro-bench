@@ -44,21 +44,57 @@ const detail = computed(() => details[status.value] ?? label.value)
 <template>
   <UTooltip :text="detail" :disabled="!tooltip">
     <span class="inline-flex shrink-0 items-center align-middle" :title="tooltip ? undefined : label">
-      <!-- Lucide has no half-filled circle -->
-      <svg
-        v-if="!config.icon"
-        :class="[size, config.class]"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 6a6 6 0 0 1 0 12z" fill="currentColor" stroke="none" />
-      </svg>
-      <UIcon v-else :name="config.icon" :class="[size, config.class]" aria-hidden="true" />
+      <!-- A status that changes while it is on screen (a run ending) crosses over to the next one -->
+      <Transition name="status-swap" mode="out-in">
+        <!-- Lucide has no half-filled circle -->
+        <svg
+          v-if="!config.icon"
+          :key="status"
+          :class="[size, config.class]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 6a6 6 0 0 1 0 12z" fill="currentColor" stroke="none" />
+        </svg>
+        <UIcon v-else :key="status" :name="config.icon" :class="[size, config.class]" aria-hidden="true" />
+      </Transition>
       <span class="sr-only">{{ label }}</span>
     </span>
   </UTooltip>
 </template>
+
+<style scoped>
+/* Same swap as the copy button. No `appear`: a row that mounts (or scrolls in) never plays it */
+.status-swap-enter-active {
+  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out), filter 200ms var(--ease-out);
+}
+
+.status-swap-leave-active {
+  transition: opacity 100ms var(--ease-out), scale 100ms var(--ease-out), filter 100ms var(--ease-out);
+}
+
+.status-swap-enter-from,
+.status-swap-leave-to {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+/* Reduced motion keeps the swap, drops the movement */
+@media (prefers-reduced-motion: reduce) {
+  .status-swap-enter-active,
+  .status-swap-leave-active {
+    transition: opacity 150ms ease;
+  }
+
+  .status-swap-enter-from,
+  .status-swap-leave-to {
+    scale: 1;
+    filter: none;
+  }
+}
+</style>
