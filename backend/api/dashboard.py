@@ -81,7 +81,8 @@ def _models(
             .order_by(col(AgentExecutionSnapshot.execution_order))
         ).all()
         if snapshots:
-            return _distinct(list(snapshots))
+            # Aggregators have no model
+            return _distinct([name for name in snapshots if name])
 
     configured = session.exec(
         select(Model.name)

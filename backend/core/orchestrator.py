@@ -4,13 +4,27 @@ Sequential agent pipeline orchestrator.
 Executes a list of agents in order, passing each agent's output
 as context to subsequent agents. Collects per-agent traces
 (prompts, responses, token usage, latency, cost).
+
+Agents are LLM calls, or aggregators: formulas computed from other agents'
+outputs, dataset columns and static values (see core.formula).
 """
 
+import json
+import time
 from dataclasses import dataclass, field
+from typing import Any
 
-from core.json_output import parse_json_output, strip_markdown_fences
+from core.formula import FormulaError, coerce_input, evaluate_outputs, free_variables
+from core.json_output import (
+    MISSING,
+    get_path,
+    parse_json_output,
+    strip_markdown_fences,
+)
 from core.llm import LLMResponse, call_llm
 from core.prompt_renderer import build_messages
+
+AGGREGATOR = "aggregator"
 
 
 @dataclass
@@ -29,6 +43,9 @@ class AgentConfig:
     execution_order: int = 1
     input_mappings: list[dict] | None = None
     agent_id: int | None = None
+    kind: str = "llm"
+    # Aggregators only: ordered [{"name", "formula"}]
+    formulas: list[dict] | None = None
 
 
 @dataclass
@@ -45,6 +62,9 @@ class AgentTrace:
     cost_usd: float = 0.0
     latency_ms: float = 0.0
     error: str | None = None
+    kind: str = "llm"
+    # Aggregators only: the value each formula variable resolved to
+    inputs: dict | None = None
 
 
 @dataclass
@@ -72,6 +92,8 @@ class PipelineResult:
             "agents": [
                 {
                     "name": t.agent_name,
+                    "kind": t.kind,
+                    **({"inputs": t.inputs} if t.inputs is not None else {}),
                     "model": t.model,
                     "provider": t.provider,
                     "messages_sent": t.messages_sent,
@@ -106,6 +128,23 @@ def _safe_serialize(value):
     return value
 
 
+def _mapped_value(mapping: dict, row: dict, agent_outputs: dict) -> Any:
+    """Value an input mapping points to, or MISSING when there is none."""
+    source = mapping.get("source")
+    if source == "dataset":
+        column = mapping.get("sourceColumn")
+        return row.get(column, MISSING) if column else MISSING
+    if source == "agent":
+        raw = agent_outputs.get(mapping.get("sourceAgentId"), MISSING)
+        path = mapping.get("sourcePath") or ""
+        if raw is MISSING or not path:
+            return raw
+        return get_path(parse_json_output(raw), path)
+    if source == "static":
+        return mapping.get("staticValue", MISSING)
+    return MISSING
+
+
 def _resolve_agent_context(
     agent: AgentConfig,
     shared_context: dict,
@@ -113,12 +152,12 @@ def _resolve_agent_context(
     agent_outputs: dict,
 ) -> dict:
     """
-    Build the variable context for a single agent.
+    Build the variable context for a single LLM agent.
 
     If the agent has explicit input_mappings, use them to map dataset columns,
-    previous agent outputs, or static values to prompt variables.
-    Otherwise fall back to the full shared context (dataset row + all previous
-    agent outputs).
+    previous agent outputs (whole, or a dotted path into their JSON), or static
+    values to prompt variables. Otherwise fall back to the full shared context
+    (dataset row + all previous agent outputs).
     """
     if not agent.input_mappings:
         return shared_context
@@ -126,22 +165,58 @@ def _resolve_agent_context(
     resolved: dict = {}
     for mapping in agent.input_mappings:
         variable = mapping.get("variable")
-        source = mapping.get("source")
-        if not variable or not source:
+        if not variable or not mapping.get("source"):
             continue
-
-        if source == "dataset":
-            column = mapping.get("sourceColumn")
-            resolved[variable] = row.get(column) if column else None
-        elif source == "agent":
-            source_agent_id = mapping.get("sourceAgentId")
-            output_field = mapping.get("sourceOutput", "output")
-            key = f"agent_{source_agent_id}_{output_field}"
-            resolved[variable] = agent_outputs.get(key)
-        elif source == "static":
-            resolved[variable] = mapping.get("staticValue")
+        value = _mapped_value(mapping, row, agent_outputs)
+        if value is MISSING:
+            value = None
+        elif isinstance(value, dict | list):
+            value = json.dumps(value, ensure_ascii=False)
+        resolved[variable] = value
 
     return resolved
+
+
+def _aggregator_inputs(
+    agent: AgentConfig, row: dict, agent_outputs: dict, agent_names: dict
+) -> dict:
+    """
+    Values of an aggregator's formula variables.
+
+    Strict: a variable without a mapping, or whose mapping leads nowhere or to
+    something that is not a single value, raises FormulaError.
+    """
+    mappings = {m.get("variable"): m for m in agent.input_mappings or []}
+    inputs: dict = {}
+    for variable in free_variables(agent.formulas or []):
+        mapping = mappings.get(variable)
+        if not mapping or not mapping.get("source"):
+            raise FormulaError(f'variable "{variable}" is not mapped')
+        value = _mapped_value(mapping, row, agent_outputs)
+        if value is MISSING:
+            raise FormulaError(
+                f'variable "{variable}": {_missing_reason(mapping, agent_names)}'
+            )
+        if mapping["source"] == "agent" and not mapping.get("sourcePath"):
+            value = parse_json_output(value)
+        try:
+            inputs[variable] = coerce_input(value)
+        except FormulaError as e:
+            raise FormulaError(f'variable "{variable}" {e}') from e
+    return inputs
+
+
+def _missing_reason(mapping: dict, agent_names: dict) -> str:
+    source = mapping.get("source")
+    if source == "dataset":
+        return f'column "{mapping.get("sourceColumn") or "?"}" not found'
+    if source == "agent":
+        agent_id = mapping.get("sourceAgentId")
+        name = agent_names.get(agent_id)
+        if name is None:
+            return f"agent #{agent_id} has not run before this one"
+        return f'path "{mapping.get("sourcePath")}" not found in the output of {name}'
+    return "no value"
 
 
 async def run_pipeline(
@@ -174,17 +249,20 @@ async def run_pipeline(
     # Shared context: starts with the row, accumulates agent outputs
     context = dict(row)
 
-    # Keep track of agent outputs by agent id for explicit mappings
+    # Raw agent outputs and names by agent id, for explicit mappings
     agent_outputs: dict = {}
+    agent_names: dict = {}
 
     # Sort agents by execution_order
     sorted_agents = sorted(agents, key=lambda a: a.execution_order)
 
     for agent in sorted_agents:
-        # Resolve this agent's private variable context
-        agent_context = _resolve_agent_context(agent, context, row, agent_outputs)
-
-        trace = await _execute_agent(agent, agent_context)
+        if agent.kind == AGGREGATOR:
+            trace = run_aggregator(agent, row, agent_outputs, agent_names)
+        else:
+            # Resolve this agent's private variable context
+            agent_context = _resolve_agent_context(agent, context, row, agent_outputs)
+            trace = await _execute_agent(agent, agent_context)
         result.agent_traces.append(trace)
 
         # Accumulate totals
@@ -204,7 +282,8 @@ async def run_pipeline(
 
         # Also store by agent id for explicit input mappings
         if agent.agent_id is not None:
-            agent_outputs[f"agent_{agent.agent_id}_output"] = trace.output
+            agent_outputs[agent.agent_id] = trace.output
+            agent_names[agent.agent_id] = agent.name
 
     # Final output = last successful agent's output
     if result.agent_traces:
@@ -212,6 +291,36 @@ async def run_pipeline(
         result.final_output = last_trace.output if not last_trace.error else ""
 
     return result
+
+
+def run_aggregator(
+    agent: AgentConfig, row: dict, agent_outputs: dict, agent_names: dict
+) -> AgentTrace:
+    """
+    Compute an aggregator's formulas from what earlier agents returned.
+
+    ``agent_outputs`` and ``agent_names`` are keyed by agent id; outputs are
+    raw text or already parsed JSON.
+    """
+    started = time.perf_counter()
+    inputs: dict | None = None
+    try:
+        inputs = _aggregator_inputs(agent, row, agent_outputs, agent_names)
+        output = evaluate_outputs(agent.formulas or [], inputs)
+        error = None
+    except FormulaError as e:
+        output, error = None, str(e)
+    return AgentTrace(
+        agent_name=agent.name,
+        model="",
+        provider="",
+        messages_sent=[],
+        output=json.dumps(output) if output is not None else "",
+        latency_ms=(time.perf_counter() - started) * 1000,
+        error=error,
+        kind=AGGREGATOR,
+        inputs=inputs or {},
+    )
 
 
 async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:

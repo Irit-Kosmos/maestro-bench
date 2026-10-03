@@ -73,6 +73,9 @@ class Agent(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str  # Human-readable name
     description: str | None = None
+    # "llm" calls a model with a prompt; "aggregator" computes formulas from
+    # other agents' outputs (core.formula)
+    kind: str = Field(default="llm")
 
     # Default configurations (can be overridden in experiments)
     default_prompt_version_id: int | None = Field(
@@ -192,11 +195,13 @@ class ExperimentAgentConfig(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
     # Per-agent input mappings: how dataset columns / previous agent outputs
-    # map to this agent's prompt variables
+    # map to this agent's prompt variables (or an aggregator's formula variables)
     input_mappings: str | None = Field(
         default=None,
         description="JSON string of per-agent input mappings",
     )
+    # Aggregators: JSON list of {name, formula}
+    formulas: str | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -255,7 +260,9 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     execution_id: int = Field(foreign_key="experimentexecution.id")
     agent_id: int = Field(foreign_key="agent.id")
 
-    # Snapshot of configuration at execution time (exactly what was used)
+    # Snapshot of configuration at execution time (exactly what was used).
+    # Aggregators have no model nor prompt: those fields are empty strings.
+    kind: str = Field(default="llm")
     agent_name_snapshot: str = Field(description="Agent name at execution time")
     model_name_snapshot: str = Field(description="Model name used")
     model_provider_snapshot: str = Field(description="Model provider")
@@ -277,6 +284,8 @@ class AgentExecutionSnapshot(SQLModel, table=True):
         default=None,
         description="JSON string of input mappings used at execution time",
     )
+    # Aggregators: JSON list of {name, formula} used at execution time
+    final_formulas: str | None = None
 
     execution_order: int = Field(description="Order in which this agent was executed")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -320,5 +329,5 @@ class TagLink(SQLModel, table=True):
     """Puts a tag on an item: `kind` says which table `item_id` belongs to"""
 
     tag_id: int = Field(foreign_key="tag.id", primary_key=True)
-    kind: str = Field(primary_key=True)  # "prompt" | "analysis"
+    kind: str = Field(primary_key=True)  # "prompt" | "analysis" | "agent"
     item_id: int = Field(primary_key=True)

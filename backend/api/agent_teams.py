@@ -28,16 +28,7 @@ def list_agent_teams(session: Annotated[Session, Depends(get_session)]):
             description=team.description,
             created_at=team.created_at,
             agents=[
-                AgentResponse(
-                    id=int(agent.id) if agent.id is not None else 0,
-                    name=agent.name,
-                    description=agent.description,
-                    default_prompt_version_id=agent.default_prompt_version_id,
-                    default_model_id=agent.default_model_id,
-                    team_id=agent.team_id,
-                    created_at=agent.created_at,
-                )
-                for agent in agents
+                AgentResponse.from_agent(agent) for agent in agents
             ],
         )
         result.append(team_with_agents)
@@ -78,16 +69,7 @@ def get_agent_team(team_id: int, session: Annotated[Session, Depends(get_session
         description=team.description,
         created_at=team.created_at,
         agents=[
-            AgentResponse(
-                id=int(agent.id) if agent.id is not None else 0,
-                name=agent.name,
-                description=agent.description,
-                default_prompt_version_id=agent.default_prompt_version_id,
-                default_model_id=agent.default_model_id,
-                team_id=agent.team_id,
-                created_at=agent.created_at,
-            )
-            for agent in agents
+            AgentResponse.from_agent(agent) for agent in agents
         ],
     )
 
@@ -118,16 +100,7 @@ def update_agent_team(
         description=team.description,
         created_at=team.created_at,
         agents=[
-            AgentResponse(
-                id=int(agent.id) if agent.id is not None else 0,
-                name=agent.name,
-                description=agent.description,
-                default_prompt_version_id=agent.default_prompt_version_id,
-                default_model_id=agent.default_model_id,
-                team_id=agent.team_id,
-                created_at=agent.created_at,
-            )
-            for agent in agents
+            AgentResponse.from_agent(agent) for agent in agents
         ],
     )
 

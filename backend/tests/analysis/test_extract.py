@@ -27,9 +27,9 @@ def test_get_path(obj, path, expected):
 
 @pytest.mark.parametrize("path", ["missing", "labels.5", "labels.x", "score.deep"])
 def test_get_path_missing(path):
-    from analysis.extract import _MISSING
+    from core.json_output import MISSING
 
-    assert get_path({"score": 4, "labels": ["a"]}, path) is _MISSING
+    assert get_path({"score": 4, "labels": ["a"]}, path) is MISSING
 
 
 @pytest.mark.parametrize(
