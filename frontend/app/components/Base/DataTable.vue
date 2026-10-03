@@ -2,8 +2,10 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { VNodeChild } from 'vue'
 import type { FilterSpec, FilterState } from '~/utils/filters'
+import type { GroupRowInfo, GroupSpec } from '~/utils/groups'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { h, resolveComponent } from 'vue'
+import { GROUP_ROW, groupItems } from '~/utils/groups'
 
 interface Column {
   key: string
@@ -39,6 +41,9 @@ interface Props {
   /** Filters offered next to the search; their options are found in `data` (see `FilterSpec`) */
   filters?: FilterSpec<any>[]
   actionTo?: string
+  /** Ways to cut the rows into sections, picked from a menu in the toolbar (see `v-model:group-by`). Not with `rowHeight`:
+   * a virtualized list has rows of one height only */
+  groups?: GroupSpec<any>[]
   /** Makes every row a link: the first column becomes the row's link, the whole row is clickable */
   rowTo?: (item: any) => string
   /** Like `rowTo`, for a row that opens something on the page (a panel) instead of going elsewhere: the first column
@@ -71,6 +76,7 @@ const props = withDefaults(defineProps<Props>(), {
   emptyMessage: 'No data available',
   searchable: false,
   filters: () => [],
+  groups: () => [],
   rowTo: undefined,
   rowOpen: undefined,
   activeKey: null,
@@ -93,6 +99,7 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtLink = resolveComponent('NuxtLink')
 
 const UCheckbox = resolveComponent('UCheckbox')
+const UIcon = resolveComponent('UIcon')
 
 const slots = useSlots()
 // Every slot but the toolbar ones goes to UTable (custom cells, headers)
@@ -114,6 +121,57 @@ const { search, definitions, filtered: filteredData, hasFilters, clear: clearFil
 
 const total = computed(() => props.totalCount ?? props.data.length)
 
+// Key of the group spec the rows are cut by; bind it to remember the choice, otherwise the table keeps it to itself
+const groupBy = defineModel<string | null>('groupBy', { default: null })
+const activeGroup = computed(() => props.groups.find(group => group.key === groupBy.value) ?? null)
+
+// Sections folded away, by id
+const collapsed = ref(new Set<string>())
+watch(groupBy, () => {
+  collapsed.value = new Set()
+})
+
+function toggleSection(id: string) {
+  const next = new Set(collapsed.value)
+  if (!next.delete(id))
+    next.add(id)
+  collapsed.value = next
+}
+
+const groupMenu = computed<DropdownMenuItem[][]>(() => [
+  [{ label: 'No grouping', icon: 'i-ph-x-bold', type: 'checkbox', checked: !activeGroup.value, onUpdateChecked: () => { groupBy.value = null } }],
+  props.groups.map(group => ({
+    label: group.label,
+    icon: group.icon,
+    type: 'checkbox' as const,
+    checked: group.key === groupBy.value,
+    onUpdateChecked: () => { groupBy.value = group.key },
+  })),
+])
+
+const isGroupRow = (row: any) => !!row?.[GROUP_ROW]
+
+// Grouped, each section is preceded by a stand-in row (see `GROUP_ROW`) that the cells draw as a header
+const displayRows = computed(() => {
+  const spec = activeGroup.value
+  if (!spec)
+    return filteredData.value
+  return groupItems(filteredData.value, spec).flatMap((section) => {
+    const present = section.value === null ? undefined : spec.present?.(section.value)
+    const info: GroupRowInfo = {
+      id: section.id,
+      label: section.value === null ? (spec.emptyLabel ?? 'None') : (present?.label ?? String(section.value)),
+      count: section.items.length,
+      collapsed: collapsed.value.has(section.id),
+      icon: present?.icon,
+      iconClass: present?.iconClass,
+      dot: present?.dot,
+      hint: (section.value === null ? undefined : spec.hint?.(section.value)) ?? undefined,
+    }
+    return [{ [props.rowKey]: `group:${section.id}`, [GROUP_ROW]: info }, ...(info.collapsed ? [] : section.items)]
+  })
+})
+
 const hasActions = computed(() => props.actions.length > 0)
 
 // Columns sized by their content shift as rows come and go (filtering, scrolling a virtualized list), so widths are
@@ -128,7 +186,7 @@ const tableMinWidth = computed(() => props.columns.reduce((sum, column) => sum +
 
 // Virtualized rows: UTable is given only the rows in view, and two spacer rows stand in for the others. That keeps the
 // table as tall as the whole list, which is what lets the header stay stuck to the top all the way down
-const virtualized = computed(() => props.fill && !!props.rowHeight)
+const virtualized = computed(() => props.fill && !!props.rowHeight && !activeGroup.value)
 const tableEl = ref<{ $el: HTMLElement } | null>(null)
 const virtualizer = useVirtualizer(computed(() => ({
   count: filteredData.value.length,
@@ -143,7 +201,7 @@ const virtualizer = useVirtualizer(computed(() => ({
 const virtualItems = computed(() => virtualizer.value.getVirtualItems())
 const tableRows = computed(() => virtualized.value
   ? virtualItems.value.flatMap(item => filteredData.value[item.index] ?? [])
-  : filteredData.value)
+  : displayRows.value)
 const spaceBefore = computed(() => virtualItems.value[0]?.start ?? 0)
 const spaceAfter = computed(() => {
   const last = virtualItems.value.at(-1)
@@ -182,8 +240,9 @@ watch(filteredData, (rows) => {
     selected.value = kept
 })
 
-// What the table shows, once searched and filtered, for pages that move through it
-defineExpose({ rows: filteredData })
+// What the table shows, once searched, filtered and grouped, for pages that move through it
+const visibleRows = computed(() => displayRows.value.filter(row => !isGroupRow(row)))
+defineExpose({ rows: visibleRows })
 
 const selectedRows = computed(() => filteredData.value.filter(row => selected.value.includes(row[props.rowKey])))
 
@@ -208,9 +267,32 @@ const rowStyle = computed(() => virtualized.value ? { height: `${props.rowHeight
 // The row whose panel is open stays marked
 const tableMeta = computed(() => ({
   class: {
-    tr: (row: { original: any }) => props.activeKey != null && row.original[props.rowKey] === props.activeKey ? 'bg-elevated/70' : '',
+    tr: (row: { original: any }) => {
+      if (isGroupRow(row.original))
+        return 'bg-elevated/40 hover:bg-elevated/40'
+      return props.activeKey != null && row.original[props.rowKey] === props.activeKey ? 'bg-elevated/70' : ''
+    },
   },
 }))
+
+// A section header is one cell across the table: the leading column holds it and spans every column, the others hide
+const columnCount = computed(() => props.columns.length + (props.selectable ? 1 : 0) + (hasActions.value ? 1 : 0))
+
+function renderGroup(group: GroupRowInfo) {
+  return h('button', {
+    'type': 'button',
+    'aria-expanded': !group.collapsed,
+    'class': 'flex w-full min-w-0 items-center gap-2 px-4 py-1.5 text-left text-sm outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted',
+    'onClick': () => toggleSection(group.id),
+  }, [
+    h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3.5 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
+    group.dot ? h('span', { 'class': ['size-2 shrink-0 rounded-full', group.dot], 'aria-hidden': 'true' }) : null,
+    group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0 text-muted', group.iconClass], 'aria-hidden': 'true' }) : null,
+    h('span', { class: 'truncate font-medium text-highlighted' }, group.label),
+    h('span', { class: 'shrink-0 text-xs text-muted tabular-nums' }, String(group.count)),
+    group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+  ])
+}
 
 // Convert our column format to UTable format
 const tableColumns = computed<TableColumn<any>[]>(() => {
@@ -218,6 +300,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     accessorKey: col.key,
     header: col.label,
     cell: ({ row }) => {
+      const group = row.original[GROUP_ROW] as GroupRowInfo | undefined
+      if (group)
+        return index === 0 && !props.selectable ? renderGroup(group) : null
       const value = renderValue(col, row.getValue(col.key), row.original)
       if (index !== 0 || !(props.rowTo || props.rowOpen))
         return value
@@ -238,7 +323,10 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     },
     meta: {
       class: {
-        td: col.class,
+        td: (cell: { row: { original: any } }) => isGroupRow(cell.row.original) ? (index === 0 && !props.selectable ? '' : 'hidden') : (col.class ?? ''),
+      },
+      colspan: {
+        td: (cell: { row: { original: any } }) => isGroupRow(cell.row.original) && index === 0 && !props.selectable ? String(columnCount.value) : '1',
       },
       style: {
         th: col.width ? { width: `${col.width}px` } : undefined,
@@ -255,17 +343,22 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
         'onUpdate:modelValue': toggleSelectAll,
         'aria-label': 'Select all rows',
       }),
-      cell: ({ row }) => h(UCheckbox, {
-        'modelValue': row.getIsSelected(),
-        'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-        'aria-label': 'Select row',
-        // Above the row's stretched link, so ticking doesn't open the row
-        'class': 'relative z-1',
-      }),
+      cell: ({ row }) => row.original[GROUP_ROW]
+        ? renderGroup(row.original[GROUP_ROW])
+        : h(UCheckbox, {
+            'modelValue': row.getIsSelected(),
+            'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
+            'aria-label': 'Select row',
+            // Above the row's stretched link, so ticking doesn't open the row
+            'class': 'relative z-1',
+          }),
       meta: {
         class: {
           th: 'w-10 pe-0',
-          td: 'w-10 pe-0',
+          td: (cell: { row: { original: any } }) => isGroupRow(cell.row.original) ? '' : 'w-10 pe-0',
+        },
+        colspan: {
+          td: (cell: { row: { original: any } }) => isGroupRow(cell.row.original) ? String(columnCount.value) : '1',
         },
         style: { td: rowStyle.value },
       },
@@ -277,6 +370,8 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       id: 'actions',
       header: () => h('span', { class: 'sr-only' }, 'Actions'),
       cell: ({ row }) => {
+        if (isGroupRow(row.original))
+          return null
         const items = menuItems(row.original)
         if (!items.length)
           return null
@@ -293,7 +388,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       meta: {
         class: {
           th: 'w-12',
-          td: 'w-12 text-right',
+          td: (cell: { row: { original: any } }) => isGroupRow(cell.row.original) ? 'hidden' : 'w-12 text-right',
         },
         style: { td: rowStyle.value },
       },
@@ -341,6 +436,18 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     >
       <!-- Page-specific filters -->
       <slot name="toolbar" />
+
+      <template v-if="groups.length" #group>
+        <UDropdownMenu :items="groupMenu" :content="{ align: 'start', sideOffset: 6 }">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            icon="i-ph-rows-bold"
+            :label="activeGroup ? `Group: ${activeGroup.label}` : 'Group'"
+          />
+        </UDropdownMenu>
+      </template>
     </BaseListToolbar>
 
     <!-- Empty State -->
@@ -395,7 +502,8 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
 
       <!-- Forward all dynamic slots to UTable -->
       <template v-for="(_, slotName) in tableSlots" :key="slotName" #[slotName]="slotProps">
-        <slot :name="slotName" v-bind="slotProps" />
+        <!-- Section headers are drawn by the cells above, which hold no data for a custom cell to read -->
+        <slot v-if="!isGroupRow(slotProps?.row?.original)" :name="slotName" v-bind="slotProps" />
       </template>
     </UTable>
   </div>

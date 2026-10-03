@@ -97,7 +97,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
             ref="tabListEl"
             role="tablist"
             aria-orientation="vertical"
-            class="flex w-36 shrink-0 flex-col border-e border-default p-1"
+            class="flex min-h-40 w-36 shrink-0 flex-col border-e border-default p-1"
             @pointermove="moveInTabs"
             @pointerleave="leaveTabs"
           >
@@ -118,19 +118,25 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
               <span v-if="selectedFor(definition.key).length" class="text-xs text-dimmed tabular-nums">{{ selectedFor(definition.key).length }}</span>
             </button>
           </div>
-          <BaseFilterOptionList
-            :key="panelDefinition.key"
-            role="tabpanel"
-            class="w-48"
-            :options="panelDefinition.options"
-            :selected="selectedFor(panelDefinition.key)"
-            :multiple="panelDefinition.multiple"
-            :search-placeholder="panelDefinition.searchPlaceholder"
-            @toggle="toggle(panelDefinition, $event)"
-          />
+          <!-- Out of the flow, so the tab list alone sets the height and long option lists scroll -->
+          <div class="relative w-48">
+            <BaseFilterOptionList
+              :key="panelDefinition.key"
+              role="tabpanel"
+              class="absolute inset-0"
+              :options="panelDefinition.options"
+              :selected="selectedFor(panelDefinition.key)"
+              :multiple="panelDefinition.multiple"
+              :search-placeholder="panelDefinition.searchPlaceholder"
+              @toggle="toggle(panelDefinition, $event)"
+            />
+          </div>
         </div>
       </template>
     </UPopover>
+
+    <!-- Next to the button too, for the other ways to shape a list (grouping) -->
+    <slot />
 
     <div
       v-for="definition in activeDefinitions"
