@@ -27,15 +27,48 @@ class DashboardExperiment(BaseModel):
     total_cost_usd: float | None = None
 
 
-class DashboardActivity(BaseModel):
-    """What was run over the last `days` days."""
+class DashboardTotals(BaseModel):
+    """What was run over a stretch of time."""
 
-    days: int
-    experiments: int
-    total_tokens: int
-    total_cost_usd: float
+    experiments: int = 0
+    # Of those experiments, by how they ended
+    completed: int = 0
+    failed: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
+    # Rows the executions went through, the failed ones included
+    rows_done: int = 0
+    rows_failed: int = 0
+    # Executions that failed, or went on with failed rows; the cancelled ones are a choice, not a problem
+    executions_with_failures: int = 0
+
+
+class DashboardBucket(DashboardTotals):
+    """The totals of one slice of the period, `start` being its first instant."""
+
+    start: datetime
+
+
+class DashboardActiveExperiment(BaseModel):
+    id: int
+    name: str
+    status: str
+
+
+class DashboardActivity(BaseModel):
+    """What was run over the period, set against the period before it."""
+
+    range: str
+    # First instant of the period; None for "all"
+    since: datetime | None = None
+    current: DashboardTotals
+    # Same length, right before `since`. For "all", which has no before: everything older than
+    # 30 days, so the change says how much it grew over that time. None when it is not older.
+    previous: DashboardTotals | None = None
+    # The period cut in even slices, oldest first
+    buckets: list[DashboardBucket]
     # Experiments in flight right now, whatever their age
-    active: int
+    active: list[DashboardActiveExperiment]
 
 
 class DashboardResponse(BaseModel):

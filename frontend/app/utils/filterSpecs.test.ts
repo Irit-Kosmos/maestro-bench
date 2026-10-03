@@ -9,13 +9,14 @@ const ago = (ms: number) => new Date(NOW - ms).toISOString()
 
 describe('dateRanges', () => {
   it('puts a date in every window it falls in', () => {
-    expect(dateRanges(ago(2 * HOUR), NOW)).toEqual(['day', 'week', 'month'])
-    expect(dateRanges(ago(3 * DAY), NOW)).toEqual(['week', 'month'])
-    expect(dateRanges(ago(20 * DAY), NOW)).toEqual(['month'])
+    expect(dateRanges(ago(2 * HOUR), NOW)).toEqual(['day', 'week', 'month', 'quarter'])
+    expect(dateRanges(ago(3 * DAY), NOW)).toEqual(['week', 'month', 'quarter'])
+    expect(dateRanges(ago(20 * DAY), NOW)).toEqual(['month', 'quarter'])
+    expect(dateRanges(ago(60 * DAY), NOW)).toEqual(['quarter'])
   })
 
-  it('calls anything older than a month "older"', () => {
-    expect(dateRanges(ago(90 * DAY), NOW)).toEqual(['older'])
+  it('calls anything older than a quarter "older"', () => {
+    expect(dateRanges(ago(120 * DAY), NOW)).toEqual(['older'])
   })
 
   it('reads the API\'s offset-less datetimes as UTC', () => {
@@ -29,14 +30,14 @@ describe('dateRanges', () => {
 
 describe('dateFilter', () => {
   it('offers the windows that exist, narrowest first, with older last', () => {
-    const items = [{ at: ago(90 * DAY) }, { at: ago(3 * DAY) }]
+    const items = [{ at: ago(120 * DAY) }, { at: ago(3 * DAY) }]
     const [definition] = buildFilterDefinitions(items, [dateFilter<{ at: string }>(item => item.at)])
-    expect(definition!.options.map(option => option.label)).toEqual(['Last 7 days', 'Last 30 days', 'Older than 30 days'])
+    expect(definition!.options.map(option => option.label)).toEqual(['Last 7 days', 'Last 30 days', 'Last 90 days', 'Older than 90 days'])
   })
 
   it('keeps the items inside the picked window', () => {
     const spec = dateFilter<{ at: string }>(item => item.at)
-    const items = [{ at: ago(3 * DAY) }, { at: ago(90 * DAY) }]
+    const items = [{ at: ago(3 * DAY) }, { at: ago(120 * DAY) }]
     const state = { [spec.key]: { mode: 'include' as const, values: ['week'] } }
     expect(items.filter(item => matchesSpecs(item, [spec], state))).toEqual([items[0]])
   })

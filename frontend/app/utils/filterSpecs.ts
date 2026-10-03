@@ -8,12 +8,12 @@ import { parseApiDate } from './utils'
 
 // Same colours as the status icon of the tables
 const STATUSES = {
-  pending: { label: 'Pending', icon: 'i-lucide-circle-dashed', iconClass: 'text-muted' },
-  running: { label: 'Running', icon: 'i-lucide-loader-circle', iconClass: 'text-warning' },
-  completed: { label: 'Completed', icon: 'i-lucide-circle-check', iconClass: 'text-success' },
-  partial: { label: 'Partial', icon: 'i-lucide-circle-alert', iconClass: 'text-warning' },
-  failed: { label: 'Failed', icon: 'i-lucide-circle-x', iconClass: 'text-error' },
-  cancelled: { label: 'Cancelled', icon: 'i-lucide-circle-slash', iconClass: 'text-orange-600 dark:text-orange-400' },
+  pending: { label: 'Pending', icon: 'i-ph-circle-dashed-bold', iconClass: 'text-muted' },
+  running: { label: 'Running', icon: 'i-ph-circle-notch-bold', iconClass: 'text-warning' },
+  completed: { label: 'Completed', icon: 'i-ph-check-circle-bold', iconClass: 'text-success' },
+  partial: { label: 'Partial', icon: 'i-ph-warning-circle-bold', iconClass: 'text-warning' },
+  failed: { label: 'Failed', icon: 'i-ph-x-circle-bold', iconClass: 'text-error' },
+  cancelled: { label: 'Cancelled', icon: 'i-ph-prohibit-bold', iconClass: 'text-orange-600 dark:text-orange-400' },
 } as const
 
 type KnownStatus = keyof typeof STATUSES
@@ -27,7 +27,7 @@ export function statusFilter<T>(status: (item: T) => string | null | undefined):
   return {
     key: 'status',
     label: 'Status',
-    icon: 'i-lucide-circle-dot',
+    icon: 'i-ph-radio-button-bold',
     plural: 'statuses',
     value: status,
     present: presentStatus,
@@ -40,7 +40,7 @@ export function earlierRunsFilter<T>(statuses: (item: T) => readonly string[] | 
   return {
     key: 'earlier_runs',
     label: 'Earlier runs',
-    icon: 'i-lucide-history',
+    icon: 'i-ph-clock-counter-clockwise-bold',
     plural: 'statuses',
     value: item => [...new Set(statuses(item))],
     present: presentStatus,
@@ -53,7 +53,7 @@ export function datasetFilter<T>(name: (item: T) => string | null | undefined): 
   return {
     key: 'dataset',
     label: 'Dataset',
-    icon: 'i-lucide-database',
+    icon: 'i-ph-database-bold',
     plural: 'datasets',
     searchPlaceholder: 'Search a dataset…',
     value: name,
@@ -67,9 +67,13 @@ const DATE_RANGES = [
   { value: 'day', label: 'Last 24 hours', days: 1 },
   { value: 'week', label: 'Last 7 days', days: 7 },
   { value: 'month', label: 'Last 30 days', days: 30 },
+  { value: 'quarter', label: 'Last 90 days', days: 90 },
 ] as const
 
-const OLDER = { value: 'older', label: 'Older than 30 days' } as const
+const OLDER = { value: 'older', label: 'Older than 90 days' } as const
+
+/** The window each period of the dashboard stands for; "all" is none. */
+export const DASHBOARD_DATE_RANGES = { '24h': 'day', '7d': 'week', '30d': 'month', '90d': 'quarter' } as const
 
 /** The ranges a date falls in, from the narrowest to the widest; "older" when it is in none. Nothing for an unreadable date. */
 export function dateRanges(date: string, now = Date.now()): string[] {
@@ -87,7 +91,7 @@ export function dateFilter<T>(date: (item: T) => string | null | undefined, labe
   return {
     key: `date-${label.toLowerCase()}`,
     label,
-    icon: 'i-lucide-calendar',
+    icon: 'i-ph-calendar-blank-bold',
     multiple: false,
     value: (item) => {
       const value = date(item)
@@ -112,8 +116,8 @@ const RUNS = {
 export function runsFilter<T>(executions: (item: T) => number | null | undefined, experiments: (item: T) => number = () => 1): FilterSpec<T> {
   return {
     key: 'runs',
-    label: 'Runs',
-    icon: 'i-lucide-repeat',
+    label: 'Executions',
+    icon: 'i-ph-repeat-bold',
     value: (item) => {
       const count = executions(item)
       if (count == null)
@@ -126,7 +130,7 @@ export function runsFilter<T>(executions: (item: T) => number | null | undefined
 }
 
 const FAILURES = {
-  failed: { label: 'With failed rows', icon: 'i-lucide-triangle-alert', iconClass: 'text-error' },
+  failed: { label: 'With failed rows', icon: 'i-ph-warning-bold', iconClass: 'text-error' },
   clean: { label: 'No failed rows' },
 } as const
 
@@ -135,7 +139,7 @@ export function failuresFilter<T>(rowsFailed: (item: T) => number | null | undef
   return {
     key: 'failures',
     label: 'Failures',
-    icon: 'i-lucide-triangle-alert',
+    icon: 'i-ph-warning-bold',
     multiple: false,
     value: (item) => {
       const count = rowsFailed(item)
@@ -155,7 +159,7 @@ export function tagsFilter<T>(tags: (item: T) => readonly Tag[] | null | undefin
   return {
     key: TAGS_KEY,
     label: 'Tags',
-    icon: 'i-lucide-tag',
+    icon: 'i-ph-tag-bold',
     plural: 'tags',
     multiValued: true,
     searchPlaceholder: 'Search a tag…',
