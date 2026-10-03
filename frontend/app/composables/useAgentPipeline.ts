@@ -13,7 +13,14 @@ function normalizeName(name: string) {
   return name.trim().toLowerCase().replace(/[\s-]+/g, '_')
 }
 
-function defaultConfig(agent: Agent): AgentConfiguration {
+/** The configuration an agent starts with in an experiment: its own defaults */
+export function defaultAgentConfig(agent: Agent): AgentConfiguration {
+  if (agent.kind === 'aggregator') {
+    return {
+      formulas: DEFAULT_FORMULAS.map(f => ({ ...f })),
+      is_active: true,
+    }
+  }
   return {
     prompt_version_id: agent.default_prompt_version_id || undefined,
     model_id: agent.default_model_id || undefined,
@@ -60,7 +67,13 @@ export function useAgentPipeline(options: {
 
   const addedIds = computed(() => new Set(items.value.map(item => item.agent.id)))
 
+  function isAggregator(agentId: number) {
+    return catalog.value.get(agentId)?.agent.kind === 'aggregator'
+  }
+
   function variablesOf(agentId: number): string[] {
+    if (isAggregator(agentId))
+      return formulaVariables(configurations.value[agentId]?.formulas)
     const versionId = configurations.value[agentId]?.prompt_version_id
     if (!versionId)
       return []
@@ -97,8 +110,11 @@ export function useAgentPipeline(options: {
         continue
       const variables = variablesOf(item.agent.id)
       const upstreamIds = new Set(upstreamOf(item.agent.id).map(a => a.id))
+      // Formulas change on every keystroke: an aggregator keeps the mappings of variables it
+      // no longer reads, so retyping a name finds its value back (the backend ignores the extra ones)
+      const aggregator = isAggregator(item.agent.id)
       const kept = mappings.filter((m) => {
-        if (!variables.includes(m.variable))
+        if (!aggregator && !variables.includes(m.variable))
           return false
         if (m.source === 'agent')
           return m.sourceAgentId !== undefined && upstreamIds.has(m.sourceAgentId)
@@ -111,11 +127,12 @@ export function useAgentPipeline(options: {
     }
   }
 
-  // Pre-fills the variables whose name is a dataset column, so the common case needs no clicks
+  // Pre-fills the variables whose name is a dataset column, so the common case needs no clicks.
+  // Not for aggregators: their variables appear while a name is being typed.
   function autoMap(agentId: number) {
     const config = configurations.value[agentId]
     const headers = datasetHeaders.value
-    if (!config || headers.length === 0)
+    if (!config || headers.length === 0 || isAggregator(agentId))
       return
     const mappings = [...(config.input_mappings ?? [])]
     let changed = false
@@ -145,7 +162,7 @@ export function useAgentPipeline(options: {
   function add(agent: Agent) {
     if (configurations.value[agent.id])
       return
-    configurations.value[agent.id] = { ...defaultConfig(agent), execution_order: items.value.length + 1 }
+    configurations.value[agent.id] = { ...defaultAgentConfig(agent), execution_order: items.value.length + 1 }
     autoMap(agent.id)
   }
 
@@ -191,7 +208,7 @@ export function useAgentPipeline(options: {
     const config = configurations.value[agentId]
     if (!entry || !config)
       return
-    configurations.value[agentId] = { ...defaultConfig(entry.agent), execution_order: config.execution_order }
+    configurations.value[agentId] = { ...defaultAgentConfig(entry.agent), execution_order: config.execution_order }
     autoMap(agentId)
   }
 
@@ -223,6 +240,13 @@ export function useAgentPipeline(options: {
     const config = configurations.value[agentId]
     if (!config || config.is_active === false)
       return []
+    if (isAggregator(agentId)) {
+      const errors = formulaErrorsOf(config.formulas)?.errors.filter(Boolean).length ?? 0
+      return [
+        ...aggregatorIssues(config),
+        ...(errors > 0 ? [errors === 1 ? 'Fix a formula' : `Fix ${errors} formulas`] : []),
+      ]
+    }
     const issues: string[] = []
     if (!config.prompt_version_id)
       issues.push('Choose a prompt version')
@@ -239,6 +263,7 @@ export function useAgentPipeline(options: {
     items,
     addedIds,
     catalog,
+    isAggregator,
     variablesOf,
     upstreamOf,
     add,

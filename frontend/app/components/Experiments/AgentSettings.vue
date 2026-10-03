@@ -18,8 +18,6 @@ const emit = defineEmits<{
   openPromptDetails: [promptVersionId: number]
 }>()
 
-const ids = useId()
-
 const selectedModel = computed(() => props.models.find(m => m.id === props.config?.model_id))
 
 // Empty fields fall back to the model's own defaults, so say which
@@ -39,47 +37,6 @@ const variables = computed(() => {
   const versionId = props.config?.prompt_version_id
   return parsePromptVariables(props.promptVersions.find(v => v.id === versionId)?.variables)
 })
-
-const rows = computed(() => variables.value.map(variable => ({
-  variable,
-  mapping: props.config?.input_mappings?.find(m => m.variable === variable),
-})))
-
-const mappedCount = computed(() => rows.value.filter(row => isMappingComplete(row.mapping)).length)
-
-const columnItems = computed(() => props.datasetHeaders.map(h => ({ label: h, value: h })))
-const upstreamItems = computed(() => props.upstreamAgents.map(a => ({ label: a.name, value: a.id })))
-
-// "Previous agent" only makes sense once something runs before this agent (unless it is already chosen)
-function sourceItems(current: AgentInputMapping | undefined) {
-  return [
-    { label: 'Dataset column', value: 'dataset' },
-    ...(props.upstreamAgents.length > 0 || current?.source === 'agent' ? [{ label: 'Previous agent', value: 'agent' }] : []),
-    { label: 'Fixed text', value: 'static' },
-  ]
-}
-
-function chooseSource(variable: string, source: AgentInputMapping['source']) {
-  const existing = props.config?.input_mappings?.find(m => m.variable === variable)
-  if (existing?.source === source)
-    return
-  const mapping: AgentInputMapping = { variable, source }
-  // A dataset column is left for the user to pick: guessing the first one would be silently wrong
-  if (source === 'agent') {
-    // The nearest agent above is the usual source, and it's visible in the select
-    mapping.sourceAgentId = props.upstreamAgents.at(-1)?.id
-    mapping.sourceOutput = 'output'
-  }
-  else {
-    mapping.staticValue = ''
-  }
-  emit('setMapping', mapping)
-}
-
-function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInputMapping>) {
-  if (row.mapping)
-    emit('setMapping', { ...row.mapping, ...patch })
-}
 </script>
 
 <template>
@@ -142,81 +99,14 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
       </UFormField>
     </div>
 
-    <!-- Variables -->
-    <section v-if="rows.length > 0" :aria-labelledby="`${ids}-vars`">
-      <div class="flex items-baseline justify-between gap-2">
-        <h4 :id="`${ids}-vars`" class="text-sm font-medium text-highlighted">
-          Prompt variables
-        </h4>
-        <span class="text-xs text-muted tabular-nums">{{ mappedCount }} of {{ rows.length }} mapped</span>
-      </div>
-      <p class="mt-0.5 text-sm text-muted">
-        Where each variable of the prompt gets its value for every row.
-      </p>
-
-      <ul class="mt-3 divide-y divide-default rounded-lg border border-default">
-        <li
-          v-for="row in rows"
-          :key="row.variable"
-          class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
-        >
-          <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
-          <UIcon name="i-ph-arrow-right-bold" class="hidden size-3.5 shrink-0 text-dimmed @xl:block" aria-hidden="true" />
-
-          <USelect
-            :model-value="row.mapping?.source"
-            :items="sourceItems(row.mapping)"
-            placeholder="Choose a source"
-            size="sm"
-            class="w-full"
-            :aria-label="`Source for ${row.variable}`"
-            :color="row.mapping ? 'neutral' : 'warning'"
-            :highlight="!row.mapping"
-            @update:model-value="(source) => chooseSource(row.variable, source as AgentInputMapping['source'])"
-          />
-
-          <div class="min-w-0">
-            <USelect
-              v-if="row.mapping?.source === 'dataset'"
-              :model-value="row.mapping.sourceColumn"
-              :items="columnItems"
-              :disabled="columnItems.length === 0"
-              :placeholder="columnItems.length === 0 ? 'Choose a dataset first' : 'Choose a column'"
-              size="sm"
-              class="w-full"
-              :color="row.mapping.sourceColumn ? 'neutral' : 'warning'"
-              :highlight="!row.mapping.sourceColumn"
-              :aria-label="`Dataset column for ${row.variable}`"
-              @update:model-value="(value: string) => patchMapping(row, { sourceColumn: value })"
-            />
-            <USelect
-              v-else-if="row.mapping?.source === 'agent'"
-              :model-value="row.mapping.sourceAgentId"
-              :items="upstreamItems"
-              placeholder="Choose an agent"
-              size="sm"
-              class="w-full"
-              :color="row.mapping.sourceAgentId === undefined ? 'warning' : 'neutral'"
-              :highlight="row.mapping.sourceAgentId === undefined"
-              :aria-label="`Agent output for ${row.variable}`"
-              @update:model-value="(value: number) => patchMapping(row, { sourceAgentId: value, sourceOutput: 'output' })"
-            />
-            <UInput
-              v-else-if="row.mapping?.source === 'static'"
-              :model-value="row.mapping.staticValue"
-              placeholder="Text sent on every row"
-              size="sm"
-              class="w-full"
-              :aria-label="`Fixed text for ${row.variable}`"
-              @update:model-value="(value: string | number) => patchMapping(row, { staticValue: String(value) })"
-            />
-            <p v-else class="inline-flex items-center gap-1.5 text-xs text-warning">
-              <UIcon name="i-ph-warning-bold" class="size-3.5 shrink-0" aria-hidden="true" />
-              Not mapped yet
-            </p>
-          </div>
-        </li>
-      </ul>
-    </section>
+    <ExperimentsVariableMappings
+      :variables="variables"
+      :mappings="config?.input_mappings"
+      :dataset-headers="datasetHeaders"
+      :upstream-agents="upstreamAgents"
+      title="Prompt variables"
+      description="Where each variable of the prompt gets its value for every row."
+      @set-mapping="mapping => emit('setMapping', mapping)"
+    />
   </div>
 </template>

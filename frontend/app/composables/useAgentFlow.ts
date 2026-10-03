@@ -67,13 +67,7 @@ export function useAgentFlow(
 
     // Initialize agent configuration with defaults
     if (!agentConfigurations.value[agent.id]) {
-      agentConfigurations.value[agent.id] = {
-        prompt_version_id: agent.default_prompt_version_id || undefined,
-        model_id: agent.default_model_id || undefined,
-        temperature: undefined,
-        max_tokens: undefined,
-        is_active: true,
-      }
+      agentConfigurations.value[agent.id] = defaultAgentConfig(agent)
     }
 
     const team = getTeamForAgent(agent.id)
@@ -341,6 +335,80 @@ export function useAgentFlow(
     updateNodeData(agentId)
   }
 
+  // Variables an agent actually reads: an aggregator keeps the mappings of variables it no longer uses
+  function usedVariables(agent: Agent): string[] {
+    if (agent.kind === 'aggregator')
+      return formulaVariables(agentConfigurations.value[agent.id]?.formulas)
+    return getAgentPromptVariables(agent.id)
+  }
+
+  // An agent reading another one's output depends on it: that is an edge, labelled with the variables
+  // it carries. Such an edge also orders the run, and stays until the mapping goes.
+  function syncMappingEdges() {
+    const wanted = new Map<string, { source: string, target: string, variables: string[] }>()
+    for (const node of nodes.value) {
+      const agent = node.data?.agent
+      if (!agent)
+        continue
+      const used = usedVariables(agent)
+      for (const mapping of getInputMappings(agent.id)) {
+        if (mapping.source !== 'agent' || mapping.sourceAgentId === undefined || !used.includes(mapping.variable))
+          continue
+        const source = `agent-${mapping.sourceAgentId}`
+        if (source === node.id || !nodes.value.some(n => n.id === source))
+          continue
+        const id = `e-${source}-${node.id}`
+        const entry = wanted.get(id) ?? { source, target: node.id, variables: [] }
+        entry.variables.push(mapping.variable)
+        wanted.set(id, entry)
+      }
+    }
+
+    const next: Edge[] = []
+    for (const edge of edges.value) {
+      const carried = wanted.get(edge.id)
+      if (carried) {
+        next.push(mappingEdge(edge, carried.variables))
+        wanted.delete(edge.id)
+      }
+      else if (edge.data?.fromMapping) {
+        // Drawn for a mapping that is gone
+        continue
+      }
+      else if (edge.data?.variables) {
+        // Drawn by hand, and no longer carries anything: plain order edge again
+        next.push({ id: edge.id, source: edge.source, target: edge.target, animated: true })
+      }
+      else {
+        next.push(edge)
+      }
+    }
+    for (const [id, { source, target, variables }] of wanted)
+      next.push(mappingEdge({ id, source, target, data: { fromMapping: true } }, variables))
+
+    if (JSON.stringify(next.map(edgeKey)) !== JSON.stringify(edges.value.map(edgeKey)))
+      edges.value = next
+  }
+
+  function mappingEdge(edge: Edge, variables: string[]): Edge {
+    return {
+      ...edge,
+      animated: true,
+      // Removing it would leave the mapping without its source: change the mapping instead
+      deletable: false,
+      label: variables.join(', '),
+      labelStyle: { fill: 'var(--ui-text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+      labelBgStyle: { fill: 'var(--ui-bg)' },
+      labelBgPadding: [4, 2] as [number, number],
+      labelBgBorderRadius: 4,
+      data: { ...edge.data, variables },
+    }
+  }
+
+  function edgeKey(edge: Edge) {
+    return [edge.id, edge.label ?? '', edge.data?.fromMapping ?? false]
+  }
+
   // Sync flow nodes from existing agent configurations.
   // Agents are laid out left to right in run order and chained, so the graph opens
   // as the same sequence the list showed.
@@ -365,6 +433,7 @@ export function useAgentFlow(
         edges.value.push({ id: `e-${source}-${target}`, source, target, animated: true })
       }
     })
+    syncMappingEdges()
   }
 
   return {
@@ -386,6 +455,7 @@ export function useAgentFlow(
     getFlowTeamIds,
     updateAgentConfig,
     syncFromConfigs,
+    syncMappingEdges,
 
     // Input mapping helpers
     parsePromptVariables,

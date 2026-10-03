@@ -2,7 +2,7 @@
 import type { AgentTeam, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
 
 // Fetch data directly in the page
-const { data: agentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: agentTeams, refresh: refreshAgentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: models } = await useMyLazyFetch<Model[]>('/models')
 const { data: allPromptVersions } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
 const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
@@ -84,6 +84,7 @@ watch([sourceExperiment, agentTeams], ([source, teams]) => {
       is_active: true,
       execution_order: config.execution_order,
       input_mappings: config.input_mappings ?? [],
+      ...(config.formulas ? { formulas: config.formulas } : {}),
     }]))
 }, { immediate: true })
 
@@ -319,6 +320,7 @@ defineShortcuts({
             :models="models"
             :all-prompt-versions="allPromptVersions"
             :dataset-headers="datasetHeaders"
+            :refresh-agents="refreshAgentTeams"
             @open-prompt-details="openPromptDetails"
           />
 

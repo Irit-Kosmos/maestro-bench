@@ -18,7 +18,8 @@ const props = defineProps<{
 
 const variations = defineModel<VariationDraft[]>('variations', { required: true })
 
-const agents = computed(() => props.items.filter(item => item.config.is_active !== false))
+// Aggregators have no model, prompt or temperature to vary
+const agents = computed(() => props.items.filter(item => item.config.is_active !== false && item.agent.kind !== 'aggregator'))
 const multipleAgents = computed(() => agents.value.length > 1)
 const agentItems = computed(() => agents.value.map(item => ({ label: item.agent.name, value: item.agent.id })))
 
@@ -114,7 +115,7 @@ watch(agents, (list) => {
         <li
           v-for="(variation, index) in variations"
           :key="index"
-          class="grid gap-3 rounded-lg border border-default p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,10rem)_minmax(0,1fr)_auto]"
+          class="enter-soft grid gap-3 rounded-lg border border-default p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,10rem)_minmax(0,1fr)_auto]"
         >
           <USelectMenu
             v-if="multipleAgents"

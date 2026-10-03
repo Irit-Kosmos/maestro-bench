@@ -30,6 +30,11 @@ const open = defineModel<boolean>('open', { default: false })
 const single = computed(() => props.count === 1)
 const enabled = computed(() => props.item.config.is_active !== false)
 
+const aggregator = computed(() => props.item.agent.kind === 'aggregator')
+const icon = computed(() => aggregator.value ? 'i-ph-function-bold' : 'i-ph-robot-bold')
+// An aggregator is summed up by what it outputs
+const outputsLabel = computed(() => (props.item.config.formulas ?? []).map(f => f.name).filter(Boolean).join(', '))
+
 const prompt = computed(() => props.promptVersions.find(v => v.id === props.item.config.prompt_version_id))
 const promptLabel = computed(() => prompt.value ? `${prompt.value.prompt?.name || 'Unknown'} v${prompt.value.version}` : null)
 const model = computed(() => props.models.find(m => m.id === props.item.config.model_id) ?? null)
@@ -41,7 +46,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
   <!-- One agent: a plain form -->
   <section v-if="single" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon name="i-ph-robot-bold" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon :name="icon" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0 flex-1">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ item.agent.name }}
@@ -65,7 +70,16 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
     </header>
 
     <div class="border-t border-default bg-elevated/30 px-4 py-4">
+      <ExperimentsAggregatorSettings
+        v-if="aggregator"
+        :config="item.config"
+        :dataset-headers="datasetHeaders"
+        :upstream-agents="upstreamAgents"
+        @update="(field, value) => emit('update', field, value)"
+        @set-mapping="mapping => emit('setMapping', mapping)"
+      />
       <ExperimentsAgentSettings
+        v-else
         :config="item.config"
         :models="models"
         :prompt-versions="promptVersions"
@@ -110,6 +124,9 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
           </span>
           <span class="mt-0.5 block truncate text-xs text-muted">
             <template v-if="!enabled">Skipped in this run</template>
+            <template v-else-if="aggregator">
+              <span class="font-mono">{{ outputsLabel || 'No output yet' }}</span>
+            </template>
             <template v-else-if="promptLabel || model">
               {{ promptLabel }}<span v-if="promptLabel && model" aria-hidden="true"> · </span><ModelsLabel v-if="model" :name="model.name" :provider="model.provider" />
             </template>
@@ -129,7 +146,16 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
 
       <template #content>
         <div class="border-t border-default bg-elevated/30 px-4 py-4 ps-15">
+          <ExperimentsAggregatorSettings
+            v-if="aggregator"
+            :config="item.config"
+            :dataset-headers="datasetHeaders"
+            :upstream-agents="upstreamAgents"
+            @update="(field, value) => emit('update', field, value)"
+            @set-mapping="mapping => emit('setMapping', mapping)"
+          />
           <ExperimentsAgentSettings
+            v-else
             :config="item.config"
             :models="models"
             :prompt-versions="promptVersions"

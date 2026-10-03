@@ -155,8 +155,13 @@ const columns = [
   { key: 'started_at', width: 112, label: 'Started' },
 ]
 
+// Aggregators have no model
+function llmAgentsOf(execution: ExecutionListItem) {
+  return execution.agents.filter(agent => agent.model)
+}
+
 function modelsOf(execution: ExecutionListItem) {
-  return [...new Set(execution.agents.map(agent => agent.model))]
+  return [...new Set(llmAgentsOf(execution).map(agent => agent.model))]
 }
 
 const filters = computed<FilterSpec<ExecutionListItem>[]>(() => [
@@ -269,9 +274,9 @@ const actions = [
         <template #agents-cell="{ row }">
           <div class="flex min-w-0 items-center gap-1.5 text-sm text-toned">
             <ModelsLabel
-              v-if="row.original.agents.length"
-              :name="row.original.agents[0]!.model"
-              :provider="row.original.agents[0]!.provider"
+              v-if="llmAgentsOf(row.original).length"
+              :name="llmAgentsOf(row.original)[0]!.model"
+              :provider="llmAgentsOf(row.original)[0]!.provider"
             />
             <span v-else class="text-dimmed">—</span>
             <span

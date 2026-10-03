@@ -43,7 +43,16 @@ const emit = defineEmits<{
     </header>
 
     <div v-if="agent" class="flex-1 overflow-y-auto p-4">
+      <ExperimentsAggregatorSettings
+        v-if="agent.kind === 'aggregator'"
+        :config="config"
+        :dataset-headers="datasetHeaders"
+        :upstream-agents="upstreamAgents"
+        @update="(field, value) => emit('updateConfig', field, value)"
+        @set-mapping="mapping => emit('updateInputMapping', mapping)"
+      />
       <ExperimentsAgentSettings
+        v-else
         :config="config"
         :models="models"
         :prompt-versions="allPromptVersions"

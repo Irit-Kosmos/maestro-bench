@@ -76,7 +76,7 @@ function isAgentInFlow(agentId: number): boolean {
             @click="addAgent(agent)"
           >
             <UIcon
-              name="i-ph-robot-bold"
+              :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold'"
               class="w-3.5 h-3.5 flex-shrink-0"
               :class="isAgentInFlow(agent.id) ? 'text-primary' : 'text-dimmed'"
             />

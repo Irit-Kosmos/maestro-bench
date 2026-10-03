@@ -39,7 +39,8 @@ export function executionModelsFilter(): FilterSpec<ExecutionListItem> {
     plural: 'models',
     multiValued: true,
     searchPlaceholder: 'Search a model…',
-    value: execution => [...new Set(execution.agents.map(agent => agent.model))],
+    // Aggregators have no model
+    value: execution => [...new Set(execution.agents.filter(agent => agent.model).map(agent => agent.model))],
   }
 }
 

@@ -116,7 +116,8 @@ function exportCsv() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <!-- Results land once the computation is done: they fade in instead of replacing the loader in one frame -->
+  <div class="enter-soft space-y-4">
     <UAlert
       v-for="warning in result.warnings"
       :key="warning"
