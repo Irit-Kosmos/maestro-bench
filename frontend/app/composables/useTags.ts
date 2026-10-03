@@ -1,7 +1,7 @@
 import type { Tag, TagColor, TagWithCount } from '~/types'
 
 /**
- * Composable for tags, which prompts and analyses share. The list is the same for
+ * Composable for tags, which prompts, analyses and agents share. The list is the same for
  * every component that asks for it, so a tag created in a picker shows up everywhere.
  */
 export function useTags() {
@@ -32,7 +32,7 @@ export function useTags() {
   }
 
   /** Put tags on several items and take tags off them, leaving the rest of their tags be. */
-  async function assignTags(kind: 'prompt' | 'analysis', itemIds: number[], change: { add?: number[], remove?: number[] }) {
+  async function assignTags(kind: 'prompt' | 'analysis' | 'agent', itemIds: number[], change: { add?: number[], remove?: number[] }) {
     await $api('/tags/assign', { method: 'POST', body: { kind, item_ids: itemIds, add: change.add ?? [], remove: change.remove ?? [] } })
     await refresh()
   }

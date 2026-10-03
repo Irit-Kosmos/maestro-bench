@@ -9,7 +9,7 @@ const props = withDefaults(defineProps<{
   tags: Tag[]
   max?: number
   selectable?: boolean
-  kind?: 'prompt' | 'analysis'
+  kind?: 'prompt' | 'analysis' | 'agent'
   id?: number
 }>(), {
   max: 3,

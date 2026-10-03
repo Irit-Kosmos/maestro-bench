@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from api import analyses, prompts, tags
+from api import agent_teams, agents, analyses, prompts, tags
 from db import get_session
 from tables import TagLink
 
@@ -25,7 +25,7 @@ def engine():
 @pytest.fixture
 def client(engine):
     app = FastAPI()
-    for module in (tags, prompts, analyses):
+    for module in (tags, prompts, analyses, agents, agent_teams):
         app.include_router(module.router)
 
     def _session():
@@ -254,3 +254,43 @@ def test_assign_refuses_unknown_items_and_tags_without_changing_anything(client)
         client.post("/tags/assign", json={"kind": "prompt", "item_ids": []}).status_code
         == 422
     )
+
+
+def make_agent(client, **fields):
+    team = client.post("/agent-teams", json={"name": "Graders"}).json()
+    response = client.post(
+        "/agents", json={"name": "A", "team_id": team["id"], **fields}
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_agent_tags_are_set_replaced_and_kept(client):
+    a, b = make_tag(client, "a"), make_tag(client, "b")
+    agent = make_agent(client, tag_ids=[a["id"]])
+    assert [t["name"] for t in agent["tags"]] == ["a"]
+
+    renamed = client.put(f"/agents/{agent['id']}", json={"name": "B"}).json()
+    assert [t["name"] for t in renamed["tags"]] == ["a"]  # left out: kept
+
+    replaced = client.put(f"/agents/{agent['id']}", json={"tag_ids": [b["id"]]}).json()
+    assert [t["name"] for t in replaced["tags"]] == ["b"]
+
+    listed = client.get("/agents").json()
+    assert [t["name"] for t in listed[0]["tags"]] == ["b"]
+
+
+def test_assign_works_on_agents(client, engine):
+    a = make_tag(client, "a")
+    agent = make_agent(client)
+    client.post(
+        "/tags/assign",
+        json={"kind": "agent", "item_ids": [agent["id"]], "add": [a["id"]]},
+    )
+    assert [t["name"] for t in client.get(f"/agents/{agent['id']}").json()["tags"]] == [
+        "a"
+    ]
+
+    client.delete(f"/agents/{agent['id']}")
+    with Session(engine) as s:
+        assert s.exec(select(TagLink)).all() == []
