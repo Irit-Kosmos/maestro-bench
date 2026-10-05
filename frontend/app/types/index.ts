@@ -22,11 +22,6 @@ export interface Tag {
   color: TagColor
 }
 
-export interface TagWithCount extends Tag {
-  /** How many items carry the tag */
-  count: number
-}
-
 export interface Prompt {
   id: number
   name: string

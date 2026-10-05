@@ -29,12 +29,6 @@ class TagResponse(BaseModel):
     color: str
 
 
-class TagWithCount(TagResponse):
-    """A tag and how many items carry it, for the picker and the tags page"""
-
-    count: int
-
-
 class TagAssign(BaseModel):
     """Tags to put on, and take off, several items at once. Their other tags are left alone."""
 

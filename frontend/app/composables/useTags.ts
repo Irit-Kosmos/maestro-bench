@@ -1,4 +1,4 @@
-import type { Tag, TagColor, TagWithCount } from '~/types'
+import type { Tag, TagColor } from '~/types'
 
 /**
  * Composable for tags, which prompts, analyses and agents share. The list is the same for
@@ -7,7 +7,7 @@ import type { Tag, TagColor, TagWithCount } from '~/types'
 export function useTags() {
   const { $api } = useNuxtApp()
 
-  const { data, pending, refresh } = useMyLazyFetch<TagWithCount[]>('/tags', {
+  const { data, pending, refresh } = useMyLazyFetch<Tag[]>('/tags', {
     key: 'tags',
     default: () => [],
   })

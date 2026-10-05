@@ -89,15 +89,12 @@ def test_rename_to_another_tags_name_is_refused(client):
     assert client.put(f"/tags/{wip['id']}", json={"name": "WIP"}).status_code == 200
 
 
-def test_list_counts_usage_and_sorts_by_name(client):
+def test_list_sorts_by_name(client):
     zed = make_tag(client, "zed")
     alpha = make_tag(client, "Alpha")
-    for name in ("one", "two"):
-        client.post("/prompts", json={"name": name, "tag_ids": [zed["id"]]})
 
     listed = client.get("/tags").json()
-    assert [(t["name"], t["count"]) for t in listed] == [("Alpha", 0), ("zed", 2)]
-    assert listed[0]["id"] == alpha["id"]
+    assert [t["id"] for t in listed] == [alpha["id"], zed["id"]]
 
 
 def test_prompt_tags_are_set_replaced_and_kept(client):
@@ -169,14 +166,15 @@ def test_deleting_an_item_drops_its_links_but_not_the_tag(client, engine):
 
     with Session(engine) as s:
         assert s.exec(select(TagLink)).all() == []
-    assert client.get("/tags").json() == [{**a, "count": 0}]
+    assert client.get("/tags").json() == [a]
 
 
 def test_a_tag_is_shared_between_kinds(client):
     a = make_tag(client, "paper")
-    client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]})
-    client.post("/analyses", json={**ANALYSIS, "tag_ids": [a["id"]]})
-    assert client.get("/tags").json()[0]["count"] == 2
+    prompt = client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]}).json()
+    analysis = client.post("/analyses", json={**ANALYSIS, "tag_ids": [a["id"]]}).json()
+    assert prompt["tags"] == [a]
+    assert analysis["tags"] == [a]
 
 
 def test_analysis_runs_still_round_trip(client):

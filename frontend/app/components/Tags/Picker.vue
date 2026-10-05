@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Tag, TagColor, TagWithCount } from '~/types'
+import type { Tag, TagColor } from '~/types'
 import { apiErrorMessage } from '~/composables/useAnalyses'
 
 // What a tag popover holds: a field that searches the shared tags and offers to create one when nothing
@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   /** A tag of the list was clicked or chosen with ↵ */
-  toggle: [tag: TagWithCount]
+  toggle: [tag: Tag]
   /** A new tag was made from what was typed */
   create: [tag: Tag]
 }>()
@@ -24,7 +24,7 @@ const emit = defineEmits<{
 const { tags, refreshTags, createTag } = useTags()
 const toast = useToast()
 
-// Counts change as items are tagged, so the list is read again each time the popover opens
+// The list is read again each time the popover opens, in case tags were made or renamed elsewhere
 onMounted(refreshTags)
 
 const query = ref('')
@@ -41,7 +41,7 @@ const matches = computed(() => matchTags(tags.value, query.value))
 const canCreate = computed(() => !!typed.value && !findTag(tags.value, typed.value))
 const color = computed(() => pickedColor.value ?? nextTagColor(tags.value))
 
-type Row = { kind: 'tag', tag: TagWithCount } | { kind: 'create' }
+type Row = { kind: 'tag', tag: Tag } | { kind: 'create' }
 
 // What the arrow keys walk through: the matches, then the offer to create what was typed
 const rows = computed<Row[]>(() => [
@@ -56,7 +56,7 @@ watch(query, () => {
 const isSelected = (tag: Tag) => props.selected.includes(tag.id)
 const isPartial = (tag: Tag) => !isSelected(tag) && props.partial.includes(tag.id)
 
-function toggle(tag: TagWithCount) {
+function toggle(tag: Tag) {
   emit('toggle', tag)
   query.value = ''
 }
@@ -177,7 +177,6 @@ function onKeydown(event: KeyboardEvent) {
           <span class="size-2 shrink-0 rounded-full" :class="tagDot(row.tag.color)" aria-hidden="true" />
           <span class="flex-1 truncate">{{ row.tag.name }}</span>
           <span v-if="isPartial(row.tag)" class="sr-only">(on some of the selected rows)</span>
-          <span class="text-xs text-dimmed tabular-nums">{{ row.tag.count }}</span>
         </template>
         <template v-else>
           <UIcon name="i-ph-plus-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
