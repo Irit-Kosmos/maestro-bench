@@ -27,6 +27,7 @@ from api import (
     tags,
 )
 from api import auth as auth_api
+from api import invitations as invitations_api
 from api import workspaces as workspaces_api
 from auth.policy import validate_config
 from auth.providers import setup_providers
@@ -82,6 +83,7 @@ app.add_middleware(
 
 app.include_router(auth_api.router)
 app.include_router(workspaces_api.router)
+app.include_router(invitations_api.router)
 
 # What a workspace holds lives under /workspaces/{slug}: the user must belong to it,
 # with the role the route needs, and the request's database session only sees it
