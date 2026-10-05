@@ -36,9 +36,9 @@ API_VERSION = "2.0.0"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: initialize DB on startup."""
+    """Application lifespan: migrate the DB on startup."""
     init_db()
-    logger.info("Database tables initialized")
+    logger.info("Database schema is up to date")
     logger.info("MAESTRO-bench API started")
     yield
 

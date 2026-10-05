@@ -1,23 +1,10 @@
 import json
 
 import pandas as pd
-import pytest
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
 
 import experiment_utils
 from experiment_utils import apply_dataset_sampling, create_execution_snapshot
 from tables import Batch, Dataset, Experiment
-
-
-@pytest.fixture
-def session():
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as s:
-        yield s
 
 
 def make_experiment(session, *, batch=None, sampling_type="random"):

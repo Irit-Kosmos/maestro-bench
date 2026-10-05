@@ -4,8 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 from api import experiment_executions
 from db import get_session
@@ -22,17 +21,6 @@ from tables import (
 
 def now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture
@@ -59,8 +47,21 @@ def add_experiment(engine, name="Run", **fields) -> int:
         return experiment.id
 
 
-def add_execution(engine, experiment_id, agents=(), agent_id=1, **fields) -> int:
+def add_agent(engine, name="Grader") -> int:
+    with Session(engine) as s:
+        team = AgentTeam(name="Graders")
+        s.add(team)
+        s.flush()
+        agent = Agent(name=name, team_id=team.id)
+        s.add(agent)
+        s.commit()
+        return agent.id
+
+
+def add_execution(engine, experiment_id, agents=(), agent_id=None, **fields) -> int:
     """An execution with one agent snapshot per (agent, model) pair."""
+    if agents and agent_id is None:
+        agent_id = add_agent(engine)
     fields.setdefault("dataset_snapshot", json.dumps({"name": "answers"}))
     with Session(engine) as s:
         execution = ExperimentExecution(experiment_id=experiment_id, **fields)
@@ -188,19 +189,19 @@ def test_a_broken_dataset_snapshot_does_not_break_the_list(client, engine):
 
 
 def test_a_deleted_agent_has_no_id_to_link_to(client, engine):
-    with Session(engine) as s:
-        team = AgentTeam(name="Graders")
-        s.add(team)
-        s.flush()
-        agent = Agent(name="Grader", team_id=team.id)
-        s.add(agent)
-        s.commit()
-        alive = agent.id
+    alive = add_agent(engine)
+    doomed = add_agent(engine, "Gone")
     exp = add_experiment(engine)
     kept = add_execution(engine, exp, agents=[("Grader", "m-a")], agent_id=alive)
-    orphaned = add_execution(engine, exp, agents=[("Gone", "m-a")], agent_id=alive + 1)
+    orphaned = add_execution(engine, exp, agents=[("Gone", "m-a")], agent_id=doomed)
+
+    # The database clears the snapshot's link; the snapshot itself stays
+    with Session(engine) as s:
+        s.delete(s.get(Agent, doomed))
+        s.commit()
 
     listed = {e["id"]: e for e in client.get("/executions").json()}
 
     assert listed[kept]["agents"][0]["agent_id"] == alive
     assert listed[orphaned]["agents"][0]["agent_id"] is None
+    assert listed[orphaned]["agents"][0]["name"] == "Gone"

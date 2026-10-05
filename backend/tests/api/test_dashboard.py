@@ -3,8 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 from api import dashboard
 from db import get_session
@@ -25,17 +24,6 @@ from tables import (
 
 def now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture
@@ -64,11 +52,13 @@ def world(engine):
         s.add_all([version, *models])
         s.flush()
         agent = Agent(name="Grader", team_id=team.id)
-        s.add(agent)
+        other_agent = Agent(name="Reviewer", team_id=team.id)
+        s.add_all([agent, other_agent])
         s.commit()
         return {
             "dataset": dataset.id,
             "agent": agent.id,
+            "other_agent": other_agent.id,
             "version": version.id,
             "models": [m.id for m in models],
         }
@@ -179,7 +169,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
                 # Inactive agents do not run
                 ExperimentAgentConfig(
                     experiment_id=exp,
-                    agent_id=world["agent"] + 1,
+                    agent_id=world["other_agent"],
                     prompt_version_id=world["version"],
                     model_id=world["models"][0],
                     execution_order=1,

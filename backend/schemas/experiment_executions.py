@@ -28,7 +28,7 @@ class LatestExecutionFigures(BaseModel):
 
 class AgentExecutionSnapshotResponse(BaseModel):
     id: int
-    agent_id: int
+    agent_id: int | None  # empty once the agent is deleted
     # "aggregator" snapshots have empty model and prompt fields, and formulas
     kind: str = "llm"
     agent_name_snapshot: str

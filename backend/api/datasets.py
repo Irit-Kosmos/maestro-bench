@@ -4,7 +4,8 @@ from typing import Annotated, Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlalchemy import func
+from sqlmodel import Session, col, select
 
 from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
@@ -243,6 +244,15 @@ def delete_dataset(dataset_id: int, session: Annotated[Session, Depends(get_sess
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")
+
+    # Checked before touching the file: a refused delete must not lose it
+    used_by = session.exec(
+        select(func.count()).where(col(Experiment.dataset_id) == dataset_id)
+    ).one()
+    if used_by:
+        raise HTTPException(
+            409, f"Dataset is used by {used_by} experiment(s); delete them first"
+        )
 
     if dataset.file_path:
         try:
