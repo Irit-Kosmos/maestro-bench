@@ -200,3 +200,76 @@ class TestAccessTo:
         self.store(engine, 2)
 
         assert self.access(engine, 1).key_id == self.access(engine, 2).key_id
+
+
+class TestWithoutInstanceFallback:
+    @pytest.fixture(autouse=True)
+    def no_fallback(self, monkeypatch):
+        monkeypatch.setattr(config, "PROVIDERS_INSTANCE_FALLBACK", False)
+        monkeypatch.setenv("MISTRAL_API_KEY", "instance-key-value")
+        monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
+
+    def test_the_instance_key_is_not_offered_to_workspaces(self, alice, workspace):
+        listed = providers(alice, workspace)
+
+        assert listed["mistral"]["configured"] is False
+        assert listed["mistral"]["source"] is None
+
+    def test_a_workspace_key_still_works(self, alice, workspace):
+        alice.put(f"/workspaces/{workspace}/providers/mistral/key", json={"api_key": SECRET})
+
+        assert providers(alice, workspace)["mistral"]["source"] == "workspace"
+
+    def test_a_self_hosted_provider_stays_instance_wide(self, alice, workspace):
+        assert providers(alice, workspace)["ollama"]["source"] == "instance"
+
+    def test_a_run_without_its_own_key_fails_instead_of_using_the_instances(self, engine):
+        from tests.conftest import scoped
+
+        with scoped(engine) as s:
+            access = credentials.access_to(s, "mistral")
+
+        assert access.source is None
+        assert access.api_key is None
+        assert "no mistral API key" in access.error
+
+
+def test_an_agent_without_access_fails_before_calling_the_provider(monkeypatch):
+    import asyncio
+
+    from core import orchestrator
+    from core.orchestrator import AgentConfig
+
+    async def must_not_be_called(**_):
+        raise AssertionError("the provider was called")
+
+    monkeypatch.setattr(orchestrator, "call_llm", must_not_be_called)
+    agent = AgentConfig(
+        name="a", team_name="t", system_prompt=None, user_prompt="hi", variables=[],
+        model="m", provider="mistral", access_error="no key here",
+    )
+
+    trace = asyncio.run(orchestrator._execute_agent(agent, {}))
+
+    assert trace.error == "no key here"
+
+
+def test_a_provider_error_never_carries_the_workspace_key(monkeypatch):
+    import asyncio
+
+    from core import orchestrator
+    from core.orchestrator import AgentConfig
+
+    async def refuses(**kwargs):
+        raise RuntimeError(f"401 for key={kwargs['api_key']} on https://api.example")
+
+    monkeypatch.setattr(orchestrator, "call_llm", refuses)
+    agent = AgentConfig(
+        name="a", team_name="t", system_prompt=None, user_prompt="hi", variables=[],
+        model="m", provider="mistral", api_key=SECRET,
+    )
+
+    trace = asyncio.run(orchestrator._execute_agent(agent, {}))
+
+    assert SECRET not in trace.error
+    assert "[API key]" in trace.error

@@ -162,27 +162,60 @@ def _owners(db: Session, workspace_id: int) -> list[Membership]:
     )
 
 
+def _lock(db: Session, workspace: Workspace) -> None:
+    """Serialize membership changes of a workspace until the transaction ends.
+
+    Without it, two owners leaving at the same time could each see the other as the
+    remaining owner and leave the workspace with none.
+    """
+    db.exec(select(Workspace.id).where(Workspace.id == workspace.id).with_for_update())
+
+
+def _another_active_owner(db: Session, workspace_id: int, leaving_user_id: int) -> bool:
+    """Whether someone who can still sign in owns the workspace besides this user."""
+    return db.exec(
+        select(Membership.user_id)
+        .join(User, col(User.id) == col(Membership.user_id))
+        .where(
+            Membership.workspace_id == workspace_id,
+            Membership.role == "owner",
+            Membership.user_id != leaving_user_id,
+            col(User.is_active),
+        )
+    ).first() is not None
+
+
 def set_member(db: Session, workspace: Workspace, user: User, role: str) -> None:
     """Add a user to a workspace, or change their role."""
     if role not in ROLES:
         raise MembershipError(f"Unknown role {role!r}: use one of {', '.join(ROLES)}")
+    _lock(db, workspace)
     membership = db.get(Membership, (workspace.id, user.id))
     if membership is None:
         membership = Membership(workspace_id=workspace.id, user_id=user.id, role=role)
-    elif membership.role == "owner" and role != "owner":
-        if len(_owners(db, workspace.id)) == 1:
-            raise MembershipError("A workspace needs at least one owner")
+    elif (
+        membership.role == "owner"
+        and role != "owner"
+        and not _another_active_owner(db, workspace.id, user.id)
+    ):
+        db.rollback()
+        raise MembershipError("A workspace needs at least one owner who can sign in")
     membership.role = role
     db.add(membership)
     db.commit()
 
 
 def remove_member(db: Session, workspace: Workspace, user: User) -> None:
+    _lock(db, workspace)
     membership = db.get(Membership, (workspace.id, user.id))
     if membership is None:
+        db.rollback()
         raise MembershipError("This user is not a member of the workspace")
-    if membership.role == "owner" and len(_owners(db, workspace.id)) == 1:
-        raise MembershipError("A workspace needs at least one owner")
+    if membership.role == "owner" and not _another_active_owner(
+        db, workspace.id, user.id
+    ):
+        db.rollback()
+        raise MembershipError("A workspace needs at least one owner who can sign in")
     db.delete(membership)
     db.commit()
 

@@ -23,6 +23,8 @@ const emit = defineEmits<{
   delete: [model: Model]
 }>()
 
+const { canEdit } = useCurrentWorkspace()
+
 // Without the provider column the block needs less room for each of the others
 const layout = computed(() => props.showProvider
   ? {
@@ -157,6 +159,7 @@ function summary(group: ModelGroup) {
               <!-- The name's button stretches over the row; the switch and menu sit above it -->
               <div class="flex min-w-0 items-baseline gap-2">
                 <button
+                  v-if="canEdit"
                   type="button"
                   class="min-w-0 max-w-[65%] shrink-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   :class="model.is_active ? 'text-highlighted' : 'text-muted'"
@@ -165,6 +168,13 @@ function summary(group: ModelGroup) {
                 >
                   {{ model.name }}
                 </button>
+                <span
+                  v-else
+                  class="min-w-0 max-w-[65%] shrink-0 truncate text-sm font-medium"
+                  :class="model.is_active ? 'text-highlighted' : 'text-muted'"
+                >
+                  {{ model.name }}
+                </span>
                 <span
                   v-if="model.description"
                   class="hidden min-w-0 truncate text-xs text-muted sm:block"
@@ -194,12 +204,13 @@ function summary(group: ModelGroup) {
                 <USwitch
                   :model-value="model.is_active"
                   size="xs"
+                  :disabled="!canEdit"
                   :aria-label="`${model.name} is active`"
                   @update:model-value="emit('toggleStatus', model)"
                 />
               </span>
 
-              <UDropdownMenu :items="menuItems(model)" :content="{ align: 'end' }">
+              <UDropdownMenu v-if="canEdit" :items="menuItems(model)" :content="{ align: 'end' }">
                 <UButton
                   icon="i-ph-dots-three-bold"
                   color="neutral"

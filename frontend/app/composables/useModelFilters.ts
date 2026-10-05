@@ -58,8 +58,8 @@ export function useModelFilters(source: MaybeRefOrGetter<readonly Model[] | null
   const { search, filters, definitions, filtered, hasFilters, clear } = useListFilters(source, modelFilterSpecs, modelSearchText)
 
   // Remembered per browser, like the other list preferences
-  const groupBy = useLocalStorage<ModelGroupBy>('maestro:models-group-by', 'provider')
-  const collapsedKeys = useLocalStorage<string[]>('maestro:models-collapsed-groups', [])
+  const groupBy = useLocalStorage<ModelGroupBy>(workspaceStorageKey('maestro:models-group-by'), 'provider')
+  const collapsedKeys = useLocalStorage<string[]>(workspaceStorageKey('maestro:models-collapsed-groups'), [])
 
   const groups = computed<ModelGroup[]>(() => {
     const sorted = filtered.value.toSorted((a, b) => a.name.localeCompare(b.name))

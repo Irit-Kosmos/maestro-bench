@@ -16,6 +16,7 @@ useSeoMeta({
 const { data: batches, pending, refresh } = await useMyLazyFetch<Batch[]>('/batches')
 
 const { deleteBatch } = useBatches()
+const { canEdit } = useCurrentWorkspace()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
@@ -59,6 +60,7 @@ const actions = [
     icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
+    requires: 'editor' as const,
     handler: (batch: Batch) => {
       batchId.value = batch.id
       showDeleteDialog.value = true
@@ -99,8 +101,8 @@ async function confirmDelete() {
 <template>
   <BasePageContent :loading="pending && !batches">
     <template #before-content>
-      <UTooltip text="Start from an experiment, then add a variation">
-        <UButton
+      <UTooltip text="Start from an experiment, then add a variation" :disabled="!canEdit">
+        <UIGuardedButton
           color="neutral"
           variant="soft"
           icon="i-ph-plus-bold"
@@ -108,7 +110,7 @@ async function confirmDelete() {
           to="/experiments/new"
         >
           New batch
-        </UButton>
+        </UIGuardedButton>
       </UTooltip>
     </template>
 
@@ -152,6 +154,7 @@ async function confirmDelete() {
       icon="i-ph-arrows-split-bold"
       action-label="New experiment"
       action-to="/experiments/new"
+      action-requires="editor"
     />
 
     <UModal v-model:open="showDeleteDialog" title="Delete batch?">

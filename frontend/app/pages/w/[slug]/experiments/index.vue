@@ -21,7 +21,7 @@ const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[
 const route = useRoute()
 
 // Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
-const rowsEntry = useLocalStorage<FilterEntry>('maestro:experiments-rows-filter', emptyFilterEntry())
+const rowsEntry = useLocalStorage<FilterEntry>(workspaceStorageKey('maestro:experiments-rows-filter'), emptyFilterEntry())
 
 // A link such as /experiments?batch=<id> opens the list on one batch
 const batchFromLink = Number(route.query.batch) || undefined
@@ -42,6 +42,7 @@ watch(() => filterState.value.batch, () => {
 
 // Composables
 const { deleteExperiment, cancelExperiment } = useExperiments()
+const { canEdit } = useCurrentWorkspace()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
@@ -187,6 +188,7 @@ const actions = [
   {
     label: 'Cancel run',
     icon: 'i-ph-square-bold',
+    requires: 'editor' as const,
     show: (experiment: Experiment) => ['running', 'queued'].includes(runOf(experiment.id)?.status ?? experiment.status ?? ''),
     handler: (experiment: Experiment) => handleCancelExperiment(experiment.id),
   },
@@ -195,6 +197,7 @@ const actions = [
     icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
+    requires: 'editor' as const,
     handler: (experiment: Experiment) => handleDeleteExperiments([experiment.id]),
   },
 ]
@@ -275,8 +278,8 @@ async function handleCreateExperiment() {
     :loading="pending && !experiments"
   >
     <template #before-content>
-      <UTooltip text="New experiment" :kbds="['C']">
-        <UButton
+      <UTooltip text="New experiment" :kbds="['C']" :disabled="!canEdit">
+        <UIGuardedButton
           color="neutral"
           variant="soft"
           icon="i-ph-plus-bold"
@@ -284,7 +287,7 @@ async function handleCreateExperiment() {
           @click="handleCreateExperiment"
         >
           New experiment
-        </UButton>
+        </UIGuardedButton>
       </UTooltip>
     </template>
 
@@ -304,7 +307,7 @@ async function handleCreateExperiment() {
         :loading="pending"
         :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
         :row-hint="(exp: Experiment) => `#${exp.id}`"
-        selectable
+        :selectable="canEdit"
         item-name="experiment"
         searchable
         @refresh="refresh"
@@ -379,6 +382,7 @@ async function handleCreateExperiment() {
       icon="i-ph-flask-bold"
       action-label="New experiment"
       action-to="/experiments/new"
+      action-requires="editor"
       @action="handleCreateExperiment"
     />
 

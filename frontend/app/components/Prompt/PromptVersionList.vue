@@ -18,6 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const { formatDate, formatRelativeDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 // Nothing to show for a version that matches the one before it, or the oldest
 function changed(id: number) {
@@ -35,7 +36,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
         Versions
         <span class="ms-1 text-xs font-normal text-muted tabular-nums">{{ versions.length }}</span>
       </h2>
-      <UTooltip :delay-duration="400">
+      <UTooltip v-if="canEdit" :delay-duration="400">
         <UButton
           icon="i-ph-plus-bold"
           color="neutral"

@@ -4,6 +4,7 @@ import { apiErrorMessage, DEFAULT_ANALYSIS_CONFIG } from '~/composables/useAnaly
 
 definePageMeta({
   title: 'New Analysis',
+  requiresRole: 'editor',
 })
 
 useSeoMeta({ title: 'New Analysis' })

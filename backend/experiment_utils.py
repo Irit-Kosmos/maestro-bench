@@ -505,6 +505,7 @@ def build_agent_configs_from_snapshot(
             accesses[agent.provider] = credentials.access_to(session, agent.provider)
         agent.api_key = accesses[agent.provider].api_key
         agent.key_id = accesses[agent.provider].key_id
+        agent.access_error = accesses[agent.provider].error
 
     return agents
 

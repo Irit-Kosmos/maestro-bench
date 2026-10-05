@@ -30,6 +30,7 @@ const toast = useToast()
 const { updateAgent } = useAgents()
 const { refreshTags } = useTags()
 const { formatDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 interface AgentForm {
   name: string
@@ -91,7 +92,7 @@ watch(() => form.value.name, () => {
 })
 
 async function save() {
-  if (!dirty.value || saving.value || !props.agent)
+  if (!canEdit.value || !dirty.value || saving.value || !props.agent)
     return
 
   const name = form.value.name.trim()
@@ -157,7 +158,7 @@ defineShortcuts({
         </div>
 
         <UFormField label="Name" :error="nameError || undefined" required>
-          <UInput :id="`${formId}-name`" v-model="form.name" class="w-full" autocomplete="off" />
+          <UInput :id="`${formId}-name`" v-model="form.name" class="w-full" autocomplete="off" :disabled="!canEdit" />
         </UFormField>
 
         <UFormField label="Description">
@@ -167,12 +168,13 @@ defineShortcuts({
             :rows="2"
             autoresize
             :maxrows="8"
+            :disabled="!canEdit"
             placeholder="What this agent is for"
           />
         </UFormField>
 
         <UFormField label="Team">
-          <USelect v-model="form.team_id" :items="teamItems" class="w-full" />
+          <USelect v-model="form.team_id" :items="teamItems" class="w-full" :disabled="!canEdit" />
         </UFormField>
 
         <UFormField label="Tags">
@@ -190,6 +192,7 @@ defineShortcuts({
               v-model="form.default_prompt_version_id"
               :prompt-versions="promptVersions"
               clearable
+              :disabled="!canEdit"
               placeholder="No default prompt"
               class="w-full"
             />
@@ -200,6 +203,7 @@ defineShortcuts({
               v-model="form.default_model_id"
               :models="models"
               clearable
+              :disabled="!canEdit"
               placeholder="No default model"
               class="w-full"
             />
@@ -235,7 +239,7 @@ defineShortcuts({
           </UTooltip>
         </div>
 
-        <UButton
+        <UIGuardedButton
           v-if="agent"
           icon="i-ph-trash-bold"
           label="Delete"
@@ -247,6 +251,7 @@ defineShortcuts({
 
         <div class="ms-auto flex items-center gap-2">
           <UButton
+            v-if="canEdit"
             type="button"
             color="neutral"
             variant="ghost"
@@ -256,7 +261,7 @@ defineShortcuts({
           >
             Discard
           </UButton>
-          <UButton
+          <UIGuardedButton
             type="submit"
             :form="formId"
             size="sm"
@@ -266,7 +271,7 @@ defineShortcuts({
             title="Save (⌘↵)"
           >
             Save
-          </UButton>
+          </UIGuardedButton>
         </div>
       </div>
     </template>

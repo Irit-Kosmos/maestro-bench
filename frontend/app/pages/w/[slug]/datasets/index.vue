@@ -61,6 +61,7 @@ const actions = [
     icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
+    requires: 'editor' as const,
     handler: (dataset: Dataset) => confirmDelete(dataset),
   },
 ]
@@ -135,7 +136,7 @@ function handleCreateClick() {
     :loading="pending"
   >
     <template #before-content>
-      <UButton
+      <UIGuardedButton
         color="neutral"
         variant="soft"
         icon="i-ph-plus-bold"
@@ -143,7 +144,7 @@ function handleCreateClick() {
         @click="handleCreateClick"
       >
         New dataset
-      </UButton>
+      </UIGuardedButton>
     </template>
 
     <!-- Datasets List -->
@@ -175,6 +176,7 @@ function handleCreateClick() {
       message="Upload a CSV or JSON file. Each row becomes one input for your experiments."
       icon="i-ph-database-bold"
       action-label="New dataset"
+      action-requires="editor"
       @action="handleCreateClick"
     />
 

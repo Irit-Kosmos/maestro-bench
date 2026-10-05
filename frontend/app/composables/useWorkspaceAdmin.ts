@@ -74,7 +74,8 @@ export function useWorkspaceAdmin() {
 export function useInvitation(token: string) {
   const { $api } = useNuxtApp()
   return {
-    preview: () => $api<InvitationPreview>(`/invitations/${encodeURIComponent(token)}`),
-    accept: () => $api<AcceptedInvitation>(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST' }),
+    // The token goes in the body: URLs end up in the server's access logs
+    preview: () => $api<InvitationPreview>('/invitations/preview', { method: 'POST', body: { token } }),
+    accept: () => $api<AcceptedInvitation>('/invitations/accept', { method: 'POST', body: { token } }),
   }
 }

@@ -68,7 +68,10 @@ export function useDatasetEditor(datasetId: Ref<number>) {
 
   const fileType = ref<'csv' | 'json'>('csv')
   const headers = shallowRef<string[]>([])
-  const readOnlyReason = ref<string | null>(null)
+  // Why the file itself can't be written back; on top of that, the user's role may not allow it either
+  const fileReadOnlyReason = ref<string | null>(null)
+  const { denial } = useCurrentWorkspace()
+  const readOnlyReason = computed(() => fileReadOnlyReason.value ?? denial('editor'))
   const columnWidths = shallowRef<number[]>([])
   const revision = ref('')
 
@@ -155,7 +158,7 @@ export function useDatasetEditor(datasetId: Ref<number>) {
       const response = await $api<DatasetRowsResponse>(`/datasets/${datasetId.value}/rows`)
       fileType.value = response.file_type
       headers.value = response.headers
-      readOnlyReason.value = response.read_only_reason
+      fileReadOnlyReason.value = response.read_only_reason
       revision.value = response.revision
       clearSearch()
       applyBaseline(response.rows)

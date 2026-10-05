@@ -198,7 +198,7 @@ defineShortcuts({
               @click="emit('download')"
             />
           </UTooltip>
-          <UButton
+          <UIGuardedButton
             icon="i-ph-chart-bar-bold"
             color="neutral"
             variant="soft"
@@ -207,7 +207,7 @@ defineShortcuts({
             @click="emit('analyze')"
           >
             Analyze
-          </UButton>
+          </UIGuardedButton>
         </div>
       </div>
     </template>

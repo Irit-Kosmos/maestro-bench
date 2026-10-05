@@ -6,6 +6,7 @@ const route = useRoute()
 const analysisId = computed(() => Number.parseInt(route.params.id as string))
 
 const { fetchResults, updateAnalysis, deleteAnalysis } = useAnalyses()
+const { canEdit } = useCurrentWorkspace()
 const { showUpdateSuccess, showUpdateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const { data: analysis, pending, error, refresh: refreshAnalysis } = await useMyLazyFetch<Analysis>(
@@ -100,10 +101,11 @@ async function confirmDelete() {
         >
           Recompute
         </UButton>
-        <UButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
+        <UIGuardedButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
           Edit
-        </UButton>
+        </UIGuardedButton>
         <UDropdownMenu
+          v-if="canEdit"
           :items="[{ label: 'Delete analysis', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
           :content="{ align: 'end' }"
         >

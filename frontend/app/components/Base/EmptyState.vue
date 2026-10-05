@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { WorkspaceRole } from '~/types'
+
 interface Props {
   title?: string
   message?: string
@@ -9,6 +11,8 @@ interface Props {
   actionLabel?: string
   actionIcon?: string
   actionTo?: string
+  /** The role the action needs; without it the button is left out, and the text alone says what is missing */
+  actionRequires?: WorkspaceRole
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -19,6 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
   actionLabel: undefined,
   actionIcon: 'i-ph-plus-bold',
   actionTo: undefined,
+  actionRequires: undefined,
 })
 
 const emit = defineEmits<{
@@ -30,6 +35,9 @@ defineSlots<{
 }>()
 
 const text = computed(() => props.message ?? props.description)
+
+const { can } = useCurrentWorkspace()
+const allowed = computed(() => !props.actionRequires || can(props.actionRequires))
 
 function onAction() {
   if (!props.actionTo)
@@ -48,7 +56,7 @@ function onAction() {
     <p v-if="text" class="mt-1 max-w-sm text-sm text-muted text-pretty">
       {{ text }}
     </p>
-    <div v-if="$slots.default || actionLabel" class="mt-5 flex items-center gap-2">
+    <div v-if="$slots.default || (actionLabel && allowed)" class="mt-5 flex items-center gap-2">
       <slot>
         <UButton
           :to="actionTo"

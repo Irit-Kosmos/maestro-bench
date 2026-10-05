@@ -11,6 +11,8 @@ const router = useRouter()
 const { colorMode } = useTheme()
 const icons = useAppConfig().ui.icons
 
+const { canEdit } = useCurrentWorkspace()
+
 const open = ref(false)
 
 /**
@@ -52,14 +54,17 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     ],
   })
 
-  items.push({
-    id: 'actions',
-    label: 'Actions',
-    items: [
-      { label: 'New Experiment', icon: 'i-ph-plus-bold', suffix: 'Create a new experiment', onSelect: () => navigate('/experiments/new') },
-      { label: 'New Analysis', icon: 'i-ph-plus-bold', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
-    ],
-  })
+  // Creating is for editors: a viewer is not offered what the app would turn away
+  if (canEdit.value) {
+    items.push({
+      id: 'actions',
+      label: 'Actions',
+      items: [
+        { label: 'New Experiment', icon: 'i-ph-plus-bold', suffix: 'Create a new experiment', onSelect: () => navigate('/experiments/new') },
+        { label: 'New Analysis', icon: 'i-ph-plus-bold', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
+      ],
+    })
+  }
 
   if (experiments.value?.length) {
     items.push({

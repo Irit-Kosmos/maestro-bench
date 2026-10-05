@@ -234,6 +234,7 @@ uv run pytest
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
 | `SECRET_KEY` | - (required) | At least 32 characters. Signs the OAuth state and derives the CSRF tokens. Changing it only interrupts the sign-ins in progress. |
 | `ENCRYPTION_KEY` | - | At least 32 random characters (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Encrypts the API keys that workspaces store. Without it workspaces cannot store keys and only the instance's keys are used. **Changing it makes the stored keys unreadable**: owners must set them again. Keep it apart from `SECRET_KEY`. |
+| `PROVIDERS_INSTANCE_FALLBACK` | `true` | Whether a workspace without its own key for a provider uses the instance's key. Set to `false` to make every workspace bring its own keys: its runs then fail with a clear message until an owner sets one. Providers set by URL (Ollama) are instance-wide and unaffected. |
 | `INVITATION_DAYS` | `7` | How long an invitation link can be used. |
 | `AUTH_GITLAB_BASE_URL` | - | Your GitLab, e.g. `https://gitlab.example.org`. |
 | `AUTH_GITLAB_CLIENT_ID` / `AUTH_GITLAB_CLIENT_SECRET` | - | The GitLab application's ID and secret. |
@@ -264,9 +265,16 @@ belong to several, with one role in each:
 | `editor` | also create, edit, delete and run experiments |
 | `owner` | also manage members, invitation links and API keys, rename, archive and delete the workspace |
 
+The interface follows the role: a viewer sees every page but is offered no way to
+create, edit, delete or run anything; the main buttons stay visible but disabled,
+with a tooltip saying who may use them, while menu items, bulk actions and
+shortcuts are left out. An archived workspace is read-only for everyone. The API
+enforces the same rules whatever the interface shows.
+
 Someone who is not a member gets a 404 for the workspace and for any id inside
 it: they cannot tell whether it exists. An archived workspace is read-only. A
-workspace always keeps at least one owner.
+workspace always keeps at least one owner who can still sign in: the last one
+cannot leave or step down (an owner whose account was deactivated does not count).
 
 Owners manage the workspace in **Settings**:
 

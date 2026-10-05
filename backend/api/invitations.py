@@ -1,12 +1,14 @@
 """
 API router for opening an invitation link. The person holding it is not in the
 workspace yet, so this lives outside `/workspaces/{slug}`.
+
+The token travels in the body, never in the URL: URLs end up in access logs.
 """
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
@@ -15,6 +17,10 @@ from auth.deps import CurrentUser, get_engine, require_user
 from tables import User
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
+
+
+class TokenIn(BaseModel):
+    token: str = Field(min_length=1, max_length=200)
 
 
 class InvitationPreview(BaseModel):
@@ -30,16 +36,16 @@ class InvitationAccepted(BaseModel):
     joined: bool
 
 
-@router.get("/{token}", response_model=InvitationPreview)
+@router.post("/preview", response_model=InvitationPreview)
 def preview_invitation(
-    token: str,
+    data: TokenIn,
     _user: Annotated[CurrentUser, Depends(require_user)],
     engine: Annotated[Engine, Depends(get_engine)],
 ):
     """What the link offers, so that the person can decide to accept."""
     with Session(engine) as db:
         try:
-            invitation, workspace, inviter = invitations.preview(db, token)
+            invitation, workspace, inviter = invitations.preview(db, data.token)
         except invitations.InvitationError as e:
             raise HTTPException(404, str(e)) from e
         return InvitationPreview(
@@ -49,15 +55,15 @@ def preview_invitation(
         )
 
 
-@router.post("/{token}/accept", response_model=InvitationAccepted)
+@router.post("/accept", response_model=InvitationAccepted)
 def accept_invitation(
-    token: str,
+    data: TokenIn,
     current: Annotated[CurrentUser, Depends(require_user)],
     engine: Annotated[Engine, Depends(get_engine)],
 ):
     with Session(engine) as db:
         try:
-            accepted = invitations.accept(db, token, db.get(User, current.id))
+            accepted = invitations.accept(db, data.token, db.get(User, current.id))
         except invitations.InvitationError as e:
             raise HTTPException(404, str(e)) from e
         return InvitationAccepted(

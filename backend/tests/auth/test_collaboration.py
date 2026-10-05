@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, select
 
 import config
@@ -170,6 +171,45 @@ def test_the_last_owner_cannot_be_demoted_or_removed(alice, team):
     assert roles(alice, team)["Alice"] == "owner"
 
 
+def deactivate(engine, person):
+    with Session(engine) as db:
+        user = db.get(User, person.id)
+        user.is_active = False
+        db.add(user)
+        db.commit()
+
+
+def test_an_owner_who_can_no_longer_sign_in_does_not_count_as_the_remaining_owner(
+    alice, bob, team, engine
+):
+    alice.put(f"/workspaces/{team}/members/{bob.id}", json={"role": "owner"})
+    deactivate(engine, bob)
+
+    assert alice.delete(f"/workspaces/{team}/members/{alice.id}").status_code == 409
+    assert alice.put(f"/workspaces/{team}/members/{alice.id}", json={"role": "editor"}).status_code == 409
+    # ...while the inactive one can be removed, and nothing is left in doubt
+    assert alice.delete(f"/workspaces/{team}/members/{bob.id}").status_code == 204
+
+
+def test_two_owners_cannot_leave_at_the_same_time(alice, bob, team, engine):
+    from sqlalchemy.exc import OperationalError
+
+    from auth.workspaces import _lock, remove_member
+
+    alice.put(f"/workspaces/{team}/members/{bob.id}", json={"role": "owner"})
+    with Session(engine) as first, Session(engine) as second:
+        workspace = first.exec(select(Workspace).where(Workspace.slug == team)).one()
+        _lock(first, workspace)  # the first departure is under way
+
+        second.exec(text("SET LOCAL lock_timeout = '300ms'"))
+        with pytest.raises(OperationalError):
+            remove_member(second, second.get(Workspace, workspace.id), second.get(User, bob.id))
+        second.rollback()
+        first.rollback()
+
+    assert roles(alice, team)["Bob"] == "owner"
+
+
 def test_an_owner_removes_a_member_who_then_loses_access(alice, bob, team):
     assert alice.delete(f"/workspaces/{team}/members/{bob.id}").status_code == 204
 
@@ -205,8 +245,8 @@ def test_an_invitation_adds_whoever_opens_it_with_the_role(alice, team, engine, 
     dave = Person(engine, "dave")
     token = invite(alice, team, "editor")
 
-    seen = dave.get(f"/invitations/{token}")
-    joined = dave.post(f"/invitations/{token}/accept")
+    seen = dave.post("/invitations/preview", json={"token": token})
+    joined = dave.post("/invitations/accept", json={"token": token})
 
     assert seen.json() == {"workspace_name": "Team", "role": "editor", "invited_by": "Alice"}
     assert joined.json() == {"slug": team, "name": "Team", "role": "editor", "joined": True}
@@ -217,10 +257,10 @@ def test_an_invitation_works_once(alice, team, engine, app):
     dave, erin = Person(engine, "dave"), Person(engine, "erin")
     token = invite(alice, team)
 
-    assert dave.post(f"/invitations/{token}/accept").status_code == 200
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 200
 
-    assert erin.post(f"/invitations/{token}/accept").status_code == 404
-    assert erin.get(f"/invitations/{token}").status_code == 404
+    assert erin.post("/invitations/accept", json={"token": token}).status_code == 404
+    assert erin.post("/invitations/preview", json={"token": token}).status_code == 404
     assert "Erin" not in roles(alice, team)
 
 
@@ -236,7 +276,7 @@ def test_only_a_hash_of_the_token_is_kept(alice, team, engine):
 def test_the_list_never_shows_tokens_and_hides_used_ones(alice, team, engine, app):
     dave = Person(engine, "dave")
     used, open_ = invite(alice, team), invite(alice, team, "viewer")
-    dave.post(f"/invitations/{used}/accept")
+    dave.post("/invitations/accept", json={"token": used})
 
     listed = alice.get(f"/workspaces/{team}/invitations")
 
@@ -251,7 +291,7 @@ def test_a_revoked_invitation_stops_working(alice, team, engine, app):
 
     assert alice.delete(f"/workspaces/{team}/invitations/{item['id']}").status_code == 204
 
-    assert dave.post(f"/invitations/{token}/accept").status_code == 404
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 404
     assert alice.delete(f"/workspaces/{team}/invitations/{item['id']}").status_code == 404
 
 
@@ -264,7 +304,7 @@ def test_an_invitation_expires(alice, team, engine, app):
         db.add(stored)
         db.commit()
 
-    assert dave.post(f"/invitations/{token}/accept").status_code == 404
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 404
     assert alice.get(f"/workspaces/{team}/invitations").json() == []
 
 
@@ -282,11 +322,11 @@ def test_a_member_who_opens_a_link_keeps_their_role_and_the_link_stays_valid(ali
     dave = Person(engine, "dave")
     token = invite(alice, team, "viewer")
 
-    again = bob.post(f"/invitations/{token}/accept")
+    again = bob.post("/invitations/accept", json={"token": token})
 
     assert again.json()["joined"] is False
     assert again.json()["role"] == "editor"
-    assert dave.post(f"/invitations/{token}/accept").status_code == 200
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 200
 
 
 def test_an_invitation_never_makes_an_owner(alice, team):
@@ -307,8 +347,8 @@ def test_an_unknown_link_is_a_404_and_a_signed_out_visitor_is_a_401(alice, team,
 
     import main
 
-    assert alice.get("/invitations/not-a-token").status_code == 404
-    assert TestClient(main.app).get(f"/invitations/{token}").status_code == 401
+    assert alice.post("/invitations/preview", json={"token": "not-a-token"}).status_code == 404
+    assert TestClient(main.app).post("/invitations/preview", json={"token": token}).status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +379,7 @@ def test_archiving_forgets_the_api_keys_and_the_invitations(alice, team, engine,
 
     with Session(engine) as db:
         assert db.exec(select(WorkspaceCredential)).all() == []
-    assert dave.post(f"/invitations/{token}/accept").status_code == 404
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 404
 
 
 def test_an_archived_workspace_can_be_reopened(alice, team):

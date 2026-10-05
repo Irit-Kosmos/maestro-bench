@@ -47,6 +47,18 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     if (current && current !== slug)
       return navigateTo(to.fullPath, { external: true })
     remember(slug)
+
+    // A page that needs a role the user lacks (creating, in a workspace they can only read)
+    const needed = to.meta.requiresRole
+    const workspace = workspaces.value.find(w => w.slug === slug)
+    if (needed && !canIn(workspace, needed)) {
+      useToast().add({
+        title: denialReason(workspace, needed) ?? 'Not allowed',
+        color: 'warning',
+        icon: 'i-ph:lock-bold',
+      })
+      return navigateTo(from.path !== to.path && workspaceOfPath(from.path) === slug ? from.fullPath : inWorkspace(slug, '/'))
+    }
     return
   }
 

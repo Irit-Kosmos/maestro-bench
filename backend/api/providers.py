@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 import credentials
 from auth.workspaces import requires
-from core.llm import SUPPORTED_PROVIDERS, check_provider_available
+from core.llm import SUPPORTED_PROVIDERS
 from db import get_session
 from workspace_scope import current_user_id
 
@@ -25,14 +25,14 @@ def _provider_view(provider: str, spec: dict, stored) -> dict:
     kind = spec.get("kind", "key")
     return {
         "provider": provider,
-        "configured": stored is not None or check_provider_available(provider),
+        "configured": stored is not None or credentials.instance_provides(provider),
         "env_var": spec["env_var"],
         "kind": kind,
         # Where the calls get their key: the workspace's own, or the instance's
         "source": "workspace"
         if stored is not None
         else "instance"
-        if check_provider_available(provider)
+        if credentials.instance_provides(provider)
         else None,
         # The workspace's key is never shown again, only its end
         "key_hint": stored.last4 if stored is not None else None,

@@ -4,7 +4,7 @@ const { relativePath } = useWorkspace()
 const router = useRouter()
 const shortcutsOpen = useShortcutsOverlay()
 const { toggle: toggleTheme } = useTheme()
-const { archived } = useCurrentWorkspace()
+const { archived, canEdit } = useCurrentWorkspace()
 
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
@@ -53,6 +53,8 @@ defineShortcuts({
   't': toggleTheme,
   // Create from anywhere: an analysis on analysis pages, an experiment otherwise
   'c': () => {
+    if (!canEdit.value)
+      return
     router.push(relativePath.value.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
   },
 })
