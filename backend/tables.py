@@ -1,10 +1,35 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, Index, UniqueConstraint
+from sqlalchemy import BigInteger, Index, UniqueConstraint, text
 from sqlmodel import Field, Relationship, SQLModel
 
 
-class Model(SQLModel, table=True):
+class WorkspaceOwned(SQLModel):
+    """Rows that belong to one workspace.
+
+    `workspace_id` is never set by hand: a session scoped to a workspace
+    (see `workspace_scope`) fills it in on insert and only ever reads rows
+    carrying it. Neither column is part of what the API returns.
+    """
+
+    workspace_id: int | None = Field(
+        default=None,
+        foreign_key="workspace.id",
+        index=True,
+        nullable=False,
+        exclude=True,
+    )
+
+
+class Authored(WorkspaceOwned):
+    """Top-level resources, which remember who created them."""
+
+    created_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL", exclude=True
+    )
+
+
+class Model(Authored, table=True):
     """LLM models available for experiments"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -21,7 +46,7 @@ class Model(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class Prompt(SQLModel, table=True):
+class Prompt(Authored, table=True):
     """Reusable prompts with versioning"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -33,7 +58,7 @@ class Prompt(SQLModel, table=True):
     versions: list["PromptVersion"] = Relationship(back_populates="prompt")
 
 
-class PromptVersion(SQLModel, table=True):
+class PromptVersion(WorkspaceOwned, table=True):
     """Versioned prompt configurations - pure prompts without model coupling"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -53,7 +78,7 @@ class PromptVersion(SQLModel, table=True):
     prompt: Prompt | None = Relationship(back_populates="versions")
 
 
-class AgentTeam(SQLModel, table=True):
+class AgentTeam(Authored, table=True):
     """A team of agents that work together"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -67,7 +92,7 @@ class AgentTeam(SQLModel, table=True):
     )
 
 
-class Agent(SQLModel, table=True):
+class Agent(WorkspaceOwned, table=True):
     """Individual agent that can be configured with prompts/models at experiment time"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -94,7 +119,7 @@ class Agent(SQLModel, table=True):
     default_model: Model | None = Relationship()
 
 
-class Dataset(SQLModel, table=True):
+class Dataset(Authored, table=True):
     """Dataset containing questions/tasks for experiments"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -109,7 +134,7 @@ class Dataset(SQLModel, table=True):
     experiments: list["Experiment"] = Relationship(back_populates="dataset")
 
 
-class Batch(SQLModel, table=True):
+class Batch(Authored, table=True):
     """A group of experiments generated from one base configuration.
 
     The experiments of a batch are ordinary, independent experiments: the batch
@@ -131,7 +156,7 @@ class Batch(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class Experiment(SQLModel, table=True):
+class Experiment(Authored, table=True):
     """An experiment configuration using a dataset and agent teams"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -175,7 +200,7 @@ class Experiment(SQLModel, table=True):
     )
 
 
-class ExperimentAgentConfig(SQLModel, table=True):
+class ExperimentAgentConfig(WorkspaceOwned, table=True):
     """Configuration for an agent within a specific experiment - this is the single source of truth"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -221,7 +246,7 @@ class ExperimentAgentConfig(SQLModel, table=True):
     model: Model | None = Relationship()
 
 
-class ExperimentExecution(SQLModel, table=True):
+class ExperimentExecution(WorkspaceOwned, table=True):
     """Immutable snapshot of an experiment execution for scientific reproducibility"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -257,7 +282,7 @@ class ExperimentExecution(SQLModel, table=True):
     )
 
 
-class AgentExecutionSnapshot(SQLModel, table=True):
+class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     """Immutable snapshot of each agent's configuration used during execution"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -304,7 +329,7 @@ class AgentExecutionSnapshot(SQLModel, table=True):
     agent: Agent | None = Relationship()
 
 
-class Analysis(SQLModel, table=True):
+class Analysis(Authored, table=True):
     """
     A saved comparison of executions against a ground-truth column.
 
@@ -323,7 +348,7 @@ class Analysis(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class Tag(SQLModel, table=True):
+class Tag(Authored, table=True):
     """A label shared by every kind of item that can be tagged"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -331,8 +356,12 @@ class Tag(SQLModel, table=True):
     color: str = "gray"  # one of tags.TAG_COLORS
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    __table_args__ = (
+        Index("uq_tag_workspace_name", "workspace_id", text("lower(name)"), unique=True),
+    )
 
-class TagLink(SQLModel, table=True):
+
+class TagLink(WorkspaceOwned, table=True):
     """Puts a tag on an item: `kind` says which table `item_id` belongs to"""
 
     tag_id: int = Field(foreign_key="tag.id", primary_key=True)
@@ -378,3 +407,29 @@ class AuthSession(SQLModel, table=True):
     last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime  # slides with activity
     absolute_expires_at: datetime  # never moves
+
+
+class Workspace(SQLModel, table=True):
+    """A space where people share models, prompts, datasets and experiments"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True)  # in the URLs
+    name: str
+    archived_at: datetime | None = None  # an archived workspace is read-only
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+
+
+class Membership(SQLModel, table=True):
+    """What a user can do in a workspace: `owner` > `editor` > `viewer`"""
+
+    workspace_id: int = Field(
+        foreign_key="workspace.id", primary_key=True, ondelete="CASCADE"
+    )
+    user_id: int = Field(
+        foreign_key="user.id", primary_key=True, index=True, ondelete="CASCADE"
+    )
+    role: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
