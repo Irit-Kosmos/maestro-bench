@@ -39,8 +39,7 @@ engine is specific to education.
 ```
 maestro-bench/
 ├── backend/     FastAPI + SQLModel (PostgreSQL) + Alembic + LiteLLM
-├── frontend/    Nuxt 4 + Nuxt UI single-page app
-└── datasets/    CSV/JSON files referenced by dataset records
+└── frontend/    Nuxt 4 + Nuxt UI single-page app
 ```
 
 - Backend: `backend/main.py` exposes the REST API (OpenAPI docs at `/docs`).
@@ -49,8 +48,10 @@ maestro-bench/
 - Frontend: talks to the backend over HTTP; the base URL comes from
   `NUXT_PUBLIC_BACK_URL`.
 - Storage: a PostgreSQL database (schema managed by Alembic migrations, applied
-  automatically on startup) plus files on disk under `DATA_DIR`: datasets in
-  `<DATA_DIR>/datasets/` and JSON result files in `<DATA_DIR>/results/`.
+  automatically on startup) plus files on disk under `DATA_DIR`. Each workspace
+  has its own folder, `<DATA_DIR>/workspaces/<id>/`, with its datasets in
+  `datasets/` and its JSON result files in `results/`. Under Docker Compose they
+  live in the `maestro-data` volume.
 
 ## Quick start
 
@@ -114,8 +115,8 @@ uv sync
 uv run uvicorn main:app --reload --port 8000
 ```
 
-Outside Docker, `DATA_DIR` defaults to the repository root: datasets are read
-from `datasets/` and results are written to `results/`.
+Outside Docker, `DATA_DIR` defaults to the repository root: files go under
+`workspaces/<id>/` there.
 
 Frontend (in another terminal):
 
@@ -129,7 +130,8 @@ pnpm dev
 
 The database starts empty. The seed script creates a few Mistral models, three
 example prompts (two graders and a "meta-tutor"), two agent teams and the
-sample datasets shipped in `datasets/`.
+sample datasets shipped in `backend/scripts/sample_datasets/`, copied into the
+workspace's `datasets/` folder.
 
 ```bash
 cd backend
@@ -156,19 +158,19 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
    the templates use so they can be mapped later.
 3. **Agents** - create a team, then agents with a default prompt version and
    model.
-4. **Datasets** - copy your CSV or JSON file into `<DATA_DIR>/datasets/` (with
-   Docker Compose, the repository's top-level `datasets/` folder), then create a
-   dataset record pointing to it (path relative to that folder, e.g.
-   `my_data.csv`). There is no file upload in the UI yet. Open a
-   dataset to browse, search and edit its rows in a keyboard-driven grid (`?`
+4. **Datasets** - upload a CSV (UTF-8) or JSON file (a list of objects) with
+   **New dataset**; it needs a header row and at least one row, and is limited
+   to `MAX_UPLOAD_MB`. The file is stored in the workspace's own folder under a
+   name the server picks. Open a dataset to browse, search and edit its rows in a keyboard-driven grid (`?`
    lists the shortcuts; `⌘S` saves). Edits rewrite the file on disk, and a
    file changed elsewhere since it was opened is never overwritten. Up to
    100,000 rows.
 5. **Experiments** - pick a dataset, drag agents onto the canvas, connect them
    to define the execution order, map each prompt variable to a dataset column,
    a previous agent's output or a static value, choose a sampling strategy and
-   launch. The experiment starts immediately; reload the page to see its status
-   change.
+   launch. The experiment starts immediately, or waits in a queue (status
+   *queued*, cancellable) when your workspace already runs as many as it may;
+   see the limits under Configuration. Reload the page to see its status change.
 6. **Batches** - on an experiment, click **Vary…**, pick the values to try
    (model, prompt version or temperature) per agent, and one experiment starts
    per combination (max 50, confirmation past 10). They share the same rows
@@ -223,7 +225,10 @@ uv run pytest
 | `<PROVIDER>_MAX_RPS` | - | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
 | `DATABASE_URL` | `postgresql+psycopg://maestro:maestro@localhost:5432/maestro` | SQLAlchemy connection string. PostgreSQL only. Docker Compose sets it to the `postgres` service. |
-| `DATA_DIR` | repository root (`/data` in Docker) | Where datasets (`<DATA_DIR>/datasets/`) and execution results (`<DATA_DIR>/results/`) are stored. Result paths saved in the database are relative to it. |
+| `DATA_DIR` | repository root (`/data` in Docker) | Where files are stored: `<DATA_DIR>/workspaces/<id>/datasets/` and `.../results/`, one folder per workspace. Paths saved in the database are relative to those two folders, and a path that leaves its folder is refused. |
+| `MAX_UPLOAD_MB` | `50` | Largest dataset file accepted by an upload. |
+| `MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE` | `3` | Experiments one workspace runs at once. The next ones wait, in order, and start as soon as a slot is free. |
+| `MAX_CONCURRENT_EXPERIMENTS` | `8` | Experiments the whole instance runs at once, all workspaces together. A workspace that is at its own limit never holds back another. |
 | `POSTGRES_PASSWORD` | `maestro` | Read by `docker-compose.yml` only: password of the `postgres` service and of the backend's connection. |
 | `DB_ECHO` | `false` | Log SQL statements. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
@@ -262,9 +267,12 @@ it: they cannot tell whether it exists. An archived workspace is read-only. A
 workspace always keeps at least one owner.
 
 Until invitations exist, members are added from the command line (see below).
-Datasets and result files still live in the shared `datasets/` and `results/`
-folders: a member can register any file of `datasets/` in their workspace, so
-only let people in whom you would trust with those files.
+Each workspace has its own folder of datasets and results: a workspace can only
+read the files it owns.
+
+Experiments run inside the API process, so the backend must be a single process
+(one uvicorn worker). When it restarts, the runs it was running are marked
+*interrupted* and the queue is emptied: run them again from the UI.
 
 ### Managing users and workspaces
 
@@ -291,10 +299,10 @@ it expires, unless you deactivate them.
 
 ## Sample datasets
 
-- `datasets/mohler_dataset.csv` - the short-answer grading dataset from
+- `backend/scripts/sample_datasets/mohler_dataset.csv` - the short-answer grading dataset from
   Mohler, Bunescu and Mihalcea, *Learning to Grade Short Answer Questions using
   Semantic Similarity Measures and Dependency Graph Alignments* (ACL 2011).
-- `datasets/diff_gt_2_mohler_dataset.csv` - the subset of the above where the
+- `backend/scripts/sample_datasets/diff_gt_2_mohler_dataset.csv` - the subset of the above where the
   two human graders disagree by more than 2 points.
 
 ## Development notes
