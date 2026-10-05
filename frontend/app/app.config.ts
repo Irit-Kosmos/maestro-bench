@@ -49,6 +49,8 @@ export default defineAppConfig({
       upload: 'i-ph-upload-simple-bold',
       warning: 'i-ph-warning-bold',
     },
+    // Checked boxes stay neutral too: a selection is state, not an action
+    checkbox: { defaultVariants: { color: 'neutral' } },
     // Text fields focus with a neutral ring: the brand hue is kept for actions, not for focus
     input: { defaultVariants: { color: 'neutral' } },
     inputMenu: { defaultVariants: { color: 'neutral' } },

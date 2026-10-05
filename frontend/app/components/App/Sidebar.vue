@@ -17,25 +17,25 @@ const { data: experiments } = await useMyLazyFetch<Experiment[]>('/experiments')
 const sections: { label?: string, items: NavItem[] }[] = [
   {
     items: [
-      { label: 'Dashboard', icon: 'i-ph-squares-four-bold', to: '/', kbds: ['G', 'H'] },
+      { label: 'Dashboard', icon: 'i-ph-squares-four', to: '/', kbds: ['G', 'H'] },
     ],
   },
   {
     label: 'Evaluation',
     items: [
-      { label: 'Experiments', icon: 'i-ph-flask-bold', to: '/experiments', kbds: ['G', 'E'] },
-      { label: 'Batches', icon: 'i-ph-arrows-split-bold', to: '/batches', kbds: ['G', 'B'] },
-      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold', to: '/executions', kbds: ['G', 'X'] },
-      { label: 'Analyses', icon: 'i-ph-chart-bar-bold', to: '/analyses', kbds: ['G', 'N'] },
+      { label: 'Experiments', icon: 'i-ph-flask', to: '/experiments', kbds: ['G', 'E'] },
+      { label: 'Batches', icon: 'i-ph-arrows-split', to: '/batches', kbds: ['G', 'B'] },
+      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise', to: '/executions', kbds: ['G', 'X'] },
+      { label: 'Analyses', icon: 'i-ph-chart-bar', to: '/analyses', kbds: ['G', 'N'] },
     ],
   },
   {
     label: 'Library',
     items: [
-      { label: 'Datasets', icon: 'i-ph-database-bold', to: '/datasets', kbds: ['G', 'D'] },
-      { label: 'Agents', icon: 'i-ph-robot-bold', to: '/agents', kbds: ['G', 'A'] },
-      { label: 'Prompts', icon: 'i-ph-chat-text-bold', to: '/prompts', kbds: ['G', 'P'] },
-      { label: 'Models', icon: 'i-ph-cpu-bold', to: '/models', kbds: ['G', 'M'] },
+      { label: 'Datasets', icon: 'i-ph-database', to: '/datasets', kbds: ['G', 'D'] },
+      { label: 'Agents', icon: 'i-ph-robot', to: '/agents', kbds: ['G', 'A'] },
+      { label: 'Prompts', icon: 'i-ph-chat-text', to: '/prompts', kbds: ['G', 'P'] },
+      { label: 'Models', icon: 'i-ph-cpu', to: '/models', kbds: ['G', 'M'] },
     ],
   },
 ]
@@ -113,7 +113,7 @@ defineShortcuts({
         <UTooltip text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
           <UButton
             to="/experiments/new"
-            icon="i-ph-note-pencil-bold"
+            icon="i-ph-note-pencil"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -199,7 +199,7 @@ defineShortcuts({
           :content="{ side: 'right' }"
         >
           <UButton
-            icon="i-ph-keyboard-bold"
+            icon="i-ph-keyboard"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -218,7 +218,7 @@ defineShortcuts({
         <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: 'right' }">
           <UButton
             to="/settings"
-            icon="i-ph-gear-bold"
+            icon="i-ph-gear"
             color="neutral"
             :variant="isActive('/settings') ? 'soft' : 'ghost'"
             size="sm"
