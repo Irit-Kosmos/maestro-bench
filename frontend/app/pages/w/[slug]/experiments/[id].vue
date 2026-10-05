@@ -388,7 +388,7 @@ watch(() => route.params.id, () => {
         <ExperimentsSection
           id="agents"
           title="Agents"
-          icon="i-ph-robot-bold"
+          icon="i-ph-ghost-bold"
           :count="latestExecution?.agent_executions.length ?? 0"
           :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
         >
@@ -420,7 +420,7 @@ watch(() => route.params.id, () => {
           </template>
           <BaseEmptyState
             v-else
-            icon="i-ph-robot-bold"
+            icon="i-ph-ghost-bold"
             title="No configuration recorded"
             message="This experiment has no execution yet."
           />

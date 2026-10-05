@@ -31,7 +31,7 @@ const single = computed(() => props.count === 1)
 const enabled = computed(() => props.item.config.is_active !== false)
 
 const aggregator = computed(() => props.item.agent.kind === 'aggregator')
-const icon = computed(() => aggregator.value ? 'i-ph-function-bold' : 'i-ph-robot-bold')
+const icon = computed(() => aggregator.value ? 'i-ph-function-bold' : 'i-ph-ghost-bold')
 // An aggregator is summed up by what it outputs
 const outputsLabel = computed(() => (props.item.config.formulas ?? []).map(f => f.name).filter(Boolean).join(', '))
 

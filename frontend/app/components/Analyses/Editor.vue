@@ -350,7 +350,7 @@ const confidenceItems = [
                 <UIRowCount :rows="executionOf(run.execution_id)!.row_count" size="xs" class="text-xs" />
               </UIMetaItem>
               <template v-if="agentsOf(run.execution_id).length <= 1">
-                <UIMetaItem v-if="run.agent_name" icon="i-ph-robot-bold" label="Agent">
+                <UIMetaItem v-if="run.agent_name" icon="i-ph-ghost-bold" label="Agent">
                   <span class="truncate">{{ run.agent_name }}</span>
                 </UIMetaItem>
                 <UIMetaItem v-if="modelOf(run)" icon="i-ph-cpu-bold" label="Model">
@@ -365,7 +365,7 @@ const confidenceItems = [
             v-if="agentsOf(run.execution_id).length > 1"
             v-model="run.agent_name"
             :items="agentItems(run.execution_id)"
-            icon="i-ph-robot-bold"
+            icon="i-ph-ghost-bold"
             variant="subtle"
             color="neutral"
             size="xs"

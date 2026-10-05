@@ -49,7 +49,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       { label: 'Datasets', icon: 'i-ph-database-bold', kbds: ['G', 'D'], onSelect: () => navigate('/datasets') },
       { label: 'Prompts', icon: 'i-ph-chat-text-bold', kbds: ['G', 'P'], onSelect: () => navigate('/prompts') },
       { label: 'Models', icon: 'i-ph-cpu-bold', kbds: ['G', 'M'], onSelect: () => navigate('/models') },
-      { label: 'Agents', icon: 'i-ph-robot-bold', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
+      { label: 'Agents', icon: 'i-ph-ghost-bold', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
       { label: 'Settings', icon: 'i-ph-gear-bold', kbds: ['G', 'S'], onSelect: () => navigate('/settings') },
     ],
   })

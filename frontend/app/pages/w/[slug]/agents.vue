@@ -91,7 +91,7 @@ const columns = [
       h('span', {
         'class': ['flex size-7 shrink-0 items-center justify-center rounded-md', row.kind === 'aggregator' ? 'bg-info/10 text-info' : 'bg-elevated text-muted'],
         'aria-hidden': 'true',
-      }, [h(UIcon, { name: row.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold', class: 'size-4' })]),
+      }, [h(UIcon, { name: row.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold', class: 'size-4' })]),
       h('span', { class: 'flex min-w-0 flex-col' }, [
         h('span', { class: 'truncate leading-5' }, row.name),
         row.description ? h('span', { class: 'truncate text-xs font-normal leading-4 text-muted', title: row.description }, row.description) : null,
@@ -113,7 +113,7 @@ const columns = [
 ]
 
 const KINDS = {
-  llm: { label: 'LLM', icon: 'i-ph-robot-bold' },
+  llm: { label: 'LLM', icon: 'i-ph-ghost-bold' },
   aggregator: { label: 'Aggregator', icon: 'i-ph-function-bold' },
 } as const
 
@@ -385,7 +385,7 @@ async function handleDeleteAgent() {
 
     <BaseEmptyState
       v-else-if="!agentsPending"
-      icon="i-ph-robot-bold"
+      icon="i-ph-ghost-bold"
       title="No agents yet"
       message="An agent pairs a prompt version with a model; an aggregator combines the outputs of other agents."
       action-label="New agent"

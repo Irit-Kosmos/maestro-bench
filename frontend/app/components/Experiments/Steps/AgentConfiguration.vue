@@ -273,7 +273,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
                 class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                 @click="addAgent(agent)"
               >
-                <UIcon :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold'" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold'" class="size-4 shrink-0 text-muted" aria-hidden="true" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
                   <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
@@ -288,7 +288,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
 
       <BaseEmptyState
         v-else-if="agentTeams"
-        icon="i-ph-robot-bold"
+        icon="i-ph-ghost-bold"
         title="No agents yet"
         message="An agent pairs a prompt version with a model. Create one here and it joins this experiment."
         action-label="New agent"
@@ -321,7 +321,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
             color="neutral"
             variant="ghost"
             size="sm"
-            icon="i-ph-robot-bold"
+            icon="i-ph-ghost-bold"
             @click="() => { showCreateAgent = true }"
           >
             New agent

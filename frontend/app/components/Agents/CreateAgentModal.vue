@@ -52,7 +52,7 @@ const formData = ref<CreateAgentForm & { tag_ids: number[] }>({
 const aggregator = computed(() => formData.value.kind === 'aggregator')
 
 const kindItems: { label: string, value: AgentKind, icon: string, hint: string }[] = [
-  { label: 'LLM agent', value: 'llm', icon: 'i-ph-robot-bold', hint: 'Calls a model with a prompt' },
+  { label: 'LLM agent', value: 'llm', icon: 'i-ph-ghost-bold', hint: 'Calls a model with a prompt' },
   { label: 'Aggregator', value: 'aggregator', icon: 'i-ph-function-bold', hint: 'Combines other agents\' outputs with formulas' },
 ]
 

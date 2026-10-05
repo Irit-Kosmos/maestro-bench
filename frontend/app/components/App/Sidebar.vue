@@ -35,7 +35,7 @@ const sections: { label?: string, items: NavItem[] }[] = [
       { label: 'Datasets', icon: 'i-ph-database', to: '/datasets', kbds: ['G', 'D'] },
       { label: 'Prompts', icon: 'i-ph-chat-text', to: '/prompts', kbds: ['G', 'P'] },
       { label: 'Models', icon: 'i-ph-cpu', to: '/models', kbds: ['G', 'M'] },
-      { label: 'Agents', icon: 'i-ph-robot', to: '/agents', kbds: ['G', 'A'] },
+      { label: 'Agents', icon: 'i-ph-ghost', to: '/agents', kbds: ['G', 'A'] },
     ],
   },
 ]
