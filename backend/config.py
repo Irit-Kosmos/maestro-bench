@@ -45,10 +45,18 @@ def _csv(name: str) -> list[str]:
 # Signs the OAuth state cookie and derives the CSRF tokens. Required.
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 
+# Encrypts the API keys that workspaces store (at least 32 random characters).
+# Without it workspaces cannot store keys and only the instance's keys are used.
+# Unlike SECRET_KEY, changing it makes the stored keys unreadable.
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
+
 # Where the browser reaches the UI and the API; the OAuth redirect URI registered
 # in GitLab is <PUBLIC_API_URL>/auth/gitlab/callback.
 FRONTEND_URL = os.getenv("FRONTEND_URL") or (CORS_ORIGINS[0] if CORS_ORIGINS else "")
 PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", f"http://localhost:{API_PORT}").rstrip("/")
+
+# How long an invitation link can be used
+INVITATION_DAYS = int(os.getenv("INVITATION_DAYS", "7"))
 
 SESSION_COOKIE_NAME = "maestro_session"
 SESSION_IDLE_DAYS = int(os.getenv("SESSION_IDLE_DAYS", "7"))

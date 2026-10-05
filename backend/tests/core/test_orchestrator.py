@@ -14,7 +14,7 @@ def llm(monkeypatch):
     answers: dict[str, str] = {}
     prompts: list[str] = []
 
-    async def fake_call_llm(model, provider, messages, temperature, max_tokens):
+    async def fake_call_llm(model, provider, messages, temperature, max_tokens, **_):
         prompts.append(messages[-1]["content"] if messages else "")
         return LLMResponse(content=answers[model], tokens_in=10, cost_usd=0.01)
 

@@ -4,6 +4,7 @@ const { relativePath } = useWorkspace()
 const router = useRouter()
 const shortcutsOpen = useShortcutsOverlay()
 const { toggle: toggleTheme } = useTheme()
+const { archived } = useCurrentWorkspace()
 
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
@@ -68,6 +69,15 @@ defineShortcuts({
       </template>
 
       <template #body>
+        <UAlert
+          v-if="archived"
+          class="mb-4 shrink-0"
+          color="warning"
+          variant="subtle"
+          icon="i-ph-archive-bold"
+          title="This workspace is archived"
+          description="It is read-only. An owner can reopen it in Settings."
+        />
         <slot />
       </template>
     </UDashboardPanel>

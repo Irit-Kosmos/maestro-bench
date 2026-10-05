@@ -207,6 +207,12 @@ export interface ProviderStatus {
   env_var: string
   /** What that variable holds: an API key, or the URL of a self-hosted server that needs no key */
   kind: 'key' | 'url'
+  /** Whose credentials the workspace's calls use: its own key, the instance's, or none */
+  source: 'workspace' | 'instance' | null
+  /** The end of the workspace's own key, the only part ever shown */
+  key_hint: string | null
+  /** Whether the workspace may store its own key (a key provider, on an instance that can encrypt) */
+  can_store_key: boolean
 }
 
 // Dashboard: recent runs with what their latest execution produced, and the last days' activity
@@ -596,4 +602,40 @@ export interface Workspace {
   name: string
   role: 'viewer' | 'editor' | 'owner'
   archived: boolean
+}
+
+export type WorkspaceRole = Workspace['role']
+
+export interface WorkspaceMember {
+  user_id: number
+  display_name: string
+  email: string | null
+  avatar_url: string | null
+  role: WorkspaceRole
+  joined_at: string
+}
+
+export interface WorkspaceInvitation {
+  id: number
+  role: WorkspaceRole
+  created_at: string
+  expires_at: string
+}
+
+/** Returned once, when the invitation is made: the token is not kept anywhere */
+export interface CreatedInvitation extends WorkspaceInvitation {
+  token: string
+}
+
+export interface InvitationPreview {
+  workspace_name: string
+  role: WorkspaceRole
+  invited_by: string | null
+}
+
+export interface AcceptedInvitation {
+  slug: string
+  name: string
+  role: WorkspaceRole
+  joined: boolean
 }

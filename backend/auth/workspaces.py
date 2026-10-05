@@ -29,6 +29,12 @@ class MembershipError(ValueError):
     """The change would break a rule of workspace membership."""
 
 
+def allows_archived(endpoint):
+    """Mark a route as usable on an archived workspace, which is otherwise read-only."""
+    endpoint.allows_archived = True
+    return endpoint
+
+
 def role_rank(role: str) -> int:
     return ROLES.index(role)
 
@@ -95,7 +101,9 @@ def workspace_context(
     needed = _required_role(request)
     if not context.can(needed):
         raise HTTPException(403, f"This needs the {needed} role in this workspace")
-    if context.archived and needed != "viewer":
+    route = request.scope.get("route")
+    archived_ok = getattr(getattr(route, "endpoint", None), "allows_archived", False)
+    if context.archived and needed != "viewer" and not archived_ok:
         raise HTTPException(409, "This workspace is archived: it is read-only")
     return context
 

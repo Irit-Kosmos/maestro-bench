@@ -61,7 +61,7 @@ class _RateLimiter:
     """
     Spaces out request starts to at most `rps` per second.
 
-    Shared by every experiment calling the same provider, since provider
+    Shared by every experiment calling with the same API key, since provider
     quotas apply per API key rather than per experiment.
     """
 
@@ -79,16 +79,21 @@ class _RateLimiter:
             await asyncio.sleep(slot - now)
 
 
-_rate_limiters: dict[str, _RateLimiter | None] = {}
+_rate_limiters: dict[tuple[str, str], _RateLimiter | None] = {}
 
 
-def _get_rate_limiter(provider: str) -> _RateLimiter | None:
-    """Return the provider's limiter, configured by e.g. MISTRAL_MAX_RPS."""
-    key = provider.lower()
-    if key not in _rate_limiters:
-        rps = os.getenv(f"{key.upper()}_MAX_RPS")
-        _rate_limiters[key] = _RateLimiter(float(rps)) if rps else None
-    return _rate_limiters[key]
+def _get_rate_limiter(provider: str, key_id: str = "instance") -> _RateLimiter | None:
+    """
+    Return the limiter of a provider's API key, configured by e.g. MISTRAL_MAX_RPS.
+
+    Each key has its own limit, as it has its own quota: workspaces using their own
+    key do not slow each other down, while those sharing the instance's key do.
+    """
+    provider = provider.lower()
+    if (provider, key_id) not in _rate_limiters:
+        rps = os.getenv(f"{provider.upper()}_MAX_RPS")
+        _rate_limiters[provider, key_id] = _RateLimiter(float(rps)) if rps else None
+    return _rate_limiters[provider, key_id]
 
 
 def _retry_delay(error: Exception, attempt: int) -> float:
@@ -124,6 +129,8 @@ async def call_llm(
     messages: list[dict],
     temperature: float = 0.0,
     max_tokens: int | None = None,
+    api_key: str | None = None,
+    key_id: str = "instance",
 ) -> LLMResponse:
     """
     Call an LLM via LiteLLM.
@@ -134,6 +141,9 @@ async def call_llm(
         messages: Chat messages in OpenAI format [{"role": ..., "content": ...}]
         temperature: Sampling temperature
         max_tokens: Maximum tokens to generate
+        api_key: Key to call the provider with; None uses the instance's
+            (the environment variable LiteLLM reads)
+        key_id: Which rate limit the call counts against (see _get_rate_limiter)
 
     Returns:
         LLMResponse with content, usage metrics, and cost
@@ -148,8 +158,10 @@ async def call_llm(
     }
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
+    if api_key is not None:
+        kwargs["api_key"] = api_key
 
-    rate_limiter = _get_rate_limiter(provider)
+    rate_limiter = _get_rate_limiter(provider, key_id)
     for attempt in range(LLM_MAX_RETRIES + 1):
         if rate_limiter:
             await rate_limiter.acquire()
