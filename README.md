@@ -149,6 +149,12 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 
 ## Usage
 
+A new workspace shows a **Get started** list at the bottom of the sidebar: connect a
+provider, add a dataset, write a prompt, register a model, create an agent, run an
+experiment. It ticks itself from what the workspace holds (`GET /setup`), and
+goes away once everything is done or when hidden. `C` creates what the current
+page lists (a dataset on Datasets, a prompt on Prompts...), an experiment elsewhere.
+
 1. **Models** - register the models you want to use (name as expected by the
    provider, e.g. `gpt-4o-mini`, `claude-sonnet-4-20250514`,
    `mistral-medium-2505`; for Ollama, the tag you pulled, e.g. `llama3.2:3b`,
@@ -156,8 +162,8 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
    key or server URL configured.
 2. **Prompts** - create a prompt and at least one version. Declare the variables
    the templates use so they can be mapped later.
-3. **Agents** - create a team, then agents with a default prompt version and
-   model.
+3. **Agents** - agents with a default prompt version and model. They are grouped
+   in teams; the first agent goes in a "Default" team created for it.
 4. **Datasets** - upload a CSV (UTF-8) or JSON file (a list of objects) with
    **New dataset**; it needs a header row and at least one row, and is limited
    to `MAX_UPLOAD_MB`. The file is stored in the workspace's own folder under a
