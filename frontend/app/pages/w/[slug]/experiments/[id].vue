@@ -183,17 +183,19 @@ async function handleRerunExperiment() {
     if (result.success) {
       toast.add({
         title: 'Success',
-        description: 'Experiment re-run started successfully! A new execution has been created.',
+        description: result.data.status === 'queued'
+          ? 'Your workspace is running as many experiments as it may: this one will start as soon as a slot is free.'
+          : 'Experiment re-run started successfully! A new execution has been created.',
         color: 'success',
-        icon: 'i-ph:play-bold',
+        icon: result.data.status === 'queued' ? 'i-ph:clock-bold' : 'i-ph:play-bold',
       })
 
       // Refresh the experiment and executions to show the new execution
       await loadExperiment()
 
-      // Update the experiment status to running
+      // Show the status right away, before the run says anything
       if (experiment.value) {
-        experiment.value.status = 'running'
+        experiment.value.status = result.data.status === 'queued' ? 'queued' : 'running'
       }
     }
     else {
@@ -234,7 +236,7 @@ async function handleCancelExperiment() {
   if (result.data.cancelled)
     toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-ph:check-circle-bold' })
   else
-    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-ph:info-bold' })
+    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running or waiting.', color: 'neutral', icon: 'i-ph:info-bold' })
   await loadExperiment()
 }
 
@@ -301,7 +303,7 @@ watch(() => route.params.id, () => {
             Vary
           </UButton>
         </UTooltip>
-        <UTooltip v-if="status === 'running'" text="Stop the run in progress">
+        <UTooltip v-if="status === 'running' || status === 'queued'" :text="status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'">
           <UButton
             variant="soft"
             color="error"

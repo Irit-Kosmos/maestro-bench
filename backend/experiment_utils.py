@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 import pandas as pd
 from sqlmodel import Session, select
 
-import results_files
+import workspace_files
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from dataset_utils import validate_dataset_file
@@ -38,10 +38,10 @@ class ExperimentConfigError(ValueError):
 
 
 def apply_dataset_sampling(
-    dataset_file_path: str, sampling_config: dict
+    workspace_id: int, dataset_file_path: str, sampling_config: dict
 ) -> pd.DataFrame:
     """Apply sampling configuration to a dataset and return the sampled DataFrame."""
-    dataset_full_path = validate_dataset_file(dataset_file_path)
+    dataset_full_path = validate_dataset_file(workspace_id, dataset_file_path)
     file_extension = dataset_full_path.suffix.lower()
 
     if file_extension == ".csv":
@@ -516,7 +516,7 @@ def process_pipeline_results(
     Returns:
         Summary dict with aggregated metrics
     """
-    results_dir = results_files.get_results_dir()
+    results_dir = workspace_files.results_dir(execution.workspace_id)
     results_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")[:-3]
@@ -568,8 +568,8 @@ def process_pipeline_results(
 
     logger.info("Results saved to %s", results_file_path)
 
-    # Stored relative to the data directory so the data can be moved around
-    stored_path = str(results_file_path.relative_to(results_files.get_data_dir()))
+    # Stored relative to the workspace's results folder so the data can be moved around
+    stored_path = str(results_file_path.relative_to(results_dir))
     if session:
         execution.results_file_path = stored_path
         # Store summary metrics on execution record

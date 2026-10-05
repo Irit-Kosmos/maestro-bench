@@ -22,6 +22,7 @@ venv/
 
 # Local data
 backend/results/
+/workspaces/
 *.db
 *.sqlite
 *.sqlite3

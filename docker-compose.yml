@@ -59,15 +59,16 @@ services:
       - DATA_DIR=/data
     volumes:
       - ./backend:/app
-      # Everything the app stores on disk lives under DATA_DIR (/data)
-      - ./datasets:/data/datasets
-      - ./backend/results:/data/results
+      # Everything the app stores on disk lives under DATA_DIR (/data), one
+      # folder per workspace
+      - maestro-data:/data
     networks:
       - maestro-network
     command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 volumes:
   maestro-pgdata:
+  maestro-data:
 
 networks:
   maestro-network:

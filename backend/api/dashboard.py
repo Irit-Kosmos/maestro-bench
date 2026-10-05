@@ -195,7 +195,9 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
             totals.completed += status == "completed"
             totals.failed += status == "failed"
     for started_at, status, tokens, cost, rows_done, rows_failed in executions:
-        has_failures = status != "cancelled" and (status == "failed" or rows_failed > 0)
+        has_failures = status not in ("cancelled", "interrupted") and (
+            status == "failed" or rows_failed > 0
+        )
         for totals in totals_at(started_at):
             totals.total_tokens += tokens or 0
             totals.total_cost_usd += cost or 0.0
@@ -209,7 +211,7 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
 
     active = session.exec(
         select(Experiment)
-        .where(col(Experiment.status).in_(("pending", "running")))
+        .where(col(Experiment.status).in_(("pending", "queued", "running")))
         .order_by(col(Experiment.created_at).desc())
     ).all()
 

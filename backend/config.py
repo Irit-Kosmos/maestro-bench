@@ -12,10 +12,20 @@ DATABASE_URL = os.getenv(
 )
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
 
-# Root of everything the app stores on disk: datasets live in <DATA_DIR>/datasets
-# and execution results in <DATA_DIR>/results. Paths kept in the database are
-# relative to the directory of their kind (datasets) or to DATA_DIR (results).
+# Root of everything the app stores on disk. Each workspace has its own folder,
+# <DATA_DIR>/workspaces/<id>/, with its datasets in datasets/ and its execution
+# results in results/. Paths kept in the database are relative to those folders.
 DATA_DIR = Path(os.getenv("DATA_DIR") or Path(__file__).resolve().parent.parent)
+
+# Largest dataset file accepted by an upload
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))
+
+# Experiments running at the same time. The ones over the limits wait in a queue.
+# One workspace cannot take all the slots of the instance.
+MAX_CONCURRENT_EXPERIMENTS = int(os.getenv("MAX_CONCURRENT_EXPERIMENTS", "8"))
+MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE = int(
+    os.getenv("MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE", "3")
+)
 
 CORS_ORIGINS = [
     origin.strip()

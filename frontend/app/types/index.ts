@@ -136,7 +136,7 @@ export interface Experiment {
 }
 
 // 'partial' only exists for batches: some experiments completed, others did not
-export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial'
+export type ExperimentStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'partial'
 
 // Live state of an execution, as pushed by the /events stream (failed rows are counted in rows_done)
 export interface RunState {
@@ -318,7 +318,8 @@ export interface CreateExperimentForm {
 export interface CreateDatasetForm {
   name: string
   description: string
-  file_path?: string
+  /** The CSV or JSON file to upload */
+  file: File
 }
 
 export interface CreateAgentTeamForm {

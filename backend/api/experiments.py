@@ -24,6 +24,7 @@ from tables import (
     ExperimentAgentConfig,
     ExperimentExecution,
 )
+from workspace_scope import current_workspace_id
 
 router = APIRouter(tags=["experiments"])
 logger = logging.getLogger(__name__)
@@ -136,10 +137,14 @@ async def create_experiment(
 
     experiment_id = int(experiment.id) if experiment.id is not None else 0
     try:
-        async_jobs.start_experiment(experiment_id)
-        logger.info("Experiment %s dispatched", experiment_id)
+        outcome = async_jobs.start_experiment(
+            experiment_id, current_workspace_id(session)
+        )
+        logger.info("Experiment %s dispatched (%s)", experiment_id, outcome)
     except Exception:
         logger.exception("Failed to start experiment %s", experiment_id)
+    # A full workspace queues the run: the response must say so
+    session.refresh(experiment)
 
     return _build_experiment_response(experiment, session)
 
@@ -202,11 +207,14 @@ async def rerun_experiment(
         )
 
     try:
-        async_jobs.start_experiment(experiment_id)
+        outcome = async_jobs.start_experiment(
+            experiment_id, current_workspace_id(session)
+        )
         return {
             "experiment_id": experiment_id,
-            "message": "Experiment re-run started successfully",
-            "status": "started",
+            "message": "Experiment re-run "
+            + ("queued" if outcome == "queued" else "started successfully"),
+            "status": outcome,
         }
     except Exception as e:
         raise HTTPException(

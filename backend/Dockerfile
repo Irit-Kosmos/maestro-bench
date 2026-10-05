@@ -3,7 +3,8 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-# Datasets and execution results; mount a volume here to keep them
+# One folder per workspace with its datasets and execution results; mount a
+# volume here to keep them
 ENV DATA_DIR=/data
 
 WORKDIR /app

@@ -14,8 +14,8 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlmodel import Session, SQLModel, create_engine
 
-import results_files
 import tables  # noqa: F401  (registers every table on SQLModel.metadata)
+import workspace_files
 from config import DATABASE_URL
 from workspace_scope import scope_session
 
@@ -98,5 +98,21 @@ def session(engine):
 @pytest.fixture(autouse=True)
 def data_dir(tmp_path, monkeypatch):
     """Keep every test's files (results, datasets) out of the real data directory."""
-    monkeypatch.setattr(results_files, "get_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(workspace_files, "get_data_dir", lambda: tmp_path)
     return tmp_path
+
+
+@pytest.fixture
+def datasets_dir(data_dir):
+    """The datasets folder of the test workspace."""
+    path = workspace_files.datasets_dir(TEST_WORKSPACE_ID)
+    path.mkdir(parents=True)
+    return path
+
+
+@pytest.fixture
+def results_dir(data_dir):
+    """The results folder of the test workspace."""
+    path = workspace_files.results_dir(TEST_WORKSPACE_ID)
+    path.mkdir(parents=True)
+    return path

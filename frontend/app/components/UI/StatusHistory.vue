@@ -16,6 +16,7 @@ const COLORS: Record<string, string> = {
   partial: 'bg-warning',
   failed: 'bg-error',
   cancelled: 'bg-orange-600 dark:bg-orange-400',
+  interrupted: 'bg-orange-600 dark:bg-orange-400',
 }
 
 const FALLBACK = 'bg-neutral-400 dark:bg-neutral-500'

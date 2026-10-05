@@ -32,7 +32,11 @@ REAL_START_EXPERIMENT = async_jobs.start_experiment
 def jobs(monkeypatch):
     """Experiments handed to the background runner, instead of running."""
     jobs = SimpleNamespace(started=[], cancelled=[])
-    monkeypatch.setattr(async_jobs, "start_experiment", jobs.started.append)
+    monkeypatch.setattr(
+        async_jobs,
+        "start_experiment",
+        lambda eid, workspace_id: jobs.started.append(eid) or "started",
+    )
     monkeypatch.setattr(
         async_jobs, "cancel_experiment", lambda eid: jobs.cancelled.append(eid) or True
     )

@@ -47,6 +47,7 @@ from tables import (
     Model,
     PromptVersion,
 )
+from workspace_scope import current_workspace_id
 
 router = APIRouter(tags=["batches"])
 logger = logging.getLogger(__name__)
@@ -395,9 +396,10 @@ async def create_batch(
         experiment_ids.append(int(experiment.id) if experiment.id is not None else 0)
     session.commit()
 
+    workspace_id = current_workspace_id(session)
     for experiment_id in experiment_ids:
         try:
-            async_jobs.start_experiment(experiment_id)
+            async_jobs.start_experiment(experiment_id, workspace_id)
         except Exception:
             logger.exception("Failed to start experiment %s", experiment_id)
     logger.info("Batch %s dispatched (%d experiments)", batch.id, len(experiment_ids))
@@ -416,7 +418,7 @@ def get_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
 
 @router.post("/batches/{batch_id}/cancel", response_model=BatchCancelResponse)
 def cancel_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
-    """Cancel every experiment of the batch that is still running."""
+    """Cancel every experiment of the batch that is running or waiting to run."""
     batch = session.get(Batch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
@@ -434,8 +436,8 @@ async def rerun_batch(batch_id: int, session: Annotated[Session, Depends(get_ses
     """Run again every experiment of the batch that is not running.
 
     Each one gets a new execution with its own configuration, and the batch's
-    sample, so the variants stay comparable. Running experiments are left alone:
-    restarting one would cancel its current run.
+    sample, so the variants stay comparable. Running and queued experiments are left
+    alone: restarting a running one would cancel its current run.
 
     Async, unlike the other handlers that read the batch: starting an experiment
     schedules an asyncio task, which needs the event loop a sync handler (run in
@@ -450,14 +452,15 @@ async def rerun_batch(batch_id: int, session: Annotated[Session, Depends(get_ses
 
     started = 0
     skipped = 0
+    workspace_id = current_workspace_id(session)
     for experiment in experiments:
         if experiment.id is None:
             continue
-        if experiment.status == "running":
+        if experiment.status in ("running", "queued"):
             skipped += 1
             continue
         try:
-            async_jobs.start_experiment(int(experiment.id))
+            async_jobs.start_experiment(int(experiment.id), workspace_id)
             started += 1
         except Exception:
             logger.exception("Failed to start experiment %s", experiment.id)

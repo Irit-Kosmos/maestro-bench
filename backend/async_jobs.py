@@ -13,8 +13,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
-from sqlmodel import Session, select
+from sqlalchemy import update
+from sqlmodel import Session, col, select
 
+import config
 import event_bus
 from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
 from dataset_utils import count_csv_rows, validate_dataset_file
@@ -39,20 +41,29 @@ DEFAULT_CHUNK_SIZE = 5
 DEFAULT_MAX_CONCURRENT = 2
 
 # ---------------------------------------------------------------------------
-# Task registry — maps experiment_id → running asyncio.Task
+# Scheduler — at most N experiments run at once, the others wait their turn
 # ---------------------------------------------------------------------------
 
+# experiment_id → the asyncio.Task running it. An entry stays until the task is done.
 _running_tasks: dict[int, asyncio.Task] = {}
+_workspace_of_task: dict[int, int] = {}
+# Experiments waiting for a free slot, oldest first: (experiment_id, workspace_id)
+_queue: list[tuple[int, int]] = []
 
 
-def start_experiment(experiment_id: int) -> bool:
-    """Schedule an experiment run as a background asyncio Task."""
-    existing = _running_tasks.get(experiment_id)
-    if existing and not existing.done():
-        existing.cancel()
+def _has_room(workspace_id: int) -> bool:
+    """Whether another experiment of the workspace may start right now."""
+    in_workspace = sum(1 for w in _workspace_of_task.values() if w == workspace_id)
+    return (
+        len(_running_tasks) < config.MAX_CONCURRENT_EXPERIMENTS
+        and in_workspace < config.MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE
+    )
 
+
+def _launch(experiment_id: int, workspace_id: int) -> None:
     task = asyncio.create_task(run_experiment_async(experiment_id))
     _running_tasks[experiment_id] = task
+    _workspace_of_task[experiment_id] = workspace_id
 
     def _cleanup(finished: asyncio.Task, eid: int = experiment_id) -> None:
         # Only drop the entry if it still points at this task. A re-run may have
@@ -60,18 +71,108 @@ def start_experiment(experiment_id: int) -> bool:
         # late — without this check it would evict the live replacement.
         if _running_tasks.get(eid) is finished:
             _running_tasks.pop(eid, None)
+            _workspace_of_task.pop(eid, None)
+        _start_waiting()
 
     task.add_done_callback(_cleanup)
-    return True
+
+
+def _start_waiting() -> None:
+    """Start the oldest waiting experiments that now have a slot.
+
+    A workspace that is at its limit does not hold back the others: its
+    experiments are skipped until one of its own runs ends.
+    """
+    for entry in list(_queue):
+        if _has_room(entry[1]):
+            _queue.remove(entry)
+            _launch(*entry)
+
+
+def start_experiment(experiment_id: int, workspace_id: int) -> str:
+    """Run an experiment now, or queue it when the limits are reached.
+
+    Returns "started" or "queued". Starting an experiment that is already running
+    restarts it on the slot it holds; one that is already queued keeps its place.
+    """
+    existing = _running_tasks.get(experiment_id)
+    if existing and not existing.done():
+        existing.cancel()
+        _launch(experiment_id, workspace_id)
+        return "started"
+
+    if any(queued_id == experiment_id for queued_id, _ in _queue):
+        return "queued"
+
+    if _has_room(workspace_id):
+        _launch(experiment_id, workspace_id)
+        return "started"
+
+    _queue.append((experiment_id, workspace_id))
+    _mark_queued(experiment_id)
+    logger.info("Experiment %s queued", experiment_id)
+    return "queued"
 
 
 def cancel_experiment(experiment_id: int) -> bool:
-    """Cancel a running experiment task."""
+    """Cancel a running experiment task, or take a waiting one out of the queue."""
+    waiting = next((e for e in _queue if e[0] == experiment_id), None)
+    if waiting is not None:
+        _queue.remove(waiting)
+        _close_run(experiment_id, "cancelled", "cancelled while queued")
+        return True
+
     task = _running_tasks.get(experiment_id)
     if task and not task.done():
         task.cancel()
         return True
     return False
+
+
+def _mark_queued(experiment_id: int) -> None:
+    """Record that an experiment waits, and tell the clients."""
+    try:
+        with Session(engine) as db_session:
+            experiment = db_session.get(Experiment, experiment_id)
+            if not experiment:
+                return
+            scope_session(db_session, experiment.workspace_id)
+            experiment.status = "queued"
+            db_session.add(experiment)
+            db_session.commit()
+            state = RunState(
+                experiment_id=experiment_id,
+                batch_id=experiment.batch_id,
+                status="queued",
+            )
+            workspace_id = experiment.workspace_id
+        event_bus.publish(
+            RunEvent(name="status", state=state, workspace_id=workspace_id)
+        )
+    except Exception:
+        logger.exception("Failed to mark experiment %s as queued", experiment_id)
+
+
+def reap_interrupted_runs() -> int:
+    """Close the runs a restart cut short; returns how many experiments it closed.
+
+    Runs only live in this process, so at startup none can still be going: every
+    experiment left "running" or "queued" would stay that way forever. There must
+    be a single backend process for this to hold.
+    """
+    with Session(engine) as db_session:
+        db_session.execute(
+            update(ExperimentExecution)
+            .where(col(ExperimentExecution.status) == "running")
+            .values(status="interrupted", completed_at=datetime.now(UTC))
+        )
+        result = db_session.execute(
+            update(Experiment)
+            .where(col(Experiment.status).in_(("running", "queued")))
+            .values(status="interrupted")
+        )
+        db_session.commit()
+        return result.rowcount
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +373,9 @@ class _ExperimentProcessor:
         if not dataset_file_path:
             raise ValueError("Dataset file path not found in snapshot")
 
-        chunks, total = await self._open_dataset(dataset_file_path, sampling_config)
+        chunks, total = await self._open_dataset(
+            execution.workspace_id, dataset_file_path, sampling_config
+        )
         self.progress.start(total)
 
         # Process all rows
@@ -289,14 +392,16 @@ class _ExperimentProcessor:
         return process_pipeline_results(execution, all_results, db_session)
 
     async def _open_dataset(
-        self, dataset_file_path: str, sampling_config: dict
+        self, workspace_id: int, dataset_file_path: str, sampling_config: dict
     ) -> tuple[AsyncGenerator[pd.DataFrame, None], int]:
         """Chunks of the rows to run, and how many rows there are in all."""
-        dataset_full_path = validate_dataset_file(dataset_file_path)
+        dataset_full_path = validate_dataset_file(workspace_id, dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")
 
         if sampling_type == "random":
-            df = apply_dataset_sampling(dataset_file_path, sampling_config)
+            df = apply_dataset_sampling(
+                workspace_id, dataset_file_path, sampling_config
+            )
             return self._dataframe_to_chunks(df), len(df)
 
         file_rows = await asyncio.to_thread(count_csv_rows, dataset_full_path)

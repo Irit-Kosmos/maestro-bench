@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+import async_jobs
 import config
 from api import (
     agent_teams,
@@ -47,6 +48,8 @@ async def lifespan(app: FastAPI):
     validate_config([p.name for p in setup_providers()])
     init_db()
     logger.info("Database schema is up to date")
+    if interrupted := async_jobs.reap_interrupted_runs():
+        logger.warning("Marked %d experiment(s) left running as interrupted", interrupted)
     logger.info("MAESTRO-bench API started")
     yield
 

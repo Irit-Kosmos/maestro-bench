@@ -9,11 +9,13 @@ import { parseApiDate } from './utils'
 // Same colours as the status icon of the tables
 const STATUSES = {
   pending: { label: 'Pending', icon: 'i-ph-circle-dashed-bold', iconClass: 'text-muted' },
+  queued: { label: 'Queued', icon: 'i-ph-clock-bold', iconClass: 'text-muted' },
   running: { label: 'Running', icon: 'i-ph-circle-notch-bold', iconClass: 'text-warning' },
   completed: { label: 'Completed', icon: 'i-ph-check-circle-bold', iconClass: 'text-success' },
   partial: { label: 'Partial', icon: 'i-ph-warning-circle-bold', iconClass: 'text-warning' },
   failed: { label: 'Failed', icon: 'i-ph-x-circle-bold', iconClass: 'text-error' },
   cancelled: { label: 'Cancelled', icon: 'i-ph-prohibit-bold', iconClass: 'text-orange-600 dark:text-orange-400' },
+  interrupted: { label: 'Interrupted', icon: 'i-ph-pause-circle-bold', iconClass: 'text-orange-600 dark:text-orange-400' },
 } as const
 
 type KnownStatus = keyof typeof STATUSES

@@ -165,7 +165,7 @@ class Experiment(Authored, table=True):
     dataset_id: int = Field(foreign_key="dataset.id")
     status: str = Field(
         default="pending"
-    )  # pending, running, completed, failed, cancelled
+    )  # pending, queued, running, completed, failed, cancelled, interrupted
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
@@ -255,7 +255,7 @@ class ExperimentExecution(WorkspaceOwned, table=True):
     # Execution metadata
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
-    status: str = Field(default="running")  # running, completed, failed, cancelled
+    status: str = Field(default="running")  # running, completed, failed, cancelled, interrupted
 
     # Live progress, in dataset rows; rows_failed are counted in rows_done
     rows_total: int | None = None

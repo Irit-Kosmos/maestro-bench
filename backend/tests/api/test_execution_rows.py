@@ -60,15 +60,14 @@ def _add_execution(engine, results_file: str | None) -> int:
         return execution.id
 
 
-def _results_file(tmp_path, rows=ROWS) -> str:
-    (tmp_path / "results").mkdir(exist_ok=True)
-    path = tmp_path / "results" / "results.json"
+def _results_file(results_dir, rows=ROWS) -> str:
+    path = results_dir / "results.json"
     path.write_text(json.dumps({"rows": rows}))
-    return str(path.relative_to(tmp_path))
+    return path.name
 
 
-def test_returns_input_and_parsed_agent_output(client, engine, tmp_path):
-    execution_id = _add_execution(engine, _results_file(tmp_path))
+def test_returns_input_and_parsed_agent_output(client, engine, results_dir):
+    execution_id = _add_execution(engine, _results_file(results_dir))
 
     response = client.get(f"/executions/{execution_id}/rows/1")
 
@@ -87,7 +86,7 @@ def test_returns_input_and_parsed_agent_output(client, engine, tmp_path):
     ]
 
 
-def test_aggregator_rows_carry_their_inputs(client, engine, tmp_path):
+def test_aggregator_rows_carry_their_inputs(client, engine, results_dir):
     rows = [
         {
             "row_index": 1,
@@ -103,7 +102,7 @@ def test_aggregator_rows_carry_their_inputs(client, engine, tmp_path):
             ],
         }
     ]
-    execution_id = _add_execution(engine, _results_file(tmp_path, rows))
+    execution_id = _add_execution(engine, _results_file(results_dir, rows))
 
     agent = client.get(f"/executions/{execution_id}/rows/1").json()["agents"][0]
 
@@ -111,8 +110,8 @@ def test_aggregator_rows_carry_their_inputs(client, engine, tmp_path):
     assert agent["inputs"] == {"a": 3, "w": 0.5}
 
 
-def test_carries_agent_and_row_errors(client, engine, tmp_path):
-    execution_id = _add_execution(engine, _results_file(tmp_path))
+def test_carries_agent_and_row_errors(client, engine, results_dir):
+    execution_id = _add_execution(engine, _results_file(results_dir))
 
     body = client.get(f"/executions/{execution_id}/rows/2").json()
 
@@ -120,8 +119,8 @@ def test_carries_agent_and_row_errors(client, engine, tmp_path):
     assert body["agents"][0]["error"] == "timeout"
 
 
-def test_unknown_row_is_404(client, engine, tmp_path):
-    execution_id = _add_execution(engine, _results_file(tmp_path))
+def test_unknown_row_is_404(client, engine, results_dir):
+    execution_id = _add_execution(engine, _results_file(results_dir))
 
     assert client.get(f"/executions/{execution_id}/rows/99").status_code == 404
 

@@ -15,13 +15,13 @@ def dataset(tmp_path, monkeypatch):
     path = tmp_path / "answers.csv"
     path.write_text(CSV)
     for module in (async_jobs, experiment_utils):
-        monkeypatch.setattr(module, "validate_dataset_file", lambda _: path)
+        monkeypatch.setattr(module, "validate_dataset_file", lambda *_: path)
     return "answers.csv"
 
 
 async def open_dataset(dataset, sampling_config):
     processor = _ExperimentProcessor(progress=None, chunk_size=5)
-    chunks, total = await processor._open_dataset(dataset, sampling_config)
+    chunks, total = await processor._open_dataset(1, dataset, sampling_config)
     return total, sum([len(chunk) async for chunk in chunks])
 
 

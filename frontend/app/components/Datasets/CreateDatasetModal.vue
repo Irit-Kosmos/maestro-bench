@@ -22,10 +22,10 @@ const show = computed({
 })
 
 // Form state
-const formData = ref<CreateDatasetForm>({
+const formData = ref({
   name: '',
   description: '',
-  file_path: '',
+  file: null as File | null,
 })
 
 const isSubmitting = ref(false)
@@ -34,6 +34,14 @@ const isSubmitting = ref(false)
 const formValid = computed(() => {
   return formData.value.name.trim()
     && formData.value.description.trim()
+    && formData.value.file
+})
+
+// The file names the dataset until the user types another name
+watch(() => formData.value.file, (file, previous) => {
+  const stem = (value: File | null) => value?.name.replace(/\.[^.]+$/, '') ?? ''
+  if (file && (!formData.value.name.trim() || formData.value.name === stem(previous)))
+    formData.value.name = stem(file)
 })
 
 // Methods
@@ -41,7 +49,7 @@ function resetForm() {
   formData.value = {
     name: '',
     description: '',
-    file_path: '',
+    file: null,
   }
 }
 
@@ -50,20 +58,16 @@ function handleCancel() {
 }
 
 async function handleSubmit() {
-  if (!formValid.value)
+  const { file } = formData.value
+  if (!formValid.value || !file)
     return
 
   isSubmitting.value = true
   try {
-    // Clean up the form data before emitting
     const submitData: CreateDatasetForm = {
       name: formData.value.name.trim(),
       description: formData.value.description.trim(),
-    }
-
-    // Only include file_path if it's not empty
-    if (formData.value.file_path?.trim()) {
-      submitData.file_path = formData.value.file_path.trim()
+      file,
     }
 
     emit('submit', submitData)
@@ -112,17 +116,15 @@ async function handleSubmit() {
             </div>
 
             <div>
-              <UFormField label="File Path (Optional)">
-                <UInput
-                  v-model="formData.file_path"
-                  class="w-full"
-                  placeholder="Enter file path (e.g., /path/to/dataset.csv)"
+              <UFormField label="File">
+                <UFileUpload
+                  v-model="formData.file"
+                  accept=".csv,.json"
+                  label="Drop a file here or browse"
+                  description="CSV or JSON, one row per input"
+                  icon="i-ph-file-arrow-up-bold"
+                  class="w-full min-h-32"
                 />
-                <template #help>
-                  <span class="text-xs text-muted">
-                    You can specify a file path or upload a file later
-                  </span>
-                </template>
               </UFormField>
             </div>
           </div>

@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-import dataset_utils
 from api import agents, datasets, models, prompts
 from db import get_session
 from tables import (
@@ -35,12 +34,6 @@ def client(engine):
 
     app.dependency_overrides[get_session] = _session
     return TestClient(app)
-
-
-@pytest.fixture
-def datasets_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(dataset_utils, "get_datasets_dir", lambda: tmp_path)
-    return tmp_path
 
 
 @pytest.fixture
