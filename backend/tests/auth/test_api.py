@@ -269,3 +269,21 @@ def test_deactivating_a_user_cuts_them_off_at_once(client, session):
     set_active(session, session.exec(select(User)).one(), False)
 
     assert client.get("/things").status_code == 401
+
+
+def test_signing_in_as_the_first_instance_admin_claims_the_default_workspace(
+    client, session, monkeypatch
+):
+    from tables import Membership, Workspace
+
+    monkeypatch.setattr(config, "INSTANCE_ADMINS", ["remi@irit.fr"])
+    session.add(Workspace(slug="default", name="Default"))
+    session.commit()
+
+    sign_in_via_callback(client)
+
+    member = session.exec(select(Membership)).one()
+    assert (member.role, session.exec(select(User)).one().id) == (
+        "owner",
+        member.user_id,
+    )

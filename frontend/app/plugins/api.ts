@@ -3,12 +3,22 @@ const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS']
 export default defineNuxtPlugin({
   setup(nuxtApp) {
     const { csrfToken, forget } = useAuth()
+    const router = useRouter()
 
     const api = $fetch.create({
       baseURL: `${useRuntimeConfig().public.BACK_URL}/`,
       // The session cookie is HttpOnly and belongs to the API's origin
       credentials: 'include',
-      onRequest({ options }) {
+      onRequest(context) {
+        // What the app holds lives in the workspace of the URL: callers say `/experiments`
+        const { request, options } = context
+        if (typeof request === 'string' && isWorkspaceApiPath(request)) {
+          const slug = workspaceOfPath(router.currentRoute.value.path)
+          if (!slug)
+            throw new Error(`No workspace selected for ${request}`)
+          context.request = `/workspaces/${slug}${request}`
+        }
+
         if (SAFE_METHODS.includes((options.method ?? 'GET').toUpperCase()) || !csrfToken.value)
           return
         const headers = new Headers(options.headers)

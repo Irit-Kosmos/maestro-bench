@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const { relativePath } = useWorkspace()
 const router = useRouter()
 const shortcutsOpen = useShortcutsOverlay()
 const { toggle: toggleTheme } = useTheme()
@@ -51,7 +52,7 @@ defineShortcuts({
   't': toggleTheme,
   // Create from anywhere: an analysis on analysis pages, an experiment otherwise
   'c': () => {
-    router.push(route.path.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
+    router.push(relativePath.value.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
   },
 })
 </script>

@@ -60,3 +60,6 @@ INSTANCE_ADMINS = [email.lower() for email in _csv("INSTANCE_ADMINS")]
 AUTH_GITLAB_BASE_URL = os.getenv("AUTH_GITLAB_BASE_URL", "").rstrip("/")
 AUTH_GITLAB_CLIENT_ID = os.getenv("AUTH_GITLAB_CLIENT_ID", "")
 AUTH_GITLAB_CLIENT_SECRET = os.getenv("AUTH_GITLAB_CLIENT_SECRET", "")
+
+# Who may create workspaces: "any" signed-in user, or only the "admins"
+WORKSPACE_CREATION = os.getenv("WORKSPACE_CREATION", "any").lower()

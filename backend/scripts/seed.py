@@ -5,12 +5,14 @@ Creates prompts, models, agent teams, agents, and the sample datasets.
 
 It only adds what is missing (matched by name) and never deletes or edits
 anything, so it is safe to run on a database that already holds your data, and
-to run again.
+to run again. It works inside one workspace (the "default" one unless told
+otherwise) and never touches the others.
 
 Usage (from the backend/ directory):
-    uv run python scripts/seed.py
+    uv run python scripts/seed.py [--workspace SLUG]
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -31,7 +33,9 @@ from tables import (
     PromptVersion,
     Tag,
     TagLink,
+    Workspace,
 )
+from workspace_scope import scope_session
 
 
 def _get_or_create(session: Session, model: type[SQLModel], lookup: dict, **fields):
@@ -61,13 +65,17 @@ def _tag(session: Session, tag: Tag, prompt: Prompt) -> None:
 created_counts: dict[str, int] = {}
 
 
-def seed_data() -> None:
-    """Create initial data for development/testing."""
+def seed_data(workspace: str = "default") -> None:
+    """Create initial data for development/testing in a workspace."""
 
     init_db()
     created_counts.clear()
 
     with Session(engine) as session:
+        target = session.exec(select(Workspace).where(Workspace.slug == workspace)).first()
+        if target is None:
+            sys.exit(f"No workspace {workspace!r}: create it first")
+        scope_session(session, target.id)
         # ------------------------------------------------------------------
         # 1. Models
         # ------------------------------------------------------------------
@@ -295,4 +303,8 @@ Your response must be in the same language as the query!""",
 
 
 if __name__ == "__main__":
-    seed_data()
+    parser = argparse.ArgumentParser(description="Add the sample data to a workspace")
+    parser.add_argument(
+        "--workspace", default="default", help="slug of the workspace (default: default)"
+    )
+    seed_data(parser.parse_args().workspace)

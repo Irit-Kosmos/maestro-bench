@@ -15,10 +15,12 @@ import results_files
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from dataset_utils import validate_dataset_file
+from references import missing_ids
 from schemas.experiments import ExperimentCreate
 from tables import (
     Agent,
     AgentExecutionSnapshot,
+    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -88,8 +90,10 @@ def add_experiment(
     can make them all-or-nothing. ``agent_overrides`` replaces fields of the
     submitted configuration of an agent (how a batch varies its experiments).
 
-    Raises ExperimentConfigError when an aggregator cannot run.
+    Raises ExperimentConfigError when an aggregator cannot run, or when the
+    request points to something that is not in the session's workspace.
     """
+    _check_references(session, exp_data, agent_overrides)
     experiment = Experiment(
         name=name or exp_data.name,
         description=exp_data.description,
@@ -185,8 +189,60 @@ def add_experiment(
                 configs.append((agent, config))
 
     _check_aggregators(configs)
+    _check_mapped_agents(session, configs)
     session.flush()
     return experiment
+
+
+def _check_references(
+    session: Session,
+    exp_data: ExperimentCreate,
+    agent_overrides: dict[int, dict] | None,
+) -> None:
+    """Everything an experiment is built from must be in the workspace it is created in."""
+    configurations = [
+        {**(config or {}), **(agent_overrides or {}).get(_as_int(agent_id), {})}
+        for agent_id, config in (exp_data.agent_configurations or {}).items()
+    ]
+    for label, table, ids in (
+        ("Dataset", Dataset, [exp_data.dataset_id]),
+        ("Agent team", AgentTeam, [_as_int(t) for t in exp_data.agent_teams or []]),
+        ("Agent", Agent, [_as_int(a) for a in exp_data.agent_configurations or {}]),
+        (
+            "Prompt version",
+            PromptVersion,
+            [c["prompt_version_id"] for c in configurations if c.get("prompt_version_id")],
+        ),
+        (
+            "Model",
+            Model,
+            [c["model_id"] for c in configurations if c.get("model_id")],
+        ),
+    ):
+        if missing := missing_ids(session, table, ids):
+            raise ExperimentConfigError(f"{label} {missing[0]} not found")
+
+
+def _check_mapped_agents(
+    session: Session, configs: list[tuple[Agent, ExperimentAgentConfig]]
+) -> None:
+    """The agents whose outputs an agent reads must be in the workspace."""
+    mapped = [
+        mapping.get("sourceAgentId")
+        for _, config in configs
+        for mapping in json.loads(config.input_mappings or "[]")
+        if isinstance(mapping, dict) and mapping.get("source") == "agent"
+    ]
+    if missing := missing_ids(session, Agent, [a for a in mapped if a is not None]):
+        raise ExperimentConfigError(f"Agent {missing[0]} not found")
+
+
+def _as_int(value: object) -> object:
+    """Ids arrive as JSON keys (strings); anything else is left to be refused."""
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return value
 
 
 def _check_aggregators(configs: list[tuple[Agent, ExperimentAgentConfig]]) -> None:

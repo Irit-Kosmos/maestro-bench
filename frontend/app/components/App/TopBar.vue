@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const route = useRoute()
+const { relativePath } = useWorkspace()
 const labels = useBreadcrumbLabels()
 
 const labelMap: Record<string, { label: string, icon: string }> = {
@@ -16,10 +16,10 @@ const labelMap: Record<string, { label: string, icon: string }> = {
 }
 
 const breadcrumbs = computed(() => {
-  if (route.path === '/')
+  if (relativePath.value === '/')
     return [{ label: 'Dashboard', icon: 'i-ph-squares-four' }]
 
-  const paths = route.path.split('/').filter(Boolean)
+  const paths = relativePath.value.split('/').filter(Boolean)
   const items: { label: string, to?: string, icon?: string }[] = []
 
   let currentPath = ''

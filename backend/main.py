@@ -25,9 +25,10 @@ from api import (
     tags,
 )
 from api import auth as auth_api
-from auth.deps import require_user
+from api import workspaces as workspaces_api
 from auth.policy import validate_config
 from auth.providers import setup_providers
+from auth.workspaces import scope_to_workspace
 from config import API_HOST, API_PORT, CORS_ORIGINS
 from db import init_db
 
@@ -74,24 +75,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Every route needs a signed-in user, except the sign-in routes and /health
-PROTECTED = [Depends(require_user)]
-
 app.include_router(auth_api.router)
-app.include_router(datasets.router, dependencies=PROTECTED)
-app.include_router(experiments.router, dependencies=PROTECTED)
-app.include_router(agent_teams.router, dependencies=PROTECTED)
-app.include_router(agents.router, dependencies=PROTECTED)
-app.include_router(aggregators.router, dependencies=PROTECTED)
-app.include_router(experiment_executions.router, dependencies=PROTECTED)
-app.include_router(prompts.router, dependencies=PROTECTED)
-app.include_router(models.router, dependencies=PROTECTED)
-app.include_router(providers.router, dependencies=PROTECTED)
-app.include_router(analyses.router, dependencies=PROTECTED)
-app.include_router(tags.router, dependencies=PROTECTED)
-app.include_router(batches.router, dependencies=PROTECTED)
-app.include_router(dashboard.router, dependencies=PROTECTED)
-app.include_router(events.router, dependencies=PROTECTED)
+app.include_router(workspaces_api.router)
+
+# What a workspace holds lives under /workspaces/{slug}: the user must belong to it,
+# with the role the route needs, and the request's database session only sees it
+WORKSPACE_ROUTERS = [
+    datasets,
+    experiments,
+    agent_teams,
+    agents,
+    aggregators,
+    experiment_executions,
+    prompts,
+    models,
+    providers,
+    analyses,
+    tags,
+    batches,
+    dashboard,
+    events,
+]
+for module in WORKSPACE_ROUTERS:
+    app.include_router(
+        module.router,
+        prefix="/workspaces/{slug}",
+        dependencies=[Depends(scope_to_workspace)],
+    )
 
 
 @app.get("/health")

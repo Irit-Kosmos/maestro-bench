@@ -3,15 +3,18 @@ API router for the live run stream (Server-Sent Events)
 """
 
 from collections.abc import AsyncIterable
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from sqlmodel import Session, col, select
 
 import event_bus
+from auth.workspaces import WorkspaceContext, workspace_context
 from db import engine
 from schemas.events import RunState
 from tables import Experiment, ExperimentExecution
+from workspace_scope import scope_session
 
 router = APIRouter(tags=["events"])
 
@@ -38,16 +41,20 @@ def _running_states(session: Session) -> list[RunState]:
 
 @router.get("/events", response_class=EventSourceResponse)
 async def stream_events(
-    experiment_id: int | None = None, batch_id: int | None = None
+    context: Annotated[WorkspaceContext, Depends(workspace_context)],
+    experiment_id: int | None = None,
+    batch_id: int | None = None,
 ) -> AsyncIterable[ServerSentEvent]:
     """
-    State of the running executions, then every change to them as it happens.
+    State of the running executions of the workspace, then every change to them
+    as it happens. Other workspaces' runs are never sent.
 
     The stream is subscribed to before the snapshot is read, so no change falls
     between the two.
     """
     with event_bus.subscribe() as queue:
         with Session(engine) as session:
+            scope_session(session, context.id)
             snapshot = _running_states(session)
         for state in snapshot:
             if _wanted(state, experiment_id, batch_id):
@@ -55,5 +62,7 @@ async def stream_events(
 
         while True:
             event = await queue.get()
-            if _wanted(event.state, experiment_id, batch_id):
+            if event.workspace_id == context.id and _wanted(
+                event.state, experiment_id, batch_id
+            ):
                 yield ServerSentEvent(data=event.state, event=event.name)

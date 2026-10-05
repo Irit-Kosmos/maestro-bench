@@ -4,6 +4,7 @@ from alembic import command
 from alembic.config import Config
 from sqlmodel import Session, create_engine
 
+import workspace_scope  # noqa: F401  (registers the workspace scoping on every session)
 from config import DATABASE_URL, DB_ECHO
 
 # Naive UTC datetimes are stored in TIMESTAMP WITHOUT TIME ZONE columns:

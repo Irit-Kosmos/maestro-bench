@@ -22,6 +22,7 @@ from auth.deps import CurrentUser, get_engine, require_user
 from auth.policy import has_restriction, is_allowed
 from auth.sessions import create_session, csrf_token, end_session
 from auth.users import sign_in
+from auth.workspaces import can_create_workspace, claim_default_workspace
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class UserOut(BaseModel):
 class MeOut(BaseModel):
     user: UserOut
     csrf_token: str
+    can_create_workspace: bool
 
 
 def _safe_next(value: str | None) -> str:
@@ -73,6 +75,7 @@ def me(user: Annotated[CurrentUser, Depends(require_user)]):
     return MeOut(
         user=UserOut(**{k: v for k, v in vars(user).items() if k != "session_id"}),
         csrf_token=csrf_token(user.session_id),
+        can_create_workspace=can_create_workspace(user),
     )
 
 
@@ -131,6 +134,7 @@ async def callback(
         if not user.is_active:
             logger.warning("Sign-in refused: user %s is deactivated", user.id)
             return _login_error("inactive")
+        claim_default_workspace(db, user)
         token_value = create_session(db, user.id)
 
     response = RedirectResponse(

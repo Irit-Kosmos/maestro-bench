@@ -17,6 +17,8 @@ from tables import (
     Experiment,
     ExperimentExecution,
 )
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 
 def now() -> datetime:
@@ -30,6 +32,7 @@ def client(engine):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -37,7 +40,7 @@ def client(engine):
 
 
 def add_experiment(engine, name="Run", **fields) -> int:
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
         s.add(dataset)
         s.flush()
@@ -48,7 +51,7 @@ def add_experiment(engine, name="Run", **fields) -> int:
 
 
 def add_agent(engine, name="Grader") -> int:
-    with Session(engine) as s:
+    with scoped(engine) as s:
         team = AgentTeam(name="Graders")
         s.add(team)
         s.flush()
@@ -63,7 +66,7 @@ def add_execution(engine, experiment_id, agents=(), agent_id=None, **fields) -> 
     if agents and agent_id is None:
         agent_id = add_agent(engine)
     fields.setdefault("dataset_snapshot", json.dumps({"name": "answers"}))
-    with Session(engine) as s:
+    with scoped(engine) as s:
         execution = ExperimentExecution(experiment_id=experiment_id, **fields)
         s.add(execution)
         s.flush()
@@ -114,7 +117,7 @@ def test_lists_every_status_newest_first(client, engine):
 
 
 def test_an_execution_carries_its_experiment_dataset_and_batch(client, engine):
-    with Session(engine) as s:
+    with scoped(engine) as s:
         batch = Batch(name="Sweep")
         s.add(batch)
         s.commit()
@@ -197,7 +200,7 @@ def test_a_deleted_agent_has_no_id_to_link_to(client, engine):
     orphaned = add_execution(engine, exp, agents=[("Gone", "m-a")], agent_id=doomed)
 
     # The database clears the snapshot's link; the snapshot itself stays
-    with Session(engine) as s:
+    with scoped(engine) as s:
         s.delete(s.get(Agent, doomed))
         s.commit()
 

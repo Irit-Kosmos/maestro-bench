@@ -7,6 +7,7 @@ each test, so the real database is never touched.
 """
 
 import os
+from contextlib import contextmanager
 
 import pytest
 from sqlalchemy import text
@@ -16,8 +17,19 @@ from sqlmodel import Session, SQLModel, create_engine
 import results_files
 import tables  # noqa: F401  (registers every table on SQLModel.metadata)
 from config import DATABASE_URL
+from workspace_scope import scope_session
 
 _CONNECT_ARGS = {"options": "-c timezone=utc"}
+
+# The workspace every test works in (the first row after the tables are emptied)
+TEST_WORKSPACE_ID = 1
+
+
+@contextmanager
+def scoped(engine, workspace_id: int = TEST_WORKSPACE_ID):
+    """A session confined to a workspace, to set data up outside the app."""
+    with Session(engine) as session:
+        yield scope_session(session, workspace_id)
 
 
 def _test_database_url() -> URL:
@@ -62,6 +74,13 @@ def _db_engine():
 
 @pytest.fixture
 def engine(_db_engine):
+    with _db_engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO workspace (slug, name, created_at) "
+                "VALUES ('test', 'Test', now())"
+            )
+        )
     yield _db_engine
     names = ", ".join(f'"{table.name}"' for table in SQLModel.metadata.tables.values())
     with _db_engine.begin() as conn:
@@ -72,6 +91,7 @@ def engine(_db_engine):
 @pytest.fixture
 def session(engine):
     with Session(engine) as session:
+        scope_session(session, TEST_WORKSPACE_ID)
         yield session
 
 

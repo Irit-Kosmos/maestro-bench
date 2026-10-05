@@ -8,7 +8,7 @@ interface NavItem {
   kbds: string[]
 }
 
-const route = useRoute()
+const { relativePath } = useWorkspace()
 const shortcutsOpen = useShortcutsOverlay()
 const collapsed = ref(false)
 
@@ -47,7 +47,7 @@ const recentExperiments = computed(() =>
 )
 
 function isActive(to: string) {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
+  return to === '/' ? relativePath.value === '/' : relativePath.value.startsWith(to)
 }
 
 const itemClass = 'group flex items-center gap-2 h-8 px-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted'
@@ -80,18 +80,7 @@ defineShortcuts({
     }"
   >
     <template #header="{ collapsed: isCollapsed }">
-      <NuxtLink
-        v-if="!isCollapsed"
-        to="/"
-        class="flex items-center gap-2 min-w-0 flex-1 h-8 px-1 rounded-md outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inverted"
-      >
-        <img
-          src="/MAESTRO-bench.png"
-          alt=""
-          class="shrink-0 h-6 w-auto"
-        >
-        <span class="text-sm font-semibold leading-none text-highlighted truncate">MAESTRO-bench</span>
-      </NuxtLink>
+      <AppWorkspaceSwitcher v-if="!isCollapsed" />
 
       <UTooltip
         :text="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
@@ -175,10 +164,10 @@ defineShortcuts({
             :key="exp.id"
             :to="`/experiments/${exp.id}`"
             :title="exp.name"
-            :aria-current="route.path === `/experiments/${exp.id}` ? 'page' : undefined"
+            :aria-current="relativePath === `/experiments/${exp.id}` ? 'page' : undefined"
             class="h-7 font-normal" :class="[
               itemClass,
-              route.path === `/experiments/${exp.id}`
+              relativePath === `/experiments/${exp.id}`
                 ? 'bg-accented/70 text-highlighted'
                 : 'text-toned hover:bg-elevated hover:text-highlighted',
             ]"

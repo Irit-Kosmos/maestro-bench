@@ -22,6 +22,8 @@ from tables import (
     Prompt,
     PromptVersion,
 )
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 FORMULAS = [
     {"name": "score", "formula": "w1 * langue + w2 * contenu"},
@@ -39,6 +41,7 @@ def client(engine, monkeypatch):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -48,7 +51,7 @@ def client(engine, monkeypatch):
 @pytest.fixture
 def setup(engine):
     """A team with two LLM judges and an aggregator, and a dataset."""
-    with Session(engine) as s:
+    with scoped(engine) as s:
         team = AgentTeam(name="Graders")
         dataset = Dataset(name="answers", file_path="answers.csv")
         model = Model(name="gpt", provider="openai")
@@ -174,7 +177,7 @@ def test_snapshot_round_trip(client, engine, setup):
     )
     experiment_id = response.json()["id"]
 
-    with Session(engine) as s:
+    with scoped(engine) as s:
         execution = create_execution_snapshot(experiment_id, s)
         snapshot = s.exec(
             select(AgentExecutionSnapshot).where(
@@ -216,7 +219,7 @@ def _add_completed_execution(engine, ids, tmp_path, rows, version=None) -> int:
     (tmp_path / "results").mkdir(exist_ok=True)
     path = tmp_path / "results" / f"results-{version}.json"
     path.write_text(json.dumps({"rows": rows}))
-    with Session(engine) as s:
+    with scoped(engine) as s:
         experiment = Experiment(name="Past run", dataset_id=ids["dataset"])
         s.add(experiment)
         s.flush()

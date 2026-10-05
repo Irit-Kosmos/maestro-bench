@@ -1,6 +1,7 @@
 export function useResultsDownload() {
   const toast = useToast()
   const runtimeConfig = useRuntimeConfig()
+  const { slug } = useWorkspace()
 
   /**
    * Download results for a specific execution
@@ -8,7 +9,7 @@ export function useResultsDownload() {
   async function downloadResults(executionId: number) {
     try {
       // Create a direct fetch to the download endpoint
-      const response = await fetch(`${runtimeConfig.public.BACK_URL}/executions/${executionId}/results`, {
+      const response = await fetch(`${runtimeConfig.public.BACK_URL}/workspaces/${slug.value}/executions/${executionId}/results`, {
         credentials: 'include',
         headers: {
           Accept: 'application/json',

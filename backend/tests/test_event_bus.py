@@ -4,7 +4,7 @@ from schemas.events import RunEvent, RunState
 
 def progress(rows_done: int) -> RunEvent:
     state = RunState(experiment_id=1, status="running", rows_done=rows_done)
-    return RunEvent(name="progress", state=state)
+    return RunEvent(name="progress", state=state, workspace_id=1)
 
 
 def drain(queue) -> list[int]:

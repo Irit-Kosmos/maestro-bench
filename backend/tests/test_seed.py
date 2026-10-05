@@ -14,6 +14,7 @@ from tables import (
     Tag,
     TagLink,
 )
+from tests.conftest import scoped
 
 SEEDED = (Model, Prompt, PromptVersion, AgentTeam, Agent, Dataset, Tag, TagLink)
 
@@ -33,7 +34,7 @@ def counts(engine) -> dict[str, int]:
 
 
 def test_seeding_an_empty_database_creates_the_samples(engine):
-    seed.seed_data()
+    seed.seed_data("test")
 
     assert counts(engine) == {
         "Model": 4,
@@ -48,17 +49,17 @@ def test_seeding_an_empty_database_creates_the_samples(engine):
 
 
 def test_seeding_twice_adds_nothing(engine):
-    seed.seed_data()
+    seed.seed_data("test")
     first = counts(engine)
 
-    seed.seed_data()
+    seed.seed_data("test")
 
     assert counts(engine) == first
 
 
 def test_existing_data_is_kept_and_not_duplicated(engine):
     """A database in use: same names as the samples, plus experiments on top."""
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="My Mohler", file_path="mohler_dataset.csv")
         team = AgentTeam(name="Corrector", description="mine")
         model = Model(name="mistral-small-2503", provider="mistral", is_active=False)
@@ -75,7 +76,7 @@ def test_existing_data_is_kept_and_not_duplicated(engine):
         s.commit()
         ids = {"dataset": dataset.id, "team": team.id, "agent": agent.id}
 
-    seed.seed_data()
+    seed.seed_data("test")
 
     with Session(engine) as s:
         # What was there is untouched...
