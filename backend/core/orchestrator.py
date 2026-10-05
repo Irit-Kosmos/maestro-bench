@@ -50,6 +50,8 @@ class AgentConfig:
     # Kept out of repr so it never reaches a log line.
     api_key: str | None = field(default=None, repr=False)
     key_id: str = "instance"
+    # Set when the provider cannot be called for this workspace: the agent fails with it
+    access_error: str | None = None
 
 
 @dataclass
@@ -327,8 +329,22 @@ def run_aggregator(
     )
 
 
+def _without_secret(message: str, secret: str | None) -> str:
+    """An error message that is stored and shown must never carry a workspace's API key."""
+    return message.replace(secret, "[API key]") if secret else message
+
+
 async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:
     """Execute a single agent with the current context."""
+    if agent.access_error:
+        return AgentTrace(
+            agent_name=agent.name,
+            model=agent.model,
+            provider=agent.provider,
+            messages_sent=[],
+            output="",
+            error=agent.access_error,
+        )
     try:
         messages = build_messages(
             system_prompt=agent.system_prompt,
@@ -365,5 +381,5 @@ async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:
             provider=agent.provider,
             messages_sent=[],
             output="",
-            error=str(e),
+            error=_without_secret(str(e), agent.api_key),
         )

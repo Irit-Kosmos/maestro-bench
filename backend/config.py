@@ -50,6 +50,13 @@ SECRET_KEY = os.getenv("SECRET_KEY", "")
 # Unlike SECRET_KEY, changing it makes the stored keys unreadable.
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 
+# Whether a workspace without its own key for a provider may use the instance's key
+# (the environment variable). Off, every workspace must bring its own keys; providers
+# configured by URL (Ollama) are instance-wide and unaffected.
+PROVIDERS_INSTANCE_FALLBACK = (
+    os.getenv("PROVIDERS_INSTANCE_FALLBACK", "true").lower() == "true"
+)
+
 # Where the browser reaches the UI and the API; the OAuth redirect URI registered
 # in GitLab is <PUBLIC_API_URL>/auth/gitlab/callback.
 FRONTEND_URL = os.getenv("FRONTEND_URL") or (CORS_ORIGINS[0] if CORS_ORIGINS else "")

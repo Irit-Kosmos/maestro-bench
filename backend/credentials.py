@@ -41,6 +41,8 @@ class ProviderAccess:
     api_key: str | None = None
     # Which quota the call counts against, whatever the workspace
     key_id: str = "instance"
+    # Why the call must not be made at all (the instance's key is not shared with workspaces)
+    error: str | None = None
 
 
 def check_config() -> None:
@@ -131,6 +133,15 @@ def stored_keys(session: Session) -> dict[str, WorkspaceCredential]:
     return {row.provider: row for row in session.exec(select(WorkspaceCredential)).all()}
 
 
+def instance_provides(provider: str) -> bool:
+    """Whether the instance's own key or URL is there for workspaces to use."""
+    name = (provider or "").lower()
+    spec = SUPPORTED_PROVIDERS.get(name)
+    if spec is None or not check_provider_available(name):
+        return False
+    return spec.get("kind", "key") == "url" or config.PROVIDERS_INSTANCE_FALLBACK
+
+
 def access_to(session: Session, provider: str) -> ProviderAccess:
     """The key a call to this provider uses on behalf of the session's workspace."""
     name = (provider or "").lower()
@@ -141,9 +152,20 @@ def access_to(session: Session, provider: str) -> ProviderAccess:
             try:
                 secret = decrypt(row.ciphertext)
             except CredentialError:
-                logger.error("The key of workspace %s for %s cannot be decrypted",
-                             row.workspace_id, name)
+                logger.error(
+                    "The key of workspace %s for %s cannot be decrypted",
+                    row.workspace_id,
+                    name,
+                )
             else:
                 fingerprint = hashlib.sha256(secret.encode()).hexdigest()[:16]
                 return ProviderAccess("workspace", secret, f"key:{fingerprint}")
-    return ProviderAccess("instance" if check_provider_available(name) else None)
+        if not config.PROVIDERS_INSTANCE_FALLBACK:
+            return ProviderAccess(
+                None,
+                error=(
+                    f"This workspace has no {name} API key, and the instance's keys "
+                    "are not shared: an owner must set one in Settings"
+                ),
+            )
+    return ProviderAccess("instance" if instance_provides(name) else None)
