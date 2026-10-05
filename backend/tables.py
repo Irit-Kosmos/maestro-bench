@@ -369,6 +369,21 @@ class TagLink(WorkspaceOwned, table=True):
     item_id: int = Field(primary_key=True)
 
 
+class WorkspaceCredential(WorkspaceOwned, table=True):
+    """The API key a workspace uses for a provider, encrypted (see `credentials`)"""
+
+    __table_args__ = (UniqueConstraint("workspace_id", "provider"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    provider: str
+    ciphertext: str = Field(exclude=True)
+    last4: str  # the only part of the key that is ever shown again
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+
+
 class User(SQLModel, table=True):
     """A person who signs in, whatever the identity provider"""
 
@@ -433,3 +448,24 @@ class Membership(SQLModel, table=True):
     )
     role: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Invitation(SQLModel, table=True):
+    """A link that lets one person join a workspace with a given role"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(
+        foreign_key="workspace.id", index=True, ondelete="CASCADE"
+    )
+    token_hash: str = Field(unique=True, index=True)  # sha256 of the token in the link
+    role: str
+    created_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime
+    used_at: datetime | None = None
+    used_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    revoked_at: datetime | None = None
