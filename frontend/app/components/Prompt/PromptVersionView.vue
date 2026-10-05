@@ -28,6 +28,7 @@ const emit = defineEmits<{
 }>()
 
 const { formatDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 const variables = computed(() => parseVariables(props.version.variables || ''))
 const isEmpty = computed(() => !props.version.system_prompt && !props.version.user_prompt)
@@ -98,11 +99,11 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
             </template>
           </UTooltip>
         </div>
-        <UButton color="neutral" variant="soft" size="sm" icon="i-ph-pencil-simple-bold" @click="emit('edit')">
+        <UIGuardedButton color="neutral" variant="soft" size="sm" icon="i-ph-pencil-simple-bold" @click="emit('edit')">
           Edit
-          <UKbd value="e" size="sm" />
-        </UButton>
-        <UDropdownMenu :items="menuItems" :content="{ align: 'end' }">
+          <UKbd v-if="canEdit" value="e" size="sm" />
+        </UIGuardedButton>
+        <UDropdownMenu v-if="canEdit" :items="menuItems" :content="{ align: 'end' }">
           <UButton
             icon="i-ph-dots-three-bold"
             color="neutral"
@@ -155,6 +156,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
       <p v-if="isEmpty" class="text-sm text-muted">
         This version has no prompt text yet.
         <button
+          v-if="canEdit"
           type="button"
           class="rounded-sm text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
           @click="emit('edit')"

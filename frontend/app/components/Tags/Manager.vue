@@ -5,6 +5,7 @@ import { apiErrorMessage } from '~/composables/useAnalyses'
 // Every tag, to rename, recolour or delete. Tags are created where they are used (see TagsInput).
 const { tags, pending, updateTag, deleteTag } = useTags()
 const toast = useToast()
+const { canEdit } = useCurrentWorkspace()
 
 function fail(title: string, error: unknown, fallback: string) {
   toast.add({ title, description: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
@@ -80,8 +81,9 @@ const deleteMessage = computed(() => {
       <UPopover :content="{ align: 'start', sideOffset: 6 }">
         <button
           type="button"
+          :disabled="!canEdit"
           :aria-label="`Change the colour of ${tag.name}`"
-          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none transition-colors duration-150 hover:bg-elevated focus-visible:bg-elevated data-[state=open]:bg-elevated"
+          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none transition-colors duration-150 enabled:hover:bg-elevated focus-visible:bg-elevated data-[state=open]:bg-elevated disabled:cursor-default"
         >
           <span class="size-2.5 rounded-full" :class="tagDot(tag.color)" aria-hidden="true" />
         </button>
@@ -109,13 +111,15 @@ const deleteMessage = computed(() => {
         :aria-label="`Name of the tag ${tag.name}`"
         autocomplete="off"
         maxlength="40"
-        class="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 text-sm text-highlighted outline-none transition-colors duration-150 hover:border-default focus:border-accented"
+        :readonly="!canEdit"
+        class="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 text-sm text-highlighted outline-none transition-colors duration-150 read-only:cursor-default not-read-only:hover:border-default not-read-only:focus:border-accented"
         @change="rename(tag, $event)"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
         @keydown.esc="($event.target as HTMLInputElement).value = tag.name"
       >
 
       <UButton
+        v-if="canEdit"
         icon="i-ph-trash-bold"
         color="neutral"
         variant="ghost"

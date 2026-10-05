@@ -15,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const { formatDate, formatRelativeDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 // Table configuration
 const columns = [
@@ -57,7 +58,7 @@ const filterState = ref<FilterState>({})
     :row-to="(prompt: Prompt) => `/prompts/${prompt.id}`"
     item-name="prompt"
     searchable
-    selectable
+    :selectable="canEdit"
     @refresh="emit('refresh')"
   >
     <template #selection-actions="{ rows }">

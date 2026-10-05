@@ -9,6 +9,7 @@ interface NavItem {
 }
 
 const { relativePath } = useWorkspace()
+const { canEdit } = useCurrentWorkspace()
 const shortcutsOpen = useShortcutsOverlay()
 const collapsed = ref(false)
 
@@ -99,7 +100,7 @@ defineShortcuts({
           size="sm"
           :class="isCollapsed ? '' : 'flex-1'"
         />
-        <UTooltip text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
+        <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
           <UButton
             to="/experiments/new"
             icon="i-ph-note-pencil"

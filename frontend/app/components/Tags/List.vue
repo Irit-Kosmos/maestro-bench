@@ -22,7 +22,8 @@ const emit = defineEmits<{
 
 const shown = computed(() => props.tags.slice(0, props.max))
 const hidden = computed(() => props.tags.slice(props.max))
-const editable = computed(() => !!props.kind && props.id !== undefined)
+const { canEdit } = useCurrentWorkspace()
+const editable = computed(() => canEdit.value && !!props.kind && props.id !== undefined)
 </script>
 
 <template>

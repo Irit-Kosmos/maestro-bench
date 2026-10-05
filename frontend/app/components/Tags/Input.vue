@@ -6,6 +6,7 @@ import type { Tag } from '~/types'
 const selected = defineModel<number[]>({ required: true })
 
 const { tags } = useTags()
+const { canEdit } = useCurrentWorkspace()
 
 const chosen = computed(() => selected.value
   .map(id => tags.value.find(tag => tag.id === id))
@@ -37,11 +38,13 @@ const CONTENT = { align: 'start', sideOffset: 6, collisionPadding: 16 } as const
       :key="tag.id"
       :tag="tag"
       size="md"
-      removable
+      :removable="canEdit"
       @remove="remove(tag.id)"
     />
 
-    <UPopover :content="CONTENT" :ui="{ content: 'overflow-hidden' }">
+    <span v-if="!canEdit && !chosen.length" class="text-sm text-dimmed">—</span>
+
+    <UPopover v-if="canEdit" :content="CONTENT" :ui="{ content: 'overflow-hidden' }">
       <button
         type="button"
         class="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-accented px-2.5 text-sm text-muted outline-none transition-colors duration-150 hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default data-[state=open]:bg-elevated data-[state=open]:text-default"

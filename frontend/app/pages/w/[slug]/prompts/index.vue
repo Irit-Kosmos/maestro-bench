@@ -81,7 +81,7 @@ async function handleCreatePrompt() {
     :error="error?.message || null"
   >
     <template #before-content>
-      <UButton
+      <UIGuardedButton
         color="neutral"
         variant="soft"
         icon="i-ph-plus-bold"
@@ -89,7 +89,7 @@ async function handleCreatePrompt() {
         @click="() => { showCreateModal = true }"
       >
         New prompt
-      </UButton>
+      </UIGuardedButton>
     </template>
 
     <!-- Empty State -->
@@ -99,6 +99,7 @@ async function handleCreatePrompt() {
       title="No prompts yet"
       message="Prompts are versioned, so you can change one and compare results across versions."
       action-label="New prompt"
+      action-requires="editor"
       @action="() => { showCreateModal = true }"
     />
 

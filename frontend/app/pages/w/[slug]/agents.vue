@@ -12,6 +12,7 @@ const toast = useToast()
 const { createTeam } = useAgentTeams()
 const { createAgent, deleteAgent } = useAgents()
 const { formatDate, formatRelativeDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 // Fetch data directly in the page
 const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
@@ -180,6 +181,7 @@ const actions = [
   {
     label: 'Edit',
     icon: 'i-ph-pencil-simple-bold',
+    requires: 'editor' as const,
     handler: (agent: AgentRow) => openPanel(agent.id),
   },
   {
@@ -187,6 +189,7 @@ const actions = [
     icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
+    requires: 'editor' as const,
     handler: (agent: AgentRow) => handleDeleteAgentClick(agent),
   },
 ]
@@ -310,7 +313,7 @@ async function handleDeleteAgent(agentId: number) {
     :loading="pending && agentsPending && !agents"
   >
     <template #before-content>
-      <UButton
+      <UIGuardedButton
         variant="soft"
         color="neutral"
         icon="i-ph-users-three-bold"
@@ -318,8 +321,8 @@ async function handleDeleteAgent(agentId: number) {
         @click="() => { showCreateTeamModal = true }"
       >
         New team
-      </UButton>
-      <UButton
+      </UIGuardedButton>
+      <UIGuardedButton
         color="neutral"
         variant="soft"
         icon="i-ph-plus-bold"
@@ -327,7 +330,7 @@ async function handleDeleteAgent(agentId: number) {
         @click="() => { showCreateAgentModal = true }"
       >
         New agent
-      </UButton>
+      </UIGuardedButton>
     </template>
 
     <BaseDataTable
@@ -345,7 +348,7 @@ async function handleDeleteAgent(agentId: number) {
       :active-key="panelOpen ? openId : null"
       item-name="agent"
       searchable
-      selectable
+      :selectable="canEdit"
       @refresh="refreshAll"
     >
       <template #selection-actions="{ rows: selectedRows }">
@@ -397,6 +400,7 @@ async function handleDeleteAgent(agentId: number) {
         ? 'An agent pairs a prompt version with a model; an aggregator combines the outputs of other agents.'
         : 'An agent pairs a prompt version with a model. Agents run together in a team, so start with one.'"
       :action-label="agentTeams?.length ? 'New agent' : 'New team'"
+      action-requires="editor"
       @action="handleEmptyAction"
     />
 

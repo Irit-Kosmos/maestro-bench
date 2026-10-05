@@ -1,7 +1,5 @@
 import type { WorkspaceRole } from '~/types'
 
-const RANK: Record<WorkspaceRole, number> = { viewer: 0, editor: 1, owner: 2 }
-
 /** The workspace of the current URL, with what the signed-in user may do in it. */
 export function useCurrentWorkspace() {
   const { slug } = useWorkspace()
@@ -12,11 +10,19 @@ export function useCurrentWorkspace() {
   const archived = computed(() => workspace.value?.archived ?? false)
 
   /** Whether the user's role is at least `needed`; always false in an archived workspace, which is read-only */
-  function can(needed: WorkspaceRole): boolean {
-    if (!role.value)
-      return false
-    return RANK[role.value] >= RANK[needed] && (needed === 'viewer' || !archived.value)
-  }
+  const can = (needed: WorkspaceRole): boolean => canIn(workspace.value, needed)
 
-  return { workspace, role, archived, isOwner: computed(() => role.value === 'owner'), can }
+  /** Why `needed` is out of reach, for a tooltip; null when it is not */
+  const denial = (needed: WorkspaceRole): string | null => denialReason(workspace.value, needed)
+
+  return {
+    workspace,
+    role,
+    archived,
+    isOwner: computed(() => role.value === 'owner'),
+    /** Create, edit, delete and run things: editors and owners, in a workspace that is not archived */
+    canEdit: computed(() => can('editor')),
+    can,
+    denial,
+  }
 }

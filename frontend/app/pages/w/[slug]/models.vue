@@ -219,7 +219,7 @@ function handleDeleteLeave() {
     :error="error ? 'Failed to load models' : null"
   >
     <template #before-content>
-      <UButton
+      <UIGuardedButton
         color="neutral"
         variant="soft"
         icon="i-ph-plus-bold"
@@ -227,7 +227,7 @@ function handleDeleteLeave() {
         @click="handleCreateClick"
       >
         Add model
-      </UButton>
+      </UIGuardedButton>
     </template>
 
     <!-- Models -->
@@ -276,6 +276,7 @@ function handleDeleteLeave() {
       message="Start by adding your first AI model"
       icon="i-ph-cpu-bold"
       action-label="Add model"
+      action-requires="editor"
       @action="handleCreateClick"
     />
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { AgentTeam, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
 
+definePageMeta({ requiresRole: 'editor' })
+
 // Fetch data directly in the page
 const { data: agentTeams, refresh: refreshAgentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: models } = await useMyLazyFetch<Model[]>('/models')

@@ -12,6 +12,7 @@ const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
 const { runOf, onStatus } = useLiveRuns()
+const { canEdit } = useCurrentWorkspace()
 
 // State
 const experiment = ref<Experiment | null>(null)
@@ -292,8 +293,8 @@ watch(() => route.params.id, () => {
     <div v-else-if="experiment" class="@container flex max-w-[96rem] flex-col gap-6">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
-        <UTooltip text="Run this setup with other models, prompts or temperatures">
-          <UButton
+        <UTooltip text="Run this setup with other models, prompts or temperatures" :disabled="!canEdit">
+          <UIGuardedButton
             variant="soft"
             color="neutral"
             icon="i-ph-arrows-split-bold"
@@ -301,10 +302,10 @@ watch(() => route.params.id, () => {
             :to="{ path: '/experiments/new', query: { from: experiment.id } }"
           >
             Vary
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UTooltip v-if="status === 'running' || status === 'queued'" :text="status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'">
-          <UButton
+        <UTooltip v-if="status === 'running' || status === 'queued'" :text="status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'" :disabled="!canEdit">
+          <UIGuardedButton
             variant="soft"
             color="error"
             icon="i-ph-square-bold"
@@ -313,10 +314,10 @@ watch(() => route.params.id, () => {
             @click="handleCancelExperiment"
           >
             Cancel run
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UTooltip v-else text="Create a new execution with the same configuration">
-          <UButton
+        <UTooltip v-else text="Create a new execution with the same configuration" :disabled="!canEdit">
+          <UIGuardedButton
             variant="soft"
             color="neutral"
             icon="i-ph-play-bold"
@@ -326,10 +327,10 @@ watch(() => route.params.id, () => {
             @click="handleRerunExperiment"
           >
             Re-run
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UTooltip :text="analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'">
-          <UButton
+        <UTooltip :text="analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'" :disabled="!canEdit">
+          <UIGuardedButton
             color="neutral"
             variant="soft"
             icon="i-ph-chart-bar-bold"
@@ -338,9 +339,9 @@ watch(() => route.params.id, () => {
             :to="analyzeLink"
           >
             Analyze
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UButton
+        <UIGuardedButton
           variant="soft"
           color="error"
           icon="i-ph-trash-bold"
@@ -348,7 +349,7 @@ watch(() => route.params.id, () => {
           @click="() => { showDeleteDialog = true }"
         >
           Delete
-        </UButton>
+        </UIGuardedButton>
       </AppPageActions>
 
       <!-- Identity only: what it is and when. Everything measurable lives with the thing it measures -->

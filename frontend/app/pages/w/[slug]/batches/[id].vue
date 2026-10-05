@@ -7,6 +7,7 @@ const batchId = computed(() => Number.parseInt(route.params.id as string))
 const toast = useToast()
 const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
 const { formatDate, formatDuration } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
 
@@ -136,7 +137,7 @@ function formatCost(cost: number | null) {
 
     <div v-else-if="batch" class="mx-auto flex max-w-6xl flex-col gap-8">
       <AppPageActions>
-        <UButton
+        <UIGuardedButton
           v-if="isActive"
           variant="soft"
           color="neutral"
@@ -146,9 +147,9 @@ function formatCost(cost: number | null) {
           @click="handleCancel"
         >
           Cancel all
-        </UButton>
-        <UTooltip text="Create a new execution of every experiment that is not running">
-          <UButton
+        </UIGuardedButton>
+        <UTooltip text="Create a new execution of every experiment that is not running" :disabled="!canEdit">
+          <UIGuardedButton
             variant="soft"
             color="neutral"
             icon="i-ph-play-bold"
@@ -158,10 +159,10 @@ function formatCost(cost: number | null) {
             @click="handleRerun"
           >
             Re-run
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'">
-          <UButton
+        <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'" :disabled="!canEdit">
+          <UIGuardedButton
             color="neutral"
             variant="soft"
             icon="i-ph-chart-bar-bold"
@@ -170,9 +171,9 @@ function formatCost(cost: number | null) {
             :to="analyzeLink"
           >
             Analyze
-          </UButton>
+          </UIGuardedButton>
         </UTooltip>
-        <UButton
+        <UIGuardedButton
           variant="soft"
           color="error"
           icon="i-ph-trash-bold"
@@ -180,7 +181,7 @@ function formatCost(cost: number | null) {
           @click="() => { showDeleteDialog = true }"
         >
           Delete
-        </UButton>
+        </UIGuardedButton>
       </AppPageActions>
 
       <div>

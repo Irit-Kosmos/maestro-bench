@@ -16,6 +16,7 @@ useSeoMeta({
 const { data: analyses, pending, refresh } = await useMyLazyFetch<Analysis[]>('/analyses')
 
 const { deleteAnalysis } = useAnalyses()
+const { canEdit } = useCurrentWorkspace()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
@@ -81,6 +82,7 @@ const actions = [
     icon: 'i-ph-trash-bold',
     variant: 'ghost' as const,
     color: 'error' as const,
+    requires: 'editor' as const,
     handler: (analysis: Analysis) => {
       analysisId.value = analysis.id
       showDeleteDialog.value = true
@@ -111,8 +113,8 @@ async function confirmDelete() {
 <template>
   <BasePageContent :loading="pending && !analyses">
     <template #before-content>
-      <UTooltip text="New analysis" :kbds="['C']">
-        <UButton
+      <UTooltip text="New analysis" :kbds="['C']" :disabled="!canEdit">
+        <UIGuardedButton
           color="neutral"
           variant="soft"
           icon="i-ph-plus-bold"
@@ -120,7 +122,7 @@ async function confirmDelete() {
           to="/analyses/new"
         >
           New analysis
-        </UButton>
+        </UIGuardedButton>
       </UTooltip>
     </template>
 
@@ -136,7 +138,7 @@ async function confirmDelete() {
         item-name="analysis"
         item-name-plural="analyses"
         searchable
-        selectable
+        :selectable="canEdit"
         @refresh="refresh"
       >
         <template #selection-actions="{ rows }">
@@ -144,7 +146,7 @@ async function confirmDelete() {
         </template>
 
         <template #tags-cell="{ row }">
-          <TagsList :id="row.original.id" :tags="row.original.tags" kind="analysis" selectable @changed="refresh" @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
+          <TagsList :id="row.original.id" :tags="row.original.tags" :kind="canEdit ? 'analysis' : undefined" selectable @changed="refresh" @select="tag => { filterState = filterByTag(filterState, tag.name) }" />
         </template>
 
         <template #updated_at-cell="{ row }">
@@ -162,6 +164,7 @@ async function confirmDelete() {
       icon="i-ph-chart-bar-bold"
       action-label="New analysis"
       action-to="/analyses/new"
+      action-requires="editor"
     />
 
     <UModal v-model:open="showDeleteDialog" title="Delete analysis?">

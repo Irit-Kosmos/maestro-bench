@@ -27,6 +27,7 @@ useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults } = useResultsDownload()
 const toast = useToast()
+const { canEdit } = useCurrentWorkspace()
 
 const startedFilter = dateFilter<ExecutionListItem>(execution => execution.started_at, 'Started')
 const failuresFilter = executionFailuresFilter()
@@ -289,7 +290,7 @@ const actions = [
         :loading="pending"
         :row-open="openPanel"
         :active-key="panelOpen ? openId : null"
-        selectable
+        :selectable="canEdit"
         item-name="execution"
         searchable
         @refresh="refresh"
@@ -387,6 +388,7 @@ const actions = [
       icon="i-ph-clock-counter-clockwise-bold"
       action-label="New experiment"
       action-to="/experiments/new"
+      action-requires="editor"
     />
 
     <ExecutionsPanel

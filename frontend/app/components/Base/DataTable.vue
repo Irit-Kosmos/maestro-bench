@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { VNodeChild } from 'vue'
+import type { WorkspaceRole } from '~/types'
 import type { FilterOption, FilterSpec, FilterState, FilterValue } from '~/utils/filters'
 import type { GroupRowInfo, GroupSpec, RowRenderContext } from '~/utils/groups'
 import { useVirtualizer } from '@tanstack/vue-virtual'
@@ -30,6 +31,8 @@ interface Action {
   size?: 'xs' | 'sm' | 'md'
   handler: (item: any) => void
   show?: (item: any) => boolean
+  /** The role the action needs; without it, the action is left out of the menu */
+  requires?: WorkspaceRole
 }
 
 interface Props {
@@ -178,7 +181,10 @@ function renderRails(trail: string[]) {
 const withRails = (trail: string[], content: VNodeChild) => trail.length ? h('span', { class: 'contents' }, [...renderRails(trail), content]) : content
 const trailOf = (row: any) => arranged.value.trails.get(row[props.rowKey]) ?? []
 
-const hasActions = computed(() => props.actions.length > 0)
+const { can } = useCurrentWorkspace()
+// An action the user's role cannot do is not offered at all: a row menu is no place for greyed-out items
+const allowedActions = computed(() => props.actions.filter(action => !action.requires || can(action.requires)))
+const hasActions = computed(() => allowedActions.value.length > 0)
 
 // Columns sized by their content shift as rows come and go (filtering, scrolling a virtualized list), so widths are
 // declared instead. Opt-in: a table that never sets a `width` keeps sizing itself
@@ -274,7 +280,7 @@ function renderValue(col: Column, value: any, row: any) {
 }
 
 function menuItems(row: any): DropdownMenuItem[] {
-  return props.actions
+  return allowedActions.value
     .filter(action => action.show ? action.show(row) : true)
     .map(action => ({
       label: typeof action.label === 'function' ? action.label(row) : action.label,

@@ -8,6 +8,7 @@ const router = useRouter()
 const promptId = Number.parseInt(route.params.id as string)
 
 // Composables
+const { canEdit } = useCurrentWorkspace()
 const { updatePrompt, getPromptVersions, createPromptVersion, updatePromptVersion, deletePromptVersion } = usePrompts()
 const { showUpdateSuccess, showCreateSuccess, showDeleteSuccess, showUpdateError, showCreateError, showDeleteError } = useStandardToast()
 
@@ -117,12 +118,14 @@ function openForm(next: 'edit' | 'create', values: PromptVersionFormValues) {
 }
 
 function startEdit() {
-  if (selected.value)
+  if (canEdit.value && selected.value)
     openForm('edit', formFrom(selected.value))
 }
 
 // A new version starts as a copy of the one on screen: prompts are iterated, not rewritten
 function startCreate() {
+  if (!canEdit.value)
+    return
   const base = selected.value ? formFrom(selected.value) : emptyForm()
   openForm('create', { ...base, version: '', notes: '', is_default: false })
 }
@@ -340,7 +343,7 @@ onBeforeRouteLeave((to) => {
     :error="error ? 'Unable to load prompt details. Please try again.' : null"
   >
     <template #before-content>
-      <UButton
+      <UIGuardedButton
         variant="soft"
         color="neutral"
         icon="i-ph-pencil-simple-bold"
@@ -348,8 +351,8 @@ onBeforeRouteLeave((to) => {
         @click="() => { showEditPromptModal = true }"
       >
         Edit
-      </UButton>
-      <UButton
+      </UIGuardedButton>
+      <UIGuardedButton
         color="neutral"
         variant="soft"
         icon="i-ph-plus-bold"
@@ -358,7 +361,7 @@ onBeforeRouteLeave((to) => {
         @click="guard(startCreate)"
       >
         New version
-      </UButton>
+      </UIGuardedButton>
     </template>
 
     <template v-if="prompt">
@@ -370,6 +373,7 @@ onBeforeRouteLeave((to) => {
         message="Create the first version of this prompt to get started."
         icon="i-ph-file-text-bold"
         action-label="New version"
+        action-requires="editor"
         @action="startCreate"
       />
 

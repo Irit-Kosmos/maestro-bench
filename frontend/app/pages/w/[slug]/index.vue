@@ -15,6 +15,7 @@ const { data: analyses, refresh: refreshAnalyses } = await useMyLazyFetch<Analys
 const { data: providers } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 
 const { formatDate, formatRelativeDate } = useUIHelpers()
+const { canEdit } = useCurrentWorkspace()
 
 const isRefreshing = ref(false)
 async function refresh() {
@@ -55,11 +56,14 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
           @click="refresh"
         />
       </UTooltip>
-      <UTooltip text="New experiment" :kbds="['C']">
+      <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']">
         <UButton to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
           New experiment
         </UButton>
       </UTooltip>
+      <UIGuardedButton v-else to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
+        New experiment
+      </UIGuardedButton>
     </AppPageActions>
 
     <NuxtLink
@@ -102,6 +106,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         icon="i-ph-flask-bold"
         action-label="New experiment"
         action-to="/experiments/new"
+        action-requires="editor"
       />
     </BaseSection>
 

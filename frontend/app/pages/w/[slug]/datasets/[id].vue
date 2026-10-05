@@ -8,6 +8,7 @@ const datasetId = computed(() => Number.parseInt(route.params.id as string))
 // Composables
 const toast = useToast()
 const { deleteDataset, getDataset, getDatasetStats } = useDatasets()
+const { canEdit } = useCurrentWorkspace()
 
 // State
 const dataset = ref<Dataset | null>(null)
@@ -127,7 +128,7 @@ watch(() => route.params.id, () => {
       <!-- Dataset Details -->
       <div v-else-if="dataset" class="flex flex-col flex-1 min-h-0 gap-3">
         <!-- Edit isn't available yet, so it isn't shown as a dead button -->
-        <AppPageActions>
+        <AppPageActions v-if="canEdit">
           <UDropdownMenu
             :items="[{ label: 'Delete dataset', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
             :content="{ align: 'end' }"
@@ -188,6 +189,7 @@ watch(() => route.params.id, () => {
           message="This dataset has no file yet. Create a new dataset with a CSV or JSON file to use it in experiments."
           action-label="New dataset"
           action-to="/datasets"
+          action-requires="editor"
         />
       </div>
 
