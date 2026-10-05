@@ -1,6 +1,11 @@
 import pytest
+from sqlmodel import Session
 
 import config
+import main
+from auth.deps import get_engine
+from db import get_session
+from tests.auth.people import Person
 
 
 @pytest.fixture(autouse=True)
@@ -21,3 +26,25 @@ def auth_config(monkeypatch):
     }
     for name, value in settings.items():
         monkeypatch.setattr(config, name, value)
+
+
+@pytest.fixture
+def app(engine):
+    def _session():
+        with Session(engine) as session:
+            yield session
+
+    main.app.dependency_overrides[get_session] = _session
+    main.app.dependency_overrides[get_engine] = lambda: engine
+    yield main.app
+    main.app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def alice(engine, app):
+    return Person(engine, "alice")
+
+
+@pytest.fixture
+def bob(engine, app):
+    return Person(engine, "bob")

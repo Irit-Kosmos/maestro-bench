@@ -46,6 +46,10 @@ class AgentConfig:
     kind: str = "llm"
     # Aggregators only: ordered [{"name", "formula"}]
     formulas: list[dict] | None = None
+    # The workspace's own key for the provider, if it has one (None: the instance's).
+    # Kept out of repr so it never reaches a log line.
+    api_key: str | None = field(default=None, repr=False)
+    key_id: str = "instance"
 
 
 @dataclass
@@ -338,6 +342,8 @@ async def _execute_agent(agent: AgentConfig, context: dict) -> AgentTrace:
             messages=messages,
             temperature=agent.temperature,
             max_tokens=agent.max_tokens,
+            api_key=agent.api_key,
+            key_id=agent.key_id,
         )
 
         return AgentTrace(

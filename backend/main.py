@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 import async_jobs
 import config
+import credentials
 from api import (
     agent_teams,
     agents,
@@ -46,6 +47,7 @@ API_VERSION = "2.0.0"
 async def lifespan(app: FastAPI):
     """Application lifespan: check the auth settings and migrate the DB on startup."""
     validate_config([p.name for p in setup_providers()])
+    credentials.check_config()
     init_db()
     logger.info("Database schema is up to date")
     if interrupted := async_jobs.reap_interrupted_runs():

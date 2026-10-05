@@ -133,16 +133,18 @@ def test_ollama_is_configured_by_its_url_not_a_key(monkeypatch):
     assert llm.check_provider_available("ollama")
 
 
-def test_providers_endpoint_says_what_each_env_var_holds(monkeypatch):
+def test_providers_endpoint_says_what_each_env_var_holds(monkeypatch, session):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from api import providers
+    from db import get_session
 
     monkeypatch.setenv("OLLAMA_API_BASE", "http://localhost:11434")
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     app = FastAPI()
     app.include_router(providers.router)
+    app.dependency_overrides[get_session] = lambda: session
 
     by_name = {p["provider"]: p for p in TestClient(app).get("/providers").json()}
 
@@ -151,9 +153,45 @@ def test_providers_endpoint_says_what_each_env_var_holds(monkeypatch):
         "configured": True,
         "env_var": "OLLAMA_API_BASE",
         "kind": "url",
+        "source": "instance",
+        "key_hint": None,
+        "can_store_key": False,
     }
     assert by_name["mistral"]["kind"] == "key"
     assert by_name["mistral"]["configured"] is False
+    assert by_name["mistral"]["source"] is None
+
+
+def test_each_api_key_has_its_own_rate_limit(monkeypatch):
+    monkeypatch.setenv("MISTRAL_MAX_RPS", "2")
+    llm._rate_limiters.clear()
+
+    shared = llm._get_rate_limiter("mistral")
+    assert llm._get_rate_limiter("Mistral", "instance") is shared
+    mine = llm._get_rate_limiter("mistral", "key:aaaa")
+    assert mine is not shared
+    assert llm._get_rate_limiter("mistral", "key:aaaa") is mine
+    assert llm._get_rate_limiter("mistral", "key:bbbb") is not mine
+    llm._rate_limiters.clear()
+
+
+def test_a_workspace_key_is_handed_to_litellm(monkeypatch):
+    seen = []
+
+    async def fake_acompletion(**kwargs):
+        seen.append(kwargs)
+        return _response()
+
+    monkeypatch.setattr(llm.litellm, "acompletion", fake_acompletion)
+
+    asyncio.run(
+        llm.call_llm("m", "mistral", [{"role": "user", "content": "hi"}], api_key="sk-mine")
+    )
+    _call()
+
+    assert seen[0]["api_key"] == "sk-mine"
+    # Without one, LiteLLM reads the instance's from the environment
+    assert "api_key" not in seen[1]
 
 
 @pytest.mark.parametrize(

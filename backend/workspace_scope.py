@@ -52,6 +52,11 @@ def current_workspace_id(session: Session) -> int:
     return workspace_id
 
 
+def current_user_id(session: Session) -> int | None:
+    """The user a scoped session records as the author of what it adds."""
+    return session.info.get(_USER)
+
+
 @event.listens_for(Session, "do_orm_execute")
 def _only_this_workspace(state: ORMExecuteState) -> None:
     workspace_id = state.session.info.get(_WORKSPACE)

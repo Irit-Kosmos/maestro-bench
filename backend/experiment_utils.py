@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import pandas as pd
 from sqlmodel import Session, select
 
+import credentials
 import workspace_files
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
@@ -496,6 +497,14 @@ def build_agent_configs_from_snapshot(
                 else None,
             )
         )
+
+    # Each provider is reached with the workspace's own key when it has one
+    accesses: dict[str, credentials.ProviderAccess] = {}
+    for agent in agents:
+        if agent.provider not in accesses:
+            accesses[agent.provider] = credentials.access_to(session, agent.provider)
+        agent.api_key = accesses[agent.provider].api_key
+        agent.key_id = accesses[agent.provider].key_id
 
     return agents
 
