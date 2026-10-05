@@ -50,19 +50,20 @@ export function useExperiments() {
   // Re-run an experiment with the same configuration
   const rerunExperiment = async (id: number) => {
     try {
-      const response = await $api(`/experiments/${id}/rerun`, {
+      // `queued` when the workspace is already running as many experiments as it may
+      const response = await $api<{ status: 'started' | 'queued' }>(`/experiments/${id}/rerun`, {
         method: 'POST',
       })
 
-      return { success: true, data: response }
+      return { success: true as const, data: response }
     }
     catch (error) {
       console.error('Error re-running experiment:', error)
-      return { success: false, error }
+      return { success: false as const, error }
     }
   }
 
-  // Stop a running experiment; `cancelled` is false when nothing was running
+  // Stop a running or queued experiment; `cancelled` is false when nothing was running
   const cancelExperiment = async (id: number) => {
     try {
       const response = await $api<{ cancelled: boolean }>(`/experiments/${id}/cancel`, {

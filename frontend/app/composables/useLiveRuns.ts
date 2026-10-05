@@ -31,7 +31,7 @@ export const useLiveRuns = createSharedComposable(() => {
       return
     if (hasConnected) {
       for (const [id, run] of runs) {
-        if (run.status === 'running')
+        if (run.status === 'running' || run.status === 'queued')
           runs.delete(id)
       }
       statusChanged.trigger(undefined)

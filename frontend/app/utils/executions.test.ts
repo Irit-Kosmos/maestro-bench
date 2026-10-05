@@ -37,6 +37,7 @@ describe('hasFailures', () => {
   it('leaves out a clean one and a cancelled one, even with failed rows behind it', () => {
     expect(hasFailures(execution({ status: 'completed' }))).toBe(false)
     expect(hasFailures(execution({ status: 'cancelled', rows_failed: 3 }))).toBe(false)
+    expect(hasFailures(execution({ status: 'interrupted', rows_failed: 3 }))).toBe(false)
   })
 })
 

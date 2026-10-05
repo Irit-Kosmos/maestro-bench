@@ -8,10 +8,12 @@ export function useUIHelpers() {
   function getStatusColor(status: ExperimentStatus): 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral' {
     const colors = {
       pending: 'warning' as const,
+      queued: 'neutral' as const,
       running: 'info' as const,
       completed: 'success' as const,
       failed: 'error' as const,
       cancelled: 'neutral' as const,
+      interrupted: 'neutral' as const,
       partial: 'warning' as const,
     }
     return colors[status] || 'neutral'

@@ -2,7 +2,7 @@
 import type { ExperimentStatus } from '~/types'
 
 // Each status has its own shape, so it still reads without color:
-// dashed (waiting), half-filled (in progress), check, cross, slash (stopped), alert
+// dashed (not started), clock (queued), half-filled (in progress), check, cross, slash (stopped), pause (interrupted), alert
 const props = withDefaults(defineProps<{
   status?: ExperimentStatus | string | null
   /** Tailwind size class of the icon */
@@ -19,6 +19,8 @@ const config = computed(() => {
     case 'completed': return { icon: 'i-ph-check-circle-bold', class: 'text-success' }
     case 'running': return { icon: null, class: 'text-warning' }
     case 'failed': return { icon: 'i-ph-x-circle-bold', class: 'text-error' }
+    case 'queued': return { icon: 'i-ph-clock-bold', class: 'text-muted' }
+    case 'interrupted': return { icon: 'i-ph-pause-circle-bold', class: 'text-orange-600 dark:text-orange-400' }
     case 'cancelled': return { icon: 'i-ph-prohibit-bold', class: 'text-orange-600 dark:text-orange-400' }
     case 'partial': return { icon: 'i-ph-warning-circle-bold', class: 'text-warning' }
     default: return { icon: 'i-ph-circle-dashed-bold', class: 'text-muted' }
@@ -27,10 +29,12 @@ const config = computed(() => {
 
 const details: Record<string, string> = {
   pending: 'Waiting to start',
+  queued: 'Waiting for a free slot',
   running: 'In progress',
   completed: 'Finished successfully',
   failed: 'Failed',
   cancelled: 'Stopped before the end',
+  interrupted: 'Cut short by a server restart',
   partial: 'Finished, some runs did not complete',
 }
 

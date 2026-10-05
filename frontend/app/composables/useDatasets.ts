@@ -6,19 +6,23 @@ import type { CreateDatasetForm, Dataset, DatasetStats } from '~/types'
 export function useDatasets() {
   const { $api } = useNuxtApp()
 
-  // Create a new dataset
-  async function createDataset(datasetData: CreateDatasetForm) {
+  // Create a dataset from a file: the file is the request body, the rest goes in the query
+  async function createDataset({ name, description, file }: CreateDatasetForm) {
     try {
-      const response = await $api('/datasets', {
+      const response = await $api<Dataset>('/datasets/upload', {
         method: 'POST',
-        body: datasetData,
+        query: { filename: file.name, name, description },
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
       })
 
-      return { success: true, data: response }
+      return { success: true as const, data: response }
     }
     catch (error) {
       console.error('Error creating dataset:', error)
-      return { success: false, error }
+      // The API says what is wrong with the file (too large, not a CSV...)
+      const detail = (error as { data?: { detail?: unknown } }).data?.detail
+      return { success: false as const, error: typeof detail === 'string' ? detail : undefined }
     }
   }
 

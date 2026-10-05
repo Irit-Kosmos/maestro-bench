@@ -187,7 +187,7 @@ const actions = [
   {
     label: 'Cancel run',
     icon: 'i-ph-square-bold',
-    show: (experiment: Experiment) => (runOf(experiment.id)?.status ?? experiment.status) === 'running',
+    show: (experiment: Experiment) => ['running', 'queued'].includes(runOf(experiment.id)?.status ?? experiment.status ?? ''),
     handler: (experiment: Experiment) => handleCancelExperiment(experiment.id),
   },
   {
