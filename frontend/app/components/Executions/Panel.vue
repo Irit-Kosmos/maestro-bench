@@ -144,7 +144,11 @@ defineShortcuts({
                   {{ agent.name }}
                   <span class="text-xs font-normal text-muted">(deleted)</span>
                 </p>
-                <p class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
+                <p v-if="agent.kind === 'aggregator'" class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
+                  <UIcon name="i-ph-function-bold" class="size-3 shrink-0" aria-hidden="true" />
+                  Aggregator
+                </p>
+                <p v-else class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
                   <span class="shrink-0">{{ agent.prompt }} v{{ agent.prompt_version }}</span>
                   <span aria-hidden="true">·</span>
                   <ModelsLabel :name="agent.model" :provider="agent.provider" />

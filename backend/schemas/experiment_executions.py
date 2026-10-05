@@ -29,6 +29,8 @@ class LatestExecutionFigures(BaseModel):
 class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int
+    # "aggregator" snapshots have empty model and prompt fields, and formulas
+    kind: str = "llm"
     agent_name_snapshot: str
     agent_team_name_snapshot: str | None
     model_name_snapshot: str
@@ -41,6 +43,7 @@ class AgentExecutionSnapshotResponse(BaseModel):
     final_user_prompt: str | None
     final_variables: str | None
     final_input_mappings: str | None
+    final_formulas: str | None = None
     final_temperature: float | None
     final_max_tokens: int | None
     execution_order: int
@@ -52,6 +55,7 @@ class ExecutionListAgent(BaseModel):
 
     # None once the agent has been deleted: only its snapshot is left
     agent_id: int | None = None
+    kind: str = "llm"
     name: str
     model: str
     provider: str

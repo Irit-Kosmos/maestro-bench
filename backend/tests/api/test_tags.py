@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from api import analyses, prompts, tags
+from api import agent_teams, agents, analyses, prompts, tags
 from db import get_session
 from tables import TagLink
 
@@ -25,7 +25,7 @@ def engine():
 @pytest.fixture
 def client(engine):
     app = FastAPI()
-    for module in (tags, prompts, analyses):
+    for module in (tags, prompts, analyses, agents, agent_teams):
         app.include_router(module.router)
 
     def _session():
@@ -89,15 +89,12 @@ def test_rename_to_another_tags_name_is_refused(client):
     assert client.put(f"/tags/{wip['id']}", json={"name": "WIP"}).status_code == 200
 
 
-def test_list_counts_usage_and_sorts_by_name(client):
+def test_list_sorts_by_name(client):
     zed = make_tag(client, "zed")
     alpha = make_tag(client, "Alpha")
-    for name in ("one", "two"):
-        client.post("/prompts", json={"name": name, "tag_ids": [zed["id"]]})
 
     listed = client.get("/tags").json()
-    assert [(t["name"], t["count"]) for t in listed] == [("Alpha", 0), ("zed", 2)]
-    assert listed[0]["id"] == alpha["id"]
+    assert [t["id"] for t in listed] == [alpha["id"], zed["id"]]
 
 
 def test_prompt_tags_are_set_replaced_and_kept(client):
@@ -169,14 +166,15 @@ def test_deleting_an_item_drops_its_links_but_not_the_tag(client, engine):
 
     with Session(engine) as s:
         assert s.exec(select(TagLink)).all() == []
-    assert client.get("/tags").json() == [{**a, "count": 0}]
+    assert client.get("/tags").json() == [a]
 
 
 def test_a_tag_is_shared_between_kinds(client):
     a = make_tag(client, "paper")
-    client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]})
-    client.post("/analyses", json={**ANALYSIS, "tag_ids": [a["id"]]})
-    assert client.get("/tags").json()[0]["count"] == 2
+    prompt = client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]}).json()
+    analysis = client.post("/analyses", json={**ANALYSIS, "tag_ids": [a["id"]]}).json()
+    assert prompt["tags"] == [a]
+    assert analysis["tags"] == [a]
 
 
 def test_analysis_runs_still_round_trip(client):
@@ -254,3 +252,43 @@ def test_assign_refuses_unknown_items_and_tags_without_changing_anything(client)
         client.post("/tags/assign", json={"kind": "prompt", "item_ids": []}).status_code
         == 422
     )
+
+
+def make_agent(client, **fields):
+    team = client.post("/agent-teams", json={"name": "Graders"}).json()
+    response = client.post(
+        "/agents", json={"name": "A", "team_id": team["id"], **fields}
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_agent_tags_are_set_replaced_and_kept(client):
+    a, b = make_tag(client, "a"), make_tag(client, "b")
+    agent = make_agent(client, tag_ids=[a["id"]])
+    assert [t["name"] for t in agent["tags"]] == ["a"]
+
+    renamed = client.put(f"/agents/{agent['id']}", json={"name": "B"}).json()
+    assert [t["name"] for t in renamed["tags"]] == ["a"]  # left out: kept
+
+    replaced = client.put(f"/agents/{agent['id']}", json={"tag_ids": [b["id"]]}).json()
+    assert [t["name"] for t in replaced["tags"]] == ["b"]
+
+    listed = client.get("/agents").json()
+    assert [t["name"] for t in listed[0]["tags"]] == ["b"]
+
+
+def test_assign_works_on_agents(client, engine):
+    a = make_tag(client, "a")
+    agent = make_agent(client)
+    client.post(
+        "/tags/assign",
+        json={"kind": "agent", "item_ids": [agent["id"]], "add": [a["id"]]},
+    )
+    assert [t["name"] for t in client.get(f"/agents/{agent['id']}").json()["tags"]] == [
+        "a"
+    ]
+
+    client.delete(f"/agents/{agent['id']}")
+    with Session(engine) as s:
+        assert s.exec(select(TagLink)).all() == []

@@ -1,10 +1,24 @@
 import type { FilterSpec } from './filters'
+import type { GroupSummaryPart } from './groups'
 import type { ExecutionListItem } from '~/types'
 import { byOrder } from './filters'
 
 /** Whether an execution is a problem to look into: it failed, or went on with failed rows. Cancelling is a choice, so it never is. */
 export function hasFailures(execution: Pick<ExecutionListItem, 'status' | 'rows_failed'>): boolean {
   return execution.status !== 'cancelled' && (execution.status === 'failed' || execution.rows_failed > 0)
+}
+
+/**
+ * What stands out in a group of runs: how many are going and how many went wrong, nothing when all is well.
+ * Reads a failure like `hasFailures` does, so the count matches the failures filter and the dashboard.
+ */
+export function runsSummary(runs: readonly { status?: string | null, rows_failed?: number | null }[]): GroupSummaryPart[] {
+  const running = runs.filter(run => run.status === 'running').length
+  const failed = runs.filter(run => run.status !== 'cancelled' && (run.status === 'failed' || (run.rows_failed ?? 0) > 0)).length
+  return [
+    ...(running ? [{ label: `${running} running`, class: 'text-warning' }] : []),
+    ...(failed ? [{ label: `${failed} failed`, class: 'text-error' }] : []),
+  ]
 }
 
 /** Whether an analysis can read the execution: it ended well and left its results behind. */
@@ -39,7 +53,8 @@ export function executionModelsFilter(): FilterSpec<ExecutionListItem> {
     plural: 'models',
     multiValued: true,
     searchPlaceholder: 'Search a model…',
-    value: execution => [...new Set(execution.agents.map(agent => agent.model))],
+    // Aggregators have no model
+    value: execution => [...new Set(execution.agents.filter(agent => agent.model).map(agent => agent.model))],
   }
 }
 

@@ -32,6 +32,8 @@ class ExperimentAgentConfigResponse(BaseModel):
     execution_order: int
     is_active: bool
     input_mappings: list[dict] | None = None
+    # Aggregators: [{name, formula}]
+    formulas: list[dict] | None = None
     created_at: datetime
 
 

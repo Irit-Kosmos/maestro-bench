@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api import (
     agent_teams,
     agents,
+    aggregators,
     analyses,
     batches,
     dashboard,
@@ -61,6 +62,7 @@ app.include_router(datasets.router)
 app.include_router(experiments.router)
 app.include_router(agent_teams.router)
 app.include_router(agents.router)
+app.include_router(aggregators.router)
 app.include_router(experiment_executions.router)
 app.include_router(prompts.router)
 app.include_router(models.router)

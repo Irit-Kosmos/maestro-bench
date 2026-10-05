@@ -78,7 +78,39 @@ def test_returns_input_and_parsed_agent_output(client, engine, tmp_path):
     body = response.json()
     assert body["row_index"] == 1
     assert body["input_data"] == {"text": "great", "score": 5}
-    assert body["agents"] == [{"name": "Grader", "output": {"score": 4}, "error": None}]
+    assert body["agents"] == [
+        {
+            "name": "Grader",
+            "kind": "llm",
+            "inputs": None,
+            "output": {"score": 4},
+            "error": None,
+        }
+    ]
+
+
+def test_aggregator_rows_carry_their_inputs(client, engine, tmp_path):
+    rows = [
+        {
+            "row_index": 1,
+            "input_data": {},
+            "agents": [
+                {
+                    "name": "Final",
+                    "kind": "aggregator",
+                    "inputs": {"a": 3, "w": 0.5},
+                    "output": {"score": 1.5},
+                    "error": None,
+                }
+            ],
+        }
+    ]
+    execution_id = _add_execution(engine, _results_file(tmp_path, rows))
+
+    agent = client.get(f"/executions/{execution_id}/rows/1").json()["agents"][0]
+
+    assert agent["kind"] == "aggregator"
+    assert agent["inputs"] == {"a": 3, "w": 0.5}
 
 
 def test_carries_agent_and_row_errors(client, engine, tmp_path):

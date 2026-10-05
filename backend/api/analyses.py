@@ -2,14 +2,14 @@ import json
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, col, select
 
 from analysis import METRICS, AnalysisConfig, RunInput, result_rows
 from analysis.compute import comparison_warnings, compute_run, validate_config
-from core.json_output import parse_json_output
+from core.json_output import parse_json_output, scalar_paths
 from db import get_session
 from results_files import execution_row_count
 from schemas.analyses import (
@@ -171,19 +171,6 @@ def _metric_info(key: str) -> MetricInfo:
     )
 
 
-def _scalar_paths(value: Any, prefix: str = "") -> list[str]:
-    """Dotted paths to the scalar leaves of a JSON value."""
-    if isinstance(value, dict):
-        paths = []
-        for key, child in value.items():
-            paths += _scalar_paths(child, f"{prefix}.{key}" if prefix else str(key))
-        return paths
-    if isinstance(value, list):
-        # Lists of scalars (e.g. score distributions) are not a single value
-        return []
-    return [prefix]
-
-
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -256,7 +243,7 @@ def get_execution_fields(
         for agent in row.get("agents") or []:
             agent_paths = paths.setdefault(agent.get("name"), {})
             output = parse_json_output(agent.get("output"))
-            agent_paths.update(dict.fromkeys(_scalar_paths(output)))
+            agent_paths.update(dict.fromkeys(scalar_paths(output)))
 
     configured = (results.get("configuration_used") or {}).get("agents") or []
     agents = [
@@ -304,6 +291,8 @@ def get_execution_row(
         agents=[
             AgentRowOutput(
                 name=agent.get("name"),
+                kind=agent.get("kind") or "llm",
+                inputs=agent.get("inputs"),
                 output=parse_json_output(agent.get("output")),
                 error=agent.get("error"),
             )

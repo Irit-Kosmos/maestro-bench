@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlmodel import Session, col, delete, select
 
 from db import get_session
-from schemas.tags import TagAssign, TagCreate, TagResponse, TagUpdate, TagWithCount
+from schemas.tags import TagAssign, TagCreate, TagResponse, TagUpdate
 from tables import Tag, TagLink
 from tag_utils import add_and_remove_tags, normalize_tag_name
 
@@ -26,21 +26,10 @@ def _checked_name(name: str) -> str:
     return cleaned
 
 
-@router.get("/tags", response_model=list[TagWithCount])
+@router.get("/tags", response_model=list[TagResponse])
 def list_tags(session: Annotated[Session, Depends(get_session)]):
-    """Every tag with the number of items carrying it, by name."""
-    counts = dict(
-        session.exec(
-            select(TagLink.tag_id, func.count()).group_by(TagLink.tag_id)
-        ).all()
-    )
-    tags = sorted(session.exec(select(Tag)).all(), key=lambda t: t.name.lower())
-    return [
-        TagWithCount(
-            id=t.id or 0, name=t.name, color=t.color, count=counts.get(t.id, 0)
-        )
-        for t in tags
-    ]
+    """Every tag, by name."""
+    return sorted(session.exec(select(Tag)).all(), key=lambda t: t.name.lower())
 
 
 @router.post("/tags", response_model=TagResponse, status_code=201)

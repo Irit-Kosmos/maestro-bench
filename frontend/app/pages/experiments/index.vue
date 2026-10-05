@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { Experiment } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
+import type { GroupSpec } from '~/utils/groups'
+import { useLocalStorage } from '@vueuse/core'
 import { h, resolveComponent } from 'vue'
+import { useGroupBy } from '~/composables/useGroupBy'
+import { runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
 import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 
@@ -17,7 +21,7 @@ const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[
 const route = useRoute()
 
 // Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
-const rowsEntry = useCookie<FilterEntry>('experiments-rows-filter', { default: emptyFilterEntry })
+const rowsEntry = useLocalStorage<FilterEntry>('maestro:experiments-rows-filter', emptyFilterEntry())
 
 // A link such as /experiments?batch=<id> opens the list on one batch
 const batchFromLink = Number(route.query.batch) || undefined
@@ -54,9 +58,12 @@ useSeoMeta({
 })
 
 // Table configuration
+// How the list is grouped is remembered per browser
+const groupBy = useGroupBy('maestro:experiments-group-by', 'batch')
+
 const ExperimentsName = resolveComponent('ExperimentsName')
 const figureClass = 'text-sm text-toned tabular-nums'
-const columns = [
+const columns = computed(() => [
   {
     key: 'name',
     label: 'Experiment',
@@ -76,10 +83,12 @@ const columns = [
     width: 176,
     label: 'Batch',
     formatter: (_: any, row: Experiment) => row.batch_name || '',
+    // The batch section says it, but the search still finds a batch by its name
+    hidden: groupBy.value === 'batch',
   },
   {
     key: 'row_count',
-    width: 150,
+    width: 176,
     label: 'Rows',
   },
   // The figures of the latest execution; the earlier ones are only counted
@@ -92,7 +101,7 @@ const columns = [
   },
   {
     key: 'total_tokens',
-    width: 88,
+    width: 80,
     label: 'Tokens',
     class: figureClass,
   },
@@ -104,14 +113,15 @@ const columns = [
   },
   {
     key: 'duration_seconds',
-    width: 96,
+    width: 88,
     label: 'Duration',
     class: figureClass,
     formatter: (seconds: number | null | undefined) => formatElapsed(seconds),
   },
   {
     key: 'status',
-    width: 200,
+    // The icon and the dots of the earlier executions: the progress of a run in flight sits under the row count
+    width: 112,
     label: 'Status',
   },
   {
@@ -119,12 +129,27 @@ const columns = [
     width: 112,
     label: 'Created',
   },
-]
+])
 
 // Batches are told apart by id, but read by the name their experiments carry
 const batchNames = computed(() => new Map((experiments.value ?? []).flatMap(exp =>
   exp.batch_id ? [[exp.batch_id, exp.batch_name || `Batch #${exp.batch_id}`] as const] : [],
 )))
+
+// The experiments of a batch sit together under it, the others stay where their date puts them
+const groups: GroupSpec<Experiment>[] = [
+  {
+    key: 'batch',
+    label: 'Batch',
+    icon: 'i-ph-arrows-split-bold',
+    flow: true,
+    value: exp => exp.batch_id,
+    present: id => ({ label: batchNames.value.get(Number(id)) ?? `Batch #${id}`, icon: 'i-ph-arrows-split-bold' }),
+    link: id => `/batches/${id}`,
+    summary: items => runsSummary(items.map(exp => ({ status: runOf(exp.id)?.status ?? exp.status, rows_failed: exp.rows_failed }))),
+    rail: 'bg-neutral-300 dark:bg-neutral-600',
+  },
+]
 
 const filters = computed<FilterSpec<Experiment>[]>(() => [
   statusFilter(exp => exp.status ?? 'pending'),
@@ -269,11 +294,13 @@ async function handleCreateExperiment() {
       <BaseDataTable
         v-model:selected="selectedIds"
         v-model:filter-state="filterState"
+        v-model:group-by="groupBy"
         fill
         :row-height="57"
         :data="experiments"
         :columns="columns"
         :filters="filters"
+        :groups="groups"
         :actions="actions"
         :loading="pending"
         :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
@@ -300,7 +327,6 @@ async function handleCreateExperiment() {
           <div class="flex items-center gap-3">
             <UIStatusBadge :status="row.original.status" />
             <UIStatusHistory :earlier="row.original.execution_statuses?.slice(1)" />
-            <UIRunProgress :run="runOf(row.original.id)" />
           </div>
         </template>
 
@@ -319,8 +345,14 @@ async function handleCreateExperiment() {
         </template>
 
         <template #row_count-cell="{ row }">
-          <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
-          <span v-if="row.original.rows_failed" class="ms-2 text-xs text-error tabular-nums">{{ row.original.rows_failed }} failed</span>
+          <div class="flex min-w-0 flex-col">
+            <span>
+              <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
+              <!-- The progress under it counts the failed ones while the run is going -->
+              <span v-if="row.original.rows_failed && runOf(row.original.id)?.status !== 'running'" class="ms-2 text-xs text-error tabular-nums">{{ row.original.rows_failed }} failed</span>
+            </span>
+            <UIRunProgress :run="runOf(row.original.id)" />
+          </div>
         </template>
 
         <template #total_tokens-cell="{ row }">

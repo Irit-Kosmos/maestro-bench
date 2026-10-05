@@ -24,6 +24,10 @@ const emit = defineEmits<{
 provide('agentFlowModels', computed(() => props.models || []))
 provide('agentFlowPromptVersions', computed(() => props.allPromptVersions || []))
 
+// The node a click just added: it eases in, while the ones restored with the flow are simply there
+const enteringNodeId = ref<string | null>(null)
+provide('agentFlowEnteringNode', enteringNodeId)
+
 // Initialize agent flow state
 const flow = useAgentFlow(
   computed(() => props.agentTeams || []),
@@ -42,6 +46,7 @@ const {
   computeExecutionOrder,
   updateAgentConfig: flowUpdateAgentConfig,
   syncFromConfigs,
+  syncMappingEdges,
   updateInputMapping,
   getInputMappings,
 } = flow
@@ -73,7 +78,11 @@ watch(() => props.agentConfigurations, () => {
   if (nodes.value.length === 0) {
     syncFromConfigs()
   }
+  syncMappingEdges()
 }, { immediate: true, deep: true })
+
+// A node added or removed can start or stop carrying a mapping
+watch(() => nodes.value.length, () => syncMappingEdges())
 
 // Selected node data for config panel
 const selectedAgent = computed<Agent | null>(() => {
@@ -111,12 +120,16 @@ function onConnect(connection: any) {
 
 // Handle edge click to delete
 function onEdgeClick(event: any) {
+  // An edge carrying variables stays as long as their mappings do
+  if (event.edge.data?.variables?.length)
+    return
   const edgeId = event.edge.id
   edges.value = edges.value.filter(e => e.id !== edgeId)
 }
 
 // Add agent from palette
 function handleAddAgent(agent: Agent) {
+  enteringNodeId.value = `agent-${agent.id}`
   addAgentToFlow(agent)
   emit('addAgent', agent.id)
   nextTick(() => {
@@ -151,11 +164,8 @@ function handleResetAgent() {
     return
   const agent = selectedAgent.value
   const resetValue = {
-    prompt_version_id: agent.default_prompt_version_id || undefined,
-    model_id: agent.default_model_id || undefined,
-    temperature: undefined,
-    max_tokens: undefined,
-    is_active: true,
+    ...defaultAgentConfig(agent),
+    execution_order: props.agentConfigurations[agent.id]?.execution_order,
   }
   flowUpdateAgentConfig(agent.id, 'reset', resetValue)
   emit('updateAgentConfig', agent.id, 'reset', resetValue)
@@ -174,29 +184,29 @@ function handleUpdateInputMapping(mapping: any) {
   emit('updateAgentConfig', selectedAgent.value.id, 'input_mappings', getInputMappings(selectedAgent.value.id))
 }
 
-// Get agents that are upstream of the selected agent (based on edges)
+// Agents the selected one may read: every other agent of the flow except those that run after it
+// (reading one of them would make a cycle). Mapping a variable to one draws the edge, so the source
+// does not have to be connected first. Ordered by run order, nearest last.
 const upstreamAgents = computed<Agent[]>(() => {
   if (!selectedNodeId.value)
     return []
-  const upstreamIds = new Set<string>()
-  const visited = new Set<string>()
-
-  function visit(currentId: string) {
-    if (visited.has(currentId))
-      return
-    visited.add(currentId)
+  const downstream = new Set<string>([selectedNodeId.value])
+  const queue = [selectedNodeId.value]
+  while (queue.length > 0) {
+    const current = queue.shift()!
     edges.value
-      .filter(e => e.target === currentId)
+      .filter(e => e.source === current && !downstream.has(e.target))
       .forEach((e) => {
-        upstreamIds.add(e.source)
-        visit(e.source)
+        downstream.add(e.target)
+        queue.push(e.target)
       })
   }
-
-  visit(selectedNodeId.value)
-  return Array.from(upstreamIds)
-    .map(id => nodes.value.find(n => n.id === id)?.data?.agent)
-    .filter(Boolean) as Agent[]
+  const order = computeExecutionOrder()
+  return nodes.value
+    .filter(n => !downstream.has(n.id))
+    .map(n => n.data?.agent)
+    .filter((agent): agent is Agent => !!agent)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 })
 
 // Expose computeExecutionOrder for parent to call
@@ -242,18 +252,20 @@ defineExpose({
         <VueFlowControls />
 
         <!-- Empty state overlay -->
-        <div
-          v-if="nodes.length === 0"
-          class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-        >
-          <UIcon name="i-ph-git-branch-bold" class="w-12 h-12 text-dimmed mb-4" />
-          <p class="text-sm font-medium text-muted mb-1">
-            Build Your Agent Flow
-          </p>
-          <p class="text-xs text-dimmed text-center max-w-xs">
-            Click agents from the sidebar to add them to the canvas. Connect them with edges to define execution order.
-          </p>
-        </div>
+        <Transition leave-active-class="transition-opacity duration-150 ease-out" leave-to-class="opacity-0">
+          <div
+            v-if="nodes.length === 0"
+            class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+          >
+            <UIcon name="i-ph-git-branch-bold" class="w-12 h-12 text-dimmed mb-4" />
+            <p class="text-sm font-medium text-muted mb-1">
+              Build Your Agent Flow
+            </p>
+            <p class="text-xs text-dimmed text-center max-w-xs">
+              Click agents from the sidebar to add them to the canvas. Connect them with edges to define execution order.
+            </p>
+          </div>
+        </Transition>
       </VueFlow>
     </div>
 

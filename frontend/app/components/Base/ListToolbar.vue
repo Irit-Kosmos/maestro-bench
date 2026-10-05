@@ -2,7 +2,7 @@
 import type { FilterDefinition, FilterState } from '~/utils/filters'
 
 // The toolbar of a list: search, filters, then the count and a refresh button.
-// What is specific to a list goes in the slots: `default` right after the filters, `trailing` before the count.
+// What is specific to a list goes in the slots: `group` right after the Filter button, `default` after the filters, `trailing` before the count.
 const props = withDefaults(defineProps<{
   definitions: FilterDefinition[]
   /** Items before any search or filter, and how many are left */
@@ -67,7 +67,10 @@ const countLabel = computed(() => {
       {{ title }}
     </h3>
 
-    <BaseFilterBar v-if="definitions.length" v-model="filters" :definitions="definitions" />
+    <BaseFilterBar v-if="definitions.length" v-model="filters" :definitions="definitions">
+      <slot name="group" />
+    </BaseFilterBar>
+    <slot v-else name="group" />
 
     <slot />
 

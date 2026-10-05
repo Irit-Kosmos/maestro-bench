@@ -20,6 +20,9 @@ const isSelected = computed(() => props.selected || false)
 const models = inject<Ref<Model[]>>('agentFlowModels', ref([]))
 const promptVersions = inject<Ref<PromptVersion[]>>('agentFlowPromptVersions', ref([]))
 
+// Read once at mount: only the node that was just added plays its entrance
+const entering = inject<Ref<string | null>>('agentFlowEnteringNode', ref(null)).value === props.id
+
 const selectedPromptVersion = computed(() => {
   const id = props.data?.config?.prompt_version_id
   if (!id)
@@ -27,7 +30,15 @@ const selectedPromptVersion = computed(() => {
   return promptVersions.value.find(v => v.id === id)
 })
 
+const aggregator = computed(() => props.data?.agent?.kind === 'aggregator')
+const outputsDisplay = computed(() => (props.data?.config?.formulas ?? [])
+  .map((f: { name: string }) => f.name)
+  .filter(Boolean)
+  .join(', ') || 'No output')
+
 const promptVariables = computed<string[]>(() => {
+  if (aggregator.value)
+    return formulaVariables(props.data?.config?.formulas)
   const version = selectedPromptVersion.value
   if (!version?.variables)
     return []
@@ -76,6 +87,7 @@ const modelDisplay = computed(() => {
   <div
     class="agent-node rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-150 min-w-[180px]"
     :class="{
+      'agent-node-enter': entering,
       'border-primary bg-default shadow-lg': isSelected,
       'border-default bg-default shadow-sm': !isSelected,
       'opacity-60': !isActive,
@@ -108,13 +120,19 @@ const modelDisplay = computed(() => {
 
       <!-- Config summary -->
       <div class="mt-2 pt-2 border-t border-muted space-y-1.5">
-        <div class="flex items-center gap-1 text-xs text-muted">
+        <div v-if="aggregator" class="flex items-center gap-1 text-xs text-muted">
+          <UIcon name="i-ph-function-bold" class="w-3 h-3 flex-shrink-0" />
+          <span class="truncate font-mono" :title="outputsDisplay">
+            {{ outputsDisplay }}
+          </span>
+        </div>
+        <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
           <UIcon name="i-ph-chat-bold" class="w-3 h-3 flex-shrink-0" />
           <span class="truncate" :title="promptDisplay">
             {{ promptDisplay }}
           </span>
         </div>
-        <div class="flex items-center gap-1 text-xs text-muted">
+        <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
           <UIProviderIcon v-if="model" :provider="model.provider" class="size-3" />
           <UIcon v-else name="i-ph-brain-bold" class="w-3 h-3 flex-shrink-0" />
           <span class="truncate" :title="modelDisplay">
@@ -151,5 +169,29 @@ const modelDisplay = computed(() => {
 .agent-node {
   /* Prevent text selection during drag */
   user-select: none;
+}
+
+/* A node added from the palette: occasional, so a short entrance is fine; never from scale(0) */
+.agent-node-enter {
+  animation: agent-node-enter 200ms var(--ease-out);
+}
+
+@keyframes agent-node-enter {
+  from {
+    opacity: 0;
+    scale: 0.95;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-node-enter {
+    animation-name: agent-node-fade;
+  }
+
+  @keyframes agent-node-fade {
+    from {
+      opacity: 0;
+    }
+  }
 }
 </style>

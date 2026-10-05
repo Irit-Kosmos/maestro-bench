@@ -8,7 +8,11 @@ const props = defineProps<{
 }>()
 
 const snapshot = computed(() => props.data.snapshot)
-const variables = computed(() => parsePromptVariables(snapshot.value.final_variables))
+const formulas = computed(() => parseSnapshotFormulas(snapshot.value))
+const aggregator = computed(() => snapshot.value.kind === 'aggregator')
+const variables = computed(() => aggregator.value
+  ? formulaVariables(formulas.value)
+  : parsePromptVariables(snapshot.value.final_variables))
 </script>
 
 <template>
@@ -34,13 +38,21 @@ const variables = computed(() => parsePromptVariables(snapshot.value.final_varia
       </div>
 
       <div class="mt-2 space-y-1.5 border-t border-muted pt-2">
-        <div class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" aria-hidden="true" />
-          <span class="truncate" :title="`${snapshot.prompt_name_snapshot} v${snapshot.prompt_version_snapshot}`">
-            {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
-          </span>
-        </div>
-        <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" class="text-xs text-muted" />
+        <template v-if="aggregator">
+          <div v-for="f in formulas" :key="f.name" class="flex items-center gap-1 text-xs text-muted">
+            <UIcon name="i-ph-function-bold" class="size-3 shrink-0" aria-hidden="true" />
+            <span class="truncate font-mono" :title="`${f.name} = ${f.formula}`">{{ f.name }} = {{ f.formula }}</span>
+          </div>
+        </template>
+        <template v-else>
+          <div class="flex items-center gap-1 text-xs text-muted">
+            <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" aria-hidden="true" />
+            <span class="truncate" :title="`${snapshot.prompt_name_snapshot} v${snapshot.prompt_version_snapshot}`">
+              {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
+            </span>
+          </div>
+          <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" class="text-xs text-muted" />
+        </template>
 
         <div v-if="variables.length > 0" class="flex flex-wrap gap-1 pt-1">
           <UBadge v-for="variable in variables" :key="variable" size="xs" color="neutral" variant="subtle" class="font-mono">

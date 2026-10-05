@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TagColor, TagWithCount } from '~/types'
+import type { Tag, TagColor } from '~/types'
 import { apiErrorMessage } from '~/composables/useAnalyses'
 
 // Every tag, to rename, recolour or delete. Tags are created where they are used (see TagsInput).
@@ -10,7 +10,7 @@ function fail(title: string, error: unknown, fallback: string) {
   toast.add({ title, description: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
 }
 
-async function rename(tag: TagWithCount, event: Event) {
+async function rename(tag: Tag, event: Event) {
   const input = event.target as HTMLInputElement
   const name = normalizeTagName(input.value)
   if (!name || name === tag.name) {
@@ -26,7 +26,7 @@ async function rename(tag: TagWithCount, event: Event) {
   }
 }
 
-async function recolor(tag: TagWithCount, color: TagColor) {
+async function recolor(tag: Tag, color: TagColor) {
   if (color === tag.color)
     return
   try {
@@ -37,11 +37,11 @@ async function recolor(tag: TagWithCount, color: TagColor) {
   }
 }
 
-const toDelete = ref<TagWithCount | null>(null)
+const toDelete = ref<Tag | null>(null)
 const showDeleteDialog = ref(false)
 const deleting = ref(false)
 
-function requestDelete(tag: TagWithCount) {
+function requestDelete(tag: Tag) {
   toDelete.value = tag
   showDeleteDialog.value = true
 }
@@ -66,8 +66,7 @@ const deleteMessage = computed(() => {
   const tag = toDelete.value
   if (!tag)
     return ''
-  const used = tag.count === 0 ? 'It is not used anywhere.' : `It is on ${tag.count} item${tag.count === 1 ? '' : 's'} and will be removed from ${tag.count === 1 ? 'it' : 'them'}.`
-  return `Delete the tag “${tag.name}”? ${used}`
+  return `Delete the tag “${tag.name}”? It will be removed from everything it is on.`
 })
 </script>
 
@@ -116,9 +115,6 @@ const deleteMessage = computed(() => {
         @keydown.esc="($event.target as HTMLInputElement).value = tag.name"
       >
 
-      <span class="shrink-0 text-xs text-muted tabular-nums">
-        {{ tag.count === 0 ? 'Unused' : `${tag.count} item${tag.count === 1 ? '' : 's'}` }}
-      </span>
       <UButton
         icon="i-ph-trash-bold"
         color="neutral"

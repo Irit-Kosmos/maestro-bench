@@ -30,7 +30,7 @@ function setOpen(id: number, open: boolean) {
   <!-- One agent: a card -->
   <section v-if="ordered.length === 1" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon name="i-ph-robot-bold" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon :name="ordered[0]!.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold'" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ ordered[0]!.agent_name_snapshot }}
@@ -67,7 +67,11 @@ function setOpen(id: number, open: boolean) {
               <span class="truncate text-sm font-medium text-highlighted">{{ agent.agent_name_snapshot }}</span>
               <span v-if="showTeam(agent)" class="hidden shrink-0 text-xs text-muted sm:inline">{{ agent.agent_team_name_snapshot }}</span>
             </span>
-            <span class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
+            <span v-if="agent.kind === 'aggregator'" class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
+              <UIcon name="i-ph-function-bold" class="size-3 shrink-0" aria-hidden="true" />
+              <span class="truncate font-mono">{{ parseSnapshotFormulas(agent).map(f => f.name).join(', ') }}</span>
+            </span>
+            <span v-else class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted">
               <span class="shrink-0">{{ agent.prompt_name_snapshot }} v{{ agent.prompt_version_snapshot }}</span>
               <span aria-hidden="true">·</span>
               <ModelsLabel :name="agent.model_name_snapshot" :provider="agent.model_provider_snapshot" />

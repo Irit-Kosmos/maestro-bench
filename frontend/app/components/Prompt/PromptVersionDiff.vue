@@ -54,10 +54,12 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
           </h3>
           <BaseDiffStat :added="field.diff.added" :removed="field.diff.removed" />
         </div>
-        <BaseDiffBlock
-          v-if="isOpen(field.key, moved(field) && field.key !== 'notes')"
-          :items="moved(field) ? field.diff.items : field.full"
-        />
+        <!-- The toggle is the button above: the collapsible only animates what it opens -->
+        <UCollapsible :open="isOpen(field.key, moved(field) && field.key !== 'notes')">
+          <template #content>
+            <BaseDiffBlock :items="moved(field) ? field.diff.items : field.full" />
+          </template>
+        </UCollapsible>
       </section>
     </template>
 
@@ -81,18 +83,22 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
           </button>
         </h3>
       </div>
-      <ul v-if="isOpen('variables', variablesMoved)" class="flex flex-wrap gap-1.5">
-        <li v-for="tag in diff.variables" :key="tag.name">
-          <UBadge
-            :label="tag.status === 'added' ? `+ ${tag.name}` : tag.status === 'removed' ? `− ${tag.name}` : tag.name"
-            :color="tag.status === 'added' ? 'success' : tag.status === 'removed' ? 'error' : 'neutral'"
-            variant="subtle"
-            size="md"
-            class="font-mono"
-            :class="{ 'line-through': tag.status === 'removed' }"
-          />
-        </li>
-      </ul>
+      <UCollapsible :open="isOpen('variables', variablesMoved)">
+        <template #content>
+          <ul class="flex flex-wrap gap-1.5">
+            <li v-for="tag in diff.variables" :key="tag.name">
+              <UBadge
+                :label="tag.status === 'added' ? `+ ${tag.name}` : tag.status === 'removed' ? `− ${tag.name}` : tag.name"
+                :color="tag.status === 'added' ? 'success' : tag.status === 'removed' ? 'error' : 'neutral'"
+                variant="subtle"
+                size="md"
+                class="font-mono"
+                :class="{ 'line-through': tag.status === 'removed' }"
+              />
+            </li>
+          </ul>
+        </template>
+      </UCollapsible>
     </section>
   </div>
 </template>

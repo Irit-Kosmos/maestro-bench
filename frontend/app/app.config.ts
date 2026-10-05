@@ -65,6 +65,10 @@ export default defineAppConfig({
         },
       },
     },
+    fieldGroup: {
+      // Joined buttons share their edges: a press scale would pull one away from its neighbour
+      base: 'relative *:active:scale-100!',
+    },
     button: {
       slots: {
         // Press feedback: a subtle scale confirms the click landed

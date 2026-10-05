@@ -127,6 +127,9 @@ class ExecutionFields(BaseModel):
 
 class AgentRowOutput(BaseModel):
     name: str | None
+    kind: str = "llm"
+    # Aggregators: the value each formula variable resolved to
+    inputs: dict[str, Any] | None = None
     # Parsed when the agent answered with JSON, the raw text otherwise
     output: Any = None
     error: str | None = None

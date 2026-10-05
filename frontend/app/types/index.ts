@@ -22,11 +22,6 @@ export interface Tag {
   color: TagColor
 }
 
-export interface TagWithCount extends Tag {
-  /** How many items carry the tag */
-  count: number
-}
-
 export interface Prompt {
   id: number
   name: string
@@ -73,7 +68,18 @@ export interface AgentInputMapping {
   sourceColumn?: string
   sourceAgentId?: number
   sourceOutput?: string
+  /** Dotted path into the agent's JSON output (`score`, `eval.score`); empty reads the whole output */
+  sourcePath?: string
   staticValue?: string
+}
+
+/** "llm" calls a model with a prompt; "aggregator" computes formulas from other agents' outputs */
+export type AgentKind = 'llm' | 'aggregator'
+
+/** One named output of an aggregator */
+export interface FormulaOutput {
+  name: string
+  formula: string
 }
 
 // Per-agent settings chosen while creating an experiment
@@ -85,6 +91,8 @@ export interface AgentConfiguration {
   is_active?: boolean
   execution_order?: number
   input_mappings?: AgentInputMapping[]
+  /** Aggregators only */
+  formulas?: FormulaOutput[]
 }
 
 export interface Experiment {
@@ -169,6 +177,8 @@ export interface AgentExecutionSnapshot {
   id: number
   execution_id: number
   agent_id: number
+  /** Aggregator snapshots have empty model and prompt fields */
+  kind?: AgentKind
   agent_name_snapshot: string
   agent_team_name_snapshot?: string
   model_name_snapshot: string
@@ -181,6 +191,8 @@ export interface AgentExecutionSnapshot {
   final_user_prompt?: string
   final_variables?: string
   final_input_mappings?: string
+  /** JSON list of FormulaOutput, for aggregators */
+  final_formulas?: string | null
   final_temperature?: number
   final_max_tokens?: number
   execution_order: number
@@ -263,12 +275,15 @@ export interface Agent {
   id: number
   name: string
   description: string | null
+  kind?: AgentKind
   default_prompt_version_id: number | null
   default_model_id: number | null
   team_id: number
   created_at: string
   default_prompt_version?: PromptVersion
   default_model?: Model
+  /** Only the agents list reads them */
+  tags?: Tag[]
 }
 
 export interface AgentTeam {
@@ -314,22 +329,25 @@ export interface CreateAgentTeamForm {
 export interface CreateAgentForm {
   name: string
   description: string
+  kind?: AgentKind
   default_prompt_version_id?: number | null
   default_model_id?: number | null
   team_id: number
+  tag_ids?: number[]
 }
 
 export interface ExperimentAgentConfig {
   id: number
   experiment_id: number
   agent_id: number
-  prompt_version_id: number
-  model_id: number
+  prompt_version_id: number | null
+  model_id: number | null
   temperature: number | null
   max_tokens: number | null
   execution_order: number
   is_active: boolean
   input_mappings?: AgentInputMapping[] | null
+  formulas?: FormulaOutput[] | null
   created_at: string
   agent?: Agent
   prompt_version?: PromptVersion
@@ -431,7 +449,8 @@ export interface ExecutionFields {
 export interface ExecutionRow {
   row_index: number
   input_data: Record<string, unknown>
-  agents: { name: string | null, output: unknown, error: string | null }[]
+  /** Aggregators also carry the value each formula variable resolved to */
+  agents: { name: string | null, kind?: AgentKind, inputs?: Record<string, unknown> | null, output: unknown, error: string | null }[]
   error: string | null
 }
 
@@ -458,7 +477,7 @@ export interface ExecutionListItem {
   total_cost_usd: number | null
   /** In the order they ran */
   /** agent_id is null once the agent has been deleted */
-  agents: { agent_id: number | null, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
+  agents: { agent_id: number | null, kind?: AgentKind, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
 }
 
 export interface AvailableExecution {

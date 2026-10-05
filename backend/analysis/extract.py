@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Literal
 
-from core.json_output import parse_json_output
+from core.json_output import MISSING, get_path, parse_json_output
 
 ValueType = Literal["numeric", "categorical"]
 
@@ -50,29 +50,6 @@ class Extraction:
     @property
     def n_total(self) -> int:
         return self.n_valid + len(self.excluded)
-
-
-_MISSING = object()
-
-
-def get_path(obj: Any, path: str) -> Any:
-    """Follow a dotted path through dicts and lists; return _MISSING if absent."""
-    if not path:
-        return obj
-    current = obj
-    for segment in path.split("."):
-        if isinstance(current, dict):
-            if segment not in current:
-                return _MISSING
-            current = current[segment]
-        elif isinstance(current, list):
-            try:
-                current = current[int(segment)]
-            except (ValueError, IndexError):
-                return _MISSING
-        else:
-            return _MISSING
-    return current
 
 
 def to_numeric(value: Any) -> float | None:
@@ -180,7 +157,7 @@ def _row_pair(
         return ExclusionReason.UNPARSED_OUTPUT
 
     raw = get_path(output, output_path)
-    if raw is _MISSING:
+    if raw is MISSING:
         return ExclusionReason.PATH_MISSING
 
     prediction = convert(raw)

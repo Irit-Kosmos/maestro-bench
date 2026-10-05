@@ -25,7 +25,8 @@ export function useExperimentSubmission() {
       else {
         toast.add({
           title: 'Error',
-          description: 'Failed to create experiment. Please try again.',
+          // An aggregator the backend cannot run says why
+          description: apiErrorMessage(result.error) ?? 'Failed to create experiment. Please try again.',
           color: 'error',
           icon: 'i-ph:warning-circle-bold',
         })

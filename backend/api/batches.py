@@ -24,7 +24,7 @@ from batch_utils import (
 )
 from db import get_session
 from execution_stats import latest_figures
-from experiment_utils import add_experiment
+from experiment_utils import ExperimentConfigError, add_experiment
 from results_files import execution_row_count
 from schemas.batches import (
     BatchCancelResponse,
@@ -381,14 +381,17 @@ async def create_batch(
                 if multi_agent
                 else label
             )
-        experiment = add_experiment(
-            session,
-            base,
-            name=f"{batch.name} · {variant_label(parts)}",
-            agent_overrides=point,
-            batch_id=batch.id,
-            variant=serialize_point(point),
-        )
+        try:
+            experiment = add_experiment(
+                session,
+                base,
+                name=f"{batch.name} · {variant_label(parts)}",
+                agent_overrides=point,
+                batch_id=batch.id,
+                variant=serialize_point(point),
+            )
+        except ExperimentConfigError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
         experiment_ids.append(int(experiment.id) if experiment.id is not None else 0)
     session.commit()
 

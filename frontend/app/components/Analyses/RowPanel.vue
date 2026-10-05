@@ -50,6 +50,11 @@ watch(
   { immediate: true },
 )
 
+// What an aggregator computed from: "langue = 3 · contenu = 4"
+function inputsText(inputs: Record<string, unknown> | null | undefined): string {
+  return Object.entries(inputs ?? {}).map(([k, v]) => `${k} = ${formatFormulaValue(v)}`).join(' · ')
+}
+
 function outputText(output: unknown): string {
   if (typeof output === 'string')
     return output
@@ -152,6 +157,13 @@ function outputText(output: unknown): string {
                 class="font-sans"
               />
             </label>
+            <p
+              v-if="agent.kind === 'aggregator' && inputsText(agent.inputs)"
+              class="mb-1 flex items-center gap-1.5 font-mono text-xs text-toned"
+            >
+              <UIcon name="i-ph-function-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+              <span class="min-w-0">{{ inputsText(agent.inputs) }}</span>
+            </p>
             <UAlert
               v-if="agent.error"
               color="error"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentConfiguration, AgentTeam, Model, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/types'
 
 // Agents of the experiment. The backend runs them one after another and returns the last one's output,
 // so the default view is an ordered list. The graph is kept for those who prefer to wire agents visually.
@@ -8,6 +8,8 @@ const props = defineProps<{
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   datasetHeaders?: readonly string[]
+  /** Reloads the agent teams, so an agent created here can be added */
+  refreshAgents?: () => Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +32,10 @@ const pipeline = useAgentPipeline({
 })
 const { items } = pipeline
 
+// Output paths and previews follow the prompt version each agent runs with here
+provide(AGENT_PROMPT_VERSIONS, computed(() => Object.fromEntries(Object.entries(configurations.value)
+  .map(([id, config]) => [Number(id), config?.prompt_version_id]))))
+
 const view = ref<'list' | 'graph'>('list')
 const flowViewRef = ref<{ computeExecutionOrder: () => Map<number, number> } | null>(null)
 
@@ -49,6 +55,11 @@ function getExecutionOrder() {
 defineExpose({ getExecutionOrder })
 
 // --- View switch ---
+
+const viewOptions = [
+  { value: 'list', label: 'List', icon: 'i-ph-list-numbers-bold' },
+  { value: 'graph', label: 'Graph', icon: 'i-ph-git-branch-bold' },
+]
 
 function showView(next: 'list' | 'graph') {
   if (next === view.value)
@@ -119,12 +130,34 @@ const teamGroups = computed(() => (props.agentTeams ?? [])
   .map(team => ({ team, agents: team.agents })))
 
 function defaultSummary(agent: Agent) {
+  if (agent.kind === 'aggregator')
+    return 'Aggregator'
   const version = promptVersions.value.find(v => v.id === agent.default_prompt_version_id)
   const model = models.value.find(m => m.id === agent.default_model_id)
   return [
     version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null,
     model?.name,
   ].filter(Boolean).join(' · ')
+}
+
+// --- Creating an aggregator on the spot ---
+
+const { createAgent } = useAgents()
+const showCreateAggregator = ref(false)
+
+// The team of the agents it will most likely read
+const aggregatorTeamId = computed(() => items.value.at(-1)?.agent.team_id)
+
+async function createAggregator(data: CreateAgentForm) {
+  const result = await createAgent(data)
+  if (!result.success) {
+    toast.add({ title: 'Could not create the aggregator', description: result.error, color: 'error', icon: 'i-ph:x-bold' })
+    return
+  }
+  await props.refreshAgents?.()
+  const created = result.data as Agent
+  const agent = pipeline.catalog.value.get(created.id)?.agent ?? created
+  addAgent(agent)
 }
 
 // --- Reordering ---
@@ -204,31 +237,21 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
 <template>
   <ExperimentsSection id="agents" title="Agents" :description="description">
     <template v-if="items.length > 0" #actions>
-      <!-- Concentric radii: 8px outer, 2px padding, 6px inner -->
-      <div v-if="items.length > 1" role="group" aria-label="View" class="inline-flex rounded-lg border border-default p-0.5">
-        <UButton
-          size="xs"
-          :variant="view === 'list' ? 'soft' : 'ghost'"
-          :color="view === 'list' ? 'primary' : 'neutral'"
-          icon="i-ph-list-numbers-bold"
-          class="rounded-md"
-          :aria-pressed="view === 'list'"
-          @click="showView('list')"
-        >
-          List
-        </UButton>
-        <UButton
-          size="xs"
-          :variant="view === 'graph' ? 'soft' : 'ghost'"
-          :color="view === 'graph' ? 'primary' : 'neutral'"
-          icon="i-ph-git-branch-bold"
-          class="rounded-md"
-          :aria-pressed="view === 'graph'"
-          @click="showView('graph')"
-        >
-          Graph
-        </UButton>
-      </div>
+      <UTabs
+        v-if="items.length > 1"
+        :model-value="view"
+        :items="viewOptions"
+        :content="false"
+        variant="pill"
+        color="neutral"
+        size="xs"
+        :ui="{
+          indicator: 'bg-default ring ring-default shadow-xs',
+          trigger: 'data-[state=active]:text-highlighted',
+        }"
+        aria-label="View"
+        @update:model-value="value => showView(value as 'list' | 'graph')"
+      />
     </template>
 
     <!-- Nothing chosen yet -->
@@ -246,7 +269,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
                 class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                 @click="addAgent(agent)"
               >
-                <UIcon name="i-ph-robot-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <UIcon :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold'" class="size-4 shrink-0 text-muted" aria-hidden="true" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
                   <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
@@ -274,19 +297,31 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
     <div v-else class="flex flex-col gap-4">
       <!-- List view -->
       <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
-        <USelectMenu
-          v-if="!allAdded"
-          v-model="picked"
-          value-key="value"
-          :items="pickerItems"
-          :ui="{ content: 'min-w-60' }"
-          icon="i-ph-plus-bold"
-          placeholder="Add an agent"
-          :search-input="{ placeholder: 'Search agents…' }"
-          class="w-full sm:w-64"
-          aria-label="Add an agent"
-          @update:model-value="(id) => addById(id as number | undefined)"
-        />
+        <div class="flex flex-wrap items-center gap-2">
+          <USelectMenu
+            v-if="!allAdded"
+            v-model="picked"
+            value-key="value"
+            :items="pickerItems"
+            :ui="{ content: 'min-w-60' }"
+            icon="i-ph-plus-bold"
+            placeholder="Add an agent"
+            :search-input="{ placeholder: 'Search agents…' }"
+            class="w-full sm:w-64"
+            aria-label="Add an agent"
+            @update:model-value="(id) => addById(id as number | undefined)"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-ph-function-bold"
+            title="Combine the outputs of the agents above with formulas, like a weighted score"
+            @click="() => { showCreateAggregator = true }"
+          >
+            New aggregator
+          </UButton>
+        </div>
 
         <div
           v-if="items.length > 1"
@@ -383,5 +418,14 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         {{ announcement }}
       </p>
     </div>
+
+    <AgentsCreateAgentModal
+      v-model:open="showCreateAggregator"
+      :available-teams="agentTeams ?? []"
+      initial-kind="aggregator"
+      lock-kind
+      :initial-team-id="aggregatorTeamId"
+      @submit="createAggregator"
+    />
   </ExperimentsSection>
 </template>

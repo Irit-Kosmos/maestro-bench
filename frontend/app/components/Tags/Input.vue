@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Tag, TagWithCount } from '~/types'
+import type { Tag } from '~/types'
 
 // The tags of an item, by id. The chips are the current tags; the button opens a field that searches the
 // shared tags and offers to create one when nothing matches (see TagsPicker).
@@ -9,7 +9,7 @@ const { tags } = useTags()
 
 const chosen = computed(() => selected.value
   .map(id => tags.value.find(tag => tag.id === id))
-  .filter((tag): tag is TagWithCount => !!tag))
+  .filter((tag): tag is Tag => !!tag))
 
 function remove(id: number) {
   selected.value = selected.value.filter(other => other !== id)

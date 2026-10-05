@@ -68,10 +68,10 @@ interface Signature {
   agents: unknown[]
 }
 
-function mappingSignature(mappings: readonly { variable: string, source: string, sourceColumn?: string, sourceAgentId?: number, sourceOutput?: string, staticValue?: string }[] | null | undefined) {
+function mappingSignature(mappings: readonly { variable: string, source: string, sourceColumn?: string, sourceAgentId?: number, sourceOutput?: string, sourcePath?: string, staticValue?: string }[] | null | undefined) {
   return [...(mappings ?? [])]
     .sort((a, b) => a.variable.localeCompare(b.variable))
-    .map(m => [m.variable, m.source, m.sourceColumn ?? '', m.sourceAgentId ?? null, m.sourceOutput ?? '', m.staticValue ?? ''])
+    .map(m => [m.variable, m.source, m.sourceColumn ?? '', m.sourceAgentId ?? null, m.sourceOutput ?? '', m.sourcePath ?? '', m.staticValue ?? ''])
 }
 
 function agentsSignature(agents: { agent_id: number, config: AgentConfiguration }[]) {
@@ -84,6 +84,7 @@ function agentsSignature(agents: { agent_id: number, config: AgentConfiguration 
       config.temperature ?? null,
       config.max_tokens ?? null,
       mappingSignature(config.input_mappings),
+      (config.formulas ?? []).map(f => [f.name, f.formula]),
     ])
 }
 
@@ -115,12 +116,13 @@ export function experimentSignature(experiment: Experiment): string {
     Object.fromEntries((experiment.experiment_configs ?? [])
       .filter(config => config.is_active)
       .map(config => [config.agent_id, {
-        prompt_version_id: config.prompt_version_id,
-        model_id: config.model_id,
+        prompt_version_id: config.prompt_version_id ?? undefined,
+        model_id: config.model_id ?? undefined,
         temperature: config.temperature ?? undefined,
         max_tokens: config.max_tokens ?? undefined,
         execution_order: config.execution_order,
         input_mappings: config.input_mappings ?? [],
+        formulas: config.formulas ?? undefined,
       }])),
   )
 }

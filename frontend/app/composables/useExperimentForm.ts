@@ -78,8 +78,13 @@ export function useExperimentForm(
       .map(([id]) => Number.parseInt(id))
   }
 
+  function isAggregator(agentId: number): boolean {
+    return !!agentTeams?.value?.some(team => team.agents?.some(a => a.id === agentId && a.kind === 'aggregator'))
+  }
+
   // The backend silently skips an agent without a prompt version or a model, so an experiment
   // is only valid when every active agent has both and maps every variable of its prompt.
+  // An aggregator needs its formulas written and their variables mapped (the backend checks the rest).
   function areAgentsReady(): boolean {
     const activeIds = getActiveAgentIds()
     if (activeIds.length === 0)
@@ -87,6 +92,8 @@ export function useExperimentForm(
 
     return activeIds.every((agentId) => {
       const config = agentConfigurations.value[agentId]
+      if (isAggregator(agentId))
+        return aggregatorIssues(config).length === 0 && !formulaErrorsOf(config?.formulas)?.errors.some(Boolean)
       if (!config?.prompt_version_id || !config.model_id)
         return false
 

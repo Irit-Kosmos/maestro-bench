@@ -11,6 +11,7 @@ export interface PromptVersionFormValues {
 
 // Writes a version in place of reading it: the same pane, so editing never leaves the page.
 // ⌘↵ saves and Esc cancels, from any field. Textareas grow with their text, so only the pane scrolls.
+// ⌘↵ is caught on the way down: a focused switch toggles on Enter whatever the modifiers, and would flip before the save.
 const props = defineProps<{
   mode: 'create' | 'edit'
   saving?: boolean
@@ -38,8 +39,8 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
   <form
     class="flex min-h-0 flex-col"
     @submit.prevent="submit"
-    @keydown.meta.enter.prevent="submit"
-    @keydown.ctrl.enter.prevent="submit"
+    @keydown.meta.enter.capture.prevent.stop="submit"
+    @keydown.ctrl.enter.capture.prevent.stop="submit"
     @keydown.esc.stop="emit('cancel')"
   >
     <header class="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-default px-4">

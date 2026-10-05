@@ -12,7 +12,8 @@ from pathlib import Path
 import pandas as pd
 from sqlmodel import Session, select
 
-from core.orchestrator import AgentConfig, PipelineResult
+from core.formula import check_outputs, free_variables
+from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from dataset_utils import validate_dataset_file
 from schemas.experiments import ExperimentCreate
 from tables import (
@@ -28,6 +29,10 @@ from tables import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ExperimentConfigError(ValueError):
+    """The submitted agent configurations cannot make a runnable experiment."""
 
 
 def apply_dataset_sampling(
@@ -82,6 +87,8 @@ def add_experiment(
     Flushes but does not commit, so that a caller creating several experiments
     can make them all-or-nothing. ``agent_overrides`` replaces fields of the
     submitted configuration of an agent (how a batch varies its experiments).
+
+    Raises ExperimentConfigError when an aggregator cannot run.
     """
     experiment = Experiment(
         name=name or exp_data.name,
@@ -100,6 +107,7 @@ def add_experiment(
 
     # Create individual agent configurations for explicitly configured active agents
     default_execution_order = 1
+    configs: list[tuple[Agent, ExperimentAgentConfig]] = []
     if exp_data.agent_teams and exp_data.agent_configurations:
         for team_id_str in exp_data.agent_teams:
             team_id = int(team_id_str)
@@ -114,6 +122,33 @@ def add_experiment(
 
                 if not agent_config.get("is_active", True):
                     logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
+                    continue
+
+                # Use frontend-provided execution_order if available, otherwise auto-increment
+                execution_order = agent_config.get(
+                    "execution_order", default_execution_order
+                )
+                if "execution_order" not in agent_config:
+                    default_execution_order += 1
+
+                # Persist per-agent input mappings if provided
+                input_mappings = agent_config.get("input_mappings")
+                input_mappings_json = (
+                    json.dumps(input_mappings) if input_mappings else None
+                )
+
+                if agent.kind == AGGREGATOR:
+                    formulas = agent_config.get("formulas") or []
+                    config = ExperimentAgentConfig(
+                        experiment_id=experiment_id,
+                        agent_id=int(agent.id) if agent.id is not None else 0,
+                        execution_order=execution_order,
+                        is_active=True,
+                        input_mappings=input_mappings_json,
+                        formulas=json.dumps(formulas),
+                    )
+                    session.add(config)
+                    configs.append((agent, config))
                     continue
 
                 prompt_version_id = (
@@ -135,35 +170,91 @@ def add_experiment(
                     )
                     continue
 
-                # Use frontend-provided execution_order if available, otherwise auto-increment
-                execution_order = agent_config.get(
-                    "execution_order", default_execution_order
+                config = ExperimentAgentConfig(
+                    experiment_id=experiment_id,
+                    agent_id=int(agent.id) if agent.id is not None else 0,
+                    prompt_version_id=prompt_version_id,
+                    model_id=model_id,
+                    temperature=agent_config.get("temperature"),
+                    max_tokens=agent_config.get("max_tokens"),
+                    execution_order=execution_order,
+                    is_active=True,
+                    input_mappings=input_mappings_json,
                 )
-                if "execution_order" not in agent_config:
-                    default_execution_order += 1
+                session.add(config)
+                configs.append((agent, config))
 
-                # Persist per-agent input mappings if provided
-                input_mappings = agent_config.get("input_mappings")
-                input_mappings_json = (
-                    json.dumps(input_mappings) if input_mappings else None
-                )
-
-                session.add(
-                    ExperimentAgentConfig(
-                        experiment_id=experiment_id,
-                        agent_id=int(agent.id) if agent.id is not None else 0,
-                        prompt_version_id=prompt_version_id,
-                        model_id=model_id,
-                        temperature=agent_config.get("temperature"),
-                        max_tokens=agent_config.get("max_tokens"),
-                        execution_order=execution_order,
-                        is_active=True,
-                        input_mappings=input_mappings_json,
-                    )
-                )
-
+    _check_aggregators(configs)
     session.flush()
     return experiment
+
+
+def _check_aggregators(configs: list[tuple[Agent, ExperimentAgentConfig]]) -> None:
+    """Refuse aggregators whose formulas or variables cannot be evaluated."""
+    names = {config.agent_id: agent.name for agent, config in configs}
+    orders = {config.agent_id: config.execution_order for _, config in configs}
+    for agent, config in configs:
+        if agent.kind != AGGREGATOR:
+            continue
+        problems = aggregator_problems(
+            json.loads(config.formulas or "[]"),
+            json.loads(config.input_mappings or "[]"),
+            {
+                agent_id: name
+                for agent_id, name in names.items()
+                if orders[agent_id] < config.execution_order
+            },
+            names,
+        )
+        if problems:
+            raise ExperimentConfigError(
+                f'Aggregator "{agent.name}": ' + "; ".join(problems)
+            )
+
+
+def aggregator_problems(
+    formulas: list[dict],
+    mappings: list[dict],
+    upstream: dict[int, str],
+    all_agents: dict[int, str],
+) -> list[str]:
+    """
+    Why an aggregator cannot run, or an empty list.
+
+    ``upstream`` names the agents that run before the aggregator, ``all_agents``
+    every agent of the experiment.
+    """
+    if not formulas:
+        return ["it has no formula"]
+    problems = [
+        f'output "{output.get("name") or "?"}": {error}'
+        for output, error in zip(formulas, check_outputs(formulas), strict=True)
+        if error
+    ]
+    by_variable = {m.get("variable"): m for m in mappings}
+    for variable in free_variables(formulas):
+        mapping = by_variable.get(variable) or {}
+        source = mapping.get("source")
+        if source == "agent":
+            agent_id = mapping.get("sourceAgentId")
+            if agent_id not in all_agents:
+                problems.append(
+                    f'variable "{variable}" reads an agent that is not in the experiment'
+                )
+            elif agent_id not in upstream:
+                problems.append(
+                    f'variable "{variable}" reads {all_agents[agent_id]}, '
+                    "which does not run before the aggregator"
+                )
+        elif source == "dataset" and mapping.get("sourceColumn"):
+            continue
+        elif source == "static" and str(mapping.get("staticValue") or "").strip():
+            continue
+        elif source in ("dataset", "static"):
+            problems.append(f'variable "{variable}" has no value')
+        else:
+            problems.append(f'variable "{variable}" is not mapped')
+    return problems
 
 
 def create_execution_snapshot(
@@ -226,6 +317,26 @@ def create_execution_snapshot(
         agent = session.get(Agent, agent_config.agent_id)
         if not agent:
             continue
+        if execution.id is None or agent.id is None:
+            continue
+
+        if agent.kind == AGGREGATOR:
+            session.add(
+                AgentExecutionSnapshot(
+                    execution_id=execution.id,
+                    agent_id=agent.id,
+                    kind=AGGREGATOR,
+                    agent_name_snapshot=agent.name,
+                    model_name_snapshot="",
+                    model_provider_snapshot="",
+                    prompt_name_snapshot="",
+                    prompt_version_snapshot="",
+                    final_input_mappings=agent_config.input_mappings,
+                    final_formulas=agent_config.formulas,
+                    execution_order=agent_config.execution_order,
+                )
+            )
+            continue
 
         prompt_version = session.get(
             PromptVersion,
@@ -234,8 +345,6 @@ def create_execution_snapshot(
         model = session.get(Model, agent_config.model_id or agent.default_model_id)
 
         if not prompt_version or not model:
-            continue
-        if execution.id is None or agent.id is None:
             continue
 
         agent_snapshot = AgentExecutionSnapshot(
@@ -325,6 +434,10 @@ def build_agent_configs_from_snapshot(
                 execution_order=snapshot.execution_order,
                 input_mappings=input_mappings,
                 agent_id=snapshot.agent_id,
+                kind=snapshot.kind,
+                formulas=json.loads(snapshot.final_formulas)
+                if snapshot.final_formulas
+                else None,
             )
         )
 
@@ -435,6 +548,7 @@ def _build_config_snapshot(
             {
                 "agent_id": s.agent_id,
                 "agent_name": s.agent_name_snapshot,
+                "kind": s.kind,
                 "model_name": s.model_name_snapshot,
                 "model_provider": s.model_provider_snapshot,
                 "prompt_name": s.prompt_name_snapshot,
@@ -448,6 +562,11 @@ def _build_config_snapshot(
                 "input_mappings": json.loads(s.final_input_mappings)
                 if s.final_input_mappings
                 else [],
+                **(
+                    {"formulas": json.loads(s.final_formulas)}
+                    if s.final_formulas
+                    else {}
+                ),
             }
             for s in agent_snapshots
         ],

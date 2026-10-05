@@ -9,7 +9,7 @@ import async_jobs
 from batch_utils import parse_point
 from db import get_session
 from execution_stats import latest_figures
-from experiment_utils import add_experiment
+from experiment_utils import ExperimentConfigError, add_experiment
 from results_files import execution_row_count
 from schemas.experiments import (
     DatasetResponse,
@@ -100,6 +100,7 @@ def _build_experiment_response(
                 input_mappings=json.loads(config.input_mappings)
                 if config.input_mappings
                 else None,
+                formulas=json.loads(config.formulas) if config.formulas else None,
                 created_at=config.created_at,
             )
             for config in experiment_configs
@@ -126,7 +127,10 @@ async def create_experiment(
     exp_data: ExperimentCreate, session: Annotated[Session, Depends(get_session)]
 ):
     """Create a new experiment and automatically start it."""
-    experiment = add_experiment(session, exp_data)
+    try:
+        experiment = add_experiment(session, exp_data)
+    except ExperimentConfigError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     session.commit()
     session.refresh(experiment)
 

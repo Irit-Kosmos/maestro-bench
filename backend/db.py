@@ -16,6 +16,10 @@ _ADDED_COLUMNS = [
     ("experimentexecution", "rows_failed", "INTEGER NOT NULL DEFAULT 0"),
     ("agentexecutionsnapshot", "prompt_id", "INTEGER"),
     ("agentexecutionsnapshot", "prompt_version_id", "INTEGER"),
+    ("agent", "kind", "VARCHAR NOT NULL DEFAULT 'llm'"),
+    ("experimentagentconfig", "formulas", "VARCHAR"),
+    ("agentexecutionsnapshot", "kind", "VARCHAR NOT NULL DEFAULT 'llm'"),
+    ("agentexecutionsnapshot", "final_formulas", "VARCHAR"),
 ]
 
 

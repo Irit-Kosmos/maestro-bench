@@ -1,6 +1,6 @@
 import type { ExecutionListItem } from '~/types'
 import { describe, expect, it } from 'vitest'
-import { executionExperimentFilter, executionFailuresFilter, executionModelsFilter, hasFailures, isAnalyzable } from './executions'
+import { executionExperimentFilter, executionFailuresFilter, executionModelsFilter, hasFailures, isAnalyzable, runsSummary } from './executions'
 import { buildFilterDefinitions } from './filters'
 
 function execution(fields: Partial<ExecutionListItem> = {}): ExecutionListItem {
@@ -71,5 +71,21 @@ describe('executionExperimentFilter', () => {
     const items = [execution({ experiment_id: 7, experiment_name: 'Grade answers' })]
     const [definition] = buildFilterDefinitions(items, [executionExperimentFilter(() => items)])
     expect(definition!.options.map(option => option.label)).toEqual(['Grade answers'])
+  })
+})
+
+describe('runsSummary', () => {
+  it('says nothing when all is well', () => {
+    expect(runsSummary([{ status: 'completed', rows_failed: 0 }, { status: 'pending' }, { status: 'cancelled', rows_failed: 3 }])).toEqual([])
+  })
+
+  it('counts the runs going and the ones that went wrong, failed rows included', () => {
+    const parts = runsSummary([
+      { status: 'running' },
+      { status: 'failed' },
+      { status: 'completed', rows_failed: 2 },
+      { status: 'completed', rows_failed: 0 },
+    ])
+    expect(parts.map(part => part.label)).toEqual(['1 running', '2 failed'])
   })
 })

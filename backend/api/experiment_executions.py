@@ -39,6 +39,7 @@ def _build_snapshot_responses(
         AgentExecutionSnapshotResponse(
             id=int(s.id) if s.id is not None else 0,
             agent_id=s.agent_id,
+            kind=s.kind,
             agent_name_snapshot=s.agent_name_snapshot,
             agent_team_name_snapshot=(
                 s.agent.team.name if s.agent and s.agent.team else None
@@ -53,6 +54,7 @@ def _build_snapshot_responses(
             final_user_prompt=s.final_user_prompt,
             final_variables=s.final_variables,
             final_input_mappings=s.final_input_mappings,
+            final_formulas=s.final_formulas,
             final_temperature=s.final_temperature,
             final_max_tokens=s.final_max_tokens,
             execution_order=s.execution_order,
@@ -153,6 +155,7 @@ def list_executions(session: Annotated[Session, Depends(get_session)]):
                 agents=[
                     ExecutionListAgent(
                         agent_id=s.agent_id if s.agent_id in live_agents else None,
+                        kind=s.kind,
                         name=s.agent_name_snapshot,
                         model=s.model_name_snapshot,
                         provider=s.model_provider_snapshot,
