@@ -132,6 +132,21 @@ def test_two_uploads_never_share_a_file(client):
     assert len(stored_files()) == 2
 
 
+def test_the_preview_of_a_csv_with_empty_cells_lists_its_columns(client):
+    dataset_id = upload(client, "id,text\n1,\n2,\"two\nlines\"\n").json()["id"]
+
+    response = client.get(f"/datasets/{dataset_id}/preview")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["headers"] == ["id", "text"]
+    assert body["total_rows"] == 2
+    assert body["sample_data"] == [
+        {"id": "1", "text": ""},
+        {"id": "2", "text": "two\nlines"},
+    ]
+
+
 def test_a_dataset_cannot_point_into_another_workspace(client, engine, data_dir):
     other = workspace_files.datasets_dir(2)
     other.mkdir(parents=True)
