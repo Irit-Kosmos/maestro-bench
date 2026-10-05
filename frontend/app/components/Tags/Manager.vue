@@ -4,11 +4,11 @@ import { apiErrorMessage } from '~/composables/useAnalyses'
 
 // Every tag, to rename, recolour or delete. Tags are created where they are used (see TagsInput).
 const { tags, pending, updateTag, deleteTag } = useTags()
-const toast = useToast()
+const { ok, fail } = useStandardToast()
 const { canEdit } = useCurrentWorkspace()
 
-function fail(title: string, error: unknown, fallback: string) {
-  toast.add({ title, description: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
+function failed(title: string, error: unknown) {
+  fail(title, apiErrorMessage(error))
 }
 
 async function rename(tag: Tag, event: Event) {
@@ -20,10 +20,11 @@ async function rename(tag: Tag, event: Event) {
   }
   try {
     await updateTag(tag.id, { name })
+    ok('Tag renamed')
   }
   catch (error) {
     input.value = tag.name
-    fail('Could not rename the tag', error, 'Failed to rename the tag')
+    failed('Couldn’t rename the tag', error)
   }
 }
 
@@ -34,7 +35,7 @@ async function recolor(tag: Tag, color: TagColor) {
     await updateTag(tag.id, { color })
   }
   catch (error) {
-    fail('Could not change the colour', error, 'Failed to change the colour')
+    failed('Couldn’t change the colour', error)
   }
 }
 
@@ -54,9 +55,10 @@ async function confirmDelete() {
   try {
     await deleteTag(toDelete.value.id)
     showDeleteDialog.value = false
+    ok('Tag deleted')
   }
   catch (error) {
-    fail('Could not delete the tag', error, 'Failed to delete the tag')
+    failed('Couldn’t delete the tag', error)
   }
   finally {
     deleting.value = false
@@ -67,7 +69,7 @@ const deleteMessage = computed(() => {
   const tag = toDelete.value
   if (!tag)
     return ''
-  return `Delete the tag “${tag.name}”? It will be removed from everything it is on.`
+  return `“${tag.name}” is removed from everything it is on.`
 })
 </script>
 
@@ -136,9 +138,9 @@ const deleteMessage = computed(() => {
 
   <BaseConfirmDialog
     v-model:open="showDeleteDialog"
-    title="Delete tag"
+    title="Delete tag?"
     :message="deleteMessage"
-    confirm-label="Delete tag"
+    confirm-label="Delete"
     variant="error"
     :loading="deleting"
     @confirm="confirmDelete"

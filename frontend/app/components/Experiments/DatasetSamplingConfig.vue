@@ -157,8 +157,8 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
   <div>
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center gap-2 text-toned">
-      <UIcon name="i-ph-circle-notch-bold" class="w-4 h-4 animate-spin" />
-      <span class="text-sm">Loading dataset information...</span>
+      <UIcon name="i-ph-circle-notch-bold" class="size-4 animate-spin" />
+      <span class="text-sm">Loading dataset information…</span>
     </div>
 
     <!-- Error State -->

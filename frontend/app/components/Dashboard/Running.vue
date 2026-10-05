@@ -41,7 +41,7 @@ const summary = computed(() => {
     </span>
     <UIRunProgress v-if="single" :run="runOf(first.id)" class="ms-auto shrink-0" />
     <UIcon
-      name="i-lucide-arrow-right"
+      name="i-ph-arrow-right-bold"
       class="size-3.5 shrink-0 text-highlighted"
       :class="{ 'ms-auto': !single }"
       aria-hidden="true"

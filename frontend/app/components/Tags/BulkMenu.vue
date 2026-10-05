@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const { assignTags } = useTags()
-const toast = useToast()
+const { fail } = useStandardToast()
 
 const coverage = computed(() => tagCoverage(props.rows))
 function ids(everyRow: boolean) {
@@ -33,7 +33,7 @@ async function apply(change: { add?: number[], remove?: number[] }) {
     emit('changed')
   }
   catch (error) {
-    toast.add({ title: 'Error', description: apiErrorMessage(error) ?? 'Failed to update the tags', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t update the tags', apiErrorMessage(error))
   }
 }
 

@@ -26,7 +26,7 @@ const emit = defineEmits<{
 
 const open = defineModel<boolean>('open', { default: false })
 
-const toast = useToast()
+const { showUpdateSuccess, showUpdateError } = useStandardToast()
 const { updateAgent } = useAgents()
 const { refreshTags } = useTags()
 const { formatDate } = useUIHelpers()
@@ -111,12 +111,12 @@ async function save() {
   saving.value = false
 
   if (result.success) {
-    toast.add({ title: 'Agent saved', description: name, color: 'success', icon: 'i-ph:check-bold' })
+    showUpdateSuccess('Agent', { description: name })
     refreshTags()
     emit('saved')
   }
   else {
-    toast.add({ title: 'Could not save', description: result.error || 'Failed to update agent', color: 'error', icon: 'i-ph:x-bold' })
+    showUpdateError('Agent', result.error)
   }
 }
 

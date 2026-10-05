@@ -113,7 +113,7 @@ const modelDisplay = computed(() => {
           </div>
         </div>
         <div
-          class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+          class="size-2 rounded-full shrink-0 mt-1.5"
           :class="isActive ? 'bg-success' : 'bg-accented'"
         />
       </div>
@@ -121,20 +121,20 @@ const modelDisplay = computed(() => {
       <!-- Config summary -->
       <div class="mt-2 pt-2 border-t border-muted space-y-1.5">
         <div v-if="aggregator" class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-ph-function-bold" class="w-3 h-3 flex-shrink-0" />
+          <UIcon name="i-ph-function-bold" class="size-3 shrink-0" />
           <span class="truncate font-mono" :title="outputsDisplay">
             {{ outputsDisplay }}
           </span>
         </div>
         <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-ph-chat-bold" class="w-3 h-3 flex-shrink-0" />
+          <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" />
           <span class="truncate" :title="promptDisplay">
             {{ promptDisplay }}
           </span>
         </div>
         <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
           <UIProviderIcon v-if="model" :provider="model.provider" class="size-3" />
-          <UIcon v-else name="i-ph-brain-bold" class="w-3 h-3 flex-shrink-0" />
+          <UIcon v-else name="i-ph-brain-bold" class="size-3 shrink-0" />
           <span class="truncate" :title="modelDisplay">
             {{ modelDisplay }}
           </span>

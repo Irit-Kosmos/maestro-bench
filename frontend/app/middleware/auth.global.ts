@@ -55,7 +55,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       useToast().add({
         title: denialReason(workspace, needed) ?? 'Not allowed',
         color: 'warning',
-        icon: 'i-ph:lock-bold',
+        icon: 'i-ph-lock-bold',
       })
       return navigateTo(from.path !== to.path && workspaceOfPath(from.path) === slug ? from.fullPath : inWorkspace(slug, '/'))
     }

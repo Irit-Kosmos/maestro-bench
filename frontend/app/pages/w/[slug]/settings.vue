@@ -13,9 +13,9 @@ useSeoMeta({
 
 const { can } = useCurrentWorkspace()
 const { keys } = useWorkspaceAdmin()
-const toast = useToast()
+const { ok, fail } = useStandardToast()
 
-const { data: providers, pending, refresh } = await useMyLazyFetch<ProviderStatus[]>('/providers')
+const { data: providers, pending, error: providersError, refresh } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 const { data: health, error: healthError } = await useMyLazyFetch<{ status: string, version: string }>('/health')
 const backendUrl = useRuntimeConfig().public.BACK_URL as string
 
@@ -42,12 +42,14 @@ async function removeKey() {
     return
   removingKey.value = true
   try {
+    const label = providerLabel(keyToRemove.value.provider)
     await keys.remove(keyToRemove.value.provider)
     keyToRemove.value = null
+    ok(`${label} key removed`)
     await refresh()
   }
   catch (error) {
-    toast.add({ title: (apiErrorMessage(error) ?? 'The key could not be removed'), color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t remove the key', apiErrorMessage(error))
   }
   finally {
     removingKey.value = false
@@ -92,8 +94,6 @@ async function recheck() {
         />
       </UTooltip>
     </AppPageActions>
-
-    <SettingsMembersSection />
 
     <BaseSection title="LLM providers">
       <template #meta>
@@ -144,34 +144,58 @@ async function recheck() {
         </li>
       </ul>
 
+      <div v-else-if="providersError" class="flex items-center gap-3 px-4 py-6 text-sm text-muted">
+        <span>Couldn’t load the providers.</span>
+        <UButton size="xs" color="neutral" variant="outline" icon="i-ph-arrow-clockwise-bold" @click="() => { refresh() }">
+          Try again
+        </UButton>
+      </div>
+
       <p v-else class="px-4 py-6 text-sm text-muted">
         No providers reported by the backend.
       </p>
 
       <div class="flex flex-col gap-2 px-4 py-3 border-t border-default text-xs text-muted text-pretty">
         <p>
-          A provider is called with this workspace’s own key when it has one, else with the instance’s, read from
-          <code class="font-mono text-toned">backend/.env</code> when the API starts. Ollama needs no key: its URL is set for the
-          whole instance, and inside Docker it points at
-          <code class="font-mono text-toned">host.docker.internal</code>.
+          A provider is called with this workspace’s own key when it has one, else with the instance’s.
+          <template v-if="!canManageKeys">
+            Only owners can add or replace keys.
+          </template>
         </p>
         <p v-if="keysUnavailable">
           This instance cannot store workspace keys: ask its administrator to set
           <code class="font-mono text-toned">ENCRYPTION_KEY</code>.
         </p>
-        <p>
-          Need another provider?
-          <a
-            href="https://docs.litellm.ai/docs/providers"
-            target="_blank"
-            rel="noopener"
-            class="text-toned underline underline-offset-2 hover:text-highlighted"
-          >LiteLLM supports many more</a>.
-          Add it to <code class="font-mono text-toned">SUPPORTED_PROVIDERS</code> in
-          <code class="font-mono text-toned">backend/core/llm.py</code>.
-        </p>
+
+        <!-- Operating the instance: of no use to anyone who only works in the workspace -->
+        <details v-if="canManageKeys" class="group">
+          <summary class="cursor-pointer select-none text-muted outline-none hover:text-toned focus-visible:text-toned">
+            Self-hosting notes
+          </summary>
+          <div class="mt-2 flex flex-col gap-2">
+            <p>
+              The instance’s keys are read from
+              <code class="font-mono text-toned">backend/.env</code> when the API starts. Ollama needs no key: its URL is set for the
+              whole instance, and inside Docker it points at
+              <code class="font-mono text-toned">host.docker.internal</code>.
+            </p>
+            <p>
+              Need another provider?
+              <a
+                href="https://docs.litellm.ai/docs/providers"
+                target="_blank"
+                rel="noopener"
+                class="text-toned underline underline-offset-2 hover:text-highlighted"
+              >LiteLLM supports many more</a>.
+              Add it to <code class="font-mono text-toned">SUPPORTED_PROVIDERS</code> in
+              <code class="font-mono text-toned">backend/core/llm.py</code>.
+            </p>
+          </div>
+        </details>
       </div>
     </BaseSection>
+
+    <SettingsMembersSection />
 
     <BaseSection title="Tags">
       <TagsManager />
@@ -179,7 +203,7 @@ async function recheck() {
 
     <SettingsWorkspaceSection />
 
-    <BaseSection title="Backend">
+    <BaseSection v-if="canManageKeys" title="Backend">
       <dl class="divide-y divide-default">
         <div class="flex items-center gap-3 h-11 px-4">
           <dt class="text-sm text-muted">

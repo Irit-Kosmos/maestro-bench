@@ -24,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const { canEdit } = useCurrentWorkspace()
+const { missingKeyAdvice } = useProviderStatus()
 
 // Without the provider column the block needs less room for each of the others
 const layout = computed(() => props.showProvider
@@ -41,7 +42,7 @@ const layout = computed(() => props.showProvider
     },
 )
 
-const head = 'text-xs text-dimmed truncate'
+const head = 'text-xs text-muted truncate'
 
 function menuItems(model: Model): DropdownMenuItem[][] {
   return [
@@ -76,7 +77,9 @@ function statusTooltip(status: ProviderStatus) {
   const what = status.kind === 'url' ? 'URL' : 'Key'
   return status.configured
     ? `${what} found in ${status.env_var}`
-    : `Set ${status.env_var} to run these models`
+    : status.kind === 'url'
+      ? 'No server URL set: these models can’t run'
+      : `No API key: these models can’t run. ${missingKeyAdvice.value}`
 }
 
 function summary(group: ModelGroup) {

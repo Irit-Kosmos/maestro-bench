@@ -66,8 +66,8 @@ export function useDatasetPreview() {
 
     return {
       type: state.preview.file_type.toUpperCase(),
-      rows: state.preview.total_rows.toLocaleString(),
-      columns: state.preview.total_columns.toLocaleString(),
+      rows: state.preview.total_rows.toLocaleString('en-US'),
+      columns: state.preview.total_columns.toLocaleString('en-US'),
     }
   })
 

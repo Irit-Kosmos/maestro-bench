@@ -22,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const { tags, refreshTags, createTag } = useTags()
-const toast = useToast()
+const { fail } = useStandardToast()
 
 // The list is read again each time the popover opens, in case tags were made or renamed elsewhere
 onMounted(refreshTags)
@@ -80,7 +80,7 @@ async function create() {
       query.value = ''
     }
     else {
-      toast.add({ title: 'Error', description: apiErrorMessage(error) ?? 'Failed to create the tag', color: 'error', icon: 'i-ph:warning-circle-bold' })
+      fail('Couldn’t create the tag', apiErrorMessage(error))
     }
   }
   finally {

@@ -5,7 +5,6 @@ import { datasetFilter, dateFilter, earlierRunsFilter, runsFilter, statusFilter 
 
 definePageMeta({
   title: 'Batches',
-  subtitle: 'Experiments run together with different models, prompts or temperatures',
 })
 
 useSeoMeta({
@@ -13,7 +12,7 @@ useSeoMeta({
   description: 'Groups of experiments generated from one configuration by varying models, prompts or temperatures.',
 })
 
-const { data: batches, pending, refresh } = await useMyLazyFetch<Batch[]>('/batches')
+const { data: batches, pending, error, refresh } = await useMyLazyFetch<Batch[]>('/batches')
 
 const { deleteBatch } = useBatches()
 const { canEdit } = useCurrentWorkspace()
@@ -99,7 +98,12 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePageContent :loading="pending && !batches">
+  <BasePageContent
+    :loading="pending && !batches"
+    :error="!batches && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
+  >
     <template #before-content>
       <UTooltip text="Start from an experiment, then add a variation" :disabled="!canEdit">
         <UIGuardedButton
@@ -157,22 +161,14 @@ async function confirmDelete() {
       action-requires="editor"
     />
 
-    <UModal v-model:open="showDeleteDialog" title="Delete batch?">
-      <template #body>
-        <p class="text-sm text-toned text-pretty">
-          Only the grouping is removed. Its experiments, executions and results are kept as ordinary experiments.
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton variant="outline" color="neutral" @click="() => { showDeleteDialog = false }">
-            Cancel
-          </UButton>
-          <UButton variant="solid" color="error" :loading="isDeleting" @click="confirmDelete">
-            Delete batch
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      title="Delete batch?"
+      message="Only the grouping is removed. Its experiments, executions and results are kept as ordinary experiments."
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+    />
   </BasePageContent>
 </template>

@@ -5,7 +5,6 @@ import type { Model, ProviderStatus } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Models',
-  subtitle: 'Manage available AI models for your experiments',
 })
 
 // Fetch data directly in the page. Deep, because the status switch flips `is_active` in place
@@ -197,6 +196,8 @@ async function handleDeleteModel() {
   }
 }
 
+useCreateFromQuery(() => handleCreateClick())
+
 function handleCreateClick() {
   resetCreateForm()
   showCreateModal.value = true
@@ -216,7 +217,9 @@ function handleDeleteLeave() {
 <template>
   <BasePageContent
     :loading="pending && !models"
-    :error="error ? 'Failed to load models' : null"
+    :error="!models && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
   >
     <template #before-content>
       <UIGuardedButton
@@ -226,7 +229,7 @@ function handleDeleteLeave() {
         size="sm"
         @click="handleCreateClick"
       >
-        Add model
+        New model
       </UIGuardedButton>
     </template>
 
@@ -275,7 +278,7 @@ function handleDeleteLeave() {
       title="No models yet"
       message="Start by adding your first AI model"
       icon="i-ph-cpu-bold"
-      action-label="Add model"
+      action-label="New model"
       action-requires="editor"
       @action="handleCreateClick"
     />
@@ -286,6 +289,7 @@ function handleDeleteLeave() {
       title="Model"
       mode="create"
       :loading="isCreating"
+      :disabled="!createFormValid"
       @submit="handleCreateModel"
       @after-leave="resetCreateForm"
     >
@@ -298,6 +302,7 @@ function handleDeleteLeave() {
       title="Model"
       mode="edit"
       :loading="isUpdating"
+      :disabled="!editFormValid"
       @submit="handleUpdateModel"
       @after-leave="handleEditLeave"
     >
@@ -307,9 +312,9 @@ function handleDeleteLeave() {
     <!-- Delete Confirmation Modal -->
     <BaseConfirmDialog
       v-model:open="showDeleteModal"
-      title="Delete Model"
-      :message="`Are you sure you want to delete &quot;${modelToDelete?.name}&quot;? This action cannot be undone.`"
-      confirm-label="Delete Model"
+      title="Delete model?"
+      :message="`“${modelToDelete?.name}” is cleared from the agents and experiments that use it. This can’t be undone.`"
+      confirm-label="Delete"
       variant="error"
       :loading="isDeleting"
       @confirm="handleDeleteModel"

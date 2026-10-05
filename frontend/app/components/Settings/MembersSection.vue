@@ -7,7 +7,8 @@ const { members: api, invitations: invitationsApi } = useWorkspaceAdmin()
 const { can } = useCurrentWorkspace()
 const { user } = useAuth()
 const { workspaces } = useWorkspaces()
-const toast = useToast()
+const { ok, fail } = useStandardToast()
+const { formatShortDate } = useUIHelpers()
 
 const canManage = computed(() => can('owner'))
 
@@ -25,8 +26,8 @@ const { data: invitations, refresh: refreshInvitations } = await useAsyncData(
   { lazy: true },
 )
 
-function failed(error: unknown, fallback: string) {
-  toast.add({ title: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
+function failed(error: unknown, title: string) {
+  fail(title, apiErrorMessage(error))
 }
 
 // --- Members -----------------------------------------------------------------
@@ -36,9 +37,10 @@ async function changeRole(member: WorkspaceMember, role: WorkspaceRole) {
     return
   try {
     await api.setRole(member.user_id, role)
+    ok('Role updated')
   }
   catch (error) {
-    failed(error, 'The role could not be changed')
+    failed(error, 'Couldn’t change the role')
   }
   await refresh()
 }
@@ -62,9 +64,10 @@ async function removeMember() {
       return
     }
     await refresh()
+    ok('Member removed')
   }
   catch (error) {
-    failed(error, 'The member could not be removed')
+    failed(error, 'Couldn’t remove the member')
   }
   finally {
     removing.value = false
@@ -85,6 +88,7 @@ async function addMember() {
     await api.add(email.value.trim(), newRole.value)
     email.value = ''
     await refresh()
+    ok('Member added')
   }
   catch (error) {
     addError.value = (apiErrorMessage(error) ?? 'The member could not be added')
@@ -109,7 +113,7 @@ async function createInvitation() {
     await refreshInvitations()
   }
   catch (error) {
-    failed(error, 'The invitation could not be created')
+    failed(error, 'Couldn’t create the invitation')
   }
   finally {
     creating.value = false
@@ -119,14 +123,15 @@ async function createInvitation() {
 async function revoke(invitation: WorkspaceInvitation) {
   try {
     await invitationsApi.revoke(invitation.id)
+    ok('Invitation revoked')
   }
   catch (error) {
-    failed(error, 'The invitation could not be revoked')
+    failed(error, 'Couldn’t revoke the invitation')
   }
   await refreshInvitations()
 }
 
-const expires = (invitation: WorkspaceInvitation) => parseApiDate(invitation.expires_at).toLocaleDateString()
+const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.expires_at)
 </script>
 
 <template>

@@ -34,7 +34,7 @@ const variableNames = computed(() => parseVariables(props.promptVersion.variable
     <div v-if="showHeader && promptVersion.prompt?.name" class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-default mb-2">
-          Prompt Name
+          Name
         </label>
         <p class="text-sm text-toned">
           {{ promptVersion.prompt.name }}

@@ -130,8 +130,8 @@ function changeText(change: Change) {
 
 function changeIcon(change: Change) {
   if (change.kind === 'change' && change.percent < 0)
-    return 'i-lucide-arrow-down-right'
-  return change.kind === 'change' && change.percent === 0 ? 'i-lucide-minus' : 'i-lucide-arrow-up-right'
+    return 'i-ph-arrow-down-right-bold'
+  return change.kind === 'change' && change.percent === 0 ? 'i-ph-minus-bold' : 'i-ph-arrow-up-right-bold'
 }
 
 function changeClass(card: Card) {

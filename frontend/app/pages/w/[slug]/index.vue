@@ -7,11 +7,11 @@ definePageMeta({
 
 const range = useDashboardRange()
 // The previous figures stay up until the new period's arrive
-const { data: dashboard, status, refresh: refreshDashboard } = await useMyLazyFetch<Dashboard>('/dashboard', {
+const { data: dashboard, status, error: dashboardError, refresh: refreshDashboard } = await useMyLazyFetch<Dashboard>('/dashboard', {
   query: computed(() => ({ range: range.value })),
 })
-const { data: batches, refresh: refreshBatches } = await useMyLazyFetch<Batch[]>('/batches')
-const { data: analyses, refresh: refreshAnalyses } = await useMyLazyFetch<Analysis[]>('/analyses')
+const { data: batches, error: batchesError, refresh: refreshBatches } = await useMyLazyFetch<Batch[]>('/batches')
+const { data: analyses, error: analysesError, refresh: refreshAnalyses } = await useMyLazyFetch<Analysis[]>('/analyses')
 const { data: providers } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 
 const { formatDate, formatRelativeDate } = useUIHelpers()
@@ -79,79 +79,87 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
       </span>
     </NuxtLink>
 
-    <!-- Appears and leaves on its own as runs start and end: the cards below glide instead of jumping (gap-6 = 1.5rem) -->
-    <Transition name="reveal">
-      <div v-if="dashboard?.activity.active.length" class="reveal [--reveal-gap:1.5rem]">
-        <DashboardRunning :active="dashboard.activity.active" />
-      </div>
-    </Transition>
-
-    <DashboardActivity
-      v-model:range="range"
-      :activity="dashboard?.activity"
-      :loading="!dashboard"
-      :refreshing="!!dashboard && status === 'pending'"
+    <BaseErrorState
+      v-if="!dashboard && dashboardError"
+      :kind="fetchErrorKind(dashboardError)"
+      @retry="refresh()"
     />
 
-    <BaseSection title="Recent experiments" to="/experiments">
-      <DashboardRecentExperiments
-        v-if="!dashboard || dashboard.recent_experiments.length"
-        :experiments="dashboard?.recent_experiments ?? []"
+    <template v-else>
+      <!-- Appears and leaves on its own as runs start and end: the cards below glide instead of jumping (gap-6 = 1.5rem) -->
+      <Transition name="reveal">
+        <div v-if="dashboard?.activity.active.length" class="reveal [--reveal-gap:1.5rem]">
+          <DashboardRunning :active="dashboard.activity.active" />
+        </div>
+      </Transition>
+
+      <DashboardActivity
+        v-model:range="range"
+        :activity="dashboard?.activity"
         :loading="!dashboard"
+        :refreshing="!!dashboard && status === 'pending'"
       />
-      <BaseEmptyState
-        v-else
-        title="No experiments yet"
-        message="Run an agent team over a dataset to see results here."
-        icon="i-ph-flask-bold"
-        action-label="New experiment"
-        action-to="/experiments/new"
-        action-requires="editor"
-      />
-    </BaseSection>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      <BaseSection title="Batches" to="/batches">
-        <ul v-if="recentBatches.length" class="divide-y divide-default">
-          <li v-for="batch in recentBatches" :key="batch.id">
-            <DashboardListRow :to="`/batches/${batch.id}`">
-              <UIStatusIcon :status="batch.status" />
-              <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ batch.name }}</span>
-              <span class="shrink-0 text-xs text-dimmed tabular-nums">#{{ batch.id }}</span>
-              <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
-                {{ batch.counts.completed ?? 0 }} / {{ batch.experiments.length }} done
-              </span>
-              <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(batch.created_at)">
-                {{ formatRelativeDate(batch.created_at) }}
-              </span>
-            </DashboardListRow>
-          </li>
-        </ul>
-        <p v-else class="px-4 py-6 text-sm text-muted">
-          {{ batches ? 'No batches yet. Vary models, prompts or temperatures from any experiment.' : 'Loading…' }}
-        </p>
+      <BaseSection title="Recent experiments" to="/experiments">
+        <DashboardRecentExperiments
+          v-if="!dashboard || dashboard.recent_experiments.length"
+          :experiments="dashboard?.recent_experiments ?? []"
+          :loading="!dashboard"
+        />
+        <BaseEmptyState
+          v-else
+          title="No experiments yet"
+          message="Run an agent team over a dataset to see results here."
+          icon="i-ph-flask-bold"
+          action-label="New experiment"
+          action-to="/experiments/new"
+          action-requires="editor"
+        />
       </BaseSection>
 
-      <BaseSection title="Analyses" to="/analyses">
-        <ul v-if="recentAnalyses.length" class="divide-y divide-default">
-          <li v-for="analysis in recentAnalyses" :key="analysis.id">
-            <DashboardListRow :to="`/analyses/${analysis.id}`">
-              <UIcon name="i-ph-chart-bar-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
-              <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ analysis.name }}</span>
-              <span class="shrink-0 text-xs text-dimmed tabular-nums">#{{ analysis.id }}</span>
-              <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
-                {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
-              </span>
-              <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(analysis.updated_at)">
-                {{ formatRelativeDate(analysis.updated_at) }}
-              </span>
-            </DashboardListRow>
-          </li>
-        </ul>
-        <p v-else class="px-4 py-6 text-sm text-muted">
-          {{ analyses ? 'No analyses yet. Compare executions to a ground truth.' : 'Loading…' }}
-        </p>
-      </BaseSection>
-    </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <BaseSection title="Batches" to="/batches">
+          <ul v-if="recentBatches.length" class="divide-y divide-default">
+            <li v-for="batch in recentBatches" :key="batch.id">
+              <DashboardListRow :to="`/batches/${batch.id}`">
+                <UIStatusIcon :status="batch.status" />
+                <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ batch.name }}</span>
+                <span class="shrink-0 text-xs text-muted tabular-nums">#{{ batch.id }}</span>
+                <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
+                  {{ batch.counts.completed ?? 0 }} / {{ batch.experiments.length }} done
+                </span>
+                <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(batch.created_at)">
+                  {{ formatRelativeDate(batch.created_at) }}
+                </span>
+              </DashboardListRow>
+            </li>
+          </ul>
+          <p v-else class="px-4 py-6 text-sm text-muted">
+            {{ batches ? 'No batches yet. Vary models, prompts or temperatures from any experiment.' : batchesError ? 'Couldn’t load the batches.' : 'Loading…' }}
+          </p>
+        </BaseSection>
+
+        <BaseSection title="Analyses" to="/analyses">
+          <ul v-if="recentAnalyses.length" class="divide-y divide-default">
+            <li v-for="analysis in recentAnalyses" :key="analysis.id">
+              <DashboardListRow :to="`/analyses/${analysis.id}`">
+                <UIcon name="i-ph-chart-bar-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+                <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ analysis.name }}</span>
+                <span class="shrink-0 text-xs text-muted tabular-nums">#{{ analysis.id }}</span>
+                <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
+                  {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
+                </span>
+                <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(analysis.updated_at)">
+                  {{ formatRelativeDate(analysis.updated_at) }}
+                </span>
+              </DashboardListRow>
+            </li>
+          </ul>
+          <p v-else class="px-4 py-6 text-sm text-muted">
+            {{ analyses ? 'No analyses yet. Compare executions to a ground truth.' : analysesError ? 'Couldn’t load the analyses.' : 'Loading…' }}
+          </p>
+        </BaseSection>
+      </div>
+    </template>
   </div>
 </template>

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { Experiment, ExperimentExecution } from '~/types'
+import type { FetchErrorKind } from '~/utils/fetchError'
 
 // Route params
 const route = useRoute()
 const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
-const toast = useToast()
+const { ok, info, fail } = useStandardToast()
 const { fetchExperiment, deleteExperiment, rerunExperiment, cancelExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDate, formatRelativeDate } = useUIHelpers()
@@ -18,7 +19,10 @@ const { canEdit } = useCurrentWorkspace()
 const experiment = ref<Experiment | null>(null)
 const executions = ref<ExperimentExecution[]>([])
 const loading = ref(true)
+// Why the experiment could not be shown, once a load has failed with nothing on screen
+const loadError = ref<FetchErrorKind | null>(null)
 const showDeleteDialog = ref(false)
+const showCancelDialog = ref(false)
 const isDeleting = ref(false)
 const isRerunning = ref(false)
 const isCancelling = ref(false)
@@ -28,7 +32,7 @@ const liveRun = computed(() => runOf(experimentId.value))
 const status = computed(() => liveRun.value?.status ?? experiment.value?.status)
 
 const pageTitle = computed(() => {
-  return experiment.value ? experiment.value.name : 'Loading...'
+  return experiment.value ? experiment.value.name : 'Loading…'
 })
 
 useBreadcrumbLabel(() => experiment.value?.name)
@@ -39,7 +43,7 @@ useSeoMeta({
   description: computed(() =>
     experiment.value
       ? `View details and configuration for experiment: ${experiment.value.name}`
-      : 'Loading experiment...',
+      : 'Loading experiment…',
   ),
 })
 
@@ -60,14 +64,14 @@ const latestExecution = computed(() => {
   if (!executions.value || executions.value.length === 0)
     return null
   return [...executions.value].sort((a, b) =>
-    new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    parseApiDate(b.started_at).getTime() - parseApiDate(a.started_at).getTime(),
   )[0]
 })
 
 // Executions that produced results, oldest first, for the Analyze shortcut
 const analyzableExecutions = computed(() => [...executions.value]
   .filter(e => e.status === 'completed' && e.results_file_path)
-  .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()))
+  .sort((a, b) => parseApiDate(a.started_at).getTime() - parseApiDate(b.started_at).getTime()))
 
 const analyzeLink = computed(() => analyzableExecutions.value.length > 0 && experiment.value
   ? { path: '/analyses/new', query: { executions: analyzableExecutions.value.map(e => e.id).join(','), name: experiment.value.name } }
@@ -101,15 +105,12 @@ async function loadExperiment({ silent = false } = {}) {
     const result = await fetchExperiment(experimentId.value)
     if (result.success && result.data) {
       experiment.value = result.data as Experiment
+      loadError.value = null
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Experiment not found',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
-      await navigateTo('/experiments')
+      // A background refresh that fails leaves what is on screen alone
+      if (!experiment.value)
+        loadError.value = fetchErrorKind(result.error)
       return
     }
 
@@ -121,13 +122,8 @@ async function loadExperiment({ silent = false } = {}) {
   }
   catch (error) {
     console.error('Error loading experiment:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to load experiment',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
-    await navigateTo('/experiments')
+    if (!experiment.value)
+      loadError.value = 'error'
   }
   finally {
     loading.value = false
@@ -142,31 +138,16 @@ async function handleDeleteExperiment() {
   try {
     const result = await deleteExperiment(experiment.value.id)
     if (result.success) {
-      toast.add({
-        title: 'Success',
-        description: 'Experiment deleted successfully',
-        color: 'success',
-        icon: 'i-ph:check-circle-bold',
-      })
+      ok('Experiment deleted')
       await navigateTo('/experiments')
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Failed to delete experiment',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
+      fail('Couldn’t delete the experiment')
     }
   }
   catch (error) {
     console.error('Error deleting experiment:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to delete experiment',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail('Couldn’t delete the experiment')
   }
   finally {
     isDeleting.value = false
@@ -182,17 +163,13 @@ async function handleRerunExperiment() {
   try {
     const result = await rerunExperiment(experiment.value.id)
     if (result.success) {
-      toast.add({
-        title: 'Success',
-        description: result.data.status === 'queued'
-          ? 'Your workspace is running as many experiments as it may: this one will start as soon as a slot is free.'
-          : 'Experiment re-run started successfully! A new execution has been created.',
-        color: 'success',
-        icon: result.data.status === 'queued' ? 'i-ph:clock-bold' : 'i-ph:play-bold',
-      })
+      if (result.data.status === 'queued')
+        info('Re-run queued', 'Your workspace is running as many experiments as it may: this one will start as soon as a slot is free.')
+      else
+        ok('Re-run started', { description: 'A new execution was created.' })
 
       // Refresh the experiment and executions to show the new execution
-      await loadExperiment()
+      await loadExperiment({ silent: true })
 
       // Show the status right away, before the run says anything
       if (experiment.value) {
@@ -200,22 +177,12 @@ async function handleRerunExperiment() {
       }
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Failed to start experiment re-run',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
+      fail('Couldn’t start the re-run')
     }
   }
   catch (error) {
     console.error('Error re-running experiment:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to start experiment re-run',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail('Couldn’t start the re-run')
   }
   finally {
     isRerunning.value = false
@@ -223,6 +190,7 @@ async function handleRerunExperiment() {
 }
 
 async function handleCancelExperiment() {
+  showCancelDialog.value = false
   if (!experiment.value)
     return
 
@@ -231,14 +199,14 @@ async function handleCancelExperiment() {
   isCancelling.value = false
 
   if (!result.success) {
-    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t cancel the run')
     return
   }
   if (result.data.cancelled)
-    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Run cancelled')
   else
-    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running or waiting.', color: 'neutral', icon: 'i-ph:info-bold' })
-  await loadExperiment()
+    info('Nothing to cancel', 'This experiment is no longer running or waiting.')
+  await loadExperiment({ silent: true })
 }
 
 const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
@@ -254,7 +222,7 @@ const datasetRows = computed(() => {
 
 // Newest first; what each run took, used and cost sits with the run, not in the page header
 const executionRows = computed(() => [...executions.value]
-  .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+  .sort((a, b) => parseApiDate(b.started_at).getTime() - parseApiDate(a.started_at).getTime())
   .map((execution) => {
     const seconds = execution.completed_at
       ? (parseApiDate(execution.completed_at).getTime() - parseApiDate(execution.started_at).getTime()) / 1000
@@ -280,6 +248,8 @@ onMounted(() => {
 
 // Watch for route changes
 watch(() => route.params.id, () => {
+  experiment.value = null
+  loadError.value = null
   loadExperiment()
 })
 </script>
@@ -308,10 +278,10 @@ watch(() => route.params.id, () => {
           <UIGuardedButton
             variant="soft"
             color="error"
-            icon="i-ph-square-bold"
+            icon="i-ph-stop-circle-bold"
             size="sm"
             :loading="isCancelling"
-            @click="handleCancelExperiment"
+            @click="() => { showCancelDialog = true }"
           >
             Cancel run
           </UIGuardedButton>
@@ -341,15 +311,13 @@ watch(() => route.params.id, () => {
             Analyze
           </UIGuardedButton>
         </UTooltip>
-        <UIGuardedButton
-          variant="soft"
-          color="error"
-          icon="i-ph-trash-bold"
-          size="sm"
-          @click="() => { showDeleteDialog = true }"
+        <UDropdownMenu
+          v-if="canEdit"
+          :items="[{ label: 'Delete experiment', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+          :content="{ align: 'end' }"
         >
-          Delete
-        </UIGuardedButton>
+          <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+        </UDropdownMenu>
       </AppPageActions>
 
       <!-- Identity only: what it is and when. Everything measurable lives with the thing it measures -->
@@ -479,10 +447,10 @@ watch(() => route.params.id, () => {
                       {{ row.duration }}
                     </UIMetaItem>
                     <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
-                      <span :title="row.execution.total_tokens?.toLocaleString()">{{ row.tokens }}</span>
+                      <span :title="formatCount(row.execution.total_tokens)">{{ row.tokens }}</span>
                     </UIMetaItem>
                     <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
-                      <span :title="`$${row.execution.total_cost_usd?.toFixed(4)}`">{{ row.cost }}</span>
+                      <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
                     </UIMetaItem>
                   </div>
                 </div>
@@ -504,46 +472,33 @@ watch(() => route.params.id, () => {
     </div>
 
     <!-- Error State -->
-    <div v-else class="text-center py-12">
-      <UIcon name="i-ph:warning-circle-bold" class="w-12 h-12 text-error mx-auto mb-4" />
-      <h3 class="text-lg font-medium text-highlighted mb-2">
-        Experiment Not Found
-      </h3>
-      <p class="text-muted mb-4">
-        The experiment you're looking for doesn't exist.
-      </p>
-      <UButton to="/" variant="solid" color="primary">
-        Return to Dashboard
-      </UButton>
-    </div>
+    <BaseErrorState
+      v-else
+      :kind="loadError ?? 'not-found'"
+      action-to="/experiments"
+      action-label="Back to experiments"
+      @retry="loadExperiment()"
+    />
 
     <!-- Delete Confirmation Modal -->
-    <UModal v-model:open="showDeleteDialog" title="Delete Experiment">
-      <template #body>
-        <p class="text-toned">
-          Are you sure you want to delete "{{ experiment?.name }}"? This action cannot be undone.
-        </p>
-      </template>
+    <BaseConfirmDialog
+      v-model:open="showCancelDialog"
+      :title="status === 'queued' ? 'Take this run out of the queue?' : 'Stop this run?'"
+      :message="status === 'queued' ? 'It leaves the queue without running. You can re-run it later.' : 'The run stops now. You can re-run the experiment later.'"
+      :confirm-label="status === 'queued' ? 'Remove from queue' : 'Stop run'"
+      variant="warning"
+      :loading="isCancelling"
+      @confirm="handleCancelExperiment"
+    />
 
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton
-            variant="outline"
-            color="neutral"
-            @click="() => { showDeleteDialog = false }"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            variant="solid"
-            color="error"
-            :loading="isDeleting"
-            @click="handleDeleteExperiment"
-          >
-            Delete
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      title="Delete experiment?"
+      :message="`“${experiment?.name}” and all of its executions are deleted. This can’t be undone.`"
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="handleDeleteExperiment"
+    />
   </div>
 </template>

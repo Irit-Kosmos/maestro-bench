@@ -78,7 +78,7 @@ const prompts = computed(() => [
           Max tokens
         </dt>
         <dd class="mt-0.5 text-sm text-highlighted tabular-nums">
-          {{ snapshot.final_max_tokens.toLocaleString() }}
+          {{ formatCount(snapshot.final_max_tokens) }}
         </dd>
       </div>
     </dl>
