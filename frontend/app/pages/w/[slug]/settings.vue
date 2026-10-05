@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProviderStatus } from '~/types'
+import { apiErrorMessage } from '~/composables/useAnalyses'
 
 definePageMeta({
   title: 'Settings',
@@ -7,8 +8,12 @@ definePageMeta({
 
 useSeoMeta({
   title: 'Settings',
-  description: 'LLM providers and backend status.',
+  description: 'Members, LLM providers and backend status.',
 })
+
+const { can } = useCurrentWorkspace()
+const { keys } = useWorkspaceAdmin()
+const toast = useToast()
 
 const { data: providers, pending, refresh } = await useMyLazyFetch<ProviderStatus[]>('/providers')
 const { data: health, error: healthError } = await useMyLazyFetch<{ status: string, version: string }>('/health')
@@ -16,6 +21,46 @@ const backendUrl = useRuntimeConfig().public.BACK_URL as string
 
 // Same order as everywhere else: by the name people read, not the backend's dict order
 const sortedProviders = computed(() => (providers.value ?? []).toSorted((a, b) => compareProviders(a.provider, b.provider)))
+
+const canManageKeys = computed(() => can('owner'))
+// The instance cannot encrypt keys (no ENCRYPTION_KEY): say so to the people who could set one
+const keysUnavailable = computed(() =>
+  canManageKeys.value && !(providers.value ?? []).some(p => p.can_store_key),
+)
+
+const keyTarget = ref<ProviderStatus | null>(null)
+const showKeyModal = ref(false)
+function editKey(provider: ProviderStatus) {
+  keyTarget.value = provider
+  showKeyModal.value = true
+}
+
+const keyToRemove = ref<ProviderStatus | null>(null)
+const removingKey = ref(false)
+async function removeKey() {
+  if (!keyToRemove.value)
+    return
+  removingKey.value = true
+  try {
+    await keys.remove(keyToRemove.value.provider)
+    keyToRemove.value = null
+    await refresh()
+  }
+  catch (error) {
+    toast.add({ title: (apiErrorMessage(error) ?? 'The key could not be removed'), color: 'error', icon: 'i-ph:warning-circle-bold' })
+  }
+  finally {
+    removingKey.value = false
+  }
+}
+
+function statusText(p: ProviderStatus): string {
+  if (p.source === 'workspace')
+    return `Workspace key ····${p.key_hint ?? ''}`
+  if (p.source === 'instance')
+    return p.kind === 'url' ? 'Instance URL' : 'Instance key'
+  return p.kind === 'url' ? 'URL not set' : 'Key not set'
+}
 
 const readyCount = computed(() => (providers.value ?? []).filter(p => p.configured).length)
 
@@ -48,6 +93,8 @@ async function recheck() {
       </UTooltip>
     </AppPageActions>
 
+    <SettingsMembersSection />
+
     <BaseSection title="LLM providers">
       <template #meta>
         <span v-if="providers?.length" class="text-xs text-muted tabular-nums">
@@ -71,8 +118,29 @@ async function recheck() {
           <span class="w-28 shrink-0 truncate text-sm font-medium text-highlighted">{{ providerLabel(p.provider) }}</span>
           <code class="hidden sm:block min-w-0 truncate text-xs text-muted font-mono">{{ p.env_var }}</code>
           <span class="ms-auto shrink-0 text-xs" :class="p.configured ? 'text-toned' : 'text-muted'">
-            {{ p.configured ? 'Ready' : (p.kind === 'url' ? 'URL not set' : 'Key not set') }}
+            {{ statusText(p) }}
           </span>
+          <template v-if="canManageKeys && p.kind === 'key'">
+            <UButton
+              v-if="p.can_store_key"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              @click="editKey(p)"
+            >
+              {{ p.source === 'workspace' ? 'Replace' : 'Set key' }}
+            </UButton>
+            <UTooltip v-if="p.source === 'workspace'" text="Remove the workspace key">
+              <UButton
+                icon="i-ph-trash-bold"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :aria-label="`Remove the ${providerLabel(p.provider)} key`"
+                @click="() => { keyToRemove = p }"
+              />
+            </UTooltip>
+          </template>
         </li>
       </ul>
 
@@ -82,9 +150,14 @@ async function recheck() {
 
       <div class="flex flex-col gap-2 px-4 py-3 border-t border-default text-xs text-muted text-pretty">
         <p>
-          Keys and server URLs are read from <code class="font-mono text-toned">backend/.env</code> when the API starts.
-          Add one, restart the API, then check again. Ollama needs no key: set its URL, and inside Docker point it at
+          A provider is called with this workspace’s own key when it has one, else with the instance’s, read from
+          <code class="font-mono text-toned">backend/.env</code> when the API starts. Ollama needs no key: its URL is set for the
+          whole instance, and inside Docker it points at
           <code class="font-mono text-toned">host.docker.internal</code>.
+        </p>
+        <p v-if="keysUnavailable">
+          This instance cannot store workspace keys: ask its administrator to set
+          <code class="font-mono text-toned">ENCRYPTION_KEY</code>.
         </p>
         <p>
           Need another provider?
@@ -103,6 +176,8 @@ async function recheck() {
     <BaseSection title="Tags">
       <TagsManager />
     </BaseSection>
+
+    <SettingsWorkspaceSection />
 
     <BaseSection title="Backend">
       <dl class="divide-y divide-default">
@@ -134,5 +209,18 @@ async function recheck() {
         </div>
       </dl>
     </BaseSection>
+
+    <SettingsProviderKeyModal v-model:open="showKeyModal" :provider="keyTarget" @saved="() => refresh()" />
+
+    <BaseConfirmDialog
+      :open="!!keyToRemove"
+      title="Remove the workspace key"
+      :message="`${keyToRemove ? providerLabel(keyToRemove.provider) : ''} will use the instance’s key again, if there is one.`"
+      confirm-label="Remove"
+      variant="error"
+      :loading="removingKey"
+      @update:open="(value: boolean) => { if (!value) keyToRemove = null }"
+      @confirm="removeKey"
+    />
   </div>
 </template>

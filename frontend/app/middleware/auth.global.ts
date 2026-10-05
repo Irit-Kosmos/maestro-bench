@@ -34,8 +34,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (!workspaces.value)
     await load()
 
-  // The page that lists your workspaces, and lets you create one
-  if (to.path === '/w')
+  // The page that lists your workspaces, and lets you create one; and the one that opens an invitation
+  if (to.path === '/w' || to.path.startsWith('/join/'))
     return
 
   const slug = workspaceOfPath(to.path)
