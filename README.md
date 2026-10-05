@@ -70,6 +70,21 @@ cp backend/.env.example backend/.env    # add your API key(s)
 cp frontend/.env.example frontend/.env  # only needed outside Docker
 ```
 
+Every page and every API route needs a signed-in user. Sign-in goes through
+GitLab (OpenID Connect), so before the first start:
+
+1. In GitLab, create an application (**Edit profile → Applications**, or a
+   group's **Settings → Applications**) with the redirect URI
+   `http://localhost:8000/auth/gitlab/callback`, **Confidential** ticked and the
+   scopes `openid`, `profile` and `email`.
+2. Put its ID and secret in `backend/.env` (`AUTH_GITLAB_*`), along with a
+   `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`)
+   and who may sign in (`AUTH_ALLOWED_EMAIL_DOMAINS` and/or
+   `AUTH_GITLAB_ALLOWED_GROUPS`).
+
+The backend refuses to start without a secret, a provider and an allowlist.
+See [Configuration](#configuration) for every setting.
+
 ### 2a. Run with Docker Compose
 
 ```bash
@@ -211,12 +226,38 @@ uv run pytest
 | `POSTGRES_PASSWORD` | `maestro` | Read by `docker-compose.yml` only: password of the `postgres` service and of the backend's connection. |
 | `DB_ECHO` | `false` | Log SQL statements. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
+| `SECRET_KEY` | - (required) | At least 32 characters. Signs the OAuth state and derives the CSRF tokens. Changing it only interrupts the sign-ins in progress. |
+| `AUTH_GITLAB_BASE_URL` | - | Your GitLab, e.g. `https://gitlab.example.org`. |
+| `AUTH_GITLAB_CLIENT_ID` / `AUTH_GITLAB_CLIENT_SECRET` | - | The GitLab application's ID and secret. |
+| `AUTH_ALLOWED_EMAIL_DOMAINS` | - | Comma-separated email domains allowed to sign in (`example.org,example.com`). The email must be verified by GitLab. |
+| `AUTH_GITLAB_ALLOWED_GROUPS` | - | Comma-separated GitLab group paths (`org/team`). Members of a subgroup are admitted. Only groups the user joined directly are seen (`groups_direct` claim). |
+| `AUTH_ALLOW_ANY_USER` | `false` | Admit any account of the identity provider. Ignored when an allowlist is set. When both allowlists are set, a user must satisfy both. With none set and this off, the backend refuses to start. |
+| `INSTANCE_ADMINS` | - | Comma-separated emails of the instance administrators. |
+| `FRONTEND_URL` | first `CORS_ORIGINS` entry | Where the browser reaches the UI. The session cookie is `Secure` when it is `https://`. |
+| `PUBLIC_API_URL` | `http://localhost:8000` | Where the browser reaches the API; the GitLab redirect URI is `<PUBLIC_API_URL>/auth/gitlab/callback`. |
+| `SESSION_IDLE_DAYS` / `SESSION_MAX_DAYS` | `7` / `30` | A session expires after this many days without activity, and in any case after the second. |
 
 ### Frontend (`frontend/.env`)
 
 | Variable | Default | Description |
 |---|---|---|
 | `NUXT_PUBLIC_BACK_URL` | `http://localhost:8000` | Backend URL as seen from the browser. |
+
+### Managing users
+
+Users are created when they first sign in. To block someone, or to cut a
+session short:
+
+```bash
+docker compose exec backend uv run python manage.py users list
+docker compose exec backend uv run python manage.py users deactivate <email|id>
+docker compose exec backend uv run python manage.py users activate <email|id>
+docker compose exec backend uv run python manage.py users logout <email|id>
+```
+
+Deactivating a user closes their sessions at once. The allowlists are only
+checked at sign-in: someone who stops matching them keeps their session until
+it expires, unless you deactivate them.
 
 ## Sample datasets
 
