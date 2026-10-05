@@ -7,7 +7,7 @@ const NONE = 'none'
  * the key, and a missing key reads as the default again. So it is stored as a word of its own.
  */
 export function useGroupBy(key: string, fallback: string | null) {
-  const stored = useLocalStorage<string>(key, fallback ?? NONE)
+  const stored = useLocalStorage<string>(workspaceStorageKey(key), fallback ?? NONE)
   return computed<string | null>({
     get: () => stored.value === NONE ? null : stored.value,
     set: (value) => {

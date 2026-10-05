@@ -9,7 +9,7 @@ import { isDashboardRange } from '~/utils/dashboard'
 export function useDashboardRange() {
   const route = useRoute()
   const router = useRouter()
-  const remembered = useLocalStorage<DashboardRange>('maestro:dashboard-range', '7d')
+  const remembered = useLocalStorage<DashboardRange>(workspaceStorageKey('maestro:dashboard-range'), '7d')
 
   return computed<DashboardRange>({
     get() {
