@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, Index
+from sqlalchemy import BigInteger, Index, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -338,3 +338,43 @@ class TagLink(SQLModel, table=True):
     tag_id: int = Field(foreign_key="tag.id", primary_key=True)
     kind: str = Field(primary_key=True)  # "prompt" | "analysis" | "agent"
     item_id: int = Field(primary_key=True)
+
+
+class User(SQLModel, table=True):
+    """A person who signs in, whatever the identity provider"""
+
+    __tablename__ = "user"
+
+    id: int | None = Field(default=None, primary_key=True)
+    display_name: str
+    email: str | None = Field(default=None, index=True)  # not unique: never a key
+    avatar_url: str | None = None
+    is_active: bool = Field(default=True)  # False signs the user out everywhere
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_login_at: datetime | None = None
+
+
+class Identity(SQLModel, table=True):
+    """An account of a user at an identity provider (GitLab...)"""
+
+    __table_args__ = (UniqueConstraint("provider", "subject"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    provider: str  # "gitlab"
+    subject: str  # the provider's stable id for the account
+    email_at_login: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AuthSession(SQLModel, table=True):
+    """A browser session; the cookie holds a token whose hash is the id"""
+
+    __tablename__ = "session"
+
+    id: str = Field(primary_key=True)  # sha256 of the cookie token
+    user_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime  # slides with activity
+    absolute_expires_at: datetime  # never moves

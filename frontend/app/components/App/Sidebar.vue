@@ -191,43 +191,47 @@ defineShortcuts({
     </template>
 
     <template #footer="{ collapsed: isCollapsed }">
-      <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
-        <UTooltip
-          text="Keyboard shortcuts"
-          :kbds="['?']"
-          :disabled="!isCollapsed"
-          :content="{ side: 'right' }"
-        >
-          <UButton
-            icon="i-ph-keyboard"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :block="!isCollapsed"
-            :aria-label="isCollapsed ? 'Keyboard shortcuts' : undefined"
-            :class="isCollapsed ? '' : 'flex-1 justify-start text-muted'"
-            @click="() => { shortcutsOpen = true }"
+      <div class="flex w-full flex-col gap-1" :class="isCollapsed && 'items-center'">
+        <AppUserMenu :collapsed="isCollapsed" />
+
+        <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
+          <UTooltip
+            text="Keyboard shortcuts"
+            :kbds="['?']"
+            :disabled="!isCollapsed"
+            :content="{ side: 'right' }"
           >
-            <template v-if="!isCollapsed">
-              <span class="flex-1 text-start">Shortcuts</span>
-              <UKbd value="?" size="sm" />
-            </template>
-          </UButton>
-        </UTooltip>
+            <UButton
+              icon="i-ph-keyboard"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :block="!isCollapsed"
+              :aria-label="isCollapsed ? 'Keyboard shortcuts' : undefined"
+              :class="isCollapsed ? '' : 'flex-1 justify-start text-muted'"
+              @click="() => { shortcutsOpen = true }"
+            >
+              <template v-if="!isCollapsed">
+                <span class="flex-1 text-start">Shortcuts</span>
+                <UKbd value="?" size="sm" />
+              </template>
+            </UButton>
+          </UTooltip>
 
-        <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: 'right' }">
-          <UButton
-            to="/settings"
-            icon="i-ph-gear"
-            color="neutral"
-            :variant="isActive('/settings') ? 'soft' : 'ghost'"
-            size="sm"
-            aria-label="Settings"
-            :aria-current="isActive('/settings') ? 'page' : undefined"
-          />
-        </UTooltip>
+          <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: 'right' }">
+            <UButton
+              to="/settings"
+              icon="i-ph-gear"
+              color="neutral"
+              :variant="isActive('/settings') ? 'soft' : 'ghost'"
+              size="sm"
+              aria-label="Settings"
+              :aria-current="isActive('/settings') ? 'page' : undefined"
+            />
+          </UTooltip>
 
-        <AppThemeToggle :collapsed="isCollapsed" />
+          <AppThemeToggle :collapsed="isCollapsed" />
+        </div>
       </div>
     </template>
   </UDashboardSidebar>
