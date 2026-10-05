@@ -3,6 +3,8 @@ import type { CreateDatasetForm } from '~/types'
 
 interface Props {
   open?: boolean
+  /** The upload is under way: the dialog stays open, and keeps the form if it fails */
+  loading?: boolean
 }
 
 interface Emits {
@@ -12,6 +14,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   open: false,
+  loading: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -28,13 +31,9 @@ const formData = ref({
   file: null as File | null,
 })
 
-const isSubmitting = ref(false)
-
 // Computed
 const formValid = computed(() => {
-  return formData.value.name.trim()
-    && formData.value.description.trim()
-    && formData.value.file
+  return formData.value.name.trim() && formData.value.file
 })
 
 // The file names the dataset until the user types another name
@@ -57,35 +56,27 @@ function handleCancel() {
   show.value = false
 }
 
-async function handleSubmit() {
+// The page closes the dialog once the upload went through
+function handleSubmit() {
   const { file } = formData.value
-  if (!formValid.value || !file)
+  if (!formValid.value || !file || props.loading)
     return
 
-  isSubmitting.value = true
-  try {
-    const submitData: CreateDatasetForm = {
-      name: formData.value.name.trim(),
-      description: formData.value.description.trim(),
-      file,
-    }
-
-    emit('submit', submitData)
-    show.value = false
-  }
-  finally {
-    isSubmitting.value = false
-  }
+  emit('submit', {
+    name: formData.value.name.trim(),
+    description: formData.value.description.trim(),
+    file,
+  })
 }
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isSubmitting" @after:leave="resetForm">
+  <UModal v-model:open="show" :dismissible="!loading" @after:leave="resetForm">
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
-          <h2 class="text-lg font-semibold text-highlighted">
-            Create New Dataset
+          <h2 class="text-base font-semibold text-highlighted">
+            New dataset
           </h2>
         </template>
 
@@ -93,12 +84,12 @@ async function handleSubmit() {
           <!-- Basic Information -->
           <div class="grid grid-cols-1 gap-4">
             <div>
-              <UFormField label="Dataset Name">
+              <UFormField label="Name" required>
                 <UInput
                   v-model="formData.name"
                   class="w-full"
-                  placeholder="Enter dataset name"
-                  required
+                  placeholder="e.g. Customer questions"
+                  autofocus
                 />
               </UFormField>
             </div>
@@ -108,20 +99,19 @@ async function handleSubmit() {
                 <UTextarea
                   v-model="formData.description"
                   class="w-full"
-                  placeholder="Brief description of the dataset"
-                  :rows="3"
-                  required
+                  placeholder="What the rows are, where they come from"
+                  :rows="2"
                 />
               </UFormField>
             </div>
 
             <div>
-              <UFormField label="File">
+              <UFormField label="File" required>
                 <UFileUpload
                   v-model="formData.file"
                   accept=".csv,.json"
                   label="Drop a file here or browse"
-                  description="CSV or JSON, one row per input"
+                  description="CSV or JSON. Each row is one input; a CSV’s first line holds the column names."
                   icon="i-ph-file-arrow-up-bold"
                   class="w-full min-h-32"
                 />
@@ -135,7 +125,7 @@ async function handleSubmit() {
               type="button"
               variant="outline"
               color="neutral"
-              :disabled="isSubmitting"
+              :disabled="loading"
               @click="handleCancel"
             >
               Cancel
@@ -144,11 +134,10 @@ async function handleSubmit() {
               type="submit"
               variant="solid"
               color="primary"
-              :disabled="!formValid || isSubmitting"
-              :loading="isSubmitting"
-              icon="i-ph:plus-bold"
+              :disabled="!formValid"
+              :loading="loading"
             >
-              Create Dataset
+              Create dataset
             </UButton>
           </div>
         </form>

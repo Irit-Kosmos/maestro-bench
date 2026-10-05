@@ -6,41 +6,30 @@ import { apiErrorMessage } from '~/composables/useAnalyses'
 export function useExperimentSubmission() {
   const { createExperiment } = useExperiments()
   const { createBatch } = useBatches()
-  const toast = useToast()
+  const { ok, fail } = useStandardToast()
+  const router = useRouter()
 
   async function handleSubmit(experimentData: any) {
     try {
       const result = await createExperiment(experimentData)
 
       if (result.success) {
-        toast.add({
-          title: 'Success',
-          description: 'Experiment created successfully!',
-          color: 'success',
-          icon: 'i-ph:check-circle-bold',
-        })
-        await navigateTo('/')
+        const created = result.data as { id: number, status?: string }
+        // A workspace already running as many experiments as it may queues the new one
+        ok(created.status === 'queued' ? 'Experiment queued' : 'Experiment started')
+        // Land on the run itself: its progress is live there
+        await navigateTo(`/experiments/${created.id}`)
         return { success: true }
       }
       else {
-        toast.add({
-          title: 'Error',
-          // An aggregator the backend cannot run says why
-          description: apiErrorMessage(result.error) ?? 'Failed to create experiment. Please try again.',
-          color: 'error',
-          icon: 'i-ph:warning-circle-bold',
-        })
+        // An aggregator the backend cannot run says why
+        fail('Couldn’t create the experiment', apiErrorMessage(result.error) ?? 'Please try again.')
         return { success: false, error: 'Creation failed' }
       }
     }
     catch (error) {
       console.error('Error creating experiment:', error)
-      toast.add({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
+      fail('Couldn’t create the experiment', 'An unexpected error occurred. Please try again.')
       return { success: false, error }
     }
   }
@@ -49,26 +38,20 @@ export function useExperimentSubmission() {
   async function handleBatchSubmit(batch: Parameters<typeof createBatch>[0], experimentCount: number) {
     const result = await createBatch(batch)
     if (result.success) {
-      toast.add({
-        title: 'Batch started',
-        description: `${experimentCount} experiments are running.`,
-        color: 'success',
-        icon: 'i-ph:check-circle-bold',
-      })
+      ok('Batch started', { description: `${experimentCount} experiments are running.` })
       await navigateTo(`/batches/${result.data.id}`)
       return { success: true }
     }
-    toast.add({
-      title: 'Error',
-      description: apiErrorMessage(result.error) ?? 'Failed to create the batch. Please try again.',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail('Couldn’t create the batch', apiErrorMessage(result.error) ?? 'Please try again.')
     return { success: false, error: result.error }
   }
 
+  // Back to where the person came from; a page opened directly has nowhere to go back to
   async function handleCancel() {
-    await navigateTo('/')
+    if (router.options.history.state.back)
+      router.back()
+    else
+      await navigateTo('/experiments')
   }
 
   return {

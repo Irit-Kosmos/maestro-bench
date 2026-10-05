@@ -18,7 +18,7 @@ const emit = defineEmits<{
 
 const configurations = defineModel<Record<number, AgentConfiguration>>('agentConfigurations', { required: true })
 
-const toast = useToast()
+const { info, fail } = useStandardToast()
 
 const models = computed(() => props.models ?? [])
 const promptVersions = computed(() => props.allPromptVersions ?? [])
@@ -70,11 +70,7 @@ function showView(next: 'list' | 'graph') {
     const hasTies = new Set(order.values()).size < order.size
     pipeline.applyOrder(order)
     if (hasTies) {
-      toast.add({
-        title: 'Agents now run in list order',
-        description: 'Agents that were not connected to each other run one after another.',
-        icon: 'i-ph-info-bold',
-      })
+      info('Agents now run in list order', 'Agents that were not connected to each other run one after another.')
     }
   }
   view.value = next
@@ -143,17 +139,25 @@ function defaultSummary(agent: Agent) {
 // --- Creating an aggregator on the spot ---
 
 const { createAgent } = useAgents()
+const { canEdit } = useCurrentWorkspace()
 const showCreateAggregator = ref(false)
+const showCreateAgent = ref(false)
+const creatingAgent = ref(false)
 
 // The team of the agents it will most likely read
 const aggregatorTeamId = computed(() => items.value.at(-1)?.agent.team_id)
 
-async function createAggregator(data: CreateAgentForm) {
+// An agent created here joins the experiment right away, so the form never loses its place
+async function createAgentHere(data: CreateAgentForm) {
+  creatingAgent.value = true
   const result = await createAgent(data)
+  creatingAgent.value = false
   if (!result.success) {
-    toast.add({ title: 'Could not create the aggregator', description: result.error, color: 'error', icon: 'i-ph:x-bold' })
+    fail(data.kind === 'aggregator' ? 'Couldn’t create the aggregator' : 'Couldn’t create the agent', result.error)
     return
   }
+  showCreateAggregator.value = false
+  showCreateAgent.value = false
   await props.refreshAgents?.()
   const created = result.data as Agent
   const agent = pipeline.catalog.value.get(created.id)?.agent ?? created
@@ -286,9 +290,10 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         v-else-if="agentTeams"
         icon="i-ph-robot-bold"
         title="No agents yet"
-        message="Create an agent first, then come back to create the experiment."
+        message="An agent pairs a prompt version with a model. Create one here and it joins this experiment."
         action-label="New agent"
-        action-to="/agents"
+        action-requires="editor"
+        @action="() => { showCreateAgent = true }"
       />
 
       <BaseLoadingState v-else message="Loading agents…" />
@@ -311,6 +316,16 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
             aria-label="Add an agent"
             @update:model-value="(id) => addById(id as number | undefined)"
           />
+          <UButton
+            v-if="canEdit"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-ph-robot-bold"
+            @click="() => { showCreateAgent = true }"
+          >
+            New agent
+          </UButton>
           <UButton
             color="neutral"
             variant="ghost"
@@ -425,7 +440,17 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
       initial-kind="aggregator"
       lock-kind
       :initial-team-id="aggregatorTeamId"
-      @submit="createAggregator"
+      :loading="creatingAgent"
+      @submit="createAgentHere"
+    />
+
+    <AgentsCreateAgentModal
+      v-model:open="showCreateAgent"
+      :available-teams="agentTeams ?? []"
+      :available-prompt-versions="promptVersions"
+      :available-models="models"
+      :loading="creatingAgent"
+      @submit="createAgentHere"
     />
   </ExperimentsSection>
 </template>

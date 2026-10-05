@@ -9,13 +9,16 @@ export interface ModelFormValues {
   is_active: boolean
 }
 
-// The fields of a model, shared by "Add model" and "Edit model"
+// The fields of a model, shared by "New model" and "Edit model"
 defineProps<{
   /** Example name shown in the empty field */
   namePlaceholder?: string
 }>()
 
 const form = defineModel<ModelFormValues>({ required: true })
+
+const { lacksCredentials, missingKeyAdvice } = useProviderStatus()
+const { isOwner } = useCurrentWorkspace()
 </script>
 
 <template>
@@ -32,6 +35,14 @@ const form = defineModel<ModelFormValues>({ required: true })
 
     <UFormField label="Provider" required class="sm:col-span-2">
       <ModelsProviderSelect v-model="form.provider" class="w-full" />
+      <p v-if="lacksCredentials(form.provider)" class="mt-1.5 flex items-start gap-1.5 text-xs text-warning">
+        <UIcon name="i-ph-warning-bold" class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        <span>
+          No API key for {{ providerMeta(form.provider).label }}: runs with this model will fail.
+          <NuxtLink v-if="isOwner" to="/settings" class="underline underline-offset-2">Add one in Settings.</NuxtLink>
+          <template v-else>{{ missingKeyAdvice }}</template>
+        </span>
+      </p>
     </UFormField>
 
     <UFormField label="Description" class="sm:col-span-2">

@@ -5,7 +5,7 @@ export function useAgentTeams() {
   const { $api } = useNuxtApp()
 
   // Create a new agent team
-  async function createTeam(teamData: { name: string, description: string, agent_ids?: number[] }) {
+  async function createTeam(teamData: { name: string, description?: string, agent_ids?: number[] }) {
     try {
       const response = await $api('/agent-teams', {
         method: 'POST',

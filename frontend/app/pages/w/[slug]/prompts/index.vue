@@ -4,7 +4,6 @@ import type { Prompt } from '~/types'
 // Page meta
 definePageMeta({
   title: 'Prompts',
-  subtitle: 'Manage your reusable prompts with versioning support',
 })
 
 // Fetch data directly in the page
@@ -44,6 +43,10 @@ function resetCreateForm() {
   }
 }
 
+useCreateFromQuery(() => {
+  showCreateModal.value = true
+})
+
 async function handleCreatePrompt() {
   if (!createFormValid.value)
     return
@@ -59,8 +62,8 @@ async function handleCreatePrompt() {
     if (result.success) {
       showCreateSuccess('Prompt')
       showCreateModal.value = false
-      // Refresh the prompts list
-      await refresh()
+      // A prompt does nothing without a version: go straight to writing the first one
+      await navigateTo(`/prompts/${(result.data as { id: number }).id}?new=1`)
     }
     else {
       showCreateError('Prompt', typeof result.error === 'string' ? result.error : undefined)
@@ -78,7 +81,9 @@ async function handleCreatePrompt() {
 <template>
   <BasePageContent
     :loading="pending && !prompts"
-    :error="error?.message || null"
+    :error="!prompts && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
   >
     <template #before-content>
       <UIGuardedButton
@@ -111,18 +116,18 @@ async function handleCreatePrompt() {
       @refresh="refresh"
     />
 
-    <!-- Create Prompt Modal -->
+    <!-- Create prompt Modal -->
     <UModal v-model:open="showCreateModal" :prevent-close="isCreating" @after:leave="resetCreateForm">
       <template #content>
         <UCard class="overflow-y-auto">
           <template #header>
             <h3 class="text-lg font-semibold">
-              Create New Prompt
+              New prompt
             </h3>
           </template>
 
           <form class="space-y-4" @submit.prevent="handleCreatePrompt">
-            <UFormField label="Prompt Name" required>
+            <UFormField label="Name" required>
               <UInput
                 v-model="createForm.name"
                 placeholder="e.g., Language Evaluator"
@@ -134,7 +139,7 @@ async function handleCreatePrompt() {
             <UFormField label="Description">
               <UTextarea
                 v-model="createForm.description"
-                placeholder="Describe what this prompt is used for..."
+                placeholder="What this prompt is for"
                 class="w-full"
                 :rows="3"
               />
@@ -158,7 +163,7 @@ async function handleCreatePrompt() {
                 :loading="isCreating"
                 :disabled="!createFormValid || isCreating"
               >
-                Create Prompt
+                Create prompt
               </UButton>
             </div>
           </form>
