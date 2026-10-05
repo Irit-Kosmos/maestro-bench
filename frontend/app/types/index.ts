@@ -227,7 +227,7 @@ export interface DashboardExperiment {
   batch_name: string | null
   dataset_name: string | null
   /** Distinct models of the pipeline, in execution order */
-  models: string[]
+  models: { name: string, provider: string }[]
   row_count: number | null
   duration_seconds: number | null
   total_tokens: number | null

@@ -224,6 +224,10 @@ function modelsOf(execution: ExecutionListItem) {
   return [...new Set(llmAgentsOf(execution).map(agent => agent.model))]
 }
 
+function modelStackOf(execution: ExecutionListItem) {
+  return llmAgentsOf(execution).map(agent => ({ name: agent.model, provider: agent.provider }))
+}
+
 const filters = computed<FilterSpec<ExecutionListItem>[]>(() => [
   statusFilter(execution => execution.status),
   failuresFilter,
@@ -334,20 +338,8 @@ const actions = [
         </template>
 
         <template #agents-cell="{ row }">
-          <div class="flex min-w-0 items-center gap-1.5 text-sm text-toned">
-            <ModelsLabel
-              v-if="llmAgentsOf(row.original).length"
-              :name="llmAgentsOf(row.original)[0]!.model"
-              :provider="llmAgentsOf(row.original)[0]!.provider"
-            />
-            <span v-else class="text-dimmed">—</span>
-            <span
-              v-if="modelsOf(row.original).length > 1"
-              class="shrink-0 text-xs text-muted tabular-nums"
-              :title="modelsOf(row.original).join(', ')"
-            >
-              +{{ modelsOf(row.original).length - 1 }}
-            </span>
+          <div class="min-w-0 text-sm text-toned">
+            <ModelsStack :models="modelStackOf(row.original)" />
           </div>
         </template>
 

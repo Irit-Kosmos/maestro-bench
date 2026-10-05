@@ -147,7 +147,10 @@ def test_recent_experiment_carries_its_latest_execution(client, engine, world):
     assert recent["dataset_name"] == "answers"
     assert recent["batch_name"] == "Sweep"
     # Repeated models collapse, in pipeline order
-    assert recent["models"] == ["m-a", "m-b"]
+    assert recent["models"] == [
+        {"name": "m-a", "provider": "openai"},
+        {"name": "m-b", "provider": "openai"},
+    ]
     assert recent["duration_seconds"] == 90
     assert recent["total_tokens"] == 1200
     assert recent["total_cost_usd"] == 0.5
@@ -184,7 +187,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
 
     [recent] = client.get("/dashboard").json()["recent_experiments"]
 
-    assert recent["models"] == ["m-b"]
+    assert recent["models"] == [{"name": "m-b", "provider": "openai"}]
     assert recent["duration_seconds"] is None
     assert recent["total_cost_usd"] is None
 

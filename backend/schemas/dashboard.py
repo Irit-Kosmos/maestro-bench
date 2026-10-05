@@ -9,6 +9,12 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class DashboardModel(BaseModel):
+    name: str
+    # Whose logo to show next to it
+    provider: str
+
+
 class DashboardExperiment(BaseModel):
     """One recent experiment, with what its latest execution produced."""
 
@@ -20,7 +26,7 @@ class DashboardExperiment(BaseModel):
     batch_name: str | None = None
     dataset_name: str | None = None
     # Distinct models of the pipeline, in execution order
-    models: list[str] = []
+    models: list[DashboardModel] = []
     row_count: int | None = None
     duration_seconds: float | None = None
     total_tokens: int | None = None
