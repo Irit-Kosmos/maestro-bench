@@ -171,6 +171,45 @@ def test_the_last_owner_cannot_be_demoted_or_removed(alice, team):
     assert roles(alice, team)["Alice"] == "owner"
 
 
+def deactivate(engine, person):
+    with Session(engine) as db:
+        user = db.get(User, person.id)
+        user.is_active = False
+        db.add(user)
+        db.commit()
+
+
+def test_an_owner_who_can_no_longer_sign_in_does_not_count_as_the_remaining_owner(
+    alice, bob, team, engine
+):
+    alice.put(f"/workspaces/{team}/members/{bob.id}", json={"role": "owner"})
+    deactivate(engine, bob)
+
+    assert alice.delete(f"/workspaces/{team}/members/{alice.id}").status_code == 409
+    assert alice.put(f"/workspaces/{team}/members/{alice.id}", json={"role": "editor"}).status_code == 409
+    # ...while the inactive one can be removed, and nothing is left in doubt
+    assert alice.delete(f"/workspaces/{team}/members/{bob.id}").status_code == 204
+
+
+def test_two_owners_cannot_leave_at_the_same_time(alice, bob, team, engine):
+    from sqlalchemy.exc import OperationalError
+
+    from auth.workspaces import _lock, remove_member
+
+    alice.put(f"/workspaces/{team}/members/{bob.id}", json={"role": "owner"})
+    with Session(engine) as first, Session(engine) as second:
+        workspace = first.exec(select(Workspace).where(Workspace.slug == team)).one()
+        _lock(first, workspace)  # the first departure is under way
+
+        second.exec(text("SET LOCAL lock_timeout = '300ms'"))
+        with pytest.raises(OperationalError):
+            remove_member(second, second.get(Workspace, workspace.id), second.get(User, bob.id))
+        second.rollback()
+        first.rollback()
+
+    assert roles(alice, team)["Bob"] == "owner"
+
+
 def test_an_owner_removes_a_member_who_then_loses_access(alice, bob, team):
     assert alice.delete(f"/workspaces/{team}/members/{bob.id}").status_code == 204
 
