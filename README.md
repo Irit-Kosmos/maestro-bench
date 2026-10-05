@@ -38,7 +38,7 @@ engine is specific to education.
 
 ```
 maestro-bench/
-├── backend/     FastAPI + SQLModel (SQLite) + LiteLLM
+├── backend/     FastAPI + SQLModel (PostgreSQL) + Alembic + LiteLLM
 ├── frontend/    Nuxt 4 + Nuxt UI single-page app
 └── datasets/    CSV/JSON files referenced by dataset records
 ```
@@ -48,8 +48,9 @@ maestro-bench/
   (`backend/async_jobs.py`), through the pipeline engine in `backend/core/`.
 - Frontend: talks to the backend over HTTP; the base URL comes from
   `NUXT_PUBLIC_BACK_URL`.
-- Storage: a SQLite file (`backend/app.db` by default) plus JSON result files in
-  `backend/results/`.
+- Storage: a PostgreSQL database (schema managed by Alembic migrations, applied
+  automatically on startup) plus files on disk under `DATA_DIR`: datasets in
+  `<DATA_DIR>/datasets/` and JSON result files in `<DATA_DIR>/results/`.
 
 ## Quick start
 
@@ -58,8 +59,9 @@ maestro-bench/
 - At least one LLM provider API key (OpenAI, Anthropic or Mistral), or a local
   [Ollama](https://ollama.com) server (no key needed).
 - Either **Docker + Docker Compose**, or for local development
-  [uv](https://docs.astral.sh/uv/) (Python 3.12+) and
-  [pnpm](https://pnpm.io/) (Node.js 22+).
+  [uv](https://docs.astral.sh/uv/) (Python 3.12+),
+  [pnpm](https://pnpm.io/) (Node.js 22+) and a PostgreSQL server (the Compose
+  `postgres` service works for that).
 
 ### 1. Configure
 
@@ -71,10 +73,23 @@ cp frontend/.env.example frontend/.env  # only needed outside Docker
 ### 2a. Run with Docker Compose
 
 ```bash
+mkdir -p backend/results   # so the folder is created by you, not by Docker
 docker compose up --build
 ```
 
+This starts PostgreSQL, the backend (which applies the database migrations on
+startup) and the frontend. The database lives in the `maestro-pgdata` Docker
+volume. Set `POSTGRES_PASSWORD` in your shell or a root `.env` to change the
+default password (`maestro`).
+
 ### 2b. Run locally
+
+Start only the database with Docker (it listens on `127.0.0.1:5432`, which is
+what the default `DATABASE_URL` expects):
+
+```bash
+docker compose up -d postgres
+```
 
 Backend:
 
@@ -83,6 +98,9 @@ cd backend
 uv sync
 uv run uvicorn main:app --reload --port 8000
 ```
+
+Outside Docker, `DATA_DIR` defaults to the repository root: datasets are read
+from `datasets/` and results are written to `results/`.
 
 Frontend (in another terminal):
 
@@ -104,8 +122,9 @@ uv run python scripts/seed.py
 # with Docker: docker compose exec backend uv run python scripts/seed.py
 ```
 
-> **Warning:** the seed script deletes all existing models, prompts, agents,
-> teams and datasets before inserting the samples.
+The script only adds what is missing (matched by name or file) and never
+deletes or modifies anything, so it is safe to run on a database that already
+holds your data, and to run again.
 
 Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 (interactive docs at <http://localhost:8000/docs>).
@@ -121,9 +140,10 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
    the templates use so they can be mapped later.
 3. **Agents** - create a team, then agents with a default prompt version and
    model.
-4. **Datasets** - copy your CSV or JSON file into the top-level `datasets/`
-   directory, then create a dataset record pointing to it (path relative to
-   `datasets/`, e.g. `my_data.csv`). There is no file upload in the UI. Open a
+4. **Datasets** - copy your CSV or JSON file into `<DATA_DIR>/datasets/` (with
+   Docker Compose, the repository's top-level `datasets/` folder), then create a
+   dataset record pointing to it (path relative to that folder, e.g.
+   `my_data.csv`). There is no file upload in the UI yet. Open a
    dataset to browse, search and edit its rows in a keyboard-driven grid (`?`
    lists the shortcuts; `⌘S` saves). Edits rewrite the file on disk, and a
    file changed elsewhere since it was opened is never overwritten. Up to
@@ -186,7 +206,9 @@ uv run pytest
 | `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
 | `<PROVIDER>_MAX_RPS` | - | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
-| `DATABASE_URL` | `sqlite:///./app.db` | SQLAlchemy connection string. |
+| `DATABASE_URL` | `postgresql+psycopg://maestro:maestro@localhost:5432/maestro` | SQLAlchemy connection string. PostgreSQL only. Docker Compose sets it to the `postgres` service. |
+| `DATA_DIR` | repository root (`/data` in Docker) | Where datasets (`<DATA_DIR>/datasets/`) and execution results (`<DATA_DIR>/results/`) are stored. Result paths saved in the database are relative to it. |
+| `POSTGRES_PASSWORD` | `maestro` | Read by `docker-compose.yml` only: password of the `postgres` service and of the backend's connection. |
 | `DB_ECHO` | `false` | Log SQL statements. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
 
@@ -208,8 +230,23 @@ uv run pytest
 
 - Backend lint: `uvx ruff check backend`.
 - Frontend lint: `pnpm lint` in `frontend/` (ESLint with `@antfu/eslint-config`).
-- Results files are written to `backend/results/` and referenced from the
-  `experimentexecution` table; both are git-ignored.
-- The database schema is created automatically on startup with
-  `SQLModel.metadata.create_all`; there is no migration tool, so delete
-  `backend/app.db` after changing `backend/tables.py`.
+- Results files are written to `<DATA_DIR>/results/` and referenced (by a path
+  relative to `DATA_DIR`) from the `experimentexecution` table. With Docker
+  Compose they land in `backend/results/`, which is git-ignored.
+- Database migrations use [Alembic](https://alembic.sqlalchemy.org) and run on
+  startup (`alembic upgrade head`). After changing `backend/tables.py`, generate
+  a migration, review it, and check there is no drift:
+
+  ```bash
+  docker compose exec backend uv run alembic revision --autogenerate -m "describe the change"
+  docker compose exec backend uv run alembic check
+  ```
+
+- The tests run on PostgreSQL, in a separate `<database>_test` database that is
+  created on first use (or set `TEST_DATABASE_URL`). They never touch your data.
+
+### Deleting items that are still used
+
+Deleting a model or a prompt version clears it from the agents, experiment
+configurations and history that referenced it. An agent or a dataset still used
+by an experiment cannot be deleted (HTTP 409).

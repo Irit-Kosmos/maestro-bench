@@ -4,7 +4,6 @@ rows of a past execution, and suggesting the paths an agent's outputs contain.
 """
 
 import json
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +14,7 @@ from core.formula import check_outputs, free_variables
 from core.json_output import list_paths, parse_json_output, scalar_paths
 from core.orchestrator import AGGREGATOR, AgentConfig, run_aggregator
 from db import get_session
+from results_files import results_path
 from schemas.aggregators import (
     AgentOutputPaths,
     AggregatorPreviewRequest,
@@ -35,10 +35,8 @@ PATH_SCAN_ROWS = 50
 
 
 def _load_results(execution: ExperimentExecution) -> dict | None:
-    if not execution.results_file_path:
-        return None
-    path = Path(execution.results_file_path)
-    if not path.exists():
+    path = results_path(execution)
+    if path is None or not path.exists():
         return None
     with open(path) as f:
         return json.load(f)

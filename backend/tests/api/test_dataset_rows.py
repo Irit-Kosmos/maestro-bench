@@ -3,8 +3,7 @@ import json
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 import dataset_rows
 import dataset_utils
@@ -17,17 +16,6 @@ from tables import Dataset
 def datasets_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(dataset_utils, "get_datasets_dir", lambda: tmp_path)
     return tmp_path
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    return engine
 
 
 @pytest.fixture

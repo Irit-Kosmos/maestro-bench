@@ -176,7 +176,8 @@ export interface ExperimentExecution {
 export interface AgentExecutionSnapshot {
   id: number
   execution_id: number
-  agent_id: number
+  /** null once the agent has been deleted: the snapshot keeps its name */
+  agent_id: number | null
   /** Aggregator snapshots have empty model and prompt fields */
   kind?: AgentKind
   agent_name_snapshot: string

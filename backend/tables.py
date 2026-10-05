@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Index
+from sqlalchemy import BigInteger, Index
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -79,9 +79,11 @@ class Agent(SQLModel, table=True):
 
     # Default configurations (can be overridden in experiments)
     default_prompt_version_id: int | None = Field(
-        default=None, foreign_key="promptversion.id"
+        default=None, foreign_key="promptversion.id", ondelete="SET NULL"
     )
-    default_model_id: int | None = Field(default=None, foreign_key="model.id")
+    default_model_id: int | None = Field(
+        default=None, foreign_key="model.id", ondelete="SET NULL"
+    )
 
     team_id: int = Field(foreign_key="agentteam.id")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -125,7 +127,7 @@ class Batch(SQLModel, table=True):
     )
     # Seed of the random sample, shared by the batch's experiments so that they
     # all run on the same dataset rows
-    sampling_seed: int | None = None
+    sampling_seed: int | None = Field(default=None, sa_type=BigInteger)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -182,9 +184,11 @@ class ExperimentAgentConfig(SQLModel, table=True):
 
     # Configuration (uses agent defaults if not specified)
     prompt_version_id: int | None = Field(
-        default=None, foreign_key="promptversion.id"
+        default=None, foreign_key="promptversion.id", ondelete="SET NULL"
     )
-    model_id: int | None = Field(default=None, foreign_key="model.id")
+    model_id: int | None = Field(
+        default=None, foreign_key="model.id", ondelete="SET NULL"
+    )
 
     # Optional overrides for model parameters
     temperature: float | None = None
@@ -258,7 +262,10 @@ class AgentExecutionSnapshot(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     execution_id: int = Field(foreign_key="experimentexecution.id")
-    agent_id: int = Field(foreign_key="agent.id")
+    # Empty once the agent is deleted: the snapshot keeps its name
+    agent_id: int | None = Field(
+        default=None, foreign_key="agent.id", ondelete="SET NULL"
+    )
 
     # Snapshot of configuration at execution time (exactly what was used).
     # Aggregators have no model nor prompt: those fields are empty strings.

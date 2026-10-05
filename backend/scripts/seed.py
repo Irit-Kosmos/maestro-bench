@@ -3,12 +3,12 @@
 Seed script for development/testing.
 Creates prompts, models, agent teams, agents, and the sample datasets.
 
-WARNING: this wipes all existing models, prompts, agent teams, agents and
-datasets before re-inserting them.
+It only adds what is missing (matched by name) and never deletes or edits
+anything, so it is safe to run on a database that already holds your data, and
+to run again.
 
 Usage (from the backend/ directory):
-    uv run python scripts/seed.py          # asks for confirmation
-    uv run python scripts/seed.py --yes    # no confirmation
+    uv run python scripts/seed.py
 """
 
 import json
@@ -18,7 +18,8 @@ from pathlib import Path
 # Allow running from any working directory
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlmodel import Session, delete
+from sqlalchemy import func
+from sqlmodel import Session, SQLModel, select
 
 from db import engine, init_db
 from tables import (
@@ -33,38 +34,40 @@ from tables import (
 )
 
 
+def _get_or_create(session: Session, model: type[SQLModel], lookup: dict, **fields):
+    """Return the row matching ``lookup``, creating it with ``fields`` if missing."""
+    existing = session.exec(select(model).filter_by(**lookup)).first()
+    if existing:
+        return existing
+    created = model(**lookup, **fields)
+    session.add(created)
+    session.flush()
+    created_counts[model.__name__] = created_counts.get(model.__name__, 0) + 1
+    return created
+
+
+def _get_or_create_tag(session: Session, name: str, color: str) -> Tag:
+    """Tag names are unique ignoring case."""
+    existing = session.exec(select(Tag).where(func.lower(Tag.name) == name.lower())).first()
+    return existing or _get_or_create(session, Tag, {"name": name}, color=color)
+
+
+def _tag(session: Session, tag: Tag, prompt: Prompt) -> None:
+    _get_or_create(
+        session, TagLink, {"tag_id": tag.id, "kind": "prompt", "item_id": prompt.id}
+    )
+
+
+created_counts: dict[str, int] = {}
+
+
 def seed_data() -> None:
     """Create initial data for development/testing."""
 
     init_db()
-
-    if "--yes" not in sys.argv:
-        answer = input(
-            "This will DELETE all models, prompts, agent teams, agents and datasets. Continue? [y/N] "
-        )
-        if answer.strip().lower() not in ("y", "yes"):
-            print("Aborted.")
-            return
+    created_counts.clear()
 
     with Session(engine) as session:
-        # ------------------------------------------------------------------
-        # Clear existing data in FK-safe order using bulk DELETE statements
-        # ------------------------------------------------------------------
-        print("Clearing existing data...")
-        for table in (
-            Agent,
-            AgentTeam,
-            PromptVersion,
-            TagLink,
-            Tag,
-            Prompt,
-            Model,
-            Dataset,
-        ):
-            session.exec(delete(table))
-        session.commit()
-        print("Existing data cleared.")
-
         # ------------------------------------------------------------------
         # 1. Models
         # ------------------------------------------------------------------
@@ -76,41 +79,35 @@ def seed_data() -> None:
             "magistral-medium-2506",
         ]
         for model_name in mistral_models:
-            session.add(
-                Model(
-                    name=model_name,
-                    provider="mistral",
-                    description=f"Mistral model {model_name}",
-                    is_active=True,
-                )
+            _get_or_create(
+                session,
+                Model,
+                {"name": model_name, "provider": "mistral"},
+                description=f"Mistral model {model_name}",
+                is_active=True,
             )
-        session.commit()
 
         # ------------------------------------------------------------------
         # 2. Prompts & PromptVersions
         # ------------------------------------------------------------------
         print("Creating prompts and versions...")
 
-        evaluation_tag = Tag(name="evaluation", color="blue")
-        advice_tag = Tag(name="advice", color="green")
-        session.add_all([evaluation_tag, advice_tag])
-        session.commit()
+        evaluation_tag = _get_or_create_tag(session, "evaluation", "blue")
+        advice_tag = _get_or_create_tag(session, "advice", "green")
 
         # Language Evaluator
-        language_prompt = Prompt(
-            name="Language Evaluator",
+        language_prompt = _get_or_create(
+            session,
+            Prompt,
+            {"name": "Language Evaluator"},
             description="Evaluates learner answers based on clarity, grammar, and terminology",
         )
-        session.add(language_prompt)
-        session.commit()
-        session.refresh(language_prompt)
-        session.add(
-            TagLink(tag_id=evaluation_tag.id, kind="prompt", item_id=language_prompt.id)
-        )
+        _tag(session, evaluation_tag, language_prompt)
 
-        language_version = PromptVersion(
-            prompt_id=language_prompt.id,
-            version="1.0",
+        language_version = _get_or_create(
+            session,
+            PromptVersion,
+            {"prompt_id": language_prompt.id, "version": "1.0"},
             system_prompt=(
                 "You are a Language agent with deep knowledge of educational science "
                 "and cognitive psychology"
@@ -141,23 +138,20 @@ Input:
             is_active=True,
             is_default=True,
         )
-        session.add(language_version)
 
         # Content Evaluator
-        content_prompt = Prompt(
-            name="Content Evaluator",
+        content_prompt = _get_or_create(
+            session,
+            Prompt,
+            {"name": "Content Evaluator"},
             description="Evaluates how well learner answers cover key factual and conceptual points",
         )
-        session.add(content_prompt)
-        session.commit()
-        session.refresh(content_prompt)
-        session.add(
-            TagLink(tag_id=evaluation_tag.id, kind="prompt", item_id=content_prompt.id)
-        )
+        _tag(session, evaluation_tag, content_prompt)
 
-        content_version = PromptVersion(
-            prompt_id=content_prompt.id,
-            version="1.0",
+        content_version = _get_or_create(
+            session,
+            PromptVersion,
+            {"prompt_id": content_prompt.id, "version": "1.0"},
             system_prompt=(
                 "You are a Content agent with deep knowledge of educational science "
                 "and cognitive psychology"
@@ -189,23 +183,20 @@ Input:
             is_active=True,
             is_default=True,
         )
-        session.add(content_version)
 
         # MetaTutor
-        metatutor_prompt = Prompt(
-            name="MetaTutor",
+        metatutor_prompt = _get_or_create(
+            session,
+            Prompt,
+            {"name": "MetaTutor"},
             description="Provides actionable insights and advice for teachers",
         )
-        session.add(metatutor_prompt)
-        session.commit()
-        session.refresh(metatutor_prompt)
-        session.add(
-            TagLink(tag_id=advice_tag.id, kind="prompt", item_id=metatutor_prompt.id)
-        )
+        _tag(session, advice_tag, metatutor_prompt)
 
-        metatutor_version = PromptVersion(
-            prompt_id=metatutor_prompt.id,
-            version="1.0",
+        metatutor_version = _get_or_create(
+            session,
+            PromptVersion,
+            {"prompt_id": metatutor_prompt.id, "version": "1.0"},
             system_prompt=(
                 "You are a MetaTutor agent with deep knowledge of educational science and "
                 "cognitive psychology.\n"
@@ -230,81 +221,77 @@ Your response must be in the same language as the query!""",
             is_active=True,
             is_default=True,
         )
-        session.add(metatutor_version)
 
-        session.commit()
-        session.refresh(language_version)
-        session.refresh(content_version)
-        session.refresh(metatutor_version)
 
         # ------------------------------------------------------------------
         # 3. Agent Teams
         # ------------------------------------------------------------------
         print("Creating agent teams...")
-        corrector_team = AgentTeam(
-            name="Corrector",
+        corrector_team = _get_or_create(
+            session,
+            AgentTeam,
+            {"name": "Corrector"},
             description="Agent team focused on evaluating and correcting learner responses",
         )
-        metatutor_team = AgentTeam(
-            name="Metatutor",
+        metatutor_team = _get_or_create(
+            session,
+            AgentTeam,
+            {"name": "Metatutor"},
             description="Agent team providing actionable insights and advice for teachers",
         )
-        session.add(corrector_team)
-        session.add(metatutor_team)
-        session.commit()
-        session.refresh(corrector_team)
-        session.refresh(metatutor_team)
 
         # ------------------------------------------------------------------
         # 4. Agents
         # ------------------------------------------------------------------
         print("Creating agents...")
-        session.add(
-            Agent(
-                name="Language",
-                description="Evaluates learner answers based on clarity, grammar, and terminology",
-                default_prompt_version_id=language_version.id,
-                team_id=corrector_team.id,
-            )
+        _get_or_create(
+            session,
+            Agent,
+            {"name": "Language", "team_id": corrector_team.id},
+            description="Evaluates learner answers based on clarity, grammar, and terminology",
+            default_prompt_version_id=language_version.id,
         )
-        session.add(
-            Agent(
-                name="Content",
-                description="Evaluates how well learner answers cover key factual and conceptual points",
-                default_prompt_version_id=content_version.id,
-                team_id=corrector_team.id,
-            )
+        _get_or_create(
+            session,
+            Agent,
+            {"name": "Content", "team_id": corrector_team.id},
+            description="Evaluates how well learner answers cover key factual and conceptual points",
+            default_prompt_version_id=content_version.id,
         )
-        session.add(
-            Agent(
-                name="Metatutor",
-                description="Provides actionable insights and advice for teachers",
-                default_prompt_version_id=metatutor_version.id,
-                team_id=metatutor_team.id,
-            )
+        _get_or_create(
+            session,
+            Agent,
+            {"name": "Metatutor", "team_id": metatutor_team.id},
+            description="Provides actionable insights and advice for teachers",
+            default_prompt_version_id=metatutor_version.id,
         )
 
         # ------------------------------------------------------------------
-        # 5. Sample datasets (files live in the top-level datasets/ directory)
+        # 5. Sample datasets (files live in <DATA_DIR>/datasets)
         # ------------------------------------------------------------------
         print("Creating datasets...")
-        session.add(
-            Dataset(
-                name="Mohler",
-                description="Mohler short-answer grading dataset (Mohler et al., 2011)",
-                file_path="mohler_dataset.csv",
-            )
+        _get_or_create(
+            session,
+            Dataset,
+            {"file_path": "mohler_dataset.csv"},
+            name="Mohler",
+            description="Mohler short-answer grading dataset (Mohler et al., 2011)",
         )
-        session.add(
-            Dataset(
-                name="Mohler (score gap > 2)",
-                description="Subset of the Mohler dataset where the two graders disagree by more than 2 points",
-                file_path="diff_gt_2_mohler_dataset.csv",
-            )
+        _get_or_create(
+            session,
+            Dataset,
+            {"file_path": "diff_gt_2_mohler_dataset.csv"},
+            name="Mohler (score gap > 2)",
+            description="Subset of the Mohler dataset where the two graders disagree by more than 2 points",
         )
 
         session.commit()
-        print("\nDatabase successfully seeded!")
+
+    if created_counts:
+        added = ", ".join(f"{count} {name}" for name, count in created_counts.items())
+        print(f"\nSeeded: added {added}.")
+    else:
+        print("\nNothing to add: the sample data is already there.")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlalchemy import func
+from sqlmodel import Session, col, select
 
 from db import get_session
 from schemas.agent_teams import AgentCreate, AgentResponse, AgentUpdate
-from tables import Agent
+from tables import Agent, ExperimentAgentConfig
 from tag_utils import clear_item_tags, item_tags, set_item_tags, tags_by_item
 
 router = APIRouter(tags=["agents"])
@@ -78,6 +79,16 @@ def delete_agent(
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(404, "Agent not found")
+
+    used_by = session.exec(
+        select(func.count(func.distinct(ExperimentAgentConfig.experiment_id))).where(
+            col(ExperimentAgentConfig.agent_id) == agent_id
+        )
+    ).one()
+    if used_by:
+        raise HTTPException(
+            409, f"Agent is used by {used_by} experiment(s); delete them first"
+        )
 
     clear_item_tags(session, "agent", agent_id)
     session.delete(agent)

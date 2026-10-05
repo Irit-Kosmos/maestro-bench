@@ -3,6 +3,8 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+# Datasets and execution results; mount a volume here to keep them
+ENV DATA_DIR=/data
 
 WORKDIR /app
 
@@ -17,7 +19,8 @@ COPY . .
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/sh maestro \
-    && chown -R maestro:maestro /app
+    && mkdir -p /data \
+    && chown -R maestro:maestro /app /data
 
 USER maestro
 

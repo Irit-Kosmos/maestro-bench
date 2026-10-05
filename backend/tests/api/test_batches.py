@@ -5,8 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 import async_jobs
 from api import batches, experiments
@@ -23,18 +22,6 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-
-
-@pytest.fixture
-def engine():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    return engine
-
 
 REAL_START_EXPERIMENT = async_jobs.start_experiment
 

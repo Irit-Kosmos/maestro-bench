@@ -1,6 +1,5 @@
 import json
 from collections import defaultdict
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, col, select
 
 from db import get_session
-from results_files import execution_row_count
+from results_files import execution_row_count, results_path
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
     ExecutionListAgent,
@@ -224,8 +223,8 @@ def download_results(
             status_code=404, detail="No results file available for this execution"
         )
 
-    results_file = Path(execution.results_file_path)
-    if not results_file.exists():
+    results_file = results_path(execution)
+    if results_file is None or not results_file.exists():
         raise HTTPException(status_code=404, detail="Results file not found on disk")
 
     experiment = session.get(Experiment, execution.experiment_id)

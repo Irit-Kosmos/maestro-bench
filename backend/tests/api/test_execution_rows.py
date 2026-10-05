@@ -3,12 +3,11 @@ import json
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session
 
 from api import analyses
 from db import get_session
-from tables import ExperimentExecution
+from tables import Dataset, Experiment, ExperimentExecution
 
 ROWS = [
     {
@@ -28,17 +27,6 @@ ROWS = [
 
 
 @pytest.fixture
-def engine():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
 def client(engine):
     app = FastAPI()
     app.include_router(analyses.router)
@@ -53,8 +41,14 @@ def client(engine):
 
 def _add_execution(engine, results_file: str | None) -> int:
     with Session(engine) as s:
+        dataset = Dataset(name="answers", file_path="answers.csv")
+        s.add(dataset)
+        s.flush()
+        experiment = Experiment(name="Run", dataset_id=dataset.id)
+        s.add(experiment)
+        s.flush()
         execution = ExperimentExecution(
-            experiment_id=1,
+            experiment_id=experiment.id,
             dataset_snapshot="{}",
             results_file_path=results_file,
         )
@@ -64,9 +58,10 @@ def _add_execution(engine, results_file: str | None) -> int:
 
 
 def _results_file(tmp_path, rows=ROWS) -> str:
-    path = tmp_path / "results.json"
+    (tmp_path / "results").mkdir(exist_ok=True)
+    path = tmp_path / "results" / "results.json"
     path.write_text(json.dumps({"rows": rows}))
-    return str(path)
+    return str(path.relative_to(tmp_path))
 
 
 def test_returns_input_and_parsed_agent_output(client, engine, tmp_path):

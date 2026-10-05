@@ -232,7 +232,6 @@ async function confirmDelete() {
   isDeleting.value = true
   const toast = useToast()
 
-  // One by one: they share a SQLite database, and a failure shouldn't stop the others
   const failed: number[] = []
   for (const id of pendingDeleteIds.value) {
     const { success } = await deleteExperiment(id)

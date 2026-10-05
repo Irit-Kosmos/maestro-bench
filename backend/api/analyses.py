@@ -1,7 +1,6 @@
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,7 +10,7 @@ from analysis import METRICS, AnalysisConfig, RunInput, result_rows
 from analysis.compute import comparison_warnings, compute_run, validate_config
 from core.json_output import parse_json_output, scalar_paths
 from db import get_session
-from results_files import execution_row_count
+from results_files import execution_row_count, results_path
 from schemas.analyses import (
     AgentFields,
     AgentRowOutput,
@@ -74,10 +73,8 @@ def _check_config(schema: AnalysisConfigSchema) -> None:
 
 
 def _load_results(execution: ExperimentExecution) -> dict | None:
-    if not execution.results_file_path:
-        return None
-    path = Path(execution.results_file_path)
-    if not path.exists():
+    path = results_path(execution)
+    if path is None or not path.exists():
         return None
     with open(path) as f:
         return json.load(f)
