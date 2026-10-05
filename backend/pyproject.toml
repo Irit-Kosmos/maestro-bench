@@ -19,6 +19,7 @@ dependencies = [
     "authlib>=1.8.0",
     "itsdangerous>=2.2.0",
     "httpx>=0.28.1",
+    "cryptography>=46",
 ]
 
 [tool.ruff]
