@@ -139,7 +139,8 @@ uv run python scripts/seed.py
 
 The script only adds what is missing (matched by name or file) and never
 deletes or modifies anything, so it is safe to run on a database that already
-holds your data, and to run again.
+holds your data, and to run again. It fills one workspace, `default` unless you
+pass `--workspace <slug>`.
 
 Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 (interactive docs at <http://localhost:8000/docs>).
@@ -232,7 +233,8 @@ uv run pytest
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | - | Comma-separated email domains allowed to sign in (`example.org,example.com`). The email must be verified by GitLab. |
 | `AUTH_GITLAB_ALLOWED_GROUPS` | - | Comma-separated GitLab group paths (`org/team`). Members of a subgroup are admitted. Only groups the user joined directly are seen (`groups_direct` claim). |
 | `AUTH_ALLOW_ANY_USER` | `false` | Admit any account of the identity provider. Ignored when an allowlist is set. When both allowlists are set, a user must satisfy both. With none set and this off, the backend refuses to start. |
-| `INSTANCE_ADMINS` | - | Comma-separated emails of the instance administrators. |
+| `INSTANCE_ADMINS` | - | Comma-separated emails of the instance administrators. The first one to sign in becomes the owner of the `default` workspace, which holds the data that existed before workspaces, if it has no owner yet. They can also create workspaces when `WORKSPACE_CREATION=admins`. |
+| `WORKSPACE_CREATION` | `any` | `any`: every signed-in user can create a workspace. `admins`: only the instance administrators. |
 | `FRONTEND_URL` | first `CORS_ORIGINS` entry | Where the browser reaches the UI. The session cookie is `Secure` when it is `https://`. |
 | `PUBLIC_API_URL` | `http://localhost:8000` | Where the browser reaches the API; the GitLab redirect URI is `<PUBLIC_API_URL>/auth/gitlab/callback`. |
 | `SESSION_IDLE_DAYS` / `SESSION_MAX_DAYS` | `7` / `30` | A session expires after this many days without activity, and in any case after the second. |
@@ -243,7 +245,28 @@ uv run pytest
 |---|---|---|
 | `NUXT_PUBLIC_BACK_URL` | `http://localhost:8000` | Backend URL as seen from the browser. |
 
-### Managing users
+### Workspaces
+
+Everything the app stores (models, prompts, agents, datasets, experiments,
+analyses, tags) belongs to a workspace, shown at `/w/<slug>` in the UI. You can
+belong to several, with one role in each:
+
+| Role | Can |
+|---|---|
+| `viewer` | read everything, run read-only computations (analysis previews, formula checks) |
+| `editor` | also create, edit, delete and run experiments |
+| `owner` | also rename the workspace |
+
+Someone who is not a member gets a 404 for the workspace and for any id inside
+it: they cannot tell whether it exists. An archived workspace is read-only. A
+workspace always keeps at least one owner.
+
+Until invitations exist, members are added from the command line (see below).
+Datasets and result files still live in the shared `datasets/` and `results/`
+folders: a member can register any file of `datasets/` in their workspace, so
+only let people in whom you would trust with those files.
+
+### Managing users and workspaces
 
 Users are created when they first sign in. To block someone, or to cut a
 session short:
@@ -253,6 +276,13 @@ docker compose exec backend uv run python manage.py users list
 docker compose exec backend uv run python manage.py users deactivate <email|id>
 docker compose exec backend uv run python manage.py users activate <email|id>
 docker compose exec backend uv run python manage.py users logout <email|id>
+```
+
+```bash
+docker compose exec backend uv run python manage.py workspaces list
+docker compose exec backend uv run python manage.py workspaces members <slug>
+docker compose exec backend uv run python manage.py workspaces add-member <slug> <email|id> <viewer|editor|owner>
+docker compose exec backend uv run python manage.py workspaces remove-member <slug> <email|id>
 ```
 
 Deactivating a user closes their sessions at once. The allowlists are only
