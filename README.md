@@ -206,12 +206,26 @@ Then open <http://localhost:3000>. The API is at <http://localhost:8000>
 
    New metrics are plain functions registered in `backend/analysis/metrics.py`.
 
-## Tests
+## Tests and CI
 
 ```bash
-cd backend
-uv run pytest
+# Backend (with the Compose stack running, so PostgreSQL is available)
+docker compose exec backend uv run pytest
+
+# Frontend
+cd frontend
+pnpm lint && pnpm typecheck && pnpm test
 ```
+
+GitLab CI (`.gitlab-ci.yml`) runs the same checks on every merge request and on the
+default branch, in two parallel jobs:
+
+- `backend`: ruff, then `alembic upgrade head` on an empty database followed by
+  `alembic check` (so a model change without its migration fails), then pytest.
+- `frontend`: ESLint, the Nuxt type check and vitest.
+
+Both publish a JUnit report, shown in the merge request. The ruff version is pinned
+in `.gitlab-ci.yml` (`RUFF_VERSION`).
 
 ## Configuration
 
@@ -339,9 +353,9 @@ it expires, unless you deactivate them.
 
 - Backend lint: `uvx ruff check backend`.
 - Frontend lint: `pnpm lint` in `frontend/` (ESLint with `@antfu/eslint-config`).
-- Results files are written to `<DATA_DIR>/results/` and referenced (by a path
-  relative to `DATA_DIR`) from the `experimentexecution` table. With Docker
-  Compose they land in `backend/results/`, which is git-ignored.
+- Results files are written to `<DATA_DIR>/workspaces/<id>/results/` and referenced (by
+  a path relative to that folder) from the `experimentexecution` table. With Docker
+  Compose `DATA_DIR` is the `maestro-data` volume.
 - Database migrations use [Alembic](https://alembic.sqlalchemy.org) and run on
   startup (`alembic upgrade head`). After changing `backend/tables.py`, generate
   a migration, review it, and check there is no drift:
