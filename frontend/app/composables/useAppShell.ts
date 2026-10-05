@@ -14,7 +14,8 @@ export function useBreadcrumbLabels() {
 export function useBreadcrumbLabel(label: MaybeRefOrGetter<string | null | undefined>) {
   const route = useRoute()
   const labels = useBreadcrumbLabels()
-  const path = route.path
+  // Keyed inside the workspace, like the breadcrumb that reads it
+  const path = stripWorkspace(route.path)
 
   watch(() => toValue(label), (value) => {
     if (value)

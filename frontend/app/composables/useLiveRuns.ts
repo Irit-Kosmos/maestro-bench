@@ -12,7 +12,7 @@ export const useLiveRuns = createSharedComposable(() => {
   const runs = reactive(new Map<number, RunState>())
   const statusChanged = createEventHook<RunState | undefined>()
 
-  const { eventSource, status } = useEventSource(`${useRuntimeConfig().public.BACK_URL}/events`, [], { autoReconnect: true, withCredentials: true })
+  const { eventSource, status } = useEventSource(`${useRuntimeConfig().public.BACK_URL}/workspaces/${useWorkspace().slug.value}/events`, [], { autoReconnect: true, withCredentials: true })
 
   for (const name of ['snapshot', 'progress', 'status'] as const) {
     useEventListener(eventSource, name, (event: MessageEvent<string>) => {

@@ -588,3 +588,11 @@ export interface AuthProvider {
   name: string
   label: string
 }
+
+/** A workspace the signed-in user belongs to, with their role in it */
+export interface Workspace {
+  slug: string
+  name: string
+  role: 'viewer' | 'editor' | 'owner'
+  archived: boolean
+}
