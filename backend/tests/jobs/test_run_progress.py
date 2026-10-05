@@ -20,7 +20,7 @@ def execution(session):
 
 
 def test_rows_are_counted_in_the_database_and_published(session, execution):
-    progress = _RunProgress(session, execution, batch_id=5)
+    progress = _RunProgress(session, execution, batch_id=5, workspace_id=1)
 
     with event_bus.subscribe() as queue:
         progress.start(3)
@@ -44,7 +44,7 @@ def test_rows_are_counted_in_the_database_and_published(session, execution):
 
 
 def test_published_events_are_not_altered_by_later_rows(session, execution):
-    progress = _RunProgress(session, execution, batch_id=None)
+    progress = _RunProgress(session, execution, batch_id=None, workspace_id=1)
 
     with event_bus.subscribe() as queue:
         progress.start(2)
@@ -54,7 +54,7 @@ def test_published_events_are_not_altered_by_later_rows(session, execution):
 
 
 def test_announce_publishes_a_status_event(session, execution):
-    progress = _RunProgress(session, execution, batch_id=None)
+    progress = _RunProgress(session, execution, batch_id=None, workspace_id=1)
 
     with event_bus.subscribe() as queue:
         progress.announce("completed")

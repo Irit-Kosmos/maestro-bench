@@ -18,6 +18,8 @@ from tables import (
     Prompt,
     PromptVersion,
 )
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 
 @pytest.fixture
@@ -28,6 +30,7 @@ def client(engine):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -43,7 +46,7 @@ def datasets_dir(tmp_path, monkeypatch):
 @pytest.fixture
 def world(engine):
     """An experiment whose single agent config uses a model and a prompt version."""
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
         team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
@@ -82,7 +85,7 @@ def world(engine):
 def test_deleting_a_model_empties_the_references_to_it(client, engine, world):
     assert client.delete(f"/models/{world['model']}").status_code == 200
 
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Agent, world["agent"]).default_model_id is None
         config = s.get(ExperimentAgentConfig, world["config"])
         assert config.model_id is None
@@ -94,7 +97,7 @@ def test_deleting_a_prompt_version_empties_the_references_to_it(
 ):
     assert client.delete(f"/prompt-versions/{world['version']}").status_code == 200
 
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Agent, world["agent"]).default_prompt_version_id is None
         config = s.get(ExperimentAgentConfig, world["config"])
         assert config.prompt_version_id is None
@@ -106,18 +109,18 @@ def test_an_agent_used_by_an_experiment_cannot_be_deleted(client, engine, world)
 
     assert response.status_code == 409
     assert "1 experiment" in response.json()["detail"]
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Agent, world["agent"]) is not None
 
 
 def test_an_unused_agent_can_be_deleted(client, engine, world):
-    with Session(engine) as s:
+    with scoped(engine) as s:
         s.delete(s.get(ExperimentAgentConfig, world["config"]))
         s.commit()
 
     assert client.delete(f"/agents/{world['agent']}").status_code == 200
 
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Agent, world["agent"]) is None
 
 
@@ -131,14 +134,14 @@ def test_a_dataset_used_by_an_experiment_is_kept_with_its_file(
 
     assert response.status_code == 409
     assert file.is_file()
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Dataset, world["dataset"]) is not None
 
 
 def test_an_unused_dataset_is_deleted_with_its_file(client, engine, datasets_dir):
     file = datasets_dir / "spare.csv"
     file.write_text("text\nhello\n")
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="spare", file_path="spare.csv")
         s.add(dataset)
         s.commit()
@@ -147,5 +150,5 @@ def test_an_unused_dataset_is_deleted_with_its_file(client, engine, datasets_dir
     assert client.delete(f"/datasets/{dataset_id}").status_code == 204
 
     assert not file.exists()
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.get(Dataset, dataset_id) is None

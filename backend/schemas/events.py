@@ -43,3 +43,5 @@ class RunEvent(BaseModel):
 
     name: Literal["progress", "status"]
     state: RunState
+    # Only the members of this workspace may be told; not part of the payload
+    workspace_id: int

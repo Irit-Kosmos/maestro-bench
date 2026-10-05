@@ -20,6 +20,8 @@ from tables import (
     Prompt,
     PromptVersion,
 )
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 
 def now() -> datetime:
@@ -33,6 +35,7 @@ def client(engine):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -41,7 +44,7 @@ def client(engine):
 
 @pytest.fixture
 def world(engine):
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
         team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
@@ -65,7 +68,7 @@ def world(engine):
 
 
 def add_experiment(engine, world, **fields) -> int:
-    with Session(engine) as s:
+    with scoped(engine) as s:
         experiment = Experiment(name="Run", dataset_id=world["dataset"], **fields)
         s.add(experiment)
         s.commit()
@@ -74,7 +77,7 @@ def add_experiment(engine, world, **fields) -> int:
 
 def add_execution(engine, experiment_id, models, **fields) -> int:
     """An execution with one agent snapshot per model name."""
-    with Session(engine) as s:
+    with scoped(engine) as s:
         execution = ExperimentExecution(
             experiment_id=experiment_id, dataset_snapshot="{}", **fields
         )
@@ -120,7 +123,7 @@ def test_empty_database(client):
 
 
 def test_recent_experiment_carries_its_latest_execution(client, engine, world):
-    with Session(engine) as s:
+    with scoped(engine) as s:
         batch = Batch(name="Sweep")
         s.add(batch)
         s.commit()
@@ -156,7 +159,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
     client, engine, world
 ):
     exp = add_experiment(engine, world, status="pending")
-    with Session(engine) as s:
+    with scoped(engine) as s:
         s.add_all(
             [
                 ExperimentAgentConfig(

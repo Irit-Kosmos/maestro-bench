@@ -8,6 +8,8 @@ from sqlmodel import Session
 from api import analyses
 from db import get_session
 from tables import Dataset, Experiment, ExperimentExecution
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 ROWS = [
     {
@@ -33,6 +35,7 @@ def client(engine):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -40,7 +43,7 @@ def client(engine):
 
 
 def _add_execution(engine, results_file: str | None) -> int:
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
         s.add(dataset)
         s.flush()

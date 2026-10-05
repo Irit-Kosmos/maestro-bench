@@ -22,6 +22,8 @@ from tables import (
     Prompt,
     PromptVersion,
 )
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 REAL_START_EXPERIMENT = async_jobs.start_experiment
 
@@ -45,6 +47,7 @@ def client(engine, jobs):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -54,7 +57,7 @@ def client(engine, jobs):
 @pytest.fixture
 def world(engine):
     """A dataset, an agent with two prompt versions and three models."""
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
         team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
@@ -141,7 +144,7 @@ class TestCreateBatch:
     def test_each_experiment_uses_its_own_value(self, client, world, engine):
         client.post("/batches", json=payload(world, [model_axis(world, 1, 2)]))
 
-        with Session(engine) as s:
+        with scoped(engine) as s:
             configs = s.exec(
                 select(ExperimentAgentConfig).order_by(ExperimentAgentConfig.id)
             ).all()
@@ -177,7 +180,7 @@ class TestCreateBatch:
         ]
         client.post("/batches", json=payload(world, variations))
 
-        with Session(engine) as s:
+        with scoped(engine) as s:
             temperatures = [
                 c.temperature
                 for c in s.exec(
@@ -189,7 +192,7 @@ class TestCreateBatch:
     def test_records_the_base_experiment_outside_the_batch(
         self, client, world, engine
     ):
-        with Session(engine) as s:
+        with scoped(engine) as s:
             base = Experiment(name="Base", dataset_id=world["dataset"])
             s.add(base)
             s.commit()
@@ -208,7 +211,7 @@ class TestCreateBatch:
         data["config"].update(sampling_type="random", sampling_size=5)
         batch_id = client.post("/batches", json=data).json()["id"]
 
-        with Session(engine) as s:
+        with scoped(engine) as s:
             assert s.get(Batch, batch_id).sampling_seed is not None
 
     def test_no_seed_when_the_sample_is_not_random(self, client, world, engine):
@@ -216,7 +219,7 @@ class TestCreateBatch:
             "/batches", json=payload(world, [model_axis(world, 0, 1)])
         ).json()["id"]
 
-        with Session(engine) as s:
+        with scoped(engine) as s:
             assert s.get(Batch, batch_id).sampling_seed is None
 
     def test_experiments_know_their_batch(self, client, world):
@@ -234,7 +237,7 @@ class TestBaseRun:
     """The base configuration is one of the batch's runs."""
 
     def derived(self, world, engine, *, skip, models=(0, 1)):
-        with Session(engine) as s:
+        with scoped(engine) as s:
             base = Experiment(name="Base", dataset_id=world["dataset"])
             s.add(base)
             s.commit()
@@ -317,7 +320,7 @@ class TestBaseRun:
             "Compare · default T",
             "Compare · T=0.7",
         ]
-        with Session(engine) as s:
+        with scoped(engine) as s:
             configs = s.exec(
                 select(ExperimentAgentConfig).order_by(ExperimentAgentConfig.id)
             ).all()
@@ -326,7 +329,7 @@ class TestBaseRun:
 
 class TestCreateBatchValidation:
     def assert_nothing_created(self, engine, jobs):
-        with Session(engine) as s:
+        with scoped(engine) as s:
             assert s.exec(select(Batch)).all() == []
             assert s.exec(select(Experiment)).all() == []
         assert jobs.started == []
@@ -394,7 +397,7 @@ class TestManageBatch:
         body = self.create(client, world)
         assert body["status"] == "pending"
 
-        with Session(engine) as s:
+        with scoped(engine) as s:
             for experiment in s.exec(select(Experiment)).all():
                 experiment.status = "completed"
                 s.add(experiment)
@@ -418,7 +421,7 @@ class TestManageBatch:
         body = self.create(client, world)
         running, idle = body["experiments"][0]["id"], body["experiments"][1]["id"]
         jobs.started.clear()
-        with Session(engine) as s:
+        with scoped(engine) as s:
             for experiment_id, status in ((running, "running"), (idle, "completed")):
                 experiment = s.get(Experiment, experiment_id)
                 experiment.status = status
@@ -455,7 +458,7 @@ class TestManageBatch:
         assert client.delete(f"/batches/{body['id']}").status_code == 200
 
         assert client.get(f"/batches/{body['id']}").status_code == 404
-        with Session(engine) as s:
+        with scoped(engine) as s:
             experiments = s.exec(select(Experiment)).all()
         assert len(experiments) == 2
         assert all(e.batch_id is None for e in experiments)
@@ -463,7 +466,7 @@ class TestManageBatch:
     def test_deleting_the_base_experiment_keeps_the_batch(
         self, client, world, engine
     ):
-        with Session(engine) as s:
+        with scoped(engine) as s:
             base = Experiment(name="Base", dataset_id=world["dataset"])
             s.add(base)
             s.commit()
@@ -493,7 +496,7 @@ class TestExecutionFigures:
     ):
         """An execution that started `hours` after `start` and lasted `seconds`."""
         started = self.start + timedelta(hours=hours)
-        with Session(engine) as s:
+        with scoped(engine) as s:
             execution = ExperimentExecution(
                 experiment_id=experiment_id,
                 started_at=started,
@@ -549,7 +552,7 @@ class TestExecutionFigures:
 
     def test_a_running_execution_has_no_duration_yet(self, client, world, engine):
         experiment_id = self.create(client, world)["experiments"][0]["id"]
-        with Session(engine) as s:
+        with scoped(engine) as s:
             s.add(
                 ExperimentExecution(
                     experiment_id=experiment_id,

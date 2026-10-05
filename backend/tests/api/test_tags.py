@@ -7,7 +7,9 @@ from sqlmodel import Session, select
 
 from api import agent_teams, agents, analyses, prompts, tags
 from db import get_session
-from tables import TagLink
+from tables import Dataset, Experiment, ExperimentExecution, TagLink
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 
 @pytest.fixture
@@ -18,6 +20,7 @@ def client(engine):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -140,7 +143,7 @@ def test_deleting_a_tag_takes_it_off_its_items(client, engine):
 
     assert client.delete(f"/tags/{a['id']}").status_code == 200
     assert client.get(f"/prompts/{prompt['id']}").json()["tags"] == []
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.exec(select(TagLink)).all() == []
 
 
@@ -152,7 +155,7 @@ def test_deleting_an_item_drops_its_links_but_not_the_tag(client, engine):
     client.delete(f"/prompts/{prompt['id']}")
     client.delete(f"/analyses/{analysis['id']}")
 
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.exec(select(TagLink)).all() == []
     assert client.get("/tags").json() == [a]
 
@@ -165,12 +168,24 @@ def test_a_tag_is_shared_between_kinds(client):
     assert analysis["tags"] == [a]
 
 
-def test_analysis_runs_still_round_trip(client):
+def test_analysis_runs_still_round_trip(client, engine):
+    with scoped(engine) as s:
+        dataset = Dataset(name="answers", file_path="answers.csv")
+        s.add(dataset)
+        s.flush()
+        experiment = Experiment(name="Run", dataset_id=dataset.id)
+        s.add(experiment)
+        s.flush()
+        execution = ExperimentExecution(experiment_id=experiment.id, dataset_snapshot="{}")
+        s.add(execution)
+        s.commit()
+        execution_id = execution.id
+
     response = client.post(
         "/analyses",
-        json={**ANALYSIS, "runs": [{"execution_id": 3, "agent_name": "g"}]},
+        json={**ANALYSIS, "runs": [{"execution_id": execution_id, "agent_name": "g"}]},
     )
-    assert json.loads(response.text)["runs"][0]["execution_id"] == 3
+    assert json.loads(response.text)["runs"][0]["execution_id"] == execution_id
 
 
 def test_assign_adds_and_removes_tags_on_several_items(client):
@@ -205,7 +220,7 @@ def test_assign_twice_does_not_duplicate_links(client, engine):
     body = {"kind": "prompt", "item_ids": [prompt["id"]], "add": [a["id"]]}
     assert client.post("/tags/assign", json=body).status_code == 200
     assert client.post("/tags/assign", json=body).status_code == 200
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert len(s.exec(select(TagLink)).all()) == 1
 
 
@@ -278,5 +293,5 @@ def test_assign_works_on_agents(client, engine):
     ]
 
     client.delete(f"/agents/{agent['id']}")
-    with Session(engine) as s:
+    with scoped(engine) as s:
         assert s.exec(select(TagLink)).all() == []

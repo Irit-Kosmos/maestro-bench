@@ -5,11 +5,30 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from db import get_session
+from references import missing_ids
 from schemas.agent_teams import AgentCreate, AgentResponse, AgentUpdate
-from tables import Agent, ExperimentAgentConfig
+from tables import (
+    Agent,
+    AgentTeam,
+    ExperimentAgentConfig,
+    Model,
+    PromptVersion,
+)
 from tag_utils import clear_item_tags, item_tags, set_item_tags, tags_by_item
 
 router = APIRouter(tags=["agents"])
+
+
+def _check_references(session: Session, fields: dict) -> None:
+    """The team, prompt version and model an agent points to must be in the workspace."""
+    for field, table, label in (
+        ("team_id", AgentTeam, "Agent team"),
+        ("default_prompt_version_id", PromptVersion, "Prompt version"),
+        ("default_model_id", Model, "Model"),
+    ):
+        value = fields.get(field)
+        if value is not None and missing_ids(session, table, [value]):
+            raise HTTPException(422, f"{label} {value} not found")
 
 
 @router.get("/agents", response_model=list[AgentResponse])
@@ -24,6 +43,7 @@ def create_agent(
     agent_data: AgentCreate,
     session: Annotated[Session, Depends(get_session)],
 ):
+    _check_references(session, agent_data.model_dump())
     agent = Agent(
         name=agent_data.name,
         description=agent_data.description,
@@ -59,6 +79,7 @@ def update_agent(
         raise HTTPException(404, "Agent not found")
 
     update_data = agent_data.model_dump(exclude_unset=True)
+    _check_references(session, update_data)
     tag_ids = update_data.pop("tag_ids", None)
     for field, value in update_data.items():
         setattr(agent, field, value)

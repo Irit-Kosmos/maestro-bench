@@ -27,6 +27,7 @@ from experiment_utils import (
 )
 from schemas.events import RunEvent, RunState
 from tables import Experiment, ExperimentExecution
+from workspace_scope import scope_session
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,8 @@ async def run_experiment_async(experiment_id: int) -> None:
                 logger.warning("Experiment %s not found", experiment_id)
                 return
 
+            # From here on the run only sees the experiment's own workspace
+            scope_session(db_session, experiment.workspace_id)
             logger.info("Found experiment: %s", experiment.name)
             experiment.status = "running"
             db_session.add(experiment)
@@ -98,7 +101,9 @@ async def run_experiment_async(experiment_id: int) -> None:
             execution = create_execution_snapshot(experiment_id, db_session)
             logger.info("Created execution snapshot %s", execution.id)
 
-            progress = _RunProgress(db_session, execution, experiment.batch_id)
+            progress = _RunProgress(
+                db_session, execution, experiment.batch_id, experiment.workspace_id
+            )
             progress.announce("running")
 
             # Run the experiment pipeline
@@ -140,6 +145,7 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
             experiment = db_session.get(Experiment, experiment_id)
             if not experiment:
                 return
+            scope_session(db_session, experiment.workspace_id)
             experiment.status = status
             db_session.add(experiment)
 
@@ -158,6 +164,7 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
             db_session.commit()
             logger.info("Marked experiment %s as %s: %s", experiment_id, status, reason)
 
+            workspace_id = experiment.workspace_id
             states = [
                 RunState.from_execution(exc, experiment.batch_id)
                 for exc in running_executions
@@ -169,7 +176,9 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
                 )
             ]
         for state in states:
-            event_bus.publish(RunEvent(name="status", state=state))
+            event_bus.publish(
+                RunEvent(name="status", state=state, workspace_id=workspace_id)
+            )
     except Exception:
         logger.exception("Failed to mark experiment %s as %s", experiment_id, status)
 
@@ -182,9 +191,11 @@ class _RunProgress:
         session: Session,
         execution: ExperimentExecution,
         batch_id: int | None,
+        workspace_id: int,
     ):
         self._session = session
         self._execution = execution
+        self._workspace_id = workspace_id
         self._state = RunState.from_execution(execution, batch_id)
 
     def start(self, total: int) -> None:
@@ -199,14 +210,26 @@ class _RunProgress:
     def announce(self, status: str) -> None:
         """Publish a status the caller has already committed."""
         self._state.status = status
-        event_bus.publish(RunEvent(name="status", state=self._state.model_copy()))
+        event_bus.publish(
+            RunEvent(
+                name="status",
+                state=self._state.model_copy(),
+                workspace_id=self._workspace_id,
+            )
+        )
 
     def _save(self) -> None:
         self._execution.rows_total = self._state.rows_total
         self._execution.rows_done = self._state.rows_done
         self._execution.rows_failed = self._state.rows_failed
         self._session.commit()
-        event_bus.publish(RunEvent(name="progress", state=self._state.model_copy()))
+        event_bus.publish(
+            RunEvent(
+                name="progress",
+                state=self._state.model_copy(),
+                workspace_id=self._workspace_id,
+            )
+        )
 
 
 # ---------------------------------------------------------------------------

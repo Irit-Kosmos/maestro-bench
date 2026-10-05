@@ -8,8 +8,10 @@ from sqlmodel import Session, col, select
 
 from analysis import METRICS, AnalysisConfig, RunInput, result_rows
 from analysis.compute import comparison_warnings, compute_run, validate_config
+from auth.workspaces import requires
 from core.json_output import parse_json_output, scalar_paths
 from db import get_session
+from references import missing_ids
 from results_files import execution_row_count, results_path
 from schemas.analyses import (
     AgentFields,
@@ -63,6 +65,15 @@ def _to_response(analysis: Analysis, tags: list[Tag]) -> AnalysisResponse:
 
 def _to_config(schema: AnalysisConfigSchema) -> AnalysisConfig:
     return AnalysisConfig(**schema.model_dump())
+
+
+def _check_runs(refs: list[AnalysisRunRef], session: Session) -> None:
+    """Every run an analysis compares must be an execution of the workspace."""
+    missing = missing_ids(
+        session, ExperimentExecution, [ref.execution_id for ref in refs]
+    )
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Unknown executions: {missing}")
 
 
 def _check_config(schema: AnalysisConfigSchema) -> None:
@@ -300,6 +311,7 @@ def get_execution_row(
 
 
 @router.post("/analyses/compute", response_model=AnalysisResultResponse)
+@requires("viewer")
 def compute_unsaved_analysis(
     request: AnalysisComputeRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -322,6 +334,7 @@ def create_analysis(
     data: AnalysisCreate, session: Annotated[Session, Depends(get_session)]
 ):
     _check_config(data.config)
+    _check_runs(data.runs, session)
     analysis = Analysis(
         name=data.name,
         description=data.description,
@@ -362,6 +375,7 @@ def update_analysis(
         _check_config(data.config)
         analysis.config = data.config.model_dump_json()
     if data.runs is not None:
+        _check_runs(data.runs, session)
         analysis.runs = json.dumps([r.model_dump() for r in data.runs])
     if data.tag_ids is not None:
         set_item_tags(session, "analysis", analysis_id, data.tag_ids)

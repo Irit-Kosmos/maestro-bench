@@ -10,6 +10,8 @@ import dataset_utils
 from api import datasets
 from db import get_session
 from tables import Dataset
+from tests.conftest import TEST_WORKSPACE_ID, scoped
+from workspace_scope import scope_session
 
 
 @pytest.fixture
@@ -25,6 +27,7 @@ def client(engine, datasets_dir):
 
     def _session():
         with Session(engine) as session:
+            scope_session(session, TEST_WORKSPACE_ID)
             yield session
 
     app.dependency_overrides[get_session] = _session
@@ -32,7 +35,7 @@ def client(engine, datasets_dir):
 
 
 def _add_dataset(engine, file_path: str) -> int:
-    with Session(engine) as s:
+    with scoped(engine) as s:
         dataset = Dataset(name="d", file_path=file_path)
         s.add(dataset)
         s.commit()
