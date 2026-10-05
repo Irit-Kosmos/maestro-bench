@@ -245,24 +245,6 @@ uv run pytest
 - The tests run on PostgreSQL, in a separate `<database>_test` database that is
   created on first use (or set `TEST_DATABASE_URL`). They never touch your data.
 
-### Moving a legacy SQLite database to PostgreSQL
-
-Earlier versions stored everything in `backend/app.db` (SQLite). To keep that
-data, back up `app.db` and your `results/` and `datasets/` folders, start the
-stack once so the schema exists, then run the one-shot transfer. It opens the
-SQLite file read-only, refuses to write into a non-empty database, copies every
-row with its ID and verifies the copy value by value:
-
-```bash
-docker compose exec backend uv run python -m scripts.transfer_sqlite_to_postgres --source app.db --dry-run
-docker compose exec backend uv run python -m scripts.transfer_sqlite_to_postgres --source app.db
-```
-
-If the old database contains rows pointing to something that no longer exists
-(SQLite did not enforce foreign keys), the script lists them and stops. Add
-`--null-dangling` to clear those optional references in the copy. Result files
-keep their place: Docker Compose still reads `backend/results/` and `datasets/`.
-
 ### Deleting items that are still used
 
 Deleting a model or a prompt version clears it from the agents, experiment
