@@ -6,18 +6,11 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 import dataset_rows
-import dataset_utils
 from api import datasets
 from db import get_session
 from tables import Dataset
 from tests.conftest import TEST_WORKSPACE_ID, scoped
 from workspace_scope import scope_session
-
-
-@pytest.fixture
-def datasets_dir(tmp_path, monkeypatch):
-    monkeypatch.setattr(dataset_utils, "get_datasets_dir", lambda: tmp_path)
-    return tmp_path
 
 
 @pytest.fixture

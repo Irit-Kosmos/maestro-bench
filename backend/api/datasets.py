@@ -1,17 +1,22 @@
+import asyncio
 import json
+import secrets
 from pathlib import Path
 from typing import Annotated, Any
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
+import config
+import workspace_files
 from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 from db import get_session
 from schemas.datasets import DatasetCreate, DatasetRowsUpdate
 from tables import Dataset, Experiment
+from workspace_scope import current_workspace_id
 
 router = APIRouter(tags=["datasets"])
 
@@ -85,11 +90,57 @@ def _resolve_dataset_file(dataset: Dataset) -> Path:
     if not dataset.file_path:
         raise HTTPException(status_code=400, detail="Dataset has no file path")
     try:
-        return validate_dataset_file(dataset.file_path)
+        return validate_dataset_file(dataset.workspace_id, dataset.file_path)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+# ---------------------------------------------------------------------------
+# Upload
+# ---------------------------------------------------------------------------
+
+_UPLOAD_EXTENSIONS = {".csv", ".json"}
+_NAME_MAX_LENGTH = 200
+
+
+def _check_uploaded_file(path: Path) -> None:
+    """Refuse a file that could not be run as a dataset; the file is left in place."""
+    try:
+        content = read_dataset_rows(path)
+    except DatasetFileError as e:
+        raise HTTPException(e.status_code, e.detail) from e
+    except (UnicodeDecodeError, ValueError) as e:
+        kind = "UTF-8 CSV" if path.suffix == ".csv" else "JSON"
+        raise HTTPException(400, f"The file is not a valid {kind} file") from e
+
+    if content["read_only_reason"]:
+        raise HTTPException(400, content["read_only_reason"])
+    if not content["headers"]:
+        raise HTTPException(400, "The file has no columns")
+    if not content["rows"]:
+        raise HTTPException(400, "The file has no rows")
+
+
+async def _receive_upload(request: Request, destination: Path) -> None:
+    """Write the request body to ``destination``, refusing a body over the limit."""
+    limit = config.MAX_UPLOAD_MB * 1024 * 1024
+    too_large = HTTPException(413, f"The file is larger than {config.MAX_UPLOAD_MB} MB")
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise too_large
+
+    size = 0
+    # "xb" never replaces a file: the name is random, a clash would be a bug
+    with destination.open("xb") as out:
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > limit:
+                raise too_large
+            out.write(chunk)
+    if size == 0:
+        raise HTTPException(400, "The file is empty")
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +160,7 @@ def create_dataset(
 ):
     if dataset_data.file_path:
         try:
-            get_dataset_file_path(dataset_data.file_path)
+            get_dataset_file_path(current_workspace_id(session), dataset_data.file_path)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -120,6 +171,49 @@ def create_dataset(
     )
     session.add(dataset)
     session.commit()
+    session.refresh(dataset)
+    return dataset
+
+
+@router.post("/datasets/upload", response_model=Dataset, status_code=201)
+async def upload_dataset(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    filename: Annotated[str, Query(min_length=1, max_length=255)],
+    name: Annotated[str | None, Query(max_length=_NAME_MAX_LENGTH)] = None,
+    description: Annotated[str | None, Query(max_length=2000)] = None,
+):
+    """
+    Create a dataset from a CSV or JSON file sent as the raw request body.
+
+    ``filename`` only tells the format and names the dataset: the file is stored
+    under a name the server makes up, in the workspace's own folder.
+    """
+    extension = Path(filename).suffix.lower()
+    if extension not in _UPLOAD_EXTENSIONS:
+        raise HTTPException(400, "Only .csv and .json files can be uploaded")
+
+    folder = workspace_files.datasets_dir(current_workspace_id(session))
+    folder.mkdir(parents=True, exist_ok=True)
+    destination = folder / f"{secrets.token_hex(16)}{extension}"
+    try:
+        await _receive_upload(request, destination)
+        await asyncio.to_thread(_check_uploaded_file, destination)
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
+
+    dataset = Dataset(
+        name=(name or "").strip() or Path(filename).stem[:_NAME_MAX_LENGTH],
+        description=description,
+        file_path=destination.name,
+    )
+    session.add(dataset)
+    try:
+        session.commit()
+    except BaseException:
+        destination.unlink(missing_ok=True)
+        raise
     session.refresh(dataset)
     return dataset
 
@@ -256,7 +350,7 @@ def delete_dataset(dataset_id: int, session: Annotated[Session, Depends(get_sess
 
     if dataset.file_path:
         try:
-            file_path = get_dataset_file_path(dataset.file_path)
+            file_path = get_dataset_file_path(dataset.workspace_id, dataset.file_path)
         except ValueError:
             file_path = None
         if file_path and file_path.is_file():

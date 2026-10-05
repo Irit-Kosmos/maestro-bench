@@ -11,37 +11,29 @@ from functools import lru_cache
 from pathlib import Path
 
 from analysis import row_count
-from config import DATA_DIR
 from tables import ExperimentExecution
+from workspace_files import confine, results_dir
 
 logger = logging.getLogger(__name__)
-
-
-def get_data_dir() -> Path:
-    return DATA_DIR.resolve()
-
-
-def get_results_dir() -> Path:
-    return get_data_dir() / "results"
 
 
 def results_path(execution: ExperimentExecution) -> Path | None:
     """
     Absolute path of an execution's results file, or None when it has none.
 
-    The stored path is relative to the data directory. Anything that resolves
-    outside the results directory is refused.
+    The stored path is relative to the results folder of the execution's own
+    workspace. Anything that resolves outside that folder is refused.
     """
     if not execution.results_file_path:
         return None
-    path = (get_data_dir() / execution.results_file_path).resolve()
-    if get_results_dir() not in path.parents:
+    try:
+        return confine(results_dir(execution.workspace_id), execution.results_file_path)
+    except ValueError:
         logger.warning(
-            "Ignoring results path outside the results directory: %s",
+            "Ignoring results path outside the results folder: %s",
             execution.results_file_path,
         )
         return None
-    return path
 
 
 @lru_cache(maxsize=512)

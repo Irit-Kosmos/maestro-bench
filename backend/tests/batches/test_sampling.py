@@ -70,10 +70,10 @@ class TestBatchSampling:
     def test_same_seed_means_same_rows(self, tmp_path, monkeypatch):
         path = tmp_path / "d.csv"
         pd.DataFrame({"x": range(100)}).to_csv(path, index=False)
-        monkeypatch.setattr(experiment_utils, "validate_dataset_file", lambda _: path)
+        monkeypatch.setattr(experiment_utils, "validate_dataset_file", lambda *_: path)
         config = {"sampling_type": "random", "sampling_size": 10, "sampling_seed": 5}
 
-        first = apply_dataset_sampling("d.csv", config)
-        second = apply_dataset_sampling("d.csv", config)
+        first = apply_dataset_sampling(1, "d.csv", config)
+        second = apply_dataset_sampling(1, "d.csv", config)
 
         assert list(first.index) == list(second.index)

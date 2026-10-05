@@ -215,9 +215,8 @@ def test_check_reports_errors_and_variables(client):
     assert body["variables"] == ["w1", "langue", "w2", "contenu"]
 
 
-def _add_completed_execution(engine, ids, tmp_path, rows, version=None) -> int:
-    (tmp_path / "results").mkdir(exist_ok=True)
-    path = tmp_path / "results" / f"results-{version}.json"
+def _add_completed_execution(engine, ids, results_dir, rows, version=None) -> int:
+    path = results_dir / f"results-{version}.json"
     path.write_text(json.dumps({"rows": rows}))
     with scoped(engine) as s:
         experiment = Experiment(name="Past run", dataset_id=ids["dataset"])
@@ -227,7 +226,7 @@ def _add_completed_execution(engine, ids, tmp_path, rows, version=None) -> int:
             experiment_id=experiment.id,
             dataset_snapshot="{}",
             status="completed",
-            results_file_path=str(path.relative_to(tmp_path)),
+            results_file_path=path.name,
         )
         s.add(execution)
         s.flush()
@@ -273,8 +272,8 @@ ROWS = [
 ]
 
 
-def test_preview_evaluates_rows_of_a_past_execution(client, engine, setup, tmp_path):
-    execution_id = _add_completed_execution(engine, setup, tmp_path, ROWS)
+def test_preview_evaluates_rows_of_a_past_execution(client, engine, setup, results_dir):
+    execution_id = _add_completed_execution(engine, setup, results_dir, ROWS)
 
     response = client.post(
         "/aggregators/preview",
@@ -301,8 +300,8 @@ def test_preview_without_a_matching_execution(client, setup):
     assert response.json()["rows"] == []
 
 
-def test_output_paths_of_an_agent(client, engine, setup, tmp_path):
-    _add_completed_execution(engine, setup, tmp_path, ROWS)
+def test_output_paths_of_an_agent(client, engine, setup, results_dir):
+    _add_completed_execution(engine, setup, results_dir, ROWS)
 
     response = client.get(f"/agents/{setup['langue']}/output-paths")
 
@@ -313,7 +312,7 @@ def test_output_paths_of_an_agent(client, engine, setup, tmp_path):
     }
 
 
-def test_output_paths_of_one_prompt_version(client, engine, setup, tmp_path):
+def test_output_paths_of_one_prompt_version(client, engine, setup, results_dir):
     old = [
         {
             "row_index": 1,
@@ -321,8 +320,8 @@ def test_output_paths_of_one_prompt_version(client, engine, setup, tmp_path):
             "agents": [{"name": "Langue", "output": {"score": [0.1, 0.9]}}],
         }
     ]
-    _add_completed_execution(engine, setup, tmp_path, old, version=1)
-    _add_completed_execution(engine, setup, tmp_path, ROWS, version=2)
+    _add_completed_execution(engine, setup, results_dir, old, version=1)
+    _add_completed_execution(engine, setup, results_dir, ROWS, version=2)
 
     url = f"/agents/{setup['langue']}/output-paths"
     v1 = client.get(url, params={"prompt_version_id": 1}).json()
@@ -335,10 +334,10 @@ def test_output_paths_of_one_prompt_version(client, engine, setup, tmp_path):
 
 
 def test_preview_prefers_the_experiment_prompt_versions(
-    client, engine, setup, tmp_path
+    client, engine, setup, results_dir
 ):
-    v1 = _add_completed_execution(engine, setup, tmp_path, ROWS, version=1)
-    _add_completed_execution(engine, setup, tmp_path, ROWS, version=2)
+    v1 = _add_completed_execution(engine, setup, results_dir, ROWS, version=1)
+    _add_completed_execution(engine, setup, results_dir, ROWS, version=2)
     body = {"formulas": FORMULAS, "input_mappings": mappings(setup)}
 
     matched = client.post(

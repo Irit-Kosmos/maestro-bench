@@ -44,6 +44,14 @@ def scope_session(session: Session, workspace_id: int, user_id: int | None = Non
     return session
 
 
+def current_workspace_id(session: Session) -> int:
+    """The workspace a scoped session is confined to."""
+    workspace_id = session.info.get(_WORKSPACE)
+    if workspace_id is None:
+        raise RuntimeError("The session is not scoped to a workspace")
+    return workspace_id
+
+
 @event.listens_for(Session, "do_orm_execute")
 def _only_this_workspace(state: ORMExecuteState) -> None:
     workspace_id = state.session.info.get(_WORKSPACE)

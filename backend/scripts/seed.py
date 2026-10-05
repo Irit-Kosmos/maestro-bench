@@ -14,6 +14,7 @@ Usage (from the backend/ directory):
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy import func
 from sqlmodel import Session, SQLModel, select
 
+import workspace_files
 from db import engine, init_db
 from tables import (
     Agent,
@@ -60,6 +62,22 @@ def _tag(session: Session, tag: Tag, prompt: Prompt) -> None:
     _get_or_create(
         session, TagLink, {"tag_id": tag.id, "kind": "prompt", "item_id": prompt.id}
     )
+
+
+SAMPLE_DATASETS_DIR = Path(__file__).parent / "sample_datasets"
+
+
+def _copy_sample_dataset(workspace_id: int, file_name: str) -> None:
+    """Put a sample dataset file in the workspace's folder, unless it is there."""
+    target = workspace_files.datasets_dir(workspace_id) / file_name
+    if target.exists():
+        return
+    source = SAMPLE_DATASETS_DIR / file_name
+    if not source.is_file():
+        print(f"  Sample file not found, skipped: {source}")
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
 
 
 created_counts: dict[str, int] = {}
@@ -275,9 +293,11 @@ Your response must be in the same language as the query!""",
         )
 
         # ------------------------------------------------------------------
-        # 5. Sample datasets (files live in <DATA_DIR>/datasets)
+        # 5. Sample datasets (files are copied into the workspace's datasets folder)
         # ------------------------------------------------------------------
         print("Creating datasets...")
+        for file_name in ("mohler_dataset.csv", "diff_gt_2_mohler_dataset.csv"):
+            _copy_sample_dataset(target.id, file_name)
         _get_or_create(
             session,
             Dataset,

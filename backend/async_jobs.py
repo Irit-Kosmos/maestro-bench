@@ -272,7 +272,9 @@ class _ExperimentProcessor:
         if not dataset_file_path:
             raise ValueError("Dataset file path not found in snapshot")
 
-        chunks, total = await self._open_dataset(dataset_file_path, sampling_config)
+        chunks, total = await self._open_dataset(
+            execution.workspace_id, dataset_file_path, sampling_config
+        )
         self.progress.start(total)
 
         # Process all rows
@@ -289,14 +291,16 @@ class _ExperimentProcessor:
         return process_pipeline_results(execution, all_results, db_session)
 
     async def _open_dataset(
-        self, dataset_file_path: str, sampling_config: dict
+        self, workspace_id: int, dataset_file_path: str, sampling_config: dict
     ) -> tuple[AsyncGenerator[pd.DataFrame, None], int]:
         """Chunks of the rows to run, and how many rows there are in all."""
-        dataset_full_path = validate_dataset_file(dataset_file_path)
+        dataset_full_path = validate_dataset_file(workspace_id, dataset_file_path)
         sampling_type = sampling_config.get("sampling_type", "all")
 
         if sampling_type == "random":
-            df = apply_dataset_sampling(dataset_file_path, sampling_config)
+            df = apply_dataset_sampling(
+                workspace_id, dataset_file_path, sampling_config
+            )
             return self._dataframe_to_chunks(df), len(df)
 
         file_rows = await asyncio.to_thread(count_csv_rows, dataset_full_path)

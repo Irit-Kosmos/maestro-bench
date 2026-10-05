@@ -1,52 +1,46 @@
 """
 Utility functions for dataset path handling.
 
-Dataset files live in ``<DATA_DIR>/datasets``. Dataset records only store a
-path relative to that directory.
+Dataset files live in the workspace's ``datasets`` folder (see ``workspace_files``).
+Dataset records only store a path relative to that folder.
 """
 
 import csv
 from pathlib import Path
 
-from config import DATA_DIR
+import workspace_files
 
 
-def get_datasets_dir() -> Path:
-    """Return the directory holding the dataset files."""
-    return (DATA_DIR / "datasets").resolve()
-
-
-def get_dataset_file_path(file_path: str) -> Path:
+def get_dataset_file_path(workspace_id: int, file_path: str) -> Path:
     """
-    Resolve a dataset-relative path to an absolute path inside the datasets
-    directory.
+    Resolve a dataset-relative path to an absolute path inside the workspace's
+    datasets folder.
 
     Raises:
-        ValueError: If the path escapes the datasets directory
-            (absolute path or ``..`` components).
+        ValueError: If the path escapes that folder (absolute path, ``..``
+            components or a symbolic link).
     """
-    datasets_dir = get_datasets_dir()
-    full_path = (datasets_dir / file_path).resolve()
-    if datasets_dir not in full_path.parents:
-        raise ValueError(
-            f"Invalid dataset path: {file_path!r} must be relative to the datasets directory"
+    try:
+        return workspace_files.confine(
+            workspace_files.datasets_dir(workspace_id), file_path
         )
-    return full_path
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid dataset path: {file_path!r} must be relative to the datasets folder"
+        ) from e
 
 
-def validate_dataset_file(file_path: str) -> Path:
+def validate_dataset_file(workspace_id: int, file_path: str) -> Path:
     """
     Resolve a dataset path and check that the file exists.
 
     Raises:
-        ValueError: If the path escapes the datasets directory.
+        ValueError: If the path escapes the workspace's datasets folder.
         FileNotFoundError: If the dataset file doesn't exist.
     """
-    full_path = get_dataset_file_path(file_path)
+    full_path = get_dataset_file_path(workspace_id, file_path)
     if not full_path.is_file():
-        raise FileNotFoundError(
-            f"Dataset file not found: {file_path} (looked in {full_path})"
-        )
+        raise FileNotFoundError(f"Dataset file not found: {file_path}")
     return full_path
 
 
