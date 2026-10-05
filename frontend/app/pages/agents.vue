@@ -3,6 +3,7 @@ import type { Agent, AgentKind, AgentTeam, Model, PromptVersion, Tag } from '~/t
 import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupSpec } from '~/utils/groups'
 import { h, resolveComponent } from 'vue'
+import { useGroupBy } from '~/composables/useGroupBy'
 import { byOrder } from '~/utils/filters'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
@@ -74,7 +75,7 @@ const UIcon = resolveComponent('UIcon')
 const columns = [
   {
     key: 'name',
-    width: 220,
+    // The one column without a width: it takes what the others leave, so the description gets room
     label: 'Agent',
     formatter: (_: unknown, row: AgentRow) => `${row.name} ${row.description ?? ''}`,
     render: (row: AgentRow) => h('span', { class: 'flex min-h-9 min-w-0 items-center gap-3' }, [
@@ -89,7 +90,7 @@ const columns = [
       ]),
     ]),
   },
-  { key: 'kind', width: 120, label: 'Type', formatter: (_: unknown, row: AgentRow) => row.kind === 'aggregator' ? 'Aggregator' : 'LLM' },
+  { key: 'kind', width: 136, label: 'Type', formatter: (_: unknown, row: AgentRow) => row.kind === 'aggregator' ? 'Aggregator' : 'LLM' },
   { key: 'team_id', width: 150, label: 'Team', formatter: (_: unknown, row: AgentRow) => row.team_name },
   { key: 'default_prompt_version_id', width: 170, label: 'Prompt', formatter: (_: unknown, row: AgentRow) => row.prompt_label ?? '' },
   { key: 'default_model_id', width: 180, label: 'Model', formatter: (_: unknown, row: AgentRow) => row.model?.name ?? '' },
@@ -100,7 +101,7 @@ const columns = [
     // What the search reads; the cell below shows the chips
     formatter: (_: unknown, row: AgentRow) => row.tags.map(tag => tag.name).join(' '),
   },
-  { key: 'created_at', width: 100, label: 'Created' },
+  { key: 'created_at', width: 112, label: 'Created' },
 ]
 
 const KINDS = {
@@ -170,7 +171,7 @@ const groups: GroupSpec<AgentRow>[] = [
     emptyLabel: 'No prompt',
   },
 ]
-const groupBy = useCookie<string | null>('agents-group-by', { default: () => 'team' })
+const groupBy = useGroupBy('maestro:agents-group-by', 'team')
 
 // Clicking a tag in a row filters the list on it
 const filterState = ref<FilterState>({})

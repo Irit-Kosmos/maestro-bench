@@ -1,6 +1,7 @@
 import type { MaybeRefOrGetter } from 'vue'
 import type { Model } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
+import { useLocalStorage } from '@vueuse/core'
 import { byOrder } from '~/utils/filters'
 
 export type ModelGroupBy = 'provider' | 'status' | 'none'
@@ -57,8 +58,8 @@ export function useModelFilters(source: MaybeRefOrGetter<readonly Model[] | null
   const { search, filters, definitions, filtered, hasFilters, clear } = useListFilters(source, modelFilterSpecs, modelSearchText)
 
   // Remembered per browser, like the other list preferences
-  const groupBy = useCookie<ModelGroupBy>('models-group-by', { default: () => 'provider' })
-  const collapsedKeys = useCookie<string[]>('models-collapsed-groups', { default: () => [] })
+  const groupBy = useLocalStorage<ModelGroupBy>('maestro:models-group-by', 'provider')
+  const collapsedKeys = useLocalStorage<string[]>('maestro:models-collapsed-groups', [])
 
   const groups = computed<ModelGroup[]>(() => {
     const sorted = filtered.value.toSorted((a, b) => a.name.localeCompare(b.name))
