@@ -639,3 +639,13 @@ export interface AcceptedInvitation {
   role: WorkspaceRole
   joined: boolean
 }
+
+// What a workspace has set up on the way to a first run (the getting-started checklist)
+export interface SetupProgress {
+  provider: boolean
+  dataset: boolean
+  prompt: boolean
+  model: boolean
+  agent: boolean
+  experiment: boolean
+}

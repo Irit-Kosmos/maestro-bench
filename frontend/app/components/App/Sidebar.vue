@@ -10,7 +10,6 @@ interface NavItem {
 
 const { relativePath } = useWorkspace()
 const { canEdit } = useCurrentWorkspace()
-const shortcutsOpen = useShortcutsOverlay()
 const collapsed = ref(false)
 
 const { data: experiments } = await useMyLazyFetch<Experiment[]>('/experiments')
@@ -34,16 +33,16 @@ const sections: { label?: string, items: NavItem[] }[] = [
     label: 'Library',
     items: [
       { label: 'Datasets', icon: 'i-ph-database', to: '/datasets', kbds: ['G', 'D'] },
-      { label: 'Agents', icon: 'i-ph-robot', to: '/agents', kbds: ['G', 'A'] },
       { label: 'Prompts', icon: 'i-ph-chat-text', to: '/prompts', kbds: ['G', 'P'] },
       { label: 'Models', icon: 'i-ph-cpu', to: '/models', kbds: ['G', 'M'] },
+      { label: 'Agents', icon: 'i-ph-robot', to: '/agents', kbds: ['G', 'A'] },
     ],
   },
 ]
 
 const recentExperiments = computed(() =>
   [...(experiments.value || [])]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime())
     .slice(0, 5),
 )
 
@@ -182,33 +181,13 @@ defineShortcuts({
 
     <template #footer="{ collapsed: isCollapsed }">
       <div class="flex w-full flex-col gap-1" :class="isCollapsed && 'items-center'">
-        <AppUserMenu :collapsed="isCollapsed" />
+        <AppSetupChecklist v-if="!isCollapsed" class="mb-1" />
 
+        <!-- The account leads; the shortcuts live in its menu (and under ?) -->
         <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
-          <UTooltip
-            text="Keyboard shortcuts"
-            :kbds="['?']"
-            :disabled="!isCollapsed"
-            :content="{ side: 'right' }"
-          >
-            <UButton
-              icon="i-ph-keyboard"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :block="!isCollapsed"
-              :aria-label="isCollapsed ? 'Keyboard shortcuts' : undefined"
-              :class="isCollapsed ? '' : 'flex-1 justify-start text-muted'"
-              @click="() => { shortcutsOpen = true }"
-            >
-              <template v-if="!isCollapsed">
-                <span class="flex-1 text-start">Shortcuts</span>
-                <UKbd value="?" size="sm" />
-              </template>
-            </UButton>
-          </UTooltip>
+          <AppUserMenu :collapsed="isCollapsed" />
 
-          <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: 'right' }">
+          <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: isCollapsed ? 'right' : 'top' }">
             <UButton
               to="/settings"
               icon="i-ph-gear"
