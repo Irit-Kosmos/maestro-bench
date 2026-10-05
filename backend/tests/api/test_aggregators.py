@@ -34,7 +34,7 @@ FORMULAS = [
 @pytest.fixture
 def client(engine, monkeypatch):
     # Creating an experiment starts it: not here
-    monkeypatch.setattr(experiments.async_jobs, "start_experiment", lambda _id: None)
+    monkeypatch.setattr(experiments.async_jobs, "start_experiment", lambda *_: "started")
     app = FastAPI()
     app.include_router(aggregators.router)
     app.include_router(experiments.router)

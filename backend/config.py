@@ -20,6 +20,13 @@ DATA_DIR = Path(os.getenv("DATA_DIR") or Path(__file__).resolve().parent.parent)
 # Largest dataset file accepted by an upload
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))
 
+# Experiments running at the same time. The ones over the limits wait in a queue.
+# One workspace cannot take all the slots of the instance.
+MAX_CONCURRENT_EXPERIMENTS = int(os.getenv("MAX_CONCURRENT_EXPERIMENTS", "8"))
+MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE = int(
+    os.getenv("MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE", "3")
+)
+
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")

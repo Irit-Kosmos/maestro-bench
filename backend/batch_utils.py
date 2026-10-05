@@ -143,7 +143,7 @@ def batch_status(statuses: list[str]) -> str:
         return "pending"
     if any(s == "running" for s in statuses):
         return "running"
-    if any(s == "pending" for s in statuses):
+    if any(s in ("pending", "queued") for s in statuses):
         return "pending"
     if all(s == "completed" for s in statuses):
         return "completed"
