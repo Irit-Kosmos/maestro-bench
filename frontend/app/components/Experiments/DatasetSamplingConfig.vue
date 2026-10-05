@@ -84,15 +84,15 @@ const hint = computed(() => {
   const total = formatNumber(maxRows.value)
   if (props.samplingType === 'random') {
     return props.samplingSize && isValidSampleSize.value
-      ? `${formatNumber(props.samplingSize)} of ${total} rows, drawn at random.`
-      : 'Rows are drawn at random each time the experiment runs.'
+      ? `${formatNumber(props.samplingSize)} of ${total} rows, drawn at random and kept for every run until you resample.`
+      : 'Rows are drawn at random once, then kept for every run until you resample.'
   }
   if (props.samplingType === 'range') {
     return props.samplingStartRow && props.samplingEndRow && isValidRange.value
-      ? `${formatNumber(props.samplingEndRow - props.samplingStartRow + 1)} rows, from ${formatNumber(props.samplingStartRow)} to ${formatNumber(props.samplingEndRow)}.`
+      ? `${formatNumber(props.samplingEndRow - props.samplingStartRow + 1)} rows, from ${formatNumber(props.samplingStartRow)} to ${formatNumber(props.samplingEndRow)}, the same on every run.`
       : 'Rows are numbered from 1; start and end are inclusive.'
   }
-  return `All ${total} rows will be used.`
+  return `All ${total} rows, the same on every run.`
 })
 
 // Methods

@@ -1,3 +1,5 @@
+import type { Experiment } from '~/types'
+
 /**
  * Composable for managing experiments data and operations
  */
@@ -78,11 +80,27 @@ export function useExperiments() {
     }
   }
 
+  // Draw a new random sample: the next run takes other rows
+  const resampleExperiment = async (id: number) => {
+    try {
+      const response = await $api<Experiment>(`/experiments/${id}/resample`, {
+        method: 'POST',
+      })
+
+      return { success: true as const, data: response }
+    }
+    catch (error) {
+      console.error('Error resampling experiment:', error)
+      return { success: false as const, error }
+    }
+  }
+
   return {
     createExperiment,
     fetchExperiment,
     deleteExperiment,
     rerunExperiment,
     cancelExperiment,
+    resampleExperiment,
   }
 }

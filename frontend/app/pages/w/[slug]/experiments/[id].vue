@@ -8,7 +8,7 @@ const experimentId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
 const { ok, info, fail } = useStandardToast()
-const { fetchExperiment, deleteExperiment, rerunExperiment, cancelExperiment } = useExperiments()
+const { fetchExperiment, deleteExperiment, rerunExperiment, cancelExperiment, resampleExperiment } = useExperiments()
 const { fetchExperimentExecutions } = useExperimentExecutions()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
@@ -26,6 +26,7 @@ const showCancelDialog = ref(false)
 const isDeleting = ref(false)
 const isRerunning = ref(false)
 const isCancelling = ref(false)
+const isResampling = ref(false)
 
 // Computed
 const liveRun = computed(() => runOf(experimentId.value))
@@ -47,16 +48,18 @@ useSeoMeta({
   ),
 })
 
-// How the dataset rows were picked, next to how many there were
+// How the dataset rows were picked, next to how many there were, and whether the
+// next run takes the same rows. A random sample is redrawn on each run, except in a
+// batch, where every run uses the batch's sample so the variants stay comparable.
 const samplingHint = computed(() => {
   const exp = experiment.value
   if (!exp)
     return ''
   if (exp.sampling_type === 'random')
-    return 'random sample'
+    return exp.batch_id ? 'random sample, shared by the batch' : 'random sample, kept between runs'
   if (exp.sampling_type === 'range')
-    return `rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}`
-  return 'full dataset'
+    return `rows ${exp.sampling_start_row ?? '?'}–${exp.sampling_end_row ?? '?'}, same on every run`
+  return 'full dataset, same on every run'
 })
 
 // Latest execution for configuration display
@@ -209,6 +212,30 @@ async function handleCancelExperiment() {
   await loadExperiment({ silent: true })
 }
 
+// A random sample is kept between runs; once redrawn, the next run takes other rows than the latest one
+const canResample = computed(() => canEdit.value && experiment.value?.sampling_type === 'random' && !experiment.value.batch_id)
+const sampleRedrawn = computed(() => {
+  const seed = experiment.value?.sampling_seed
+  const latest = latestExecution.value ? sampleSeed(latestExecution.value) : null
+  return seed != null && latest != null && seed !== latest
+})
+
+async function handleResample() {
+  if (!experiment.value)
+    return
+
+  isResampling.value = true
+  const result = await resampleExperiment(experiment.value.id)
+  isResampling.value = false
+
+  if (!result.success) {
+    fail('Couldn’t draw a new sample')
+    return
+  }
+  experiment.value.sampling_seed = result.data.sampling_seed
+  ok('New sample drawn', { description: 'The next run takes other rows.' })
+}
+
 const datasetName = computed(() => datasetInfo.value?.name || experiment.value?.dataset?.name || 'Unknown')
 
 // Rows the run processed; before any run, what the sampling asks for
@@ -220,6 +247,16 @@ const datasetRows = computed(() => {
     ?? null
 })
 
+// Seed of the random sample a run drew: runs with the same seed ran on the same rows
+function sampleSeed(execution: { dataset_snapshot: string }): number | null {
+  try {
+    return JSON.parse(execution.dataset_snapshot).sampling_config?.sampling_seed ?? null
+  }
+  catch {
+    return null
+  }
+}
+
 // Newest first; what each run took, used and cost sits with the run, not in the page header
 const executionRows = computed(() => [...executions.value]
   .sort((a, b) => parseApiDate(b.started_at).getTime() - parseApiDate(a.started_at).getTime())
@@ -229,6 +266,7 @@ const executionRows = computed(() => [...executions.value]
       : null
     return {
       execution,
+      seed: sampleSeed(execution),
       duration: seconds === null ? null : formatElapsed(seconds),
       tokens: execution.total_tokens ? formatTokens(execution.total_tokens) : null,
       cost: execution.total_cost_usd ? formatCost(execution.total_cost_usd) : null,
@@ -406,6 +444,23 @@ watch(() => route.params.id, () => {
                   <span class="text-muted">· {{ samplingHint }}</span>
                 </UIMetaItem>
               </li>
+              <li v-if="experiment.sampling_type === 'random' && experiment.sampling_seed != null" class="flex items-center justify-between gap-2">
+                <UIMetaItem icon="i-ph-dice-five-bold" label="Sample seed" class="tabular-nums">
+                  <span class="shrink-0 whitespace-nowrap">seed {{ experiment.sampling_seed }}</span>
+                  <span v-if="sampleRedrawn" class="truncate text-muted" title="New rows on the next run">· new rows on the next run</span>
+                </UIMetaItem>
+                <UButton
+                  v-if="canResample"
+                  label="Resample"
+                  icon="i-ph-shuffle-bold"
+                  variant="ghost"
+                  color="neutral"
+                  size="xs"
+                  class="-my-1 shrink-0 whitespace-nowrap"
+                  :loading="isResampling"
+                  @click="handleResample"
+                />
+              </li>
               <li v-if="datasetInfo?.file_path">
                 <UIMetaItem icon="i-ph-file-xls-bold" label="File">
                   <span class="truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">{{ datasetInfo.file_path }}</span>
@@ -453,6 +508,10 @@ watch(() => route.params.id, () => {
                       <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
                     </UIMetaItem>
                   </div>
+                  <!-- Runs with the same seed ran on the same rows -->
+                  <p v-if="row.seed !== null" class="mt-1 text-xs text-muted tabular-nums">
+                    Random sample, seed {{ row.seed }}
+                  </p>
                 </div>
                 <UTooltip v-if="row.execution.results_file_path" text="Download results">
                   <UButton

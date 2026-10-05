@@ -113,6 +113,8 @@ export interface Experiment {
   sampling_size?: number
   sampling_start_row?: number
   sampling_end_row?: number
+  // Seed of the random sample: runs with the same seed take the same rows (the batch's seed, in a batch)
+  sampling_seed?: number | null
 
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
