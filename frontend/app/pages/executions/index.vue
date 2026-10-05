@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { ExecutionListItem } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
-import { h } from 'vue'
-import { executionBatchFilter, executionExperimentFilter, executionFailuresFilter, executionModelsFilter, isAnalyzable } from '~/utils/executions'
+import type { GroupSpec, RowRenderContext } from '~/utils/groups'
+import { useLocalStorage } from '@vueuse/core'
+import { h, resolveComponent } from 'vue'
+import { useGroupBy } from '~/composables/useGroupBy'
+import { executionBatchFilter, executionExperimentFilter, executionFailuresFilter, executionModelsFilter, isAnalyzable, runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
 import { DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, statusFilter } from '~/utils/filterSpecs'
 
@@ -29,7 +32,7 @@ const startedFilter = dateFilter<ExecutionListItem>(execution => execution.start
 const failuresFilter = executionFailuresFilter()
 
 // Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
-const rowsEntry = useCookie<FilterEntry>('executions-rows-filter', { default: emptyFilterEntry })
+const rowsEntry = useLocalStorage<FilterEntry>('maestro:executions-rows-filter', emptyFilterEntry())
 
 // A link from the dashboard, /executions?failures=1&range=7d, opens the list on what its count was made of
 const seeded: FilterState = {}
@@ -118,17 +121,45 @@ const runs = computed(() => {
   return found
 })
 
+// The executions of a batch sit together under it, and the runs of an experiment under that: the Experiment and Batch
+// columns give way to those sections. The choice is remembered per browser
+const groupBy = useGroupBy('maestro:executions-group-by', 'batch')
+const grouped = computed(() => groupBy.value === 'batch')
+
+const NuxtLink = resolveComponent('NuxtLink')
+const UIcon = resolveComponent('UIcon')
+
 const figureClass = 'text-sm text-toned tabular-nums'
-const columns = [
+const columns = computed(() => [
   {
     key: 'id',
     label: 'Execution',
-    formatter: (id: number) => `Execution #${id}`,
-    render: (row: ExecutionListItem) => {
+    formatter: (id: number) => `#${id}`,
+    render: (row: ExecutionListItem, _hint?: string, context?: RowRenderContext) => {
       const run = runs.value.get(row.id)
+      const runLabel = run && run.of > 1 ? `Run ${run.nth} of ${run.of}` : null
+
+      // Not under an experiment's section, so the row has to say which experiment it belongs to
+      if (grouped.value && context && !context.trail.includes('experiment')) {
+        return h('span', { class: 'flex min-h-9 min-w-0 flex-col justify-center' }, [
+          // Above the row's stretched button, so it opens the experiment instead of the panel
+          h(NuxtLink, {
+            to: `/experiments/${row.experiment_id}`,
+            title: `Open experiment ${row.experiment_name}`,
+            class: 'relative z-1 flex w-fit max-w-full items-center gap-1.5 rounded-sm text-sm leading-5 font-medium text-highlighted outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inverted',
+          }, () => [
+            h(UIcon, { 'name': 'i-ph-flask-bold', 'class': 'size-3.5 shrink-0 text-muted', 'aria-hidden': 'true' }),
+            h('span', { class: 'truncate' }, shortExperimentName(row.experiment_name, row.batch_name)),
+          ]),
+          context.target(
+            h('span', { class: 'truncate text-xs leading-4 font-normal text-muted' }, [`#${row.id}`, runLabel && ` · ${runLabel}`].filter(Boolean).join('')),
+          ),
+        ])
+      }
+
       return h('span', { class: 'flex min-h-9 min-w-0 flex-col justify-center' }, [
-        h('span', { class: 'truncate leading-5' }, `Execution #${row.id}`),
-        run && run.of > 1 ? h('span', { class: 'truncate text-xs font-normal leading-4 text-muted' }, `Run ${run.nth} of ${run.of}`) : null,
+        h('span', { class: 'truncate leading-5' }, `#${row.id}`),
+        runLabel ? h('span', { class: 'truncate text-xs font-normal leading-4 text-muted' }, runLabel) : null,
       ])
     },
   },
@@ -138,9 +169,12 @@ const columns = [
     label: 'Experiment',
     // A batch's experiments drop the batch prefix: the Batch column already says it
     formatter: (_: unknown, row: ExecutionListItem) => shortExperimentName(row.experiment_name, row.batch_name),
+    // The sections say it, but the search still finds an experiment by its name
+    hidden: grouped.value,
   },
-  { key: 'batch_name', width: 168, label: 'Batch', formatter: (_: unknown, row: ExecutionListItem) => row.batch_name || '' },
-  { key: 'status', width: 200, label: 'Status' },
+  { key: 'batch_name', width: 168, label: 'Batch', formatter: (_: unknown, row: ExecutionListItem) => row.batch_name || '', hidden: grouped.value },
+  // Just the icon: the progress of a run in flight sits under the row count
+  { key: 'status', width: 72, label: 'Status' },
   { key: 'dataset_name', width: 160, label: 'Dataset', formatter: (_: unknown, row: ExecutionListItem) => row.dataset_name || '—' },
   {
     key: 'agents',
@@ -148,13 +182,44 @@ const columns = [
     label: 'Models',
     formatter: (_: unknown, row: ExecutionListItem) => modelsOf(row).join(' '),
   },
-  { key: 'row_count', width: 150, label: 'Rows' },
-  { key: 'duration_seconds', width: 96, label: 'Duration', class: figureClass, formatter: (seconds: number | null) => formatElapsed(seconds) },
-  { key: 'total_tokens', width: 88, label: 'Tokens', class: figureClass },
+  { key: 'row_count', width: 176, label: 'Rows' },
+  { key: 'duration_seconds', width: 88, label: 'Duration', class: figureClass, formatter: (seconds: number | null) => formatElapsed(seconds) },
+  { key: 'total_tokens', width: 80, label: 'Tokens', class: figureClass },
   { key: 'total_cost_usd', width: 88, label: 'Cost', class: figureClass },
   { key: 'started_at', width: 112, label: 'Started' },
-]
+])
 
+// Sections are read by name, found in the executions they hold
+const batchNames = computed(() => new Map((executions.value ?? []).flatMap(execution =>
+  execution.batch_id ? [[execution.batch_id, execution.batch_name || `Batch #${execution.batch_id}`] as const] : [],
+)))
+const experimentNames = computed(() => new Map((executions.value ?? []).map(execution =>
+  [execution.experiment_id, shortExperimentName(execution.experiment_name, execution.batch_name)] as const,
+)))
+
+const groups: GroupSpec<ExecutionListItem>[] = [
+  {
+    key: 'batch',
+    label: 'Batch',
+    icon: 'i-ph-arrows-split-bold',
+    flow: true,
+    value: execution => execution.batch_id,
+    present: id => ({ label: batchNames.value.get(Number(id)) ?? `Batch #${id}`, icon: 'i-ph-arrows-split-bold' }),
+    link: id => `/batches/${id}`,
+    summary: runsSummary,
+    rail: 'bg-neutral-300 dark:bg-neutral-600',
+    // Runs of an experiment are told apart from the others only when there are several to tell
+    then: {
+      key: 'experiment',
+      value: execution => execution.experiment_id,
+      present: id => ({ label: experimentNames.value.get(Number(id)) ?? `Experiment #${id}`, icon: 'i-ph-flask-bold' }),
+      link: id => `/experiments/${id}`,
+      summary: runsSummary,
+      minSize: 2,
+      rail: 'bg-accented',
+    },
+  },
+]
 // Aggregators have no model
 function llmAgentsOf(execution: ExecutionListItem) {
   return execution.agents.filter(agent => agent.model)
@@ -213,11 +278,13 @@ const actions = [
         ref="table"
         v-model:selected="selectedIds"
         v-model:filter-state="filterState"
+        v-model:group-by="groupBy"
         fill
         :row-height="57"
         :data="executions"
         :columns="columns"
         :filters="filters"
+        :groups="groups"
         :actions="actions"
         :loading="pending"
         :row-open="openPanel"
@@ -265,10 +332,7 @@ const actions = [
         </template>
 
         <template #status-cell="{ row }">
-          <div class="flex items-center gap-3">
-            <UIStatusBadge :status="row.original.status" />
-            <UIRunProgress :run="liveRun(row.original)" />
-          </div>
+          <UIStatusBadge :status="row.original.status" />
         </template>
 
         <template #agents-cell="{ row }">
@@ -290,8 +354,14 @@ const actions = [
         </template>
 
         <template #row_count-cell="{ row }">
-          <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
-          <span v-if="row.original.rows_failed" class="ms-2 text-xs text-error tabular-nums">{{ row.original.rows_failed }} failed</span>
+          <div class="flex min-w-0 flex-col">
+            <span>
+              <UIRowCount :rows="row.original.row_count" tone="quiet" class="text-sm" />
+              <!-- The progress under it counts the failed ones while the run is going -->
+              <span v-if="row.original.rows_failed && liveRun(row.original)?.status !== 'running'" class="ms-2 text-xs text-error tabular-nums">{{ row.original.rows_failed }} failed</span>
+            </span>
+            <UIRunProgress :run="liveRun(row.original)" />
+          </div>
         </template>
 
         <template #total_tokens-cell="{ row }">
