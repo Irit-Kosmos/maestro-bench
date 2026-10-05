@@ -62,9 +62,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return
   }
 
+  // No `replace` here: a redirect inherits the method of the navigation it replaces, and forcing
+  // `replace` would overwrite the page we come from in the history (Back would skip it)
   const target = defaultSlug(workspaceOfPath(from.path))
   if (!target)
-    return navigateTo('/w', { replace: true })
+    return navigateTo('/w')
   const rest = to.path === '/' ? to.fullPath.slice(1) : to.fullPath
-  return navigateTo(`/w/${target}${rest}`, { replace: true })
+  return navigateTo(`/w/${target}${rest}`)
 })
