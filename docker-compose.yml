@@ -56,16 +56,19 @@ services:
       - API_PORT=8000
       - DATABASE_URL=postgresql+psycopg://maestro:${POSTGRES_PASSWORD:-maestro}@postgres:5432/maestro
       - CORS_ORIGINS=http://localhost:3000
+      - DATA_DIR=/data
     volumes:
       - ./backend:/app
-      - ./datasets:/datasets
+      # Everything the app stores on disk lives under DATA_DIR (/data)
+      - ./datasets:/data/datasets
+      - ./backend/results:/data/results
     networks:
       - maestro-network
     command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
-networks:
-  maestro-network:
-    driver: bridge
 volumes:
   maestro-pgdata:
 
+networks:
+  maestro-network:
+    driver: bridge

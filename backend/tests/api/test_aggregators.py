@@ -213,7 +213,8 @@ def test_check_reports_errors_and_variables(client):
 
 
 def _add_completed_execution(engine, ids, tmp_path, rows, version=None) -> int:
-    path = tmp_path / f"results-{version}.json"
+    (tmp_path / "results").mkdir(exist_ok=True)
+    path = tmp_path / "results" / f"results-{version}.json"
     path.write_text(json.dumps({"rows": rows}))
     with Session(engine) as s:
         experiment = Experiment(name="Past run", dataset_id=ids["dataset"])
@@ -223,7 +224,7 @@ def _add_completed_execution(engine, ids, tmp_path, rows, version=None) -> int:
             experiment_id=experiment.id,
             dataset_snapshot="{}",
             status="completed",
-            results_file_path=str(path),
+            results_file_path=str(path.relative_to(tmp_path)),
         )
         s.add(execution)
         s.flush()

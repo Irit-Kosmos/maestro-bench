@@ -149,7 +149,8 @@ def test_agents_are_listed_in_the_order_they_ran(client, engine):
 def test_figures_and_progress(client, engine, tmp_path):
     exp = add_experiment(engine)
     started = now() - timedelta(minutes=10)
-    results = tmp_path / "results.json"
+    (tmp_path / "results").mkdir()
+    results = tmp_path / "results" / "results.json"
     results.write_text("{}")
     add_execution(
         engine,
@@ -162,7 +163,7 @@ def test_figures_and_progress(client, engine, tmp_path):
         rows_failed=3,
         total_tokens=1200,
         total_cost_usd=0.5,
-        results_file_path=str(results),
+        results_file_path=str(results.relative_to(tmp_path)),
     )
     add_execution(engine, exp, status="running", rows_total=20, rows_done=4)
 

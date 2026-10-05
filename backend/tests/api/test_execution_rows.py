@@ -58,9 +58,10 @@ def _add_execution(engine, results_file: str | None) -> int:
 
 
 def _results_file(tmp_path, rows=ROWS) -> str:
-    path = tmp_path / "results.json"
+    (tmp_path / "results").mkdir(exist_ok=True)
+    path = tmp_path / "results" / "results.json"
     path.write_text(json.dumps({"rows": rows}))
-    return str(path)
+    return str(path.relative_to(tmp_path))
 
 
 def test_returns_input_and_parsed_agent_output(client, engine, tmp_path):

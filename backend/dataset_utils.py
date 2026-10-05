@@ -1,18 +1,19 @@
 """
 Utility functions for dataset path handling.
 
-Dataset files live in the top-level ``datasets/`` directory (next to
-``backend/`` and ``frontend/``). Dataset records only store a path relative
-to that directory.
+Dataset files live in ``<DATA_DIR>/datasets``. Dataset records only store a
+path relative to that directory.
 """
 
 import csv
 from pathlib import Path
 
+from config import DATA_DIR
+
 
 def get_datasets_dir() -> Path:
-    """Return the datasets directory (one level above the backend directory)."""
-    return (Path(__file__).parent.parent / "datasets").resolve()
+    """Return the directory holding the dataset files."""
+    return (DATA_DIR / "datasets").resolve()
 
 
 def get_dataset_file_path(file_path: str) -> Path:

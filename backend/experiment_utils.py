@@ -7,11 +7,11 @@ import json
 import logging
 import secrets
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pandas as pd
 from sqlmodel import Session, select
 
+import results_files
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from dataset_utils import validate_dataset_file
@@ -460,8 +460,8 @@ def process_pipeline_results(
     Returns:
         Summary dict with aggregated metrics
     """
-    results_dir = Path("results")
-    results_dir.mkdir(exist_ok=True)
+    results_dir = results_files.get_results_dir()
+    results_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")[:-3]
     results_file_path = (
@@ -512,8 +512,10 @@ def process_pipeline_results(
 
     logger.info("Results saved to %s", results_file_path)
 
+    # Stored relative to the data directory so the data can be moved around
+    stored_path = str(results_file_path.relative_to(results_files.get_data_dir()))
     if session:
-        execution.results_file_path = str(results_file_path)
+        execution.results_file_path = stored_path
         # Store summary metrics on execution record
         execution.total_tokens = total_tokens_in + total_tokens_out
         execution.total_cost_usd = round(total_cost, 6)
@@ -522,7 +524,7 @@ def process_pipeline_results(
 
     return {
         "processing_time_seconds": processing_time,
-        "results_file_path": str(results_file_path),
+        "results_file_path": stored_path,
         "total_rows": len(pipeline_results),
         "total_cost_usd": round(total_cost, 6),
     }

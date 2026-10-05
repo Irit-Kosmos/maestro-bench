@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlmodel import Session, SQLModel, create_engine
 
+import results_files
 import tables  # noqa: F401  (registers every table on SQLModel.metadata)
 from config import DATABASE_URL
 
@@ -73,3 +74,9 @@ def session(engine):
     with Session(engine) as session:
         yield session
 
+
+@pytest.fixture(autouse=True)
+def data_dir(tmp_path, monkeypatch):
+    """Keep every test's files (results, datasets) out of the real data directory."""
+    monkeypatch.setattr(results_files, "get_data_dir", lambda: tmp_path)
+    return tmp_path
