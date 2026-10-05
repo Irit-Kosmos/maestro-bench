@@ -25,3 +25,6 @@ backend/results/
 *.db
 *.sqlite
 *.sqlite3
+
+# Local backups of data (never commit)
+backups/
