@@ -36,8 +36,10 @@ defineSlots<{
 
 const text = computed(() => props.message ?? props.description)
 
-const { can } = useCurrentWorkspace()
+const { can, workspace } = useCurrentWorkspace()
 const allowed = computed(() => !props.actionRequires || can(props.actionRequires))
+// What the missing button would have done is not for this person: say who can
+const denial = computed(() => props.actionLabel && !allowed.value ? denialReason(workspace.value, props.actionRequires!) : null)
 
 function onAction() {
   if (!props.actionTo)
@@ -55,6 +57,9 @@ function onAction() {
     </h3>
     <p v-if="text" class="mt-1 max-w-sm text-sm text-muted text-pretty">
       {{ text }}
+    </p>
+    <p v-if="denial" class="mt-2 max-w-sm text-xs text-dimmed text-pretty">
+      {{ denial }}.
     </p>
     <div v-if="$slots.default || (actionLabel && allowed)" class="mt-5 flex items-center gap-2">
       <slot>

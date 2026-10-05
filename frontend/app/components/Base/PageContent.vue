@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import type { FetchErrorKind } from '~/utils/fetchError'
+
 interface Props {
   loading?: boolean
-  error?: string | null
+  /** Shown instead of the content (true: the default wording); leave it empty while earlier data is still on screen */
+  error?: string | boolean | null
+  errorKind?: FetchErrorKind
+  /** Where the error state leads back to */
+  backTo?: string
+  backLabel?: string
   /** Fills the panel instead of growing with its content, so the page itself never scrolls */
   fill?: boolean
 }
@@ -9,14 +16,24 @@ interface Props {
 withDefaults(defineProps<Props>(), {
   loading: false,
   error: null,
+  errorKind: 'error',
+  backTo: '/',
+  backLabel: 'Back to dashboard',
   fill: false,
 })
+
+const emit = defineEmits<{
+  retry: []
+}>()
 
 defineSlots<{
   'default'?: any
   'before-content'?: any
   'after-content'?: any
 }>()
+
+// Without a handler the error state reloads the whole app
+const onRetry = getCurrentInstance()?.vnode.props?.onRetry ? () => emit('retry') : undefined
 </script>
 
 <template>
@@ -30,7 +47,14 @@ defineSlots<{
     <BaseLoadingState v-if="loading" />
 
     <!-- Error State -->
-    <BaseErrorState v-else-if="error" :message="error" />
+    <BaseErrorState
+      v-else-if="error"
+      :kind="errorKind"
+      :message="typeof error === 'string' ? error : undefined"
+      :action-to="backTo"
+      :action-label="backLabel"
+      v-bind="onRetry ? { onRetry } : {}"
+    />
 
     <!-- Main Content -->
     <div v-else :class="fill && 'flex flex-col flex-1 min-h-0'">

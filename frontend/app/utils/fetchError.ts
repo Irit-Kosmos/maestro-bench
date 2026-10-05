@@ -1,0 +1,12 @@
+export type FetchErrorKind = 'error' | 'not-found' | 'forbidden'
+
+/** What a failed request means for the person looking at the page */
+export function fetchErrorKind(error: unknown): FetchErrorKind {
+  const status = error as { statusCode?: number, status?: number } | null | undefined
+  const code = status?.statusCode ?? status?.status
+  if (code === 404)
+    return 'not-found'
+  if (code === 403)
+    return 'forbidden'
+  return 'error'
+}

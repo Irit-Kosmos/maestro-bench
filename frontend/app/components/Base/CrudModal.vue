@@ -4,11 +4,14 @@ interface Props {
   title: string
   mode: 'create' | 'edit' | 'view'
   loading?: boolean
+  /** Holds the submit button back while the form is not valid */
+  disabled?: boolean
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
+  disabled: false,
   size: 'md',
 })
 
@@ -31,11 +34,11 @@ const isOpen = computed({
 
 const modalTitle = computed(() => {
   const prefix = props.mode === 'create' ? 'Create' : props.mode === 'edit' ? 'Edit' : 'View'
-  return `${prefix} ${props.title}`
+  return `${prefix} ${props.title.toLowerCase()}`
 })
 
 const submitLabel = computed(() => {
-  return props.mode === 'create' ? 'Create' : props.mode === 'edit' ? 'Update' : 'Close'
+  return props.mode === 'create' ? 'Create' : props.mode === 'edit' ? 'Save' : 'Close'
 })
 
 function handleSubmit() {
@@ -51,50 +54,57 @@ function handleCancel() {
 <template>
   <UModal v-model:open="isOpen" @after:leave="emit('afterLeave')">
     <template #content>
-      <UCard class="w-full">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-highlighted">
-              {{ modalTitle }}
-            </h3>
-            <UButton
-              variant="ghost"
-              color="neutral"
-              icon="i-ph-x-bold"
-              size="sm"
-              @click="handleCancel"
-            />
-          </div>
-        </template>
-
-        <!-- Modal Content -->
-        <div class="space-y-4">
-          <slot />
-        </div>
-
-        <template #footer>
-          <slot name="footer">
-            <div class="flex justify-end gap-3">
+      <!-- A real form: Enter submits, and the button waits for a valid one -->
+      <form @submit.prevent="handleSubmit">
+        <UCard class="w-full">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-semibold text-highlighted">
+                {{ modalTitle }}
+              </h3>
               <UButton
-                v-if="mode !== 'view'"
-                variant="outline"
+                type="button"
+                variant="ghost"
                 color="neutral"
+                icon="i-ph-x-bold"
+                size="sm"
+                aria-label="Close"
                 @click="handleCancel"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                variant="solid"
-                :color="mode === 'view' ? 'neutral' : 'primary'"
-                :loading="loading"
-                @click="handleSubmit"
-              >
-                {{ submitLabel }}
-              </UButton>
+              />
             </div>
-          </slot>
-        </template>
-      </UCard>
+          </template>
+
+          <div class="space-y-4">
+            <slot />
+          </div>
+
+          <template #footer>
+            <slot name="footer">
+              <div class="flex justify-end gap-2">
+                <UButton
+                  v-if="mode !== 'view'"
+                  type="button"
+                  variant="outline"
+                  color="neutral"
+                  :disabled="loading"
+                  @click="handleCancel"
+                >
+                  Cancel
+                </UButton>
+                <UButton
+                  type="submit"
+                  variant="solid"
+                  :color="mode === 'view' ? 'neutral' : 'primary'"
+                  :loading="loading"
+                  :disabled="disabled"
+                >
+                  {{ submitLabel }}
+                </UButton>
+              </div>
+            </slot>
+          </template>
+        </UCard>
+      </form>
     </template>
   </UModal>
 </template>

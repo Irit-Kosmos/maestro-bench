@@ -7,14 +7,17 @@ interface Props {
   cancelLabel?: string
   variant?: 'error' | 'warning' | 'info'
   loading?: boolean
+  /** Why the action failed; shown in the dialog, which stays open so the person can try again */
+  error?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: 'Confirm Action',
+  title: 'Confirm',
   confirmLabel: 'Confirm',
   cancelLabel: 'Cancel',
   variant: 'warning',
   loading: false,
+  error: null,
 })
 
 const emit = defineEmits<{
@@ -29,26 +32,7 @@ const isOpen = computed({
   set: value => emit('update:open', value),
 })
 
-const variantConfig = computed(() => {
-  const configs = {
-    error: {
-      color: 'error' as const,
-      icon: 'i-ph-warning-bold',
-      iconColor: 'text-error',
-    },
-    warning: {
-      color: 'warning' as const,
-      icon: 'i-ph-warning-circle-bold',
-      iconColor: 'text-warning',
-    },
-    info: {
-      color: 'primary' as const,
-      icon: 'i-ph-info-bold',
-      iconColor: 'text-info',
-    },
-  }
-  return configs[props.variant]
-})
+const confirmColor = computed(() => ({ error: 'error', warning: 'warning', info: 'primary' } as const)[props.variant])
 
 function handleConfirm() {
   emit('confirm')
@@ -61,44 +45,26 @@ function handleCancel() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" @after:leave="emit('afterLeave')">
-    <template #content>
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-3">
-            <UIcon :name="variantConfig.icon" :class="variantConfig.iconColor" class="h-6 w-6" />
-            <h3 class="text-lg font-semibold text-highlighted">
-              {{ title }}
-            </h3>
-          </div>
-        </template>
+  <UModal
+    v-model:open="isOpen"
+    :title="title"
+    :description="message"
+    :dismissible="!loading"
+    @after:leave="emit('afterLeave')"
+  >
+    <template v-if="error" #body>
+      <UAlert color="error" variant="subtle" icon="i-ph-warning-circle-bold" :description="error" />
+    </template>
 
-        <div class="py-4">
-          <p class="text-toned">
-            {{ message }}
-          </p>
-        </div>
-
-        <template #footer>
-          <div class="flex justify-end gap-3">
-            <UButton
-              variant="outline"
-              color="neutral"
-              @click="handleCancel"
-            >
-              {{ cancelLabel }}
-            </UButton>
-            <UButton
-              variant="solid"
-              :color="variantConfig.color"
-              :loading="loading"
-              @click="handleConfirm"
-            >
-              {{ confirmLabel }}
-            </UButton>
-          </div>
-        </template>
-      </UCard>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton variant="outline" color="neutral" :disabled="loading" @click="handleCancel">
+          {{ cancelLabel }}
+        </UButton>
+        <UButton variant="solid" :color="confirmColor" :loading="loading" @click="handleConfirm">
+          {{ confirmLabel }}
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>

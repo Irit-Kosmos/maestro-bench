@@ -1,66 +1,65 @@
+interface ToastOptions {
+  description?: string
+  /** A shortcut to what the toast is about, e.g. the experiment that was just created */
+  action?: { label: string, to: string }
+}
+
 /**
- * Enhanced toast composable with standardized messages
+ * The app's one way to tell the outcome of an action: the title states the fact
+ * ("Dataset created", "Couldn’t delete the model"), the description adds the reason.
  */
 export function useStandardToast() {
   const toast = useToast()
 
-  // Success messages
-  function showCreateSuccess(entityName: string) {
+  function ok(title: string, { description, action }: ToastOptions = {}) {
     toast.add({
-      title: 'Success',
-      description: `${entityName} created successfully!`,
+      title,
+      description,
       color: 'success',
-      icon: 'i-ph:check-circle-bold',
+      icon: 'i-ph-check-circle-bold',
+      actions: action ? [{ label: action.label, color: 'neutral', variant: 'outline', to: action.to }] : undefined,
     })
   }
 
-  function showUpdateSuccess(entityName: string) {
-    toast.add({
-      title: 'Success',
-      description: `${entityName} updated successfully!`,
-      color: 'success',
-      icon: 'i-ph:check-circle-bold',
-    })
+  function info(title: string, description?: string) {
+    toast.add({ title, description, color: 'neutral', icon: 'i-ph-info-bold' })
   }
 
-  function showDeleteSuccess(entityName: string) {
-    toast.add({
-      title: 'Success',
-      description: `${entityName} deleted successfully!`,
-      color: 'success',
-      icon: 'i-ph:check-circle-bold',
-    })
+  function fail(title: string, description?: string) {
+    toast.add({ title, description, color: 'error', icon: 'i-ph-warning-circle-bold' })
   }
 
-  // Error messages
+  // Create, update and delete share their wording across the lists and detail pages
+  const noun = (entityName: string) => entityName.toLowerCase()
+
+  function showCreateSuccess(entityName: string, options?: ToastOptions) {
+    ok(`${entityName} created`, options)
+  }
+
+  function showUpdateSuccess(entityName: string, options?: ToastOptions) {
+    ok(`${entityName} updated`, options)
+  }
+
+  function showDeleteSuccess(entityName: string, options?: ToastOptions) {
+    ok(`${entityName} deleted`, options)
+  }
+
   function showCreateError(entityName: string, error?: string) {
-    toast.add({
-      title: 'Error',
-      description: error || `Failed to create ${entityName.toLowerCase()}. Please try again.`,
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail(`Couldn’t create the ${noun(entityName)}`, error)
   }
 
   function showUpdateError(entityName: string, error?: string) {
-    toast.add({
-      title: 'Error',
-      description: error || `Failed to update ${entityName.toLowerCase()}. Please try again.`,
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail(`Couldn’t update the ${noun(entityName)}`, error)
   }
 
   function showDeleteError(entityName: string, error?: string) {
-    toast.add({
-      title: 'Error',
-      description: error || `Failed to delete ${entityName.toLowerCase()}. Please try again.`,
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    fail(`Couldn’t delete the ${noun(entityName)}`, error)
   }
 
   return {
+    ok,
+    info,
+    fail,
     showCreateSuccess,
     showUpdateSuccess,
     showDeleteSuccess,
