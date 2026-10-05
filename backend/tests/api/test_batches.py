@@ -628,3 +628,41 @@ class TestExecutionFigures:
         assert experiments[first]["execution_status"] == "failed"
         assert experiments[first]["last_completed_execution_id"] == completed
         assert experiments[second]["last_completed_execution_id"] is None
+
+
+class TestResample:
+    def experiment(self, world, engine, **fields):
+        with scoped(engine) as s:
+            experiment = Experiment(
+                name="Solo", dataset_id=world["dataset"], **fields
+            )
+            s.add(experiment)
+            s.commit()
+            return experiment.id
+
+    def test_draws_a_new_seed(self, client, world, engine):
+        exp_id = self.experiment(
+            world, engine, sampling_type="random", sampling_size=5, sampling_seed=1
+        )
+
+        body = client.post(f"/experiments/{exp_id}/resample").json()
+
+        assert body["sampling_seed"] not in (None, 1)
+        assert client.get(f"/experiments/{exp_id}").json()["sampling_seed"] == body["sampling_seed"]
+
+    def test_only_a_random_sample_can_be_redrawn(self, client, world, engine):
+        exp_id = self.experiment(world, engine, sampling_type="all")
+
+        assert client.post(f"/experiments/{exp_id}/resample").status_code == 400
+
+    def test_the_sample_of_a_batch_is_not_redrawn_from_one_experiment(
+        self, client, world
+    ):
+        data = payload(world, [model_axis(world, 0, 1)])
+        data["config"].update(sampling_type="random", sampling_size=5)
+        body = client.post("/batches", json=data).json()
+        exp_id = body["experiments"][0]["id"]
+
+        assert client.post(f"/experiments/{exp_id}/resample").status_code == 409
+        # The experiment shows the batch's seed
+        assert client.get(f"/experiments/{exp_id}").json()["sampling_seed"] is not None

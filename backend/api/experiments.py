@@ -1,5 +1,6 @@
 import json
 import logging
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -71,6 +72,9 @@ def _build_experiment_response(
         sampling_size=experiment.sampling_size,
         sampling_start_row=experiment.sampling_start_row,
         sampling_end_row=experiment.sampling_end_row,
+        sampling_seed=batch.sampling_seed
+        if batch and batch.sampling_seed is not None
+        else experiment.sampling_seed,
         batch_id=experiment.batch_id,
         batch_name=batch.name if batch else None,
         variant=parse_point(experiment.variant) or None,
@@ -175,6 +179,35 @@ def delete_experiment(exp_id: int, session: Annotated[Session, Depends(get_sessi
     session.delete(experiment)
     session.commit()
     return {"message": "Experiment deleted successfully"}
+
+
+@router.post("/experiments/{exp_id}/resample", response_model=ExperimentResponse)
+def resample_experiment(
+    exp_id: int, session: Annotated[Session, Depends(get_session)]
+):
+    """Draw a new random sample: the next run takes other rows than the previous ones.
+
+    Runs already made keep the seed they ran with. The experiments of a batch share
+    the batch's sample, which is not redrawn from one of them.
+    """
+    experiment = session.get(Experiment, exp_id)
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if experiment.sampling_type != "random":
+        raise HTTPException(
+            status_code=400, detail="Only a random sample can be redrawn"
+        )
+    if experiment.batch_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="The sample of a batch is shared by its experiments",
+        )
+
+    experiment.sampling_seed = secrets.randbelow(2**32)
+    session.add(experiment)
+    session.commit()
+    session.refresh(experiment)
+    return _build_experiment_response(experiment, session)
 
 
 @router.post("/experiments/{experiment_id}/cancel")
