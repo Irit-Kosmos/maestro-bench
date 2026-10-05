@@ -47,9 +47,9 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       { label: 'Batches', icon: 'i-ph-arrows-split-bold', kbds: ['G', 'B'], onSelect: () => navigate('/batches') },
       { label: 'Analyses', icon: 'i-ph-chart-bar-bold', kbds: ['G', 'N'], onSelect: () => navigate('/analyses') },
       { label: 'Datasets', icon: 'i-ph-database-bold', kbds: ['G', 'D'], onSelect: () => navigate('/datasets') },
-      { label: 'Agents', icon: 'i-ph-robot-bold', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
       { label: 'Prompts', icon: 'i-ph-chat-text-bold', kbds: ['G', 'P'], onSelect: () => navigate('/prompts') },
       { label: 'Models', icon: 'i-ph-cpu-bold', kbds: ['G', 'M'], onSelect: () => navigate('/models') },
+      { label: 'Agents', icon: 'i-ph-robot-bold', kbds: ['G', 'A'], onSelect: () => navigate('/agents') },
       { label: 'Settings', icon: 'i-ph-gear-bold', kbds: ['G', 'S'], onSelect: () => navigate('/settings') },
     ],
   })
@@ -60,8 +60,12 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       id: 'actions',
       label: 'Actions',
       items: [
-        { label: 'New Experiment', icon: 'i-ph-plus-bold', suffix: 'Create a new experiment', onSelect: () => navigate('/experiments/new') },
-        { label: 'New Analysis', icon: 'i-ph-plus-bold', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
+        { label: 'New experiment', icon: 'i-ph-plus-bold', suffix: 'Run agents over a dataset', onSelect: () => navigate('/experiments/new') },
+        { label: 'New analysis', icon: 'i-ph-plus-bold', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
+        { label: 'New dataset', icon: 'i-ph-plus-bold', suffix: 'Upload a CSV or JSON file', onSelect: () => navigate('/datasets?new=1') },
+        { label: 'New prompt', icon: 'i-ph-plus-bold', suffix: 'Write a prompt and its first version', onSelect: () => navigate('/prompts?new=1') },
+        { label: 'New agent', icon: 'i-ph-plus-bold', suffix: 'Pair a prompt version with a model', onSelect: () => navigate('/agents?new=1') },
+        { label: 'New model', icon: 'i-ph-plus-bold', suffix: 'Register a provider’s model', onSelect: () => navigate('/models?new=1') },
       ],
     })
   }
@@ -139,7 +143,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     :groups="groups"
     :color-mode="false"
     :transition="false"
-    placeholder="Search or jump to..."
+    placeholder="Search or jump to…"
     :fuse="{ fuseOptions: { threshold: 0.3, keys: ['label', 'suffix'] }, resultLimit: 10 }"
   />
 </template>
