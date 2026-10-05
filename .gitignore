@@ -20,6 +20,10 @@ venv/
 # Logs
 *.log
 
+# CI: test reports and package caches
+report.xml
+.cache/
+
 # Local data
 backend/results/
 /workspaces/

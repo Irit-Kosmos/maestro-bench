@@ -1,0 +1,85 @@
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    # Branches in development go through a merge request: only those and the default
+    # branch need a pipeline, which saves runner time.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+stages:
+  - test
+
+variables:
+  # /builds is host-mounted on the runner: isolate concurrent jobs per slot,
+  # otherwise they share a working directory and corrupt each other's files
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
+
+  # Keep in line with the base images of backend/Dockerfile and frontend/Dockerfile.local
+  PYTHON_IMAGE: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+  NODE_IMAGE: node:22-alpine
+  POSTGRES_IMAGE: postgres:17-alpine
+  RUFF_VERSION: "0.14.10"
+
+default:
+  interruptible: true
+
+backend:
+  stage: test
+  image: $PYTHON_IMAGE
+  services:
+    - name: $POSTGRES_IMAGE
+      alias: postgres
+  variables:
+    POSTGRES_USER: maestro
+    POSTGRES_PASSWORD: maestro
+    POSTGRES_DB: maestro
+    # The tests create and use maestro_test on this server (see backend/tests/conftest.py)
+    DATABASE_URL: postgresql+psycopg://maestro:maestro@postgres:5432/maestro
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
+    UV_LINK_MODE: copy
+  cache:
+    key:
+      files:
+        - backend/uv.lock
+    paths:
+      - .cache/uv
+  before_script:
+    - cd backend
+    - uv sync --frozen
+  script:
+    - uvx ruff@${RUFF_VERSION} check .
+    # The migrations must build the schema from scratch and cover every table change
+    - uv run --frozen alembic upgrade head
+    - uv run --frozen alembic check
+    - uv run --frozen pytest -q --junitxml=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: backend/report.xml
+
+frontend:
+  stage: test
+  image: $NODE_IMAGE
+  variables:
+    PNPM_STORE_DIR: $CI_PROJECT_DIR/.cache/pnpm
+  cache:
+    key:
+      files:
+        - frontend/pnpm-lock.yaml
+    paths:
+      - .cache/pnpm
+  before_script:
+    - cd frontend
+    - corepack enable
+    # Reads the pnpm version from "packageManager" in package.json
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm lint
+    - pnpm typecheck
+    - pnpm test --reporter=default --reporter=junit --outputFile.junit=report.xml
+  artifacts:
+    when: always
+    reports:
+      junit: frontend/report.xml
