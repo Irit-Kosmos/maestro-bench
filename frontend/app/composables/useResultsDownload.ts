@@ -9,6 +9,7 @@ export function useResultsDownload() {
     try {
       // Create a direct fetch to the download endpoint
       const response = await fetch(`${runtimeConfig.public.BACK_URL}/executions/${executionId}/results`, {
+        credentials: 'include',
         headers: {
           Accept: 'application/json',
         },

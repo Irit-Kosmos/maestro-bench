@@ -1,7 +1,7 @@
 export const useMyLazyFetch: typeof useLazyFetch = (request, opts?) => {
-  const runtimeConfig = useRuntimeConfig()
+  // `$api` knows the backend's URL, sends the session cookie and the CSRF token
   return useLazyFetch(request, {
-    baseURL: runtimeConfig.public.BACK_URL,
+    $fetch: useNuxtApp().$api,
     ...opts,
   })
 }

@@ -574,3 +574,17 @@ export interface Batch {
   total_cost_usd: number | null
   experiments: BatchExperiment[]
 }
+
+/** The signed-in user, as `/auth/me` describes them */
+export interface AuthUser {
+  id: number
+  display_name: string
+  email: string | null
+  avatar_url: string | null
+  is_instance_admin: boolean
+}
+
+export interface AuthProvider {
+  name: string
+  label: string
+}
