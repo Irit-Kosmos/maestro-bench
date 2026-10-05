@@ -233,6 +233,8 @@ uv run pytest
 | `DB_ECHO` | `false` | Log SQL statements. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
 | `SECRET_KEY` | - (required) | At least 32 characters. Signs the OAuth state and derives the CSRF tokens. Changing it only interrupts the sign-ins in progress. |
+| `ENCRYPTION_KEY` | - | At least 32 random characters (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Encrypts the API keys that workspaces store. Without it workspaces cannot store keys and only the instance's keys are used. **Changing it makes the stored keys unreadable**: owners must set them again. Keep it apart from `SECRET_KEY`. |
+| `INVITATION_DAYS` | `7` | How long an invitation link can be used. |
 | `AUTH_GITLAB_BASE_URL` | - | Your GitLab, e.g. `https://gitlab.example.org`. |
 | `AUTH_GITLAB_CLIENT_ID` / `AUTH_GITLAB_CLIENT_SECRET` | - | The GitLab application's ID and secret. |
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | - | Comma-separated email domains allowed to sign in (`example.org,example.com`). The email must be verified by GitLab. |
@@ -260,13 +262,33 @@ belong to several, with one role in each:
 |---|---|
 | `viewer` | read everything, run read-only computations (analysis previews, formula checks) |
 | `editor` | also create, edit, delete and run experiments |
-| `owner` | also rename the workspace |
+| `owner` | also manage members, invitation links and API keys, rename, archive and delete the workspace |
 
 Someone who is not a member gets a 404 for the workspace and for any id inside
 it: they cannot tell whether it exists. An archived workspace is read-only. A
 workspace always keeps at least one owner.
 
-Until invitations exist, members are added from the command line (see below).
+Owners manage the workspace in **Settings**:
+
+- **Members** - change a role, remove someone, or add a person who has already
+  signed in once, by email. Anyone can leave a workspace; the last owner cannot.
+- **Invitation links** - a link gives the *viewer* or *editor* role to the first
+  person who opens it (they sign in first, with an account the allowlists admit).
+  It works once, expires after `INVITATION_DAYS`, and can be revoked. The link is
+  shown only when it is created; only a hash of it is kept.
+- **LLM provider keys** - a workspace can store its own API key for a provider.
+  Runs use it instead of the instance's key, which remains the fallback. Keys
+  are encrypted with `ENCRYPTION_KEY`; only their last four characters are shown
+  again. Each key has its own rate limit (`<PROVIDER>_MAX_RPS`), so workspaces
+  with their own keys do not slow each other down, while those sharing the
+  instance's key do. Self-hosted providers (Ollama) are set for the whole
+  instance, never per workspace.
+- **Archive** - the workspace becomes read-only, its runs in progress stop, and
+  its keys and invitation links are deleted. An owner can reopen it (the keys
+  must be set again) or delete it: that removes everything in it, files
+  included, after typing its identifier.
+
+Members can also be managed from the command line (see below).
 Each workspace has its own folder of datasets and results: a workspace can only
 read the files it owns.
 
