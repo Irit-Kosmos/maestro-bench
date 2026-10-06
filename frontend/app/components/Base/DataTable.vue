@@ -474,7 +474,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       meta: {
         class: {
           th: 'w-12',
-          td: (cell: CellInfo) => isGroupRow(cell.row.original) ? 'hidden' : 'w-12 text-right',
+          // The button is wider than what px-4 leaves in 48px: clipped by the fixed layout's overflow-hidden, the cell
+          // would draw a stray text-ellipsis dot next to it
+          td: (cell: CellInfo) => isGroupRow(cell.row.original) ? 'hidden' : 'w-12 px-2 text-right overflow-visible text-clip',
         },
         style: { td: cellStyle },
       },

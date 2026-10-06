@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Experiment } from '~/types'
-
 interface NavItem {
   label: string
   icon: string
@@ -12,12 +10,13 @@ const { relativePath } = useWorkspace()
 const { canEdit } = useCurrentWorkspace()
 const collapsed = ref(false)
 
-const { data: experiments } = await useMyLazyFetch<Experiment[]>('/experiments')
+const { studies } = useStudies()
 
 const sections: { label?: string, items: NavItem[] }[] = [
   {
     items: [
       { label: 'Dashboard', icon: 'i-ph-squares-four', to: '/', kbds: ['G', 'H'] },
+      { label: 'Studies', icon: 'i-ph-notebook', to: '/studies', kbds: ['G', 'Y'] },
     ],
   },
   {
@@ -40,11 +39,9 @@ const sections: { label?: string, items: NavItem[] }[] = [
   },
 ]
 
-const recentExperiments = computed(() =>
-  [...(experiments.value || [])]
-    .sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime())
-    .slice(0, 5),
-)
+// The studies being worked on, the most recently touched first: a way back into them without the list
+const MAX_STUDIES = 5
+const activeStudies = computed(() => studies.value.filter(study => study.status === 'active').slice(0, MAX_STUDIES))
 
 function isActive(to: string) {
   return to === '/' ? relativePath.value === '/' : relativePath.value.startsWith(to)
@@ -112,70 +109,65 @@ defineShortcuts({
       </div>
 
       <nav aria-label="Main" class="flex flex-col gap-4">
-        <div
-          v-for="(section, index) in sections"
-          :key="section.label ?? index"
-          class="flex flex-col gap-px"
-        >
-          <template v-if="section.label">
-            <p v-if="!isCollapsed" class="px-2 pb-1 text-xs font-medium text-dimmed">
-              {{ section.label }}
-            </p>
-            <USeparator v-else class="px-2 pb-2" />
-          </template>
+        <template v-for="(section, index) in sections" :key="section.label ?? index">
+          <div class="flex flex-col gap-px">
+            <template v-if="section.label">
+              <p v-if="!isCollapsed" class="px-2 pb-1 text-xs font-medium text-dimmed">
+                {{ section.label }}
+              </p>
+              <USeparator v-else class="px-2 pb-2" />
+            </template>
 
-          <UTooltip
-            v-for="item in section.items"
-            :key="item.to"
-            :text="item.label"
-            :kbds="item.kbds"
-            :disabled="!isCollapsed"
-            :content="{ side: 'right' }"
-          >
+            <UTooltip
+              v-for="item in section.items"
+              :key="item.to"
+              :text="item.label"
+              :kbds="item.kbds"
+              :disabled="!isCollapsed"
+              :content="{ side: 'right' }"
+            >
+              <NuxtLink
+                :to="item.to"
+                :aria-current="isActive(item.to) ? 'page' : undefined"
+                :aria-label="isCollapsed ? item.label : undefined"
+                :class="[
+                  itemClass,
+                  isCollapsed && 'justify-center',
+                  isActive(item.to)
+                    ? 'bg-accented/70 text-highlighted'
+                    : 'text-toned hover:bg-elevated hover:text-highlighted',
+                ]"
+              >
+                <UIcon
+                  :name="item.icon"
+                  class="size-4 shrink-0"
+                  :class="isActive(item.to) ? 'text-highlighted' : 'text-muted group-hover:text-toned'"
+                />
+                <span v-if="!isCollapsed" class="truncate">{{ item.label }}</span>
+              </NuxtLink>
+            </UTooltip>
+          </div>
+
+          <!-- The studies in progress, right under the entry that leads to all of them -->
+          <div v-if="index === 0 && !isCollapsed && activeStudies.length" class="-mt-3.5 ms-4 flex flex-col gap-px border-s border-default ps-1">
             <NuxtLink
-              :to="item.to"
-              :aria-current="isActive(item.to) ? 'page' : undefined"
-              :aria-label="isCollapsed ? item.label : undefined"
-              :class="[
+              v-for="study in activeStudies"
+              :key="study.id"
+              :to="`/studies/${study.id}`"
+              :title="study.name"
+              :aria-current="relativePath === `/studies/${study.id}` ? 'page' : undefined"
+              class="h-7 font-normal" :class="[
                 itemClass,
-                isCollapsed && 'justify-center',
-                isActive(item.to)
+                relativePath === `/studies/${study.id}`
                   ? 'bg-accented/70 text-highlighted'
                   : 'text-toned hover:bg-elevated hover:text-highlighted',
               ]"
             >
-              <UIcon
-                :name="item.icon"
-                class="size-4 shrink-0"
-                :class="isActive(item.to) ? 'text-highlighted' : 'text-muted group-hover:text-toned'"
-              />
-              <span v-if="!isCollapsed" class="truncate">{{ item.label }}</span>
+              <StudiesStatusIcon :status="study.status" class="w-4 justify-center" />
+              <span class="truncate">{{ study.name }}</span>
             </NuxtLink>
-          </UTooltip>
-        </div>
-
-        <!-- Jump back into recent work without going through the list -->
-        <div v-if="!isCollapsed && recentExperiments.length" class="flex flex-col gap-px">
-          <p class="px-2 pb-1 text-xs font-medium text-dimmed">
-            Recent experiments
-          </p>
-          <NuxtLink
-            v-for="exp in recentExperiments"
-            :key="exp.id"
-            :to="`/experiments/${exp.id}`"
-            :title="exp.name"
-            :aria-current="relativePath === `/experiments/${exp.id}` ? 'page' : undefined"
-            class="h-7 font-normal" :class="[
-              itemClass,
-              relativePath === `/experiments/${exp.id}`
-                ? 'bg-accented/70 text-highlighted'
-                : 'text-toned hover:bg-elevated hover:text-highlighted',
-            ]"
-          >
-            <UIStatusIcon :status="exp.status" class="w-4 justify-center" />
-            <span class="truncate">{{ exp.name }}</span>
-          </NuxtLink>
-        </div>
+          </div>
+        </template>
       </nav>
     </template>
 

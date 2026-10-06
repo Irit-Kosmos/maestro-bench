@@ -6,7 +6,7 @@ import { apiErrorMessage } from '~/composables/useAnalyses'
 // clicking it puts it on every row, or takes it off every row when they all have it already.
 // The default slot is the button that opens it: "Tags" in a selection bar, a small "+" on a row (see TagsList).
 const props = defineProps<{
-  kind: 'prompt' | 'analysis' | 'agent'
+  kind: 'prompt' | 'analysis' | 'agent' | 'study'
   rows: { id: number, tags: Tag[] }[]
 }>()
 

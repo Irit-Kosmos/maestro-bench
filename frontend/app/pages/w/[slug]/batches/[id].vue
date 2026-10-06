@@ -214,6 +214,7 @@ async function handleDelete() {
         <p v-if="batch.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ batch.description }}
         </p>
+        <StudiesItemStudies :id="batch.id" kind="batch" class="mt-2.5" />
       </div>
 
       <dl class="flex flex-wrap gap-x-10 gap-y-4">
@@ -330,6 +331,10 @@ async function handleDelete() {
             </tbody>
           </table>
         </div>
+      </ExperimentsSection>
+
+      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this batch. Notes show up in the activity of every study that holds it.">
+        <NotesJournal kind="batch" :item-id="batch.id" />
       </ExperimentsSection>
     </div>
 

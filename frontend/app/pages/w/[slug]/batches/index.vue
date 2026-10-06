@@ -145,8 +145,13 @@ async function confirmDelete() {
         item-name="batch"
         item-name-plural="batches"
         searchable
+        :selectable="canEdit"
         @refresh="refresh"
       >
+        <template #selection-actions="{ rows }">
+          <StudiesBulkMenu kind="batch" :ids="rows.map((row: Batch) => row.id)" />
+        </template>
+
         <template #experiments-cell="{ row }">
           <span class="text-sm text-toned tabular-nums">{{ progress(row.original) }} done</span>
         </template>

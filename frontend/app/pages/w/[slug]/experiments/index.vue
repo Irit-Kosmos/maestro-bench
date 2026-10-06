@@ -333,6 +333,7 @@ async function handleCreateExperiment() {
         @refresh="refresh"
       >
         <template #selection-actions>
+          <StudiesBulkMenu kind="experiment" :ids="selectedIds" />
           <UButton
             variant="ghost"
             color="error"

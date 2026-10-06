@@ -156,6 +156,7 @@ async function confirmDelete() {
       >
         <template #selection-actions="{ rows }">
           <TagsBulkMenu kind="analysis" :rows="rows" @changed="refresh" />
+          <StudiesBulkMenu kind="analysis" :ids="rows.map(row => row.id)" />
         </template>
 
         <template #tags-cell="{ row }">

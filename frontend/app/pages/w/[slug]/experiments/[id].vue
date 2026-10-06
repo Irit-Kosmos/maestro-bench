@@ -381,6 +381,7 @@ watch(() => route.params.id, () => {
         <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ experiment.description }}
         </p>
+        <StudiesItemStudies :id="experiment.id" kind="experiment" class="mt-2.5" />
       </header>
 
       <!-- What is run (agents) takes the wide column; what it runs on and what came out stack beside it -->
@@ -528,6 +529,10 @@ watch(() => route.params.id, () => {
           </ExperimentsSection>
         </div>
       </div>
+
+      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this run. Notes show up in the activity of every study that holds it.">
+        <NotesJournal kind="experiment" :item-id="experiment.id" />
+      </ExperimentsSection>
     </div>
 
     <!-- Error State -->

@@ -671,3 +671,84 @@ export interface SetupProgress {
   agent: boolean
   experiment: boolean
 }
+
+// --- Studies and notes ---
+
+/** What a study can gather */
+export type StudyKind = 'experiment' | 'batch' | 'analysis'
+/** What a note can be about: a study too */
+export type NoteKind = StudyKind | 'study'
+export type StudyStatus = 'active' | 'concluded' | 'archived'
+
+export interface Person {
+  id: number
+  display_name: string
+  avatar_url: string | null
+}
+
+export interface Study {
+  id: number
+  name: string
+  /** Markdown */
+  description: string | null
+  status: StudyStatus
+  tags: Tag[]
+  author: Person | null
+  /** What was put in the study: a batch is one item, not its experiments */
+  counts: { experiments: number, batches: number, analyses: number }
+  // Over the study's experiments, those of its batches included, each counted once
+  execution_count: number
+  total_tokens: number | null
+  total_cost_usd: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface StudyItem {
+  kind: StudyKind
+  item_id: number
+  name: string
+  /** An experiment's status, a batch's overall status; an analysis has none */
+  status: string | null
+  dataset_name: string | null
+  /** Experiments of a batch */
+  experiment_count: number | null
+  execution_count: number
+  total_tokens: number | null
+  total_cost_usd: number | null
+  created_at: string
+  added_at: string
+  added_by: Person | null
+}
+
+export interface StudyDetail extends Study {
+  /** Most recently added first */
+  items: StudyItem[]
+}
+
+/** Which study an item of a kind is in */
+export interface StudyMembership {
+  study_id: number
+  item_id: number
+}
+
+export interface Note {
+  id: number
+  kind: NoteKind
+  item_id: number
+  /** Markdown */
+  body: string
+  author: Person | null
+  created_at: string
+  updated_at: string
+  can_edit: boolean
+  can_delete: boolean
+}
+
+export interface StudyActivityEvent {
+  type: 'note' | 'item_added' | 'experiment_completed'
+  at: string
+  actor: Person | null
+  item: { kind: NoteKind, item_id: number, name: string } | null
+  note: Note | null
+}
