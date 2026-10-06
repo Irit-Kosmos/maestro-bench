@@ -182,7 +182,7 @@ function onKeydown(event: KeyboardEvent) {
           <UIcon name="i-ph-plus-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
           <span class="size-2 shrink-0 rounded-full" :class="tagDot(color)" aria-hidden="true" />
           <span class="flex-1 truncate">Create “{{ typed }}”</span>
-          <UKbd value="enter" size="sm" />
+          <BaseKbd value="enter" />
         </template>
       </div>
       <span v-if="!rows.length" class="px-1.5 py-2 text-xs text-muted">No tags yet. Type a name to create one.</span>

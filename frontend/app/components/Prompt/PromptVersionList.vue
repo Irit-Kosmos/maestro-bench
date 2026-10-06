@@ -46,7 +46,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
           @click="emit('create')"
         />
         <template #content>
-          <span class="flex items-center gap-1.5">New version <UKbd value="n" size="sm" /></span>
+          <span class="flex items-center gap-1.5">New version <BaseKbd value="n" /></span>
         </template>
       </UTooltip>
     </header>

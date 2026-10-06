@@ -49,7 +49,7 @@ const shortcuts = [
             >
               <span class="text-sm text-default">{{ shortcut.label }}</span>
               <div class="flex items-center gap-1">
-                <UKbd v-for="key in shortcut.keys" :key="key" :value="key" size="sm" />
+                <BaseKbd v-for="key in shortcut.keys" :key="key" :value="key" />
               </div>
             </div>
           </div>

@@ -247,7 +247,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             @keydown.esc.prevent="onSearchEscape"
           >
             <template v-if="!query" #trailing>
-              <UKbd value="/" size="sm" />
+              <BaseKbd value="/" />
             </template>
           </UInput>
 
@@ -330,11 +330,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
       </div>
 
       <p class="hidden sm:block text-xs text-muted">
-        <UKbd value="↑" size="sm" /> <UKbd value="↓" size="sm" /> move ·
-        <UKbd value="enter" size="sm" /> edit ·
-        <UKbd value="space" size="sm" /> open row ·
-        <UKbd value="x" size="sm" /> select ·
-        <UKbd value="⌘" size="sm" /> <UKbd value="S" size="sm" /> save
+        <BaseKbd value="↑" /> <BaseKbd value="↓" /> move ·
+        <BaseKbd value="enter" /> edit ·
+        <BaseKbd value="space" /> open row ·
+        <BaseKbd value="x" /> select ·
+        <BaseKbd value="⌘" /> <BaseKbd value="S" /> save
       </p>
     </div>
 

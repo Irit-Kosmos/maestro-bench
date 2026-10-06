@@ -80,11 +80,11 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
       <div class="flex items-center gap-2">
         <UButton type="button" color="neutral" variant="ghost" size="sm" :disabled="saving" @click="emit('cancel')">
           Cancel
-          <UKbd value="esc" size="sm" />
+          <BaseKbd value="esc" />
         </UButton>
         <UButton type="submit" color="neutral" variant="soft" size="sm" :loading="saving" :disabled="!valid">
           {{ mode === 'create' ? 'Create' : 'Save' }}
-          <UKbd value="meta" size="sm" /><UKbd value="enter" size="sm" />
+          <BaseKbd value="meta" /><BaseKbd value="enter" />
         </UButton>
       </div>
     </header>

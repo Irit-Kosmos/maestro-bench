@@ -95,13 +95,13 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
               Changes
             </button>
             <template #content>
-              <span class="flex items-center gap-1.5">Compare with another version <UKbd value="d" size="sm" /></span>
+              <span class="flex items-center gap-1.5">Compare with another version <BaseKbd value="d" /></span>
             </template>
           </UTooltip>
         </div>
         <UIGuardedButton color="neutral" variant="soft" size="sm" icon="i-ph-pencil-simple-bold" @click="emit('edit')">
           Edit
-          <UKbd v-if="canEdit" value="e" size="sm" />
+          <BaseKbd v-if="canEdit" value="e" />
         </UIGuardedButton>
         <UDropdownMenu v-if="canEdit" :items="menuItems" :content="{ align: 'end' }">
           <UButton

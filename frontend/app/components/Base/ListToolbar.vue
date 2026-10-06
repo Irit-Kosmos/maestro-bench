@@ -60,7 +60,7 @@ const countLabel = computed(() => {
       @keydown.esc="search = ''"
     >
       <template v-if="!search" #trailing>
-        <UKbd value="/" size="sm" />
+        <BaseKbd value="/" />
       </template>
     </UInput>
     <h3 v-else-if="title" class="px-2 text-sm font-medium text-highlighted">
