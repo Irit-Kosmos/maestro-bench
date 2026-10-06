@@ -178,7 +178,7 @@ def _numeric(config: AnalysisConfig, extraction: Extraction):
     def statistics(indices: np.ndarray) -> Statistics:
         p, t = pred[indices], truth[indices]
         if len(indices) == 0:
-            return {key: (None, "No usable rows") for key in config.metrics}
+            return dict.fromkeys(config.metrics, (None, "No usable rows"))
         return {key: _evaluate(METRICS[key].fn, p, t) for key in config.metrics}
 
     points = [
@@ -206,7 +206,7 @@ def _categorical(config: AnalysisConfig, extraction: Extraction):
 
     def statistics(indices: np.ndarray) -> Statistics:
         if len(indices) == 0:
-            return {key: (None, "No usable rows") for key in config.metrics}
+            return dict.fromkeys(config.metrics, (None, "No usable rows"))
         cm = confusion_matrix(indices)
         return {key: _evaluate(METRICS[key].fn, cm, labels) for key in config.metrics}
 

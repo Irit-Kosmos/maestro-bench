@@ -83,7 +83,11 @@ def list_paths(value: Any, prefix: str = "") -> list[str]:
         for key, child in value.items():
             paths += list_paths(child, f"{prefix}.{key}" if prefix else str(key))
         return paths
-    if isinstance(value, list) and value and prefix:
-        if not any(isinstance(item, dict | list) for item in value):
-            return [prefix]
+    if (
+        isinstance(value, list)
+        and value
+        and prefix
+        and not any(isinstance(item, dict | list) for item in value)
+    ):
+        return [prefix]
     return []

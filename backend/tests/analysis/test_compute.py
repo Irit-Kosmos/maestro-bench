@@ -81,7 +81,8 @@ def test_undefined_metric_is_reported_not_zero():
 
 
 def test_coverage_and_exclusions():
-    rows = scored_rows(PAIRS) + [
+    rows = [
+        *scored_rows(PAIRS),
         make_row(9, truth=3, output={"other": 1}),
         make_row(10, truth=None, output={"score": 1}),
     ]

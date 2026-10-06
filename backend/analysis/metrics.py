@@ -22,7 +22,7 @@ import numpy as np
 MetricKind = Literal["numeric", "categorical"]
 
 
-class Undefined(Exception):  # noqa: N818 - reads as `raise Undefined(...)`
+class Undefined(Exception):
     """The metric has no value for this data; the message says why."""
 
 

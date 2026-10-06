@@ -89,7 +89,7 @@ def test_runtime_errors(formula, variables, message):
 
 def test_error_names_the_output():
     outputs = [{"name": "score", "formula": "1"}, {"name": "ratio", "formula": "1 / 0"}]
-    with pytest.raises(FormulaError, match="^ratio: "):
+    with pytest.raises(FormulaError, match=r"^ratio: "):
         evaluate_outputs(outputs, {})
 
 

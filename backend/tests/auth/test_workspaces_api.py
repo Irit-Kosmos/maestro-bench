@@ -379,7 +379,7 @@ def test_tags_cannot_be_put_on_another_workspaces_items(alice, two_workspaces):
 def test_an_analysis_cannot_compare_another_workspaces_executions(
     engine, alice, two_workspaces
 ):
-    first, second = two_workspaces
+    _, second = two_workspaces
     config = {"truth_column": "s", "value_type": "numeric", "metrics": ["rmse"]}
 
     response = alice.post(
