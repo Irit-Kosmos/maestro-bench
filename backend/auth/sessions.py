@@ -15,8 +15,8 @@ SLIDE_AFTER = timedelta(minutes=5)
 
 
 def utcnow() -> datetime:
-    """Naive UTC, like the datetimes read back from the database."""
-    return datetime.now(UTC).replace(tzinfo=None)
+    """Now, as the aware UTC datetime the database hands back."""
+    return datetime.now(UTC)
 
 
 def hash_token(token: str) -> str:

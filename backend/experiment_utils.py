@@ -56,7 +56,7 @@ def apply_dataset_sampling(
 
     if sampling_type == "all" or sampling_type is None:
         return df
-    elif sampling_type == "random":
+    if sampling_type == "random":
         sampling_size = sampling_config.get("sampling_size")
         if sampling_size and sampling_size > 0:
             sample_size = min(sampling_size, len(df))
@@ -64,7 +64,7 @@ def apply_dataset_sampling(
                 n=sample_size, random_state=sampling_config.get("sampling_seed")
             )
         return df
-    elif sampling_type == "range":
+    if sampling_type == "range":
         start_row = sampling_config.get("sampling_start_row")
         end_row = sampling_config.get("sampling_end_row")
         if start_row and end_row:
@@ -72,8 +72,7 @@ def apply_dataset_sampling(
             end_idx = min(len(df), end_row)
             return df.iloc[start_idx:end_idx]
         return df
-    else:
-        return df
+    return df
 
 
 def add_experiment(
@@ -306,9 +305,7 @@ def aggregator_problems(
                     f'variable "{variable}" reads {all_agents[agent_id]}, '
                     "which does not run before the aggregator"
                 )
-        elif source == "dataset" and mapping.get("sourceColumn"):
-            continue
-        elif source == "static" and str(mapping.get("staticValue") or "").strip():
+        elif (source == "dataset" and mapping.get("sourceColumn")) or (source == "static" and str(mapping.get("staticValue") or "").strip()):
             continue
         elif source in ("dataset", "static"):
             problems.append(f'variable "{variable}" has no value')
@@ -556,8 +553,7 @@ def process_pipeline_results(
         total_cost += result.total_cost_usd
         total_latency += result.total_latency_ms
 
-    started_at = execution.started_at if execution.started_at.tzinfo is not None else execution.started_at.replace(tzinfo=UTC)
-    processing_time = (datetime.now(UTC) - started_at).total_seconds()
+    processing_time = (datetime.now(UTC) - execution.started_at).total_seconds()
 
     complete_results = {
         "execution_id": execution.id,

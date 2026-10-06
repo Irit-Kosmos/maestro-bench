@@ -76,8 +76,8 @@ export function formatRows(rows: number): string {
   return `${rows.toLocaleString('en-US')} ${rows === 1 ? 'row' : 'rows'}`
 }
 
-// The API stores UTC but serializes naive datetimes ("2026-10-01T13:58:48.414969", no "Z"),
-// which `new Date()` would read as local time. Treat offset-less strings as UTC.
+// The API serializes moments in UTC with an offset ("2026-10-01T13:58:48.414969Z"). A string
+// without one, which `new Date()` would read as local time, is taken as UTC.
 export function parseApiDate(dateString: string): Date {
   const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(dateString)
   return new Date(hasTimeZone ? dateString : `${dateString.replace(' ', 'T')}Z`)

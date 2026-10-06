@@ -25,7 +25,7 @@ from workspace_scope import scope_session
 
 
 def now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(UTC)
 
 
 @pytest.fixture

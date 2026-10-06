@@ -5,10 +5,13 @@ Request and response models for experiments API
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
 from schemas.experiment_executions import LatestExecutionFigures
+
+SamplingType = Literal["all", "random", "range"]
 
 
 class DatasetResponse(BaseModel):
@@ -45,7 +48,7 @@ class ExperimentCreate(BaseModel):
     agent_configurations: dict | None = {}
 
     # Dataset sampling configuration
-    sampling_type: str | None = None  # 'all', 'random', 'range'
+    sampling_type: SamplingType | None = None
     sampling_size: int | None = None
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
@@ -82,3 +85,15 @@ class ExperimentResponse(LatestExecutionFigures):
 
 # Forward reference resolution
 ExperimentResponse.model_rebuild()
+
+
+class ExperimentCancelResponse(BaseModel):
+    experiment_id: int
+    # False when nothing was running or waiting for this experiment
+    cancelled: bool
+
+
+class ExperimentRerunResponse(BaseModel):
+    experiment_id: int
+    message: str
+    status: Literal["started", "queued"]

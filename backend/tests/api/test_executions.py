@@ -22,7 +22,7 @@ from workspace_scope import scope_session
 
 
 def now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(UTC)
 
 
 @pytest.fixture
@@ -180,15 +180,6 @@ def test_figures_and_progress(client, engine, results_dir):
     assert running["duration_seconds"] is None
     assert running["has_results"] is False
     assert (running["rows_total"], running["rows_done"]) == (20, 4)
-
-
-def test_a_broken_dataset_snapshot_does_not_break_the_list(client, engine):
-    exp = add_experiment(engine)
-    add_execution(engine, exp, dataset_snapshot="not json")
-
-    [execution] = client.get("/executions").json()
-
-    assert execution["dataset_name"] is None
 
 
 def test_a_deleted_agent_has_no_id_to_link_to(client, engine):

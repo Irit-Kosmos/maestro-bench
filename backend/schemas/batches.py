@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from schemas.experiment_executions import LatestExecutionFigures
+from schemas.experiments import SamplingType
 
 VariableField = Literal["model_id", "prompt_version_id", "temperature"]
 
@@ -30,7 +31,7 @@ class BatchBaseConfig(BaseModel):
     agent_teams: list[str] = []
     agent_configurations: dict = {}
 
-    sampling_type: str | None = None  # 'all', 'random', 'range'
+    sampling_type: SamplingType | None = None
     sampling_size: int | None = None
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
