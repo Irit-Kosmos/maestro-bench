@@ -11,12 +11,12 @@ const props = defineProps<{
   selectedRow?: number | null
 }>()
 
-const { chartWidth } = usePrinting()
-
 const emit = defineEmits<{
   /** Every row sitting on the clicked point: scores are often discrete, so several rows share one spot */
   select: [rows: number[]]
 }>()
+
+const { chartWidth } = usePrinting()
 
 interface Point {
   truth: number
