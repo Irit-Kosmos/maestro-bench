@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
@@ -38,6 +38,18 @@ class PromptUpdate(BaseModel):
     description: str | None = None
     # Left out: the tags stay as they are. Sent: they become exactly these.
     tag_ids: list[int] | None = None
+
+
+class PromptRenderRequest(BaseModel):
+    system_prompt: str | None = None
+    user_prompt: str | None = None
+    # Value of each variable, as the agent would receive it
+    variables: dict[str, Any] = {}
+
+
+class PromptRenderResponse(BaseModel):
+    system: str
+    user: str
 
 
 class PromptVersionCreate(BaseModel):

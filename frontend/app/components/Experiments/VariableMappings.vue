@@ -24,6 +24,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   setMapping: [mapping: AgentInputMapping]
+  /** The variable under the pointer or focus, or null once it leaves */
+  highlight: [variable: string | null]
 }>()
 
 const ids = useId()
@@ -103,6 +105,10 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
         v-for="row in rows"
         :key="row.variable"
         class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
+        @mouseenter="emit('highlight', row.variable)"
+        @mouseleave="emit('highlight', null)"
+        @focusin="emit('highlight', row.variable)"
+        @focusout="emit('highlight', null)"
       >
         <code class="w-fit max-w-full truncate rounded bg-elevated px-1.5 py-0.5 font-mono text-xs text-highlighted" :title="row.variable">{{ row.variable }}</code>
         <UIcon name="i-ph-arrow-right-bold" class="hidden size-3.5 shrink-0 text-dimmed @xl:block" aria-hidden="true" />

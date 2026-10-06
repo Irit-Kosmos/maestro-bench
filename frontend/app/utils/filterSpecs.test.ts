@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFilterDefinitions, matchesSpecs } from './filters'
 import { dateFilter, dateRanges, failuresFilter, filterByTag, runsFilter, statusFilter, tagsFilter } from './filterSpecs'
 
@@ -29,6 +29,14 @@ describe('dateRanges', () => {
 })
 
 describe('dateFilter', () => {
+  // dateFilter reads the clock itself: pin it to NOW, which the items are built from
+  beforeEach(() => {
+    vi.useFakeTimers({ now: NOW })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('offers the windows that exist, narrowest first, with older last', () => {
     const items = [{ at: ago(120 * DAY) }, { at: ago(3 * DAY) }]
     const [definition] = buildFilterDefinitions(items, [dateFilter<{ at: string }>(item => item.at)])

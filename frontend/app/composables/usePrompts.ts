@@ -126,7 +126,20 @@ export function usePrompts() {
     }
   }
 
+  // The prompts as an agent would receive them with these values (nothing is saved or sent to a model)
+  async function renderPrompts(body: { system_prompt: string | null, user_prompt: string | null, variables: Record<string, unknown> }) {
+    try {
+      const data = await $api<{ system: string, user: string }>('/prompts/render', { method: 'POST', body })
+      return { success: true as const, data }
+    }
+    catch (error) {
+      const detail = (error as { data?: { detail?: unknown } })?.data?.detail
+      return { success: false as const, error: typeof detail === 'string' ? detail : 'Failed to render the prompt' }
+    }
+  }
+
   return {
+    renderPrompts,
     createPrompt,
     updatePrompt,
     deletePrompt,

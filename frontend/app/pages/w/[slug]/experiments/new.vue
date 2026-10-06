@@ -98,6 +98,9 @@ const datasetHeaders = computed(() => {
   return datasetPreview.value?.headers || []
 })
 
+// The agents preview their prompts with the first rows of the dataset
+provide(DATASET_SAMPLE, computed(() => datasetPreview.value?.sample_data ?? []))
+
 // Watch for dataset changes to load preview
 watch(selectedDataset, async (newDatasetId) => {
   if (newDatasetId) {

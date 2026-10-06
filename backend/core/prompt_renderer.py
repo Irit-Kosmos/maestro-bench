@@ -15,6 +15,7 @@ from jinja2 import (
     Undefined,
     UndefinedError,
 )
+from jinja2.sandbox import ImmutableSandboxedEnvironment
 
 
 class _LenientUndefined(Undefined):
@@ -37,8 +38,17 @@ _jinja_env = Environment(
     keep_trailing_newline=True,
 )
 
+# Same rendering, for templates that arrive from a request and are not run for real:
+# attribute access that could reach the interpreter is refused
+_sandboxed_env = ImmutableSandboxedEnvironment(
+    loader=BaseLoader(),
+    undefined=_LenientUndefined,
+    autoescape=False,
+    keep_trailing_newline=True,
+)
 
-def render_prompt(template: str, variables: dict) -> str:
+
+def render_prompt(template: str, variables: dict, *, sandboxed: bool = False) -> str:
     """
     Render a prompt template with the given variables.
 
@@ -49,6 +59,7 @@ def render_prompt(template: str, variables: dict) -> str:
     Args:
         template: The prompt template string
         variables: Dict of variable name → value
+        sandboxed: Render in Jinja's sandbox, which raises ``SecurityError`` on unsafe access
 
     Returns:
         The rendered prompt string
@@ -60,7 +71,7 @@ def render_prompt(template: str, variables: dict) -> str:
     converted = _convert_legacy_placeholders(template, variables)
 
     try:
-        tpl = _jinja_env.from_string(converted)
+        tpl = (_sandboxed_env if sandboxed else _jinja_env).from_string(converted)
         return tpl.render(**variables)
     except (TemplateSyntaxError, UndefinedError):
         # Fallback: do simple string replacement if Jinja2 fails
