@@ -35,6 +35,9 @@ const {
 
 const isSubmitting = ref(false)
 
+// Studies the new experiment (or batch) is put in once it starts
+const studyIds = ref<number[]>([])
+
 // --- Starting from an existing experiment: ?from=<id> copies its setup ---
 
 const route = useRoute()
@@ -252,10 +255,10 @@ async function submit() {
         config,
         variations: variations.value,
         skip_base_point: skipBase.value,
-      }, experimentCount.value)
+      }, experimentCount.value, studyIds.value)
     }
     else {
-      await submission.handleSubmit(experimentData)
+      await submission.handleSubmit(experimentData, studyIds.value)
     }
   }
   finally {
@@ -311,6 +314,7 @@ defineShortcuts({
               @update:name="(value) => experimentDetails.name = value"
               @update:description="(value) => experimentDetails.description = value"
             />
+            <StudiesLaunchField v-model="studyIds" class="mt-4" />
           </ExperimentsSection>
 
           <ExperimentsSection
