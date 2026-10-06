@@ -83,7 +83,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
               class="ms-auto"
             />
           </span>
-          <span class="text-xs text-dimmed tabular-nums" :title="formatDate(version.created_at)">
+          <span class="text-xs text-dimmed" :title="formatDate(version.created_at)">
             {{ formatRelativeDate(version.created_at) }}
           </span>
         </button>

@@ -128,7 +128,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
                 <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
                   {{ batch.counts.completed ?? 0 }} / {{ batch.experiments.length }} done
                 </span>
-                <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(batch.created_at)">
+                <span class="w-14 shrink-0 text-right text-xs text-muted" :title="formatDate(batch.created_at)">
                   {{ formatRelativeDate(batch.created_at) }}
                 </span>
               </DashboardListRow>
@@ -149,7 +149,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
                 <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
                   {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
                 </span>
-                <span class="w-14 shrink-0 text-right text-xs text-muted tabular-nums" :title="formatDate(analysis.updated_at)">
+                <span class="w-14 shrink-0 text-right text-xs text-muted" :title="formatDate(analysis.updated_at)">
                   {{ formatRelativeDate(analysis.updated_at) }}
                 </span>
               </DashboardListRow>

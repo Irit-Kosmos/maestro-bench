@@ -44,7 +44,7 @@ defineShortcuts({
         <div class="flex flex-col gap-2">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <UIStatusBadge :status="execution.status" />
-            <span class="text-xs text-muted tabular-nums" :title="formatDate(execution.started_at)">
+            <span class="text-xs text-muted" :title="formatDate(execution.started_at)">
               Started {{ formatRelativeDate(execution.started_at) }}
             </span>
           </div>

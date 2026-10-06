@@ -163,7 +163,7 @@ async function confirmDelete() {
         </template>
 
         <template #updated_at-cell="{ row }">
-          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.updated_at)">
+          <span class="text-sm text-muted" :title="formatDate(row.original.updated_at)">
             {{ formatRelativeDate(row.original.updated_at) }}
           </span>
         </template>

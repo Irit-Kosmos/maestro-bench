@@ -193,10 +193,10 @@ async function handleDelete() {
           <UIStatusHistory :earlier="batch.earlier_execution_statuses" />
         </h1>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-          <UIMetaItem icon="i-ph-hash-bold" label="Batch" class="tabular-nums">
+          <UIMetaItem icon="i-ph-hash-bold" label="Batch">
             {{ batch.id }}
           </UIMetaItem>
-          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created" class="tabular-nums">
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(batch.created_at) }}
           </UIMetaItem>
           <UIMetaItem v-if="batch.dataset_name" icon="i-ph-database-bold" label="Dataset">

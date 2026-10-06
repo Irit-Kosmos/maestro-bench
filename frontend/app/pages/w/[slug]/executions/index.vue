@@ -384,7 +384,7 @@ const actions = [
         </template>
 
         <template #started_at-cell="{ row }">
-          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.started_at)">
+          <span class="text-sm text-muted" :title="formatDate(row.original.started_at)">
             {{ formatRelativeDate(row.original.started_at) }}
           </span>
         </template>
