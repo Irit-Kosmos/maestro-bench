@@ -6,6 +6,8 @@ const shortcutsOpen = useShortcutsOverlay()
 const { toggle: toggleTheme } = useTheme()
 const { archived, canEdit } = useCurrentWorkspace()
 
+usePrintLight()
+
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
 })
@@ -66,10 +68,22 @@ defineShortcuts({
 
 <template>
   <!-- px + local storage: the sidebar keeps the width you dragged it to -->
-  <UDashboardGroup unit="px" storage="local" storage-key="maestro">
+  <!-- print: the shell is a fixed, clipped viewport; on paper it flows, so long pages span several sheets -->
+  <UDashboardGroup
+    unit="px"
+    storage="local"
+    storage-key="maestro"
+    :ui="{ base: 'print:static print:block print:overflow-visible' }"
+  >
     <AppSidebar />
 
-    <UDashboardPanel id="main" :ui="{ body: 'p-4 sm:px-8 sm:py-6' }">
+    <UDashboardPanel
+      id="main"
+      :ui="{
+        root: 'print:min-h-0 print:block',
+        body: 'p-4 sm:px-8 sm:py-6 print:block print:overflow-visible print:p-1',
+      }"
+    >
       <template #header>
         <AppTopBar />
       </template>

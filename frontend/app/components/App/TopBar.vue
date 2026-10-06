@@ -42,7 +42,7 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <UDashboardNavbar :ui="{ root: 'sm:px-4 gap-3', left: 'min-w-0' }">
+  <UDashboardNavbar :ui="{ root: 'sm:px-4 gap-3 print:hidden', left: 'min-w-0' }">
     <template #left>
       <UBreadcrumb
         :items="breadcrumbs"
