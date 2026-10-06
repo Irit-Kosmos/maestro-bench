@@ -30,11 +30,12 @@ backend:
   services:
     - name: $POSTGRES_IMAGE
       alias: postgres
+      command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
   variables:
     POSTGRES_USER: maestro
     POSTGRES_PASSWORD: maestro
     POSTGRES_DB: maestro
-    # The tests create and use maestro_test on this server (see backend/tests/conftest.py)
+    # The tests create and use maestro_test_<worker> on this server (see backend/tests/conftest.py)
     DATABASE_URL: postgresql+psycopg://maestro:maestro@postgres:5432/maestro
     UV_CACHE_DIR: $CI_PROJECT_DIR/.cache/uv
     UV_LINK_MODE: copy
@@ -52,7 +53,8 @@ backend:
     # The migrations must build the schema from scratch and cover every table change
     - uv run --frozen alembic upgrade head
     - uv run --frozen alembic check
-    - uv run --frozen pytest -q --junitxml=report.xml
+    # One database per worker; capped so that a big runner does not open dozens
+    - uv run --frozen pytest -q -n auto --maxprocesses=4 --junitxml=report.xml
   artifacts:
     when: always
     reports:

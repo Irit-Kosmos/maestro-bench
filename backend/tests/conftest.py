@@ -35,9 +35,15 @@ def scoped(engine, workspace_id: int = TEST_WORKSPACE_ID):
 def _test_database_url() -> URL:
     explicit = os.getenv("TEST_DATABASE_URL")
     if explicit:
-        return make_url(explicit)
-    main = make_url(DATABASE_URL)
-    return main.set(database=f"{main.database}_test")
+        url = make_url(explicit)
+    else:
+        main = make_url(DATABASE_URL)
+        url = main.set(database=f"{main.database}_test")
+    # Under pytest-xdist every worker gets a database of its own (gw0, gw1, ...)
+    worker = os.getenv("PYTEST_XDIST_WORKER")
+    if worker:
+        url = url.set(database=f"{url.database}_{worker}")
+    return url
 
 
 def _create_database_if_missing(url: URL) -> None:
