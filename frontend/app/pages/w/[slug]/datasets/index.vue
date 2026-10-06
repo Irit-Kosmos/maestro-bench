@@ -6,11 +6,10 @@ import { dateFilter } from '~/utils/filterSpecs'
 // Page meta
 definePageMeta({
   title: 'Datasets',
-  subtitle: 'Manage your datasets and data sources',
 })
 
 // Fetch data directly in the page
-const { data: datasets, pending, refresh } = await useMyLazyFetch<Dataset[]>('/datasets')
+const { data: datasets, pending, error, refresh } = await useMyLazyFetch<Dataset[]>('/datasets')
 
 // Composables
 const { createDataset, deleteDataset } = useDatasets()
@@ -129,11 +128,16 @@ function handleRefresh() {
 function handleCreateClick() {
   showCreateModal.value = true
 }
+
+useCreateFromQuery(handleCreateClick)
 </script>
 
 <template>
   <BasePageContent
-    :loading="pending"
+    :loading="pending && !datasets"
+    :error="!datasets && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
   >
     <template #before-content>
       <UIGuardedButton
@@ -183,15 +187,16 @@ function handleCreateClick() {
     <!-- Create Dataset Modal -->
     <DatasetsCreateDatasetModal
       v-model:open="showCreateModal"
+      :loading="isSubmitting"
       @submit="handleCreateDataset"
     />
 
     <!-- Delete Confirmation Modal -->
     <BaseConfirmDialog
       v-model:open="showDeleteModal"
-      title="Delete Dataset"
-      :message="`Are you sure you want to delete &quot;${datasetToDelete?.name}&quot;? The dataset file will be removed from disk. This action cannot be undone.`"
-      confirm-label="Delete Dataset"
+      title="Delete dataset?"
+      :message="`“${datasetToDelete?.name}” and its file are removed. This can’t be undone.`"
+      confirm-label="Delete"
       variant="error"
       :loading="isDeleting"
       @after-leave="datasetToDelete = null"

@@ -103,6 +103,9 @@ def add_experiment(
         sampling_size=exp_data.sampling_size,
         sampling_start_row=exp_data.sampling_start_row,
         sampling_end_row=exp_data.sampling_end_row,
+        sampling_seed=secrets.randbelow(2**32)
+        if exp_data.sampling_type == "random" and batch_id is None
+        else None,
         batch_id=batch_id,
         variant=variant,
     )
@@ -324,17 +327,20 @@ def create_execution_snapshot(
 
     dataset = session.get(Dataset, experiment.dataset_id)
 
-    # Drawn per execution and recorded so the sample can be reproduced and compared
-    # row by row with other runs. The experiments of a batch share the batch's seed,
-    # so that they are all compared on the same rows.
+    # The seed is kept on the experiment and recorded in each execution, so that every
+    # run takes the same rows, and can be compared row by row, until the sample is
+    # redrawn. The experiments of a batch share the batch's seed instead, so that they
+    # are all compared on the same rows.
     sampling_seed = None
     if experiment.sampling_type == "random":
         batch = session.get(Batch, experiment.batch_id) if experiment.batch_id else None
-        sampling_seed = (
-            batch.sampling_seed
-            if batch is not None and batch.sampling_seed is not None
-            else secrets.randbelow(2**32)
-        )
+        if batch is not None and batch.sampling_seed is not None:
+            sampling_seed = batch.sampling_seed
+        else:
+            if experiment.sampling_seed is None:
+                experiment.sampling_seed = secrets.randbelow(2**32)
+                session.add(experiment)
+            sampling_seed = experiment.sampling_seed
     dataset_snapshot = (
         json.dumps(
             {

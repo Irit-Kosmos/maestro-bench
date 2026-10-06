@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { Dataset, DatasetStats } from '~/types'
+import type { FetchErrorKind } from '~/utils/fetchError'
 
 // Route params
 const route = useRoute()
 const datasetId = computed(() => Number.parseInt(route.params.id as string))
 
 // Composables
-const toast = useToast()
+const { showDeleteSuccess, showDeleteError } = useStandardToast()
 const { deleteDataset, getDataset, getDatasetStats } = useDatasets()
 const { canEdit } = useCurrentWorkspace()
 
@@ -14,13 +15,15 @@ const { canEdit } = useCurrentWorkspace()
 const dataset = ref<Dataset | null>(null)
 const datasetStats = ref<DatasetStats | null>(null)
 const loading = ref(true)
+const loadError = ref<FetchErrorKind | null>(null)
 const showDeleteDialog = ref(false)
+const isDeleting = ref(false)
 
 // Computed
 const { formatDate, formatRelativeDate } = useUIHelpers()
 
 const pageTitle = computed(() => {
-  return dataset.value ? dataset.value.name : 'Loading...'
+  return dataset.value ? dataset.value.name : 'Loading…'
 })
 
 useBreadcrumbLabel(() => dataset.value?.name)
@@ -33,6 +36,7 @@ useSeoMeta({
 // Methods
 async function loadDataset() {
   loading.value = true
+  loadError.value = null
   try {
     // Fetch dataset directly by ID
     const datasetResult = await getDataset(datasetId.value)
@@ -46,23 +50,14 @@ async function loadDataset() {
       }
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Dataset not found',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
-      await navigateTo('/datasets')
+      dataset.value = null
+      loadError.value = fetchErrorKind(datasetResult.error)
     }
   }
   catch (error) {
     console.error('Error loading dataset:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to load dataset',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    dataset.value = null
+    loadError.value = 'error'
   }
   finally {
     loading.value = false
@@ -70,39 +65,26 @@ async function loadDataset() {
 }
 
 async function handleDeleteDataset() {
-  if (!dataset.value)
+  if (!dataset.value || isDeleting.value)
     return
 
+  isDeleting.value = true
   try {
     const result = await deleteDataset(dataset.value.id)
     if (result.success) {
-      toast.add({
-        title: 'Success',
-        description: 'Dataset deleted successfully',
-        color: 'success',
-        icon: 'i-ph:check-circle-bold',
-      })
+      showDeleteSuccess('Dataset')
       await navigateTo('/datasets')
     }
     else {
-      toast.add({
-        title: 'Error',
-        description: 'Failed to delete dataset',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
+      showDeleteError('Dataset')
     }
   }
   catch (error) {
     console.error('Error deleting dataset:', error)
-    toast.add({
-      title: 'Error',
-      description: 'Failed to delete dataset',
-      color: 'error',
-      icon: 'i-ph:warning-circle-bold',
-    })
+    showDeleteError('Dataset')
   }
   finally {
+    isDeleting.value = false
     showDeleteDialog.value = false
   }
 }
@@ -196,37 +178,22 @@ watch(() => route.params.id, () => {
       <!-- Error State -->
       <BaseErrorState
         v-else
-        title="Dataset not found"
-        message="It may have been deleted. Pick another one from the list."
+        :kind="loadError ?? 'not-found'"
         action-label="Back to datasets"
         action-to="/datasets"
+        @retry="loadDataset()"
       />
     </div>
 
     <!-- Delete Confirmation Dialog -->
-    <UModal
+    <BaseConfirmDialog
       v-model:open="showDeleteDialog"
       :title="`Delete “${dataset?.name}”?`"
-      description="The dataset file is removed from disk. Experiments that used it keep their results. This can’t be undone."
-    >
-      <template #footer>
-        <div class="flex w-full gap-2 justify-end">
-          <UButton
-            variant="outline"
-            color="neutral"
-            @click="() => { showDeleteDialog = false }"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            variant="solid"
-            color="error"
-            @click="handleDeleteDataset"
-          >
-            Delete dataset
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+      message="The dataset file is removed from disk. Experiments that used it keep their results. This can’t be undone."
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="handleDeleteDataset"
+    />
   </div>
 </template>

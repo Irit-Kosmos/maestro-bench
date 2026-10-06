@@ -51,11 +51,15 @@ defineShortcuts({
   },
   // Instant on purpose: a keyboard action should never wait on an animation
   't': toggleTheme,
-  // Create from anywhere: an analysis on analysis pages, an experiment otherwise
+  // Create from anywhere: what the page lists, or an experiment on the pages that list nothing creatable
   'c': () => {
     if (!canEdit.value)
       return
-    router.push(relativePath.value.startsWith('/analyses') ? '/analyses/new' : '/experiments/new')
+    const path = relativePath.value
+    if (path.startsWith('/analyses'))
+      return router.push('/analyses/new')
+    const listed = ['/datasets', '/prompts', '/agents', '/models'].find(prefix => path.startsWith(prefix))
+    router.push(listed ? `${listed}?new=1` : '/experiments/new')
   },
 })
 </script>

@@ -105,14 +105,14 @@ defineShortcuts({
           <dt class="text-muted">
             Tokens
           </dt>
-          <dd class="tabular-nums text-toned" :title="execution.total_tokens?.toLocaleString()">
+          <dd class="tabular-nums text-toned" :title="formatCount(execution.total_tokens)">
             {{ formatTokens(execution.total_tokens) }}
           </dd>
 
           <dt class="text-muted">
             Cost
           </dt>
-          <dd class="tabular-nums text-toned" :title="execution.total_cost_usd == null ? undefined : `$${execution.total_cost_usd.toFixed(4)}`">
+          <dd class="tabular-nums text-toned" :title="formatCostPrecise(execution.total_cost_usd)">
             {{ formatCost(execution.total_cost_usd) }}
           </dd>
         </dl>

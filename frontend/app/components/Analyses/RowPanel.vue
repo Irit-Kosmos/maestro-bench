@@ -6,8 +6,15 @@ import { cellText } from '~/composables/useDatasetEditor'
 // every agent returned for it, to understand why a prediction is off.
 const props = defineProps<{
   run: AnalysisRunResult | null
-  rowIndex: number | null
+  /** Rows sharing the clicked point; the panel steps through them */
+  rows: number[]
+  /** Position of the shown row among `rows` */
+  index: number
   truthColumn: string
+}>()
+
+const emit = defineEmits<{
+  navigate: [delta: number]
 }>()
 
 const open = defineModel<boolean>('open', { default: false })
@@ -18,23 +25,25 @@ const row = ref<ExecutionRow | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+const rowIndex = computed(() => props.rows[props.index] ?? null)
+
 const point = computed(() =>
-  props.run?.points?.find(p => p.row_index === props.rowIndex) ?? null,
+  props.run?.points?.find(p => p.row_index === rowIndex.value) ?? null,
 )
 
 // Latest request wins when the user clicks through points quickly
 let request = 0
 watch(
-  () => [open.value, props.run?.execution_id, props.rowIndex] as const,
-  async ([isOpen, executionId, rowIndex]) => {
-    if (!isOpen || executionId === undefined || rowIndex === null)
+  () => [open.value, props.run?.execution_id, rowIndex.value] as const,
+  async ([isOpen, executionId, selectedRow]) => {
+    if (!isOpen || executionId === undefined || selectedRow === null)
       return
     const current = ++request
     row.value = null
     error.value = null
     loading.value = true
     try {
-      const data = await fetchExecutionRow(executionId, rowIndex)
+      const data = await fetchExecutionRow(executionId, selectedRow)
       if (current === request)
         row.value = data
     }
@@ -54,6 +63,12 @@ watch(
 function inputsText(inputs: Record<string, unknown> | null | undefined): string {
   return Object.entries(inputs ?? {}).map(([k, v]) => `${k} = ${formatFormulaValue(v)}`).join(' · ')
 }
+
+// Typing in a field is left alone: these only fire outside inputs
+defineShortcuts({
+  j: () => open.value && emit('navigate', 1),
+  k: () => open.value && emit('navigate', -1),
+})
 
 function outputText(output: unknown): string {
   if (typeof output === 'string')
@@ -187,6 +202,38 @@ function outputText(output: unknown): string {
             No agent ran on this row.
           </p>
         </section>
+      </div>
+    </template>
+
+    <template v-if="rows.length > 1" #footer>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <UTooltip text="Previous row" :kbds="['k']">
+            <UButton
+              icon="i-ph-caret-up-bold"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              aria-label="Previous row"
+              :disabled="index <= 0"
+              @click="emit('navigate', -1)"
+            />
+          </UTooltip>
+          <UTooltip text="Next row" :kbds="['j']">
+            <UButton
+              icon="i-ph-caret-down-bold"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              aria-label="Next row"
+              :disabled="index >= rows.length - 1"
+              @click="emit('navigate', 1)"
+            />
+          </UTooltip>
+        </div>
+        <span class="text-sm text-muted tabular-nums">
+          {{ index + 1 }} of {{ rows.length }} rows on this point
+        </span>
       </div>
     </template>
   </USlideover>

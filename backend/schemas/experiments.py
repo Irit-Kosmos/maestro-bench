@@ -67,6 +67,8 @@ class ExperimentResponse(LatestExecutionFigures):
     sampling_size: int | None = None
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
+    # Seed of the random sample: runs with the same seed take the same rows
+    sampling_seed: int | None = None
 
     # Dataset rows processed by the latest execution that has results
     row_count: int | None = None

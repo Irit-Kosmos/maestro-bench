@@ -16,6 +16,7 @@ from schemas.dashboard import (
     DashboardActivity,
     DashboardBucket,
     DashboardExperiment,
+    DashboardModel,
     DashboardResponse,
     DashboardTotals,
 )
@@ -65,27 +66,32 @@ class _Window:
     growth_cutoff: datetime | None = None
 
 
-def _distinct(names: list[str]) -> list[str]:
-    """Names without repeats, in the order they first appear."""
-    return list(dict.fromkeys(names))
+def _distinct(models: list[DashboardModel]) -> list[DashboardModel]:
+    """Models without repeats, in the order they first appear."""
+    return list({(m.name, m.provider): m for m in models}.values())
 
 
 def _models(
     experiment: Experiment, execution: ExperimentExecution | None, session: Session
-) -> list[str]:
+) -> list[DashboardModel]:
     """Models the pipeline ran with, or will run with while nothing has executed yet."""
     if execution:
         snapshots = session.exec(
-            select(AgentExecutionSnapshot.model_name_snapshot)
+            select(
+                AgentExecutionSnapshot.model_name_snapshot,
+                AgentExecutionSnapshot.model_provider_snapshot,
+            )
             .where(AgentExecutionSnapshot.execution_id == execution.id)
             .order_by(col(AgentExecutionSnapshot.execution_order))
         ).all()
         if snapshots:
             # Aggregators have no model
-            return _distinct([name for name in snapshots if name])
+            return _distinct(
+                [DashboardModel(name=n, provider=p) for n, p in snapshots if n]
+            )
 
     configured = session.exec(
-        select(Model.name)
+        select(Model.name, Model.provider)
         .join(
             ExperimentAgentConfig, col(ExperimentAgentConfig.model_id) == col(Model.id)
         )
@@ -95,7 +101,7 @@ def _models(
         )
         .order_by(col(ExperimentAgentConfig.execution_order))
     ).all()
-    return _distinct(list(configured))
+    return _distinct([DashboardModel(name=n, provider=p) for n, p in configured])
 
 
 def _recent_experiment(experiment: Experiment, session: Session) -> DashboardExperiment:

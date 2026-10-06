@@ -4,9 +4,9 @@ import type { Batch, Model } from '~/types'
 const route = useRoute()
 const batchId = computed(() => Number.parseInt(route.params.id as string))
 
-const toast = useToast()
+const { ok, fail } = useStandardToast()
 const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
-const { formatDate, formatDuration } = useUIHelpers()
+const { formatDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
@@ -77,17 +77,19 @@ const analyzeLink = computed(() => completedExecutionIds.value.length > 0
 
 // --- Actions ---
 
+const showCancelDialog = ref(false)
 const isCancelling = ref(false)
 async function handleCancel() {
+  showCancelDialog.value = false
   isCancelling.value = true
   const result = await cancelBatch(batchId.value)
   isCancelling.value = false
   if (result.success) {
-    toast.add({ title: 'Batch cancelled', description: `${result.data.cancelled} running experiments stopped.`, color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Batch cancelled', { description: `${result.data.cancelled} running experiments stopped.` })
     await refresh()
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to cancel the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t cancel the batch')
   }
 }
 
@@ -101,11 +103,11 @@ async function handleRerun() {
     const description = skipped
       ? `${started} experiments started, ${skipped} already running.`
       : `${started} experiments started. A new execution was created for each.`
-    toast.add({ title: 'Batch re-run started', description, color: 'success', icon: 'i-ph:play-bold' })
+    ok('Batch re-run started', { description })
     await refresh()
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to re-run the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t re-run the batch')
   }
 }
 
@@ -117,23 +119,25 @@ async function handleDelete() {
   isDeleting.value = false
   showDeleteDialog.value = false
   if (result.success) {
-    toast.add({ title: 'Batch deleted', description: 'Its experiments were kept.', color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Batch deleted', { description: 'Its experiments were kept.' })
     await navigateTo('/batches')
   }
   else {
-    toast.add({ title: 'Error', description: 'Failed to delete the batch', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t delete the batch')
   }
-}
-
-function formatCost(cost: number | null) {
-  return cost === null ? '—' : `$${cost.toFixed(4)}`
 }
 </script>
 
 <template>
   <div class="pb-6">
     <BaseLoadingState v-if="pending && !batch" />
-    <BaseErrorState v-else-if="error && !batch" message="This batch could not be loaded." />
+    <BaseErrorState
+      v-else-if="error && !batch"
+      :kind="fetchErrorKind(error)"
+      action-to="/batches"
+      action-label="Back to batches"
+      @retry="refresh()"
+    />
 
     <div v-else-if="batch" class="mx-auto flex max-w-6xl flex-col gap-8">
       <AppPageActions>
@@ -144,7 +148,7 @@ function formatCost(cost: number | null) {
           icon="i-ph-stop-circle-bold"
           size="sm"
           :loading="isCancelling"
-          @click="handleCancel"
+          @click="() => { showCancelDialog = true }"
         >
           Cancel all
         </UIGuardedButton>
@@ -173,15 +177,13 @@ function formatCost(cost: number | null) {
             Analyze
           </UIGuardedButton>
         </UTooltip>
-        <UIGuardedButton
-          variant="soft"
-          color="error"
-          icon="i-ph-trash-bold"
-          size="sm"
-          @click="() => { showDeleteDialog = true }"
+        <UDropdownMenu
+          v-if="canEdit"
+          :items="[{ label: 'Delete batch', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+          :content="{ align: 'end' }"
         >
-          Delete
-        </UIGuardedButton>
+          <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
+        </UDropdownMenu>
       </AppPageActions>
 
       <div>
@@ -316,13 +318,13 @@ function formatCost(cost: number | null) {
                   {{ experiment.execution_count || '—' }}
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-toned">
-                  {{ experiment.total_tokens?.toLocaleString() ?? '—' }}
+                  <span :title="formatCount(experiment.total_tokens)">{{ formatTokens(experiment.total_tokens) }}</span>
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-toned">
-                  {{ formatCost(experiment.total_cost_usd) }}
+                  <span :title="formatCostPrecise(experiment.total_cost_usd)">{{ formatCost(experiment.total_cost_usd) }}</span>
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-toned">
-                  {{ experiment.duration_seconds === null ? '—' : formatDuration(experiment.duration_seconds) }}
+                  {{ formatElapsed(experiment.duration_seconds) }}
                 </td>
               </tr>
             </tbody>
@@ -331,22 +333,24 @@ function formatCost(cost: number | null) {
       </ExperimentsSection>
     </div>
 
-    <UModal v-model:open="showDeleteDialog" title="Delete batch?">
-      <template #body>
-        <p class="text-sm text-toned text-pretty">
-          Only the grouping is removed. Its {{ batch?.experiments.length }} experiments, executions and results are kept as ordinary experiments.
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton variant="outline" color="neutral" @click="() => { showDeleteDialog = false }">
-            Cancel
-          </UButton>
-          <UButton variant="solid" color="error" :loading="isDeleting" @click="handleDelete">
-            Delete batch
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showCancelDialog"
+      title="Stop the whole batch?"
+      message="Every experiment still running or waiting stops now. You can re-run the batch later."
+      confirm-label="Stop all"
+      variant="warning"
+      :loading="isCancelling"
+      @confirm="handleCancel"
+    />
+
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      title="Delete batch?"
+      :message="`Only the grouping is removed. Its ${batch?.experiments.length} experiments, executions and results are kept as ordinary experiments.`"
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="handleDelete"
+    />
   </div>
 </template>

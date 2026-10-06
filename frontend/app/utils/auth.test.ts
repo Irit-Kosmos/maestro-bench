@@ -18,6 +18,7 @@ describe('loginErrorMessage', () => {
   it('explains the errors the backend reports', () => {
     expect(loginErrorMessage('not_allowed')).toContain('isn’t allowed')
     expect(loginErrorMessage('inactive')).toContain('deactivated')
+    expect(loginErrorMessage('session_expired')).toContain('expired')
   })
 
   it('has a generic message for an unknown code', () => {

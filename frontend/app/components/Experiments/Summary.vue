@@ -16,8 +16,11 @@ withDefaults(defineProps<{
   submitting: boolean
   /** What the button says: "Create and start" for one experiment, more for a batch */
   submitLabel?: string
+  /** Things that will go wrong at run time but do not stop the form from being valid */
+  warnings?: string[]
 }>(), {
   submitLabel: 'Create and start',
+  warnings: () => [],
 })
 
 const emit = defineEmits<{
@@ -56,6 +59,13 @@ const emit = defineEmits<{
             >{{ row.value }}</span>
           </span>
         </button>
+      </li>
+    </ul>
+
+    <ul v-if="warnings.length" class="flex flex-col gap-1.5 px-4 pt-3 text-xs text-warning">
+      <li v-for="warning in warnings" :key="warning" class="flex items-start gap-1.5">
+        <UIcon name="i-ph-warning-bold" class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        <span class="text-pretty">{{ warning }}</span>
       </li>
     </ul>
 

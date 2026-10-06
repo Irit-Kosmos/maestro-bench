@@ -9,14 +9,14 @@ const shortcuts = [
     { keys: ['G', 'B'], label: 'Go to Batches' },
     { keys: ['G', 'N'], label: 'Go to Analyses' },
     { keys: ['G', 'D'], label: 'Go to Datasets' },
-    { keys: ['G', 'A'], label: 'Go to Agents' },
     { keys: ['G', 'P'], label: 'Go to Prompts' },
     { keys: ['G', 'M'], label: 'Go to Models' },
+    { keys: ['G', 'A'], label: 'Go to Agents' },
     { keys: ['G', 'S'], label: 'Go to Settings' },
   ] },
   { section: 'Actions', items: [
     { keys: ['meta', 'K'], label: 'Open command palette' },
-    { keys: ['C'], label: 'New experiment (new analysis on Analyses)' },
+    { keys: ['C'], label: 'New item on this page (an experiment elsewhere)' },
     { keys: ['['], label: 'Collapse or expand the sidebar' },
     { keys: ['T'], label: 'Switch between light and dark' },
     { keys: ['?'], label: 'Show keyboard shortcuts' },
@@ -34,7 +34,7 @@ const shortcuts = [
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Keyboard Shortcuts" :ui="{ content: 'sm:max-w-lg' }">
+  <UModal v-model:open="open" title="Keyboard shortcuts" :ui="{ content: 'sm:max-w-lg' }">
     <template #body>
       <div class="space-y-6">
         <div v-for="group in shortcuts" :key="group.section">

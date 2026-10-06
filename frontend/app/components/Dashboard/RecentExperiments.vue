@@ -79,15 +79,9 @@ const head = 'text-xs text-dimmed truncate'
             </template>
           </ExperimentsName>
 
-          <span
-            class="truncate text-xs text-toned" :class="[show.models]"
-            :title="exp.models.join(', ')"
-          >
-            <template v-if="exp.models.length">
-              {{ exp.models[0] }}<span v-if="exp.models.length > 1" class="text-dimmed tabular-nums"> +{{ exp.models.length - 1 }}</span>
-            </template>
-            <template v-else>—</template>
-          </span>
+          <div class="min-w-0 text-xs text-toned" :class="[show.models]">
+            <ModelsStack :models="exp.models" />
+          </div>
 
           <span class="truncate text-xs text-muted" :class="[show.dataset]" :title="exp.dataset_name ?? undefined">
             {{ exp.dataset_name ?? '—' }}

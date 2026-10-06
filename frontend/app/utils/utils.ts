@@ -92,6 +92,16 @@ export function formatCost(usd: number | null | undefined): string {
   return `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+// "$0.0123": the exact cost, for the tooltip next to a rounded `formatCost`
+export function formatCostPrecise(usd: number | null | undefined): string | undefined {
+  return usd === null || usd === undefined ? undefined : `$${usd.toFixed(4)}`
+}
+
+// "12,345": the exact count, for the tooltip next to a compact `formatTokens`
+export function formatCount(count: number | null | undefined): string | undefined {
+  return count === null || count === undefined ? undefined : count.toLocaleString('en-US')
+}
+
 // "842", "12.4k", "3.1M"
 export function formatTokens(tokens: number | null | undefined): string {
   if (tokens === null || tokens === undefined)

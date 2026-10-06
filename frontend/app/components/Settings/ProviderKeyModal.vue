@@ -11,7 +11,7 @@ const emit = defineEmits<{ saved: [provider: ProviderStatus] }>()
 const open = defineModel<boolean>('open', { default: false })
 
 const { keys } = useWorkspaceAdmin()
-const toast = useToast()
+const { ok } = useStandardToast()
 
 const apiKey = ref('')
 const error = ref<string | null>(null)
@@ -26,7 +26,7 @@ async function save() {
   error.value = null
   try {
     const updated = await keys.set(props.provider.provider, apiKey.value)
-    toast.add({ title: `${providerLabel(props.provider.provider)} key saved`, color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok(`${providerLabel(props.provider.provider)} key saved`)
     emit('saved', updated)
     open.value = false
   }

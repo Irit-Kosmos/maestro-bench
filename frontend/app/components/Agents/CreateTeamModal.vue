@@ -4,6 +4,8 @@ import type { Agent, CreateAgentTeamForm } from '~/types'
 interface Props {
   open?: boolean
   availableAgents?: readonly Agent[]
+  /** The request is under way: the dialog stays open, and keeps the form if it fails */
+  loading?: boolean
 }
 
 interface Emits {
@@ -14,6 +16,7 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   open: false,
   availableAgents: () => [],
+  loading: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -30,12 +33,9 @@ const formData = ref<CreateAgentTeamForm>({
   agent_ids: [],
 })
 
-const isSubmitting = ref(false)
-
 // Computed
 const formValid = computed(() => {
-  return formData.value.name.trim()
-    && formData.value.description.trim()
+  return !!formData.value.name.trim()
 })
 
 // Methods
@@ -51,18 +51,11 @@ function handleCancel() {
   show.value = false
 }
 
-async function handleSubmit() {
-  if (!formValid.value)
+// The page closes the dialog once the team is created
+function handleSubmit() {
+  if (!formValid.value || props.loading)
     return
-
-  isSubmitting.value = true
-  try {
-    emit('submit', { ...formData.value })
-    show.value = false
-  }
-  finally {
-    isSubmitting.value = false
-  }
+  emit('submit', { ...formData.value })
 }
 
 function toggleAgent(agentId: number) {
@@ -80,96 +73,57 @@ function toggleAgent(agentId: number) {
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isSubmitting" @after:leave="resetForm">
+  <UModal v-model:open="show" :dismissible="!loading" @after:leave="resetForm">
     <template #content>
       <UCard>
         <template #header>
-          <h2 class="text-lg font-semibold text-highlighted">
-            Create New Agent Team
+          <h2 class="text-base font-semibold text-highlighted">
+            New team
           </h2>
         </template>
 
-        <form class="space-y-6" @submit.prevent="handleSubmit">
-          <!-- Basic Information -->
-          <div class="space-y-4">
-            <div>
-              <label for="team-name" class="block text-sm font-medium text-default mb-1">
-                Team Name
-              </label>
-              <UInput
-                id="team-name"
-                v-model="formData.name"
-                type="text"
-                required
-                class="w-full"
-                placeholder="Enter team name (e.g., 'Math Assessment Team')"
-              />
-            </div>
+        <form class="space-y-4" @submit.prevent="handleSubmit">
+          <UFormField label="Name" required>
+            <UInput
+              v-model="formData.name"
+              class="w-full"
+              placeholder="e.g. Math assessment"
+              autofocus
+            />
+          </UFormField>
 
-            <div>
-              <label for="team-description" class="block text-sm font-medium text-default mb-1">
-                Description
-              </label>
-              <UTextarea
-                id="team-description"
-                v-model="formData.description"
-                :rows="3"
-                required
-                class="w-full"
-                placeholder="Describe what this team does..."
-              />
-            </div>
-          </div>
+          <UFormField label="Description">
+            <UTextarea
+              v-model="formData.description"
+              :rows="2"
+              class="w-full"
+              placeholder="What this team does"
+            />
+          </UFormField>
 
-          <!-- Agent Selection -->
-          <div class="space-y-4">
-            <h3 class="text-md font-medium text-highlighted">
-              Select Agents (Optional)
-            </h3>
-            <p class="text-sm text-toned">
-              You can add agents to this team now or later. Teams can start empty.
-            </p>
+          <UFormField
+            v-if="availableAgents.length"
+            label="Agents"
+            description="Move existing agents into this team now, or add them later."
+          >
+            <ul class="max-h-52 overflow-y-auto divide-y divide-default rounded-lg border border-default">
+              <li v-for="agent in availableAgents" :key="agent.id" class="px-3 py-2">
+                <UCheckbox
+                  :model-value="formData.agent_ids?.includes(agent.id)"
+                  :label="agent.name"
+                  :description="agent.description || undefined"
+                  @update:model-value="toggleAgent(agent.id)"
+                />
+              </li>
+            </ul>
+          </UFormField>
 
-            <div v-if="availableAgents.length === 0" class="text-center py-8 border-2 border-dashed border-accented rounded-lg">
-              <UIcon name="i-ph:users-bold" class="w-8 h-8 text-dimmed mx-auto mb-2" />
-              <p class="text-sm text-muted">
-                No agents available. Create agents first.
-              </p>
-            </div>
-
-            <div v-else class="space-y-2 max-h-60 overflow-y-auto">
-              <div
-                v-for="agent in availableAgents"
-                :key="agent.id"
-                class="flex items-start space-x-3 p-3 border border-default rounded-lg hover:bg-muted cursor-pointer"
-                @click="toggleAgent(agent.id)"
-              >
-                <input
-                  :id="`agent-${agent.id}`"
-                  v-model="formData.agent_ids"
-                  type="checkbox"
-                  :value="agent.id"
-                  class="mt-1 size-4 accent-(--ui-primary) pointer-events-none"
-                >
-                <div class="flex-1 pointer-events-none">
-                  <h4 class="text-sm font-medium text-highlighted">
-                    {{ agent.name }}
-                  </h4>
-                  <p class="text-sm text-toned">
-                    {{ agent.description }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-default">
+          <div class="flex gap-2 justify-end pt-4 border-t border-default">
             <UButton
               type="button"
               variant="outline"
               color="neutral"
-              :disabled="isSubmitting"
+              :disabled="loading"
               @click="handleCancel"
             >
               Cancel
@@ -178,10 +132,10 @@ function toggleAgent(agentId: number) {
               type="submit"
               variant="solid"
               color="primary"
-              :disabled="!formValid || isSubmitting"
-              :loading="isSubmitting"
+              :disabled="!formValid"
+              :loading="loading"
             >
-              Create Team
+              Create team
             </UButton>
           </div>
         </form>

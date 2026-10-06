@@ -11,7 +11,6 @@ import { DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, statusFilter } from '
 
 definePageMeta({
   title: 'Executions',
-  subtitle: 'Every run of every experiment',
 })
 
 useSeoMeta({
@@ -19,21 +18,21 @@ useSeoMeta({
   description: 'Every execution of every experiment, to find what failed and pick what to analyze.',
 })
 
-const { data: executions, pending, refresh } = await useMyLazyFetch<ExecutionListItem[]>('/executions')
+const { data: executions, pending, error, refresh } = await useMyLazyFetch<ExecutionListItem[]>('/executions')
 
 const route = useRoute()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults } = useResultsDownload()
-const toast = useToast()
+const { info } = useStandardToast()
 const { canEdit } = useCurrentWorkspace()
 
 const startedFilter = dateFilter<ExecutionListItem>(execution => execution.started_at, 'Started')
 const failuresFilter = executionFailuresFilter()
 
 // Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
-const rowsEntry = useLocalStorage<FilterEntry>('maestro:executions-rows-filter', emptyFilterEntry())
+const rowsEntry = useLocalStorage<FilterEntry>(workspaceStorageKey('maestro:executions-rows-filter'), emptyFilterEntry())
 
 // A link from the dashboard, /executions?failures=1&range=7d, opens the list on what its count was made of
 const seeded: FilterState = {}
@@ -87,17 +86,12 @@ function liveRun(execution: ExecutionListItem) {
 async function analyze(rows: readonly ExecutionListItem[]) {
   const ready = rows.filter(isAnalyzable)
   if (!ready.length) {
-    toast.add({ title: 'Nothing to analyze', description: 'Only completed executions with results can be analyzed.', color: 'neutral', icon: 'i-ph:info-bold' })
+    info('Nothing to analyze', 'Only completed executions with results can be analyzed.')
     return
   }
   const left = rows.length - ready.length
   if (left > 0) {
-    toast.add({
-      title: `${left} of ${rows.length} can’t be analyzed`,
-      description: 'Only completed executions with results can be.',
-      color: 'neutral',
-      icon: 'i-ph:info-bold',
-    })
+    info(`${left} of ${rows.length} can’t be analyzed`, 'Only completed executions with results can be.')
   }
   // Oldest first, as the experiment page sends them
   const ordered = [...ready].sort((a, b) => parseApiDate(a.started_at).getTime() - parseApiDate(b.started_at).getTime())
@@ -230,6 +224,10 @@ function modelsOf(execution: ExecutionListItem) {
   return [...new Set(llmAgentsOf(execution).map(agent => agent.model))]
 }
 
+function modelStackOf(execution: ExecutionListItem) {
+  return llmAgentsOf(execution).map(agent => ({ name: agent.model, provider: agent.provider }))
+}
+
 const filters = computed<FilterSpec<ExecutionListItem>[]>(() => [
   statusFilter(execution => execution.status),
   failuresFilter,
@@ -273,6 +271,9 @@ const actions = [
   <BasePageContent
     fill
     :loading="pending && !executions"
+    :error="!executions && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
   >
     <div v-if="executions && executions.length > 0" class="flex flex-col flex-1 min-h-0">
       <BaseDataTable
@@ -337,20 +338,8 @@ const actions = [
         </template>
 
         <template #agents-cell="{ row }">
-          <div class="flex min-w-0 items-center gap-1.5 text-sm text-toned">
-            <ModelsLabel
-              v-if="llmAgentsOf(row.original).length"
-              :name="llmAgentsOf(row.original)[0]!.model"
-              :provider="llmAgentsOf(row.original)[0]!.provider"
-            />
-            <span v-else class="text-dimmed">—</span>
-            <span
-              v-if="modelsOf(row.original).length > 1"
-              class="shrink-0 text-xs text-muted tabular-nums"
-              :title="modelsOf(row.original).join(', ')"
-            >
-              +{{ modelsOf(row.original).length - 1 }}
-            </span>
+          <div class="min-w-0 text-sm text-toned">
+            <ModelsStack :models="modelStackOf(row.original)" />
           </div>
         </template>
 
@@ -366,11 +355,11 @@ const actions = [
         </template>
 
         <template #total_tokens-cell="{ row }">
-          <span :title="row.original.total_tokens?.toLocaleString()">{{ formatTokens(row.original.total_tokens) }}</span>
+          <span :title="formatCount(row.original.total_tokens)">{{ formatTokens(row.original.total_tokens) }}</span>
         </template>
 
         <template #total_cost_usd-cell="{ row }">
-          <span :title="row.original.total_cost_usd == null ? undefined : `$${row.original.total_cost_usd.toFixed(4)}`">{{ formatCost(row.original.total_cost_usd) }}</span>
+          <span :title="formatCostPrecise(row.original.total_cost_usd)">{{ formatCost(row.original.total_cost_usd) }}</span>
         </template>
 
         <template #started_at-cell="{ row }">

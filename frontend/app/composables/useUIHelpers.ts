@@ -30,12 +30,12 @@ export function useUIHelpers() {
     })
   }
 
-  // Compact numeric date (DD/MM/YYYY), for places where a version has to be recognised at a glance
+  // Date without the time ("Mar 4, 2026"), for places where a version has to be recognised at a glance
   function formatShortDate(dateString: string): string {
-    return parseApiDate(dateString).toLocaleDateString('en-GB', {
+    return parseApiDate(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+      month: 'short',
+      day: 'numeric',
     })
   }
 
@@ -58,20 +58,10 @@ export function useUIHelpers() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' })
   }
 
-  // Format duration in seconds to human readable
-  function formatDuration(seconds: number): string {
-    if (seconds < 0)
-      return 'N/A'
-    const minutes = Math.floor(seconds / 60)
-    const secs = (seconds % 60).toFixed(2)
-    return `${minutes > 0 ? `${minutes}m ` : ''}${secs}s`
-  }
-
   return {
     getStatusColor,
     formatDate,
     formatShortDate,
     formatRelativeDate,
-    formatDuration,
   }
 }

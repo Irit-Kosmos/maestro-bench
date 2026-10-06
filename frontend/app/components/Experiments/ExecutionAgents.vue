@@ -30,7 +30,7 @@ function setOpen(id: number, open: boolean) {
   <!-- One agent: a card -->
   <section v-if="ordered.length === 1" class="rounded-lg border border-default">
     <header class="flex items-start gap-3 px-4 py-3">
-      <UIcon :name="ordered[0]!.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold'" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+      <UIcon :name="ordered[0]!.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold'" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0">
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ ordered[0]!.agent_name_snapshot }}

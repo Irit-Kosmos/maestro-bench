@@ -31,7 +31,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       color="neutral"
       variant="ghost"
       size="sm"
-      class="min-w-0 flex-1 justify-start gap-2 px-1 h-8"
+      class="min-w-0 flex-1 justify-start gap-2 px-1 h-8 select-none active:scale-100!"
       :aria-label="`Workspace: ${current?.name ?? ''}`"
     >
       <img

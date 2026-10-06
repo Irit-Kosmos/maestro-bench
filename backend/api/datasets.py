@@ -1,10 +1,10 @@
 import asyncio
+import csv
 import json
 import secrets
 from pathlib import Path
 from typing import Annotated, Any
 
-import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlmodel import Session, col, select
@@ -37,24 +37,28 @@ def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> dic
     ext = file_path.suffix.lower()
 
     if ext == ".csv":
-        # Count rows cheaply without loading all data
-        with file_path.open("r", encoding="utf-8") as f:
-            total_rows = sum(1 for _ in f) - 1  # subtract header
-
-        header_df = pd.read_csv(file_path, nrows=0, skipinitialspace=True)
-        headers = header_df.columns.tolist()
-
-        sample_data = None
-        if include_sample:
-            sample_df = pd.read_csv(file_path, nrows=_PREVIEW_ROWS, skipinitialspace=True)
-            sample_data = sample_df.to_dict("records")
+        # Same reading as the editor: cells stay strings, so an empty cell is "" and not NaN
+        # (which the JSON response cannot carry), and a quoted line break is not a new row
+        with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+            total_rows = 0
+            sample_data = []
+            for record in reader:
+                if not record:
+                    continue
+                total_rows += 1
+                if include_sample and len(sample_data) < _PREVIEW_ROWS:
+                    record = record[: len(headers)]
+                    record += [""] * (len(headers) - len(record))
+                    sample_data.append(dict(zip(headers, record, strict=True)))
 
         return {
             "file_type": "csv",
             "headers": headers,
-            "total_rows": max(total_rows, 0),
+            "total_rows": total_rows,
             "total_columns": len(headers),
-            "sample_data": sample_data,
+            "sample_data": sample_data if include_sample else None,
         }
 
     elif ext == ".json":
@@ -62,7 +66,7 @@ def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> dic
             data = json.load(f)
 
         if isinstance(data, list):
-            headers = list(data[0].keys()) if data else []
+            headers = list(dict.fromkeys(key for row in data if isinstance(row, dict) for key in row))
             total_rows = len(data)
             sample_data = data[:_PREVIEW_ROWS] if include_sample else None
         elif isinstance(data, dict):

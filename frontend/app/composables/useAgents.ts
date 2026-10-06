@@ -1,17 +1,27 @@
-import type { CreateAgentForm } from '~/types'
+import type { AgentTeam, CreateAgentForm } from '~/types'
 
 /**
  * Composable for managing individual agents
  */
 export function useAgents() {
   const { $api } = useNuxtApp()
+  const { createTeam } = useAgentTeams()
 
-  // Create a new agent
+  // Create a new agent. Without a team (`team_id` 0: the workspace has none yet) it goes in a "Default" team,
+  // so a first agent never starts with a detour through teams
   async function createAgent(agentData: CreateAgentForm) {
     try {
+      let teamId = agentData.team_id
+      if (!(teamId > 0)) {
+        const team = await createTeam({ name: 'Default' })
+        if (!team.success)
+          return { success: false, error: 'Failed to create the default team' }
+        teamId = (team.data as AgentTeam).id
+      }
+
       const response = await $api('/agents', {
         method: 'POST',
-        body: agentData,
+        body: { ...agentData, team_id: teamId },
       })
 
       return { success: true, data: response }

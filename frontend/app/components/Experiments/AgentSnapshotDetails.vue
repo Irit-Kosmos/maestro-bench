@@ -78,7 +78,7 @@ const prompts = computed(() => [
           Max tokens
         </dt>
         <dd class="mt-0.5 text-sm text-highlighted tabular-nums">
-          {{ snapshot.final_max_tokens.toLocaleString() }}
+          {{ formatCount(snapshot.final_max_tokens) }}
         </dd>
       </div>
     </dl>
@@ -142,18 +142,22 @@ const prompts = computed(() => [
         </ul>
 
         <!-- UCollapsible rather than <details>: the text opens in height with the chevron, like the other disclosures -->
-        <UCollapsible v-for="prompt in prompts" :key="prompt.label" class="group/prompt">
-          <button
-            type="button"
-            class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
-          >
-            <UIcon name="i-ph-caret-right-bold" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-data-[state=open]/prompt:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
-            {{ prompt.label }}
-          </button>
-          <template #content>
-            <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
-          </template>
-        </UCollapsible>
+        <!-- The copy button sits over the header row rather than inside the trigger: a button can't nest in a button -->
+        <div v-for="prompt in prompts" :key="prompt.label" class="relative">
+          <UCollapsible class="group/prompt">
+            <button
+              type="button"
+              class="flex w-full cursor-pointer items-center gap-2 py-2 pr-12 pl-3 text-left text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
+            >
+              <UIcon name="i-ph-caret-right-bold" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-data-[state=open]/prompt:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+              {{ prompt.label }}
+            </button>
+            <template #content>
+              <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
+            </template>
+          </UCollapsible>
+          <UICopyButton :text="prompt.content!" :label="prompt.label.toLowerCase()" class="absolute top-1.5 right-2" />
+        </div>
       </div>
     </section>
   </div>

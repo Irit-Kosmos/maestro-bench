@@ -1,5 +1,5 @@
 export function useResultsDownload() {
-  const toast = useToast()
+  const { fail } = useStandardToast()
   const runtimeConfig = useRuntimeConfig()
   const { slug } = useWorkspace()
 
@@ -37,24 +37,12 @@ export function useResultsDownload() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      toast.add({
-        title: 'Success',
-        description: 'Results downloaded successfully',
-        color: 'success',
-        icon: 'i-ph:download-simple-bold',
-      })
-
       return { success: true }
     }
     catch (error: any) {
       console.error('Error downloading results:', error)
 
-      toast.add({
-        title: 'Download Failed',
-        description: error.message || 'Failed to download results file',
-        color: 'error',
-        icon: 'i-ph:warning-circle-bold',
-      })
+      fail('Couldn’t download the results', error.message || 'Failed to download results file')
 
       return { success: false, error: error.message }
     }

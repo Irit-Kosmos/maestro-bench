@@ -8,7 +8,7 @@ const labelMap: Record<string, { label: string, icon: string }> = {
   batches: { label: 'Batches', icon: 'i-ph-arrows-split' },
   analyses: { label: 'Analyses', icon: 'i-ph-chart-bar' },
   datasets: { label: 'Datasets', icon: 'i-ph-database' },
-  agents: { label: 'Agents', icon: 'i-ph-robot' },
+  agents: { label: 'Agents', icon: 'i-ph-ghost' },
   prompts: { label: 'Prompts', icon: 'i-ph-chat-text' },
   models: { label: 'Models', icon: 'i-ph-cpu' },
   settings: { label: 'Settings', icon: 'i-ph-gear' },

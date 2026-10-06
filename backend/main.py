@@ -24,6 +24,7 @@ from api import (
     models,
     prompts,
     providers,
+    setup,
     tags,
 )
 from api import auth as auth_api
@@ -102,6 +103,7 @@ WORKSPACE_ROUTERS = [
     batches,
     dashboard,
     events,
+    setup,
 ]
 for module in WORKSPACE_ROUTERS:
     app.include_router(

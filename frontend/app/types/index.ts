@@ -113,6 +113,8 @@ export interface Experiment {
   sampling_size?: number
   sampling_start_row?: number
   sampling_end_row?: number
+  // Seed of the random sample: runs with the same seed take the same rows (the batch's seed, in a batch)
+  sampling_seed?: number | null
 
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
@@ -225,7 +227,7 @@ export interface DashboardExperiment {
   batch_name: string | null
   dataset_name: string | null
   /** Distinct models of the pipeline, in execution order */
-  models: string[]
+  models: { name: string, provider: string }[]
   row_count: number | null
   duration_seconds: number | null
   total_tokens: number | null
@@ -638,4 +640,14 @@ export interface AcceptedInvitation {
   name: string
   role: WorkspaceRole
   joined: boolean
+}
+
+// What a workspace has set up on the way to a first run (the getting-started checklist)
+export interface SetupProgress {
+  provider: boolean
+  dataset: boolean
+  prompt: boolean
+  model: boolean
+  agent: boolean
+  experiment: boolean
 }

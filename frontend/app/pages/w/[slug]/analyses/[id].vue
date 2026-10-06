@@ -88,7 +88,14 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePageContent :loading="pending" :error="error ? 'Analysis not found' : null">
+  <BasePageContent
+    :loading="pending && !analysis"
+    :error="!analysis && !!error"
+    :error-kind="fetchErrorKind(error)"
+    back-to="/analyses"
+    back-label="Back to analyses"
+    @retry="refreshAnalysis()"
+  >
     <div v-if="analysis" class="space-y-4 pb-6">
       <AppPageActions>
         <UButton
@@ -138,7 +145,7 @@ async function confirmDelete() {
         v-else-if="result && result.runs.length === 0"
         title="No executions"
         message="Edit the analysis to add executions to compare."
-        icon="i-ph:chart-bar-bold"
+        icon="i-ph-chart-bar-bold"
       />
       <AnalysesResults v-else-if="result" :result="result" :config="analysis.config" :name="analysis.name" />
     </div>
@@ -159,22 +166,14 @@ async function confirmDelete() {
       </template>
     </USlideover>
 
-    <UModal v-model:open="showDeleteDialog" title="Delete Analysis">
-      <template #body>
-        <p class="text-toned">
-          Delete this analysis? Executions and their results are not affected.
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton variant="outline" color="neutral" @click="() => { showDeleteDialog = false }">
-            Cancel
-          </UButton>
-          <UButton variant="solid" color="error" :loading="isDeleting" @click="confirmDelete">
-            Delete
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      title="Delete analysis?"
+      message="Executions and their results are kept. Only this comparison is removed."
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+    />
   </BasePageContent>
 </template>

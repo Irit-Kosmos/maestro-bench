@@ -13,6 +13,8 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md',
 })
 
+const { formatShortDate } = useUIHelpers()
+
 const headerClasses = computed(() => {
   const sizeClass = props.size === 'sm' ? 'text-sm' : props.size === 'lg' ? 'text-xl' : 'text-lg'
   return `${sizeClass} font-medium text-highlighted`
@@ -21,11 +23,11 @@ const headerClasses = computed(() => {
 
 <template>
   <div class="flex items-center justify-between w-full">
-    <div class="flex items-center space-x-4">
+    <div class="flex items-center gap-4">
       <h3 :class="headerClasses">
         {{ version }}
       </h3>
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center gap-2">
         <UBadge
           v-if="isDefault"
           label="Default"
@@ -48,9 +50,9 @@ const headerClasses = computed(() => {
         />
       </div>
     </div>
-    <div v-if="createdAt" class="flex items-center space-x-4">
+    <div v-if="createdAt" class="flex items-center gap-4">
       <span class="text-sm text-muted">
-        {{ parseApiDate(createdAt).toLocaleDateString() }}
+        {{ formatShortDate(createdAt) }}
       </span>
     </div>
   </div>

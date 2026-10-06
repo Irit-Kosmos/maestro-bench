@@ -127,7 +127,8 @@ function startCreate() {
   if (!canEdit.value)
     return
   const base = selected.value ? formFrom(selected.value) : emptyForm()
-  openForm('create', { ...base, version: '', notes: '', is_default: false })
+  // The first version needs no thinking about numbering
+  openForm('create', { ...base, version: selected.value ? '' : '1', notes: '', is_default: false })
 }
 
 // Leaving the form with unsaved changes asks first; everything else goes straight through
@@ -268,7 +269,14 @@ watch(prompt, (value) => {
   }
 }, { immediate: true })
 
-onMounted(loadVersions)
+onMounted(async () => {
+  await loadVersions()
+  // Arriving from "New prompt": the first version is the next thing to write
+  if (route.query.new) {
+    await router.replace({ query: {} })
+    startCreate()
+  }
+})
 
 async function handleEditPrompt() {
   if (!editPromptData.value.name.trim())
@@ -340,7 +348,11 @@ onBeforeRouteLeave((to) => {
 <template>
   <BasePageContent
     :loading="pending && !prompt"
-    :error="error ? 'Unable to load prompt details. Please try again.' : null"
+    :error="!prompt && !!error"
+    :error-kind="fetchErrorKind(error)"
+    back-to="/prompts"
+    back-label="Back to prompts"
+    @retry="refresh()"
   >
     <template #before-content>
       <UIGuardedButton
@@ -421,10 +433,11 @@ onBeforeRouteLeave((to) => {
       title="Prompt"
       mode="edit"
       :loading="updatingPrompt"
+      :disabled="!editPromptData.name.trim()"
       @submit="handleEditPrompt"
     >
       <UFormField label="Name" required>
-        <UInput v-model="editPromptData.name" placeholder="Enter prompt name" autocomplete="off" class="w-full" />
+        <UInput v-model="editPromptData.name" placeholder="e.g. Grader" autocomplete="off" class="w-full" />
       </UFormField>
       <UFormField label="Description">
         <UTextarea v-model="editPromptData.description" placeholder="What this prompt is for" :rows="3" class="w-full" />
@@ -436,9 +449,9 @@ onBeforeRouteLeave((to) => {
 
     <BaseConfirmDialog
       v-model:open="showDeleteDialog"
-      title="Delete version"
-      :message="`Are you sure you want to delete version &quot;${deleteLabel}&quot;? This action cannot be undone.`"
-      confirm-label="Delete version"
+      title="Delete version?"
+      :message="`Version “${deleteLabel}” is cleared from the agents and experiments that use it. This can’t be undone.`"
+      confirm-label="Delete"
       variant="error"
       :loading="deleting"
       @confirm="confirmDelete"

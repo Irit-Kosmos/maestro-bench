@@ -8,6 +8,7 @@ export function safeNextPath(value: unknown): string {
 const LOGIN_ERRORS: Record<string, string> = {
   not_allowed: 'This account isn’t allowed to use this instance. Ask an administrator for access.',
   inactive: 'This account has been deactivated. Ask an administrator to reactivate it.',
+  session_expired: 'Your session expired. Sign in to pick up where you left off.',
   login_failed: 'The sign-in didn’t complete. Try again.',
   unknown_provider: 'This sign-in method isn’t available.',
 }

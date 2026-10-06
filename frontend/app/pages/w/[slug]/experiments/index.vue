@@ -12,11 +12,10 @@ import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilte
 // Page meta
 definePageMeta({
   title: 'Experiments',
-  subtitle: 'Manage and monitor your experiments',
 })
 
 // Fetch data directly in the page
-const { data: experiments, pending, refresh } = await useMyLazyFetch<Experiment[]>('/experiments')
+const { data: experiments, pending, error, refresh } = await useMyLazyFetch<Experiment[]>('/experiments')
 
 const route = useRoute()
 
@@ -43,6 +42,7 @@ watch(() => filterState.value.batch, () => {
 // Composables
 const { deleteExperiment, cancelExperiment } = useExperiments()
 const { canEdit } = useCurrentWorkspace()
+const { ok, info, fail, showDeleteSuccess, showDeleteError } = useStandardToast()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
@@ -208,16 +208,15 @@ async function handleViewExperiment(id: number) {
 }
 
 async function handleCancelExperiment(id: number) {
-  const toast = useToast()
   const result = await cancelExperiment(id)
   if (!result.success) {
-    toast.add({ title: 'Error', description: 'Failed to cancel the experiment', color: 'error', icon: 'i-ph:warning-circle-bold' })
+    fail('Couldn’t cancel the run')
     return
   }
   if (result.data.cancelled)
-    toast.add({ title: 'Run cancelled', color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Run cancelled')
   else
-    toast.add({ title: 'Nothing to cancel', description: 'This experiment is no longer running.', color: 'neutral', icon: 'i-ph:info-bold' })
+    info('Nothing to cancel', 'This experiment is no longer running.')
   await refresh()
 }
 
@@ -233,7 +232,6 @@ async function confirmDelete() {
     return
 
   isDeleting.value = true
-  const toast = useToast()
 
   const failed: number[] = []
   for (const id of pendingDeleteIds.value) {
@@ -244,18 +242,16 @@ async function confirmDelete() {
   const deleted = deleteCount.value - failed.length
 
   if (deleted > 0) {
-    toast.add({
-      title: 'Success',
-      description: deleted === 1 ? 'Experiment deleted successfully' : `${deleted} experiments deleted successfully`,
-      color: 'success',
-    })
+    if (deleted === 1)
+      showDeleteSuccess('Experiment')
+    else
+      ok(`${deleted} experiments deleted`)
   }
   if (failed.length > 0) {
-    toast.add({
-      title: 'Error',
-      description: failed.length === 1 ? 'Failed to delete experiment' : `Failed to delete ${failed.length} experiments`,
-      color: 'error',
-    })
+    if (failed.length === 1)
+      showDeleteError('Experiment')
+    else
+      fail(`Couldn’t delete ${failed.length} experiments`)
   }
 
   // Failed ones stay selected so the user can retry them
@@ -276,6 +272,9 @@ async function handleCreateExperiment() {
   <BasePageContent
     fill
     :loading="pending && !experiments"
+    :error="!experiments && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
   >
     <template #before-content>
       <UTooltip text="New experiment" :kbds="['C']" :disabled="!canEdit">
@@ -358,11 +357,11 @@ async function handleCreateExperiment() {
         </template>
 
         <template #total_tokens-cell="{ row }">
-          <span :title="row.original.total_tokens?.toLocaleString()">{{ formatTokens(row.original.total_tokens) }}</span>
+          <span :title="formatCount(row.original.total_tokens)">{{ formatTokens(row.original.total_tokens) }}</span>
         </template>
 
         <template #total_cost_usd-cell="{ row }">
-          <span :title="row.original.total_cost_usd == null ? undefined : `$${row.original.total_cost_usd.toFixed(4)}`">{{ formatCost(row.original.total_cost_usd) }}</span>
+          <span :title="formatCostPrecise(row.original.total_cost_usd)">{{ formatCost(row.original.total_cost_usd) }}</span>
         </template>
 
         <!-- Custom cell for created_at -->
@@ -386,33 +385,14 @@ async function handleCreateExperiment() {
       @action="handleCreateExperiment"
     />
 
-    <UModal v-model:open="showDeleteDialog" :title="deleteCount > 1 ? `Delete ${deleteCount} experiments?` : 'Delete experiment?'">
-      <template #body>
-        <p class="text-sm text-toned">
-          {{ deleteCount > 1 ? 'This deletes these experiments and all of their executions.' : 'This deletes the experiment and all of its executions.' }}
-          This can’t be undone.
-        </p>
-      </template>
-
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton
-            variant="outline"
-            color="neutral"
-            @click="() => { showDeleteDialog = false }"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            variant="solid"
-            color="error"
-            :loading="isDeleting"
-            @click="confirmDelete"
-          >
-            {{ deleteCount > 1 ? `Delete ${deleteCount} experiments` : 'Delete experiment' }}
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      :title="deleteCount > 1 ? `Delete ${deleteCount} experiments?` : 'Delete experiment?'"
+      :message="`${deleteCount > 1 ? 'These experiments and all of their executions are deleted.' : 'The experiment and all of its executions are deleted.'} This can’t be undone.`"
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+    />
   </BasePageContent>
 </template>

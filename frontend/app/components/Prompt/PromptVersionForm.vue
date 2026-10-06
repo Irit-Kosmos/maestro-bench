@@ -26,6 +26,20 @@ const form = defineModel<PromptVersionFormValues>({ required: true })
 
 const valid = computed(() => form.value.version.trim().length > 0)
 
+// Names written as {{ name }} in the prompts and not listed yet: one click declares them
+const detectedVariables = computed(() => {
+  const found = new Set<string>()
+  for (const text of [form.value.system_prompt, form.value.user_prompt]) {
+    for (const match of text.matchAll(/\{\{\s*([A-Z_]\w*)\s*\}\}/gi))
+      found.add(match[1]!)
+  }
+  return [...found].filter(name => !form.value.variables.includes(name))
+})
+
+function addVariables(names: string[]) {
+  form.value.variables = [...form.value.variables, ...names]
+}
+
 function submit() {
   if (valid.value && !props.saving)
     emit('save')
@@ -105,6 +119,29 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
 
       <UFormField label="Variables" description="Names the dataset must provide for each row">
         <UInputTags v-model="form.variables" placeholder="Type a name, press Enter" class="w-full" />
+        <p v-if="detectedVariables.length" class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+          Found in the prompts:
+          <UButton
+            v-for="name in detectedVariables"
+            :key="name"
+            type="button"
+            size="xs"
+            color="neutral"
+            variant="outline"
+            icon="i-ph-plus-bold"
+            :label="name"
+            @click="addVariables([name])"
+          />
+          <UButton
+            v-if="detectedVariables.length > 1"
+            type="button"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="Add all"
+            @click="addVariables(detectedVariables)"
+          />
+        </p>
       </UFormField>
 
       <UFormField label="Notes">

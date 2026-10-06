@@ -187,6 +187,9 @@ class Experiment(Authored, table=True):
     sampling_end_row: int | None = Field(
         default=None, description="End row for range sampling (1-based, inclusive)"
     )
+    # Seed of the random sample, kept so that every run takes the same rows until
+    # the sample is redrawn. An experiment of a batch uses the batch's seed instead.
+    sampling_seed: int | None = Field(default=None, sa_type=BigInteger)
 
     # Relationships
     dataset: Dataset | None = Relationship(back_populates="experiments")

@@ -15,7 +15,7 @@ const aggregator = computed(() => props.kind === 'aggregator')
 <template>
   <UBadge
     :label="aggregator ? 'Aggregator' : 'LLM'"
-    :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-robot-bold'"
+    :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
     :color="aggregator ? 'info' : 'neutral'"
     variant="subtle"
     size="sm"

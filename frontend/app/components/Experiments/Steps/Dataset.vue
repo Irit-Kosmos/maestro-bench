@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { Dataset } from '~/types'
+import type { CreateDatasetForm, Dataset } from '~/types'
 
 interface Props {
   selectedDataset?: number
   datasets?: Dataset[] | null
+  /** Reloads the datasets, so one created here can be picked */
+  refreshDatasets?: () => Promise<void>
   samplingConfig: {
     sampling_type: string
     sampling_size?: number
@@ -22,6 +24,27 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const { canEdit } = useCurrentWorkspace()
+const { createDataset } = useDatasets()
+const { showCreateSuccess, showCreateError } = useStandardToast()
+
+// A dataset created here is picked right away, so the form never loses its place
+const showCreateModal = ref(false)
+const creating = ref(false)
+async function handleCreate(form: CreateDatasetForm) {
+  creating.value = true
+  const result = await createDataset(form)
+  creating.value = false
+  if (!result.success) {
+    showCreateError('Dataset', result.error)
+    return
+  }
+  showCreateModal.value = false
+  showCreateSuccess('Dataset')
+  await props.refreshDatasets?.()
+  emit('update:selectedDataset', result.data.id)
+}
 
 // Get datasets from props
 const datasets = computed(() => props.datasets || [])
@@ -96,13 +119,32 @@ function togglePreview(datasetId: number) {
         v-else-if="datasets && datasets.length === 0"
         icon="i-ph-database-bold"
         title="No datasets yet"
-        message="Add a dataset first, then come back to create the experiment."
+        message="Upload a CSV or JSON file. Each row becomes one input for the experiment."
         action-label="New dataset"
-        action-to="/datasets"
+        action-requires="editor"
+        @action="() => { showCreateModal = true }"
       />
 
       <BaseLoadingState v-else message="Loading datasets…" />
+
+      <UButton
+        v-if="canEdit && datasets.length > 0"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        icon="i-ph-plus-bold"
+        class="mt-2"
+        @click="() => { showCreateModal = true }"
+      >
+        New dataset
+      </UButton>
     </div>
+
+    <DatasetsCreateDatasetModal
+      v-model:open="showCreateModal"
+      :loading="creating"
+      @submit="handleCreate"
+    />
 
     <!-- Sampling Configuration -->
     <section v-if="selectedDataset" aria-labelledby="sampling-step-title" class="enter-soft">

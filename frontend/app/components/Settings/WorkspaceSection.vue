@@ -4,7 +4,7 @@ import { apiErrorMessage } from '~/composables/useAnalyses'
 const { workspace, archived, can } = useCurrentWorkspace()
 const { lifecycle } = useWorkspaceAdmin()
 const { workspaces } = useWorkspaces()
-const toast = useToast()
+const { ok, fail } = useStandardToast()
 
 const isOwner = computed(() => can('owner'))
 // An archived workspace is read-only, but its owner can still reopen or delete it
@@ -16,8 +16,8 @@ watch(() => workspace.value?.name, (value) => {
 })
 const renaming = ref(false)
 
-function failed(error: unknown, fallback: string) {
-  toast.add({ title: apiErrorMessage(error) ?? fallback, color: 'error', icon: 'i-ph:warning-circle-bold' })
+function failed(error: unknown, title: string) {
+  fail(title, apiErrorMessage(error))
 }
 
 async function rename() {
@@ -27,10 +27,10 @@ async function rename() {
   renaming.value = true
   try {
     await lifecycle.rename(next)
-    toast.add({ title: 'Workspace renamed', color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Workspace renamed')
   }
   catch (error) {
-    failed(error, 'The workspace could not be renamed')
+    failed(error, 'Couldn’t rename the workspace')
   }
   finally {
     renaming.value = false
@@ -45,12 +45,12 @@ async function archive() {
   try {
     await lifecycle.archive()
     showArchive.value = false
-    toast.add({ title: 'Workspace archived', color: 'success', icon: 'i-ph:archive-bold' })
+    ok('Workspace archived')
     // Its keys are gone and its runs stopped: show the page as it now is
     await reloadNuxtApp({ persistState: false })
   }
   catch (error) {
-    failed(error, 'The workspace could not be archived')
+    failed(error, 'Couldn’t archive the workspace')
   }
   finally {
     busy.value = false
@@ -61,11 +61,11 @@ async function unarchive() {
   busy.value = true
   try {
     await lifecycle.unarchive()
-    toast.add({ title: 'Workspace reopened', color: 'success', icon: 'i-ph:check-circle-bold' })
+    ok('Workspace reopened')
     await reloadNuxtApp({ persistState: false })
   }
   catch (error) {
-    failed(error, 'The workspace could not be reopened')
+    failed(error, 'Couldn’t reopen the workspace')
   }
   finally {
     busy.value = false
@@ -86,7 +86,7 @@ async function remove() {
     await navigateTo('/w', { external: true })
   }
   catch (error) {
-    failed(error, 'The workspace could not be deleted')
+    failed(error, 'Couldn’t delete the workspace')
     deleting.value = false
   }
 }

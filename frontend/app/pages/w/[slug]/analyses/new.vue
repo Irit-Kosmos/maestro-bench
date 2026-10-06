@@ -11,8 +11,7 @@ useSeoMeta({ title: 'New Analysis' })
 
 const route = useRoute()
 const { createAnalysis, computeAnalysis } = useAnalyses()
-const { showCreateSuccess, showCreateError } = useStandardToast()
-const toast = useToast()
+const { showCreateSuccess, showCreateError, fail } = useStandardToast()
 
 // ?execution=<id>&name=<experiment name> pre-fills from an experiment page,
 // ?executions=<id>,<id>&name=<batch name> from a batch
@@ -52,7 +51,7 @@ async function runPreview() {
     preview.value = await computeAnalysis(form.value.config, form.value.runs)
   }
   catch (error) {
-    toast.add({ title: 'Error', description: apiErrorMessage(error) ?? 'Failed to compute analysis', color: 'error' })
+    fail('Couldn’t compute the analysis', apiErrorMessage(error))
   }
   finally {
     isComputing.value = false

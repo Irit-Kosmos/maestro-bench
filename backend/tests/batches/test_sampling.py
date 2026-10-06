@@ -51,6 +51,14 @@ class TestBatchSampling:
 
         assert seed_of(first) == seed_of(second) == 99
 
+    def test_a_standalone_experiment_keeps_its_sample_between_runs(self, session):
+        experiment = make_experiment(session)
+
+        seeds = {seed_of(create_execution_snapshot(experiment.id, session)) for _ in range(3)}
+
+        assert len(seeds) == 1
+        assert seeds == {experiment.sampling_seed}
+
     def test_standalone_experiments_still_draw_their_own_sample(self, session):
         seeds = {
             seed_of(create_execution_snapshot(make_experiment(session).id, session))

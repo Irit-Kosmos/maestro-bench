@@ -5,7 +5,6 @@ import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
 definePageMeta({
   title: 'Analyses',
-  subtitle: 'Compare executions against a ground-truth column',
 })
 
 useSeoMeta({
@@ -13,7 +12,7 @@ useSeoMeta({
   description: 'Metrics such as RMSE, correlation or accuracy computed on experiment executions.',
 })
 
-const { data: analyses, pending, refresh } = await useMyLazyFetch<Analysis[]>('/analyses')
+const { data: analyses, pending, error, refresh } = await useMyLazyFetch<Analysis[]>('/analyses')
 
 const { deleteAnalysis } = useAnalyses()
 const { canEdit } = useCurrentWorkspace()
@@ -111,7 +110,12 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <BasePageContent :loading="pending && !analyses">
+  <BasePageContent
+    :loading="pending && !analyses"
+    :error="!analyses && !!error"
+    :error-kind="fetchErrorKind(error)"
+    @retry="refresh()"
+  >
     <template #before-content>
       <UTooltip text="New analysis" :kbds="['C']" :disabled="!canEdit">
         <UIGuardedButton
@@ -167,22 +171,14 @@ async function confirmDelete() {
       action-requires="editor"
     />
 
-    <UModal v-model:open="showDeleteDialog" title="Delete analysis?">
-      <template #body>
-        <p class="text-sm text-toned">
-          Executions and their results are kept. Only this comparison is removed.
-        </p>
-      </template>
-      <template #footer>
-        <div class="flex gap-3 w-full justify-end">
-          <UButton variant="outline" color="neutral" @click="() => { showDeleteDialog = false }">
-            Cancel
-          </UButton>
-          <UButton variant="solid" color="error" :loading="isDeleting" @click="confirmDelete">
-            Delete analysis
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <BaseConfirmDialog
+      v-model:open="showDeleteDialog"
+      title="Delete analysis?"
+      message="Executions and their results are kept. Only this comparison is removed."
+      confirm-label="Delete"
+      variant="error"
+      :loading="isDeleting"
+      @confirm="confirmDelete"
+    />
   </BasePageContent>
 </template>

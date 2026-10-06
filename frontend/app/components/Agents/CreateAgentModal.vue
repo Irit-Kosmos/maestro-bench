@@ -12,6 +12,8 @@ interface Props {
   lockKind?: boolean
   /** Team selected when the modal opens; the first team otherwise */
   initialTeamId?: number
+  /** The request is under way: the dialog stays open, and keeps the form if it fails */
+  loading?: boolean
 }
 
 interface Emits {
@@ -27,6 +29,7 @@ const props = withDefaults(defineProps<Props>(), {
   initialKind: 'llm',
   lockKind: false,
   initialTeamId: undefined,
+  loading: false,
 })
 const emit = defineEmits<Emits>()
 
@@ -49,18 +52,14 @@ const formData = ref<CreateAgentForm & { tag_ids: number[] }>({
 const aggregator = computed(() => formData.value.kind === 'aggregator')
 
 const kindItems: { label: string, value: AgentKind, icon: string, hint: string }[] = [
-  { label: 'LLM agent', value: 'llm', icon: 'i-ph-robot-bold', hint: 'Calls a model with a prompt' },
+  { label: 'LLM agent', value: 'llm', icon: 'i-ph-ghost-bold', hint: 'Calls a model with a prompt' },
   { label: 'Aggregator', value: 'aggregator', icon: 'i-ph-function-bold', hint: 'Combines other agents\' outputs with formulas' },
 ]
 
-const isSubmitting = ref(false)
-
 // Computed
 const formValid = computed(() => {
-  // An aggregator is described by its formulas: a description is optional
-  return formData.value.name.trim()
-    && (aggregator.value || formData.value.description.trim())
-    && formData.value.team_id > 0
+  // No team yet: the agent goes in a "Default" one
+  return !!formData.value.name.trim() && (formData.value.team_id > 0 || !props.availableTeams?.length)
 })
 
 // Methods
@@ -80,23 +79,17 @@ function handleCancel() {
   show.value = false
 }
 
-async function handleSubmit() {
-  if (!formValid.value)
+// The page closes the dialog once the agent is created
+function handleSubmit() {
+  if (!formValid.value || props.loading)
     return
 
-  isSubmitting.value = true
-  try {
-    const data = { ...formData.value }
-    if (aggregator.value) {
-      data.default_prompt_version_id = null
-      data.default_model_id = null
-    }
-    emit('submit', data)
-    show.value = false
+  const data = { ...formData.value }
+  if (aggregator.value) {
+    data.default_prompt_version_id = null
+    data.default_model_id = null
   }
-  finally {
-    isSubmitting.value = false
-  }
+  emit('submit', data)
 }
 
 // Initialize form when component mounts, and on each opening (the initial kind or team may have changed)
@@ -110,12 +103,12 @@ watch(() => props.open, (open) => {
 </script>
 
 <template>
-  <UModal v-model:open="show" :prevent-close="isSubmitting" @after:leave="resetForm">
+  <UModal v-model:open="show" :dismissible="!loading" @after:leave="resetForm">
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
-          <h2 class="text-lg font-semibold text-highlighted">
-            {{ aggregator ? 'Create New Aggregator' : 'Create New Agent' }}
+          <h2 class="text-base font-semibold text-highlighted">
+            {{ aggregator ? 'New aggregator' : 'New agent' }}
           </h2>
         </template>
 
@@ -138,42 +131,37 @@ watch(() => props.open, (open) => {
               </UFieldGroup>
             </UFormField>
 
-            <div>
-              <UFormField label="Agent Name">
-                <UInput
-                  v-model="formData.name"
-                  class="w-full"
-                  placeholder="Enter agent name"
-                  required
-                />
-              </UFormField>
-            </div>
+            <UFormField label="Name" required>
+              <UInput
+                v-model="formData.name"
+                class="w-full"
+                :placeholder="aggregator ? 'e.g. Weighted score' : 'e.g. Grader'"
+                autofocus
+              />
+            </UFormField>
 
-            <div>
-              <UFormField label="Description" :hint="aggregator ? 'Optional' : undefined">
-                <UTextarea
-                  v-model="formData.description"
-                  class="w-full"
-                  :placeholder="aggregator ? 'What the combined score means' : 'Brief description of the agent\'s purpose'"
-                  :rows="3"
-                  :required="!aggregator"
-                />
-              </UFormField>
-            </div>
+            <UFormField label="Description">
+              <UTextarea
+                v-model="formData.description"
+                class="w-full"
+                :placeholder="aggregator ? 'What the combined score means' : 'What this agent is for'"
+                :rows="2"
+              />
+            </UFormField>
 
-            <div>
-              <UFormField label="Agent Team">
-                <USelect
-                  v-model="formData.team_id"
-                  :items="availableTeams?.map(team => ({ label: team.name, value: team.id })) || []"
-                  class="w-full"
-                  placeholder="Select a team"
-                  required
-                />
-              </UFormField>
-            </div>
+            <UFormField v-if="availableTeams?.length" label="Team" required>
+              <USelect
+                v-model="formData.team_id"
+                :items="availableTeams.map(team => ({ label: team.name, value: team.id }))"
+                class="w-full"
+                placeholder="Select a team"
+              />
+            </UFormField>
+            <p v-else class="text-sm text-muted">
+              It goes in a “Default” team, created for you. Teams only group agents; you can add others later.
+            </p>
 
-            <UFormField label="Tags (Optional)">
+            <UFormField label="Tags">
               <TagsInput v-model="formData.tag_ids" />
             </UFormField>
 
@@ -182,7 +170,7 @@ watch(() => props.open, (open) => {
             </p>
 
             <div v-if="!aggregator">
-              <UFormField label="Default Prompt Version (Optional)">
+              <UFormField label="Default prompt version">
                 <PromptsSelect
                   v-model="formData.default_prompt_version_id"
                   :prompt-versions="availablePromptVersions"
@@ -194,7 +182,7 @@ watch(() => props.open, (open) => {
             </div>
 
             <div v-if="!aggregator">
-              <UFormField label="Default Model (Optional)">
+              <UFormField label="Default model">
                 <ModelsSelect
                   v-model="formData.default_model_id"
                   :models="availableModels"
@@ -207,12 +195,12 @@ watch(() => props.open, (open) => {
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3 justify-end pt-4 border-t border-default">
+          <div class="flex gap-2 justify-end pt-4 border-t border-default">
             <UButton
               type="button"
               variant="outline"
               color="neutral"
-              :disabled="isSubmitting"
+              :disabled="loading"
               @click="handleCancel"
             >
               Cancel
@@ -221,10 +209,10 @@ watch(() => props.open, (open) => {
               type="submit"
               variant="solid"
               color="primary"
-              :disabled="!formValid || isSubmitting"
-              :loading="isSubmitting"
+              :disabled="!formValid"
+              :loading="loading"
             >
-              {{ aggregator ? 'Create Aggregator' : 'Create Agent' }}
+              {{ aggregator ? 'Create aggregator' : 'Create agent' }}
             </UButton>
           </div>
         </form>

@@ -5,6 +5,9 @@ export default defineNuxtPlugin({
     const { csrfToken, forget } = useAuth()
     const router = useRouter()
 
+    // Whatever the app creates or deletes can tick a step of the getting-started list: look again, once
+    let refreshSetup: ReturnType<typeof setTimeout> | undefined
+
     const api = $fetch.create({
       baseURL: `${useRuntimeConfig().public.BACK_URL}/`,
       // The session cookie is HttpOnly and belongs to the API's origin
@@ -25,6 +28,12 @@ export default defineNuxtPlugin({
         headers.set('X-CSRF-Token', csrfToken.value)
         options.headers = headers
       },
+      onResponse({ options }) {
+        if (SAFE_METHODS.includes((options.method ?? 'GET').toUpperCase()))
+          return
+        clearTimeout(refreshSetup)
+        refreshSetup = setTimeout(() => nuxtApp.runWithContext(() => refreshNuxtData('setup-progress')), 300)
+      },
       onResponseError({ response }) {
         // The session ended (expired, signed out elsewhere, user deactivated): sign in again
         if (response.status !== 401)
@@ -33,7 +42,7 @@ export default defineNuxtPlugin({
         nuxtApp.runWithContext(() => {
           const route = useRoute()
           if (route.path !== '/login')
-            return navigateTo({ path: '/login', query: { next: route.fullPath } })
+            return navigateTo({ path: '/login', query: { next: route.fullPath, error: 'session_expired' } })
         })
       },
     })

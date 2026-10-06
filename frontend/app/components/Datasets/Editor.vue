@@ -5,7 +5,7 @@ const props = defineProps<{
   experimentCount: number | null
 }>()
 
-const toast = useToast()
+const { ok, fail } = useStandardToast()
 const datasetId = toRef(props, 'datasetId')
 const editor = useDatasetEditor(datasetId)
 const {
@@ -88,22 +88,12 @@ async function doSave() {
 
   if (result.success) {
     conflict.value = false
-    toast.add({
-      title: 'Dataset saved',
-      description: `${changes} change${changes === 1 ? '' : 's'} written to the file.`,
-      color: 'success',
-      icon: 'i-ph:check-circle-bold',
-    })
+    ok('Dataset saved', { description: `${changes} change${changes === 1 ? '' : 's'} written to the file.` })
     return
   }
 
   conflict.value = !!result.conflict
-  toast.add({
-    title: 'Couldn’t save the dataset',
-    description: result.message,
-    color: 'error',
-    icon: 'i-ph:warning-circle-bold',
-  })
+  fail('Couldn’t save the dataset', result.message)
 }
 
 function discardAll() {
@@ -339,7 +329,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
         </div>
       </div>
 
-      <p class="hidden sm:block text-xs text-dimmed">
+      <p class="hidden sm:block text-xs text-muted">
         <UKbd value="↑" size="sm" /> <UKbd value="↓" size="sm" /> move ·
         <UKbd value="enter" size="sm" /> edit ·
         <UKbd value="space" size="sm" /> open row ·

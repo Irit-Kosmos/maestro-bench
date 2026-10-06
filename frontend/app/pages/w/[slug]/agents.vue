@@ -8,22 +8,26 @@ import { byOrder } from '~/utils/filters'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 
 // Composables
-const toast = useToast()
+const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError, ok } = useStandardToast()
 const { createTeam } = useAgentTeams()
 const { createAgent, deleteAgent } = useAgents()
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 
 // Fetch data directly in the page
-const { data: agentTeams, pending, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
-const { data: agents, pending: agentsPending, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
+const { data: agentTeams, pending, error: teamsError, refresh: refreshTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: agents, pending: agentsPending, error: agentsError, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
 const { data: allPromptVersions, pending: _promptVersionsPending } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
 const { data: models, pending: _modelsPending } = await useMyLazyFetch<Model[]>('/models')
+
+function reloadAgents() {
+  refreshTeams()
+  refreshAgents()
+}
 
 // Page meta
 definePageMeta({
   title: 'Agents',
-  subtitle: 'Agents and aggregators, grouped into teams',
 })
 
 useSeoMeta({
@@ -35,6 +39,9 @@ useSeoMeta({
 const showCreateTeamModal = ref(false)
 const showCreateAgentModal = ref(false)
 const showDeleteAgentModal = ref(false)
+const creatingTeam = ref(false)
+const creatingAgent = ref(false)
+const deletingAgent = ref(false)
 
 // Agent targeted by the delete confirmation
 const selectedAgent = ref<Agent | null>(null)
@@ -84,7 +91,7 @@ const columns = [
       h('span', {
         'class': ['flex size-7 shrink-0 items-center justify-center rounded-md', row.kind === 'aggregator' ? 'bg-info/10 text-info' : 'bg-elevated text-muted'],
         'aria-hidden': 'true',
-      }, [h(UIcon, { name: row.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-robot-bold', class: 'size-4' })]),
+      }, [h(UIcon, { name: row.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold', class: 'size-4' })]),
       h('span', { class: 'flex min-w-0 flex-col' }, [
         h('span', { class: 'truncate leading-5' }, row.name),
         row.description ? h('span', { class: 'truncate text-xs font-normal leading-4 text-muted', title: row.description }, row.description) : null,
@@ -106,7 +113,7 @@ const columns = [
 ]
 
 const KINDS = {
-  llm: { label: 'LLM', icon: 'i-ph-robot-bold' },
+  llm: { label: 'LLM', icon: 'i-ph-ghost-bold' },
   aggregator: { label: 'Aggregator', icon: 'i-ph-function-bold' },
 } as const
 
@@ -227,82 +234,63 @@ async function refreshAll() {
   await Promise.all([refreshAgents(), refreshTeams()]) // Teams include their agents
 }
 
-// Handlers
-function handleEmptyAction() {
-  if (agentTeams.value?.length)
-    showCreateAgentModal.value = true
-  else
-    showCreateTeamModal.value = true
-}
+useCreateFromQuery(() => {
+  showCreateAgentModal.value = true
+})
 
+// Handlers
 function handleDeleteAgentClick(agent: Agent) {
   selectedAgent.value = agent
   showDeleteAgentModal.value = true
 }
 
 async function handleCreateTeam(data: any) {
+  creatingTeam.value = true
   const result = await createTeam(data)
+  creatingTeam.value = false
   if (result.success) {
-    toast.add({
-      title: 'Team created',
-      description: 'It shows up here once it has an agent.',
-      color: 'success',
-      icon: 'i-ph:check-bold',
-    })
+    showCreateTeamModal.value = false
+    showCreateSuccess('Team', { description: 'It shows up here once it has an agent.' })
     await refreshTeams()
   }
   else {
-    toast.add({
-      title: 'Error',
-      description: result.error || 'Failed to create team',
-      color: 'error',
-      icon: 'i-ph:x-bold',
-    })
+    showCreateError('Team', result.error)
   }
 }
 
 async function handleCreateAgent(data: any) {
+  creatingAgent.value = true
   const result = await createAgent(data)
+  creatingAgent.value = false
   if (result.success) {
-    toast.add({
-      title: 'Success',
-      description: data.kind === 'aggregator' ? 'Aggregator created successfully' : 'Agent created successfully',
-      color: 'success',
-      icon: 'i-ph:check-bold',
-    })
+    showCreateAgentModal.value = false
+    if (data.kind === 'aggregator')
+      ok('Aggregator created')
+    else
+      showCreateSuccess('Agent')
     await refreshAll()
   }
   else {
-    toast.add({
-      title: 'Error',
-      description: result.error || 'Failed to create agent',
-      color: 'error',
-      icon: 'i-ph:x-bold',
-    })
+    showCreateError(data.kind === 'aggregator' ? 'Aggregator' : 'Agent', result.error)
   }
 }
 
-async function handleDeleteAgent(agentId: number) {
+async function handleDeleteAgent() {
+  const agentId = selectedAgent.value?.id
+  if (agentId === undefined)
+    return
+  deletingAgent.value = true
   const result = await deleteAgent(agentId)
+  deletingAgent.value = false
   if (result.success) {
-    toast.add({
-      title: 'Success',
-      description: 'Agent deleted successfully',
-      color: 'success',
-      icon: 'i-ph:check-bold',
-    })
+    showDeleteSuccess('Agent')
     showDeleteAgentModal.value = false
     if (openId.value === agentId)
       panelOpen.value = false
     await refreshAll()
   }
   else {
-    toast.add({
-      title: 'Error',
-      description: result.error || 'Failed to delete agent',
-      color: 'error',
-      icon: 'i-ph:x-bold',
-    })
+    showDeleteError('Agent', result.error)
   }
 }
 </script>
@@ -311,6 +299,9 @@ async function handleDeleteAgent(agentId: number) {
   <!-- Loading only until the first data arrives: a refresh (after a save) must not unmount the panel -->
   <BasePageContent
     :loading="pending && agentsPending && !agents"
+    :error="(!agents && !!agentsError) || (!agentTeams && !!teamsError)"
+    :error-kind="fetchErrorKind(agentsError ?? teamsError)"
+    @retry="reloadAgents"
   >
     <template #before-content>
       <UIGuardedButton
@@ -394,14 +385,12 @@ async function handleDeleteAgent(agentId: number) {
 
     <BaseEmptyState
       v-else-if="!agentsPending"
-      icon="i-ph-robot-bold"
+      icon="i-ph-ghost-bold"
       title="No agents yet"
-      :message="agentTeams?.length
-        ? 'An agent pairs a prompt version with a model; an aggregator combines the outputs of other agents.'
-        : 'An agent pairs a prompt version with a model. Agents run together in a team, so start with one.'"
-      :action-label="agentTeams?.length ? 'New agent' : 'New team'"
+      message="An agent pairs a prompt version with a model; an aggregator combines the outputs of other agents."
+      action-label="New agent"
       action-requires="editor"
-      @action="handleEmptyAction"
+      @action="() => { showCreateAgentModal = true }"
     />
 
     <AgentsPanel
@@ -421,6 +410,7 @@ async function handleDeleteAgent(agentId: number) {
     <AgentsCreateTeamModal
       v-model:open="showCreateTeamModal"
       :available-agents="agents ?? []"
+      :loading="creatingTeam"
       @submit="handleCreateTeam"
     />
 
@@ -430,13 +420,18 @@ async function handleDeleteAgent(agentId: number) {
       :available-teams="agentTeams ?? []"
       :available-prompt-versions="allPromptVersions ?? []"
       :available-models="models ?? []"
+      :loading="creatingAgent"
       @submit="handleCreateAgent"
     />
 
     <!-- Delete Agent Modal -->
-    <AgentsDeleteAgentModal
+    <BaseConfirmDialog
       v-model:open="showDeleteAgentModal"
-      :agent="selectedAgent"
+      :title="`Delete “${selectedAgent?.name}”?`"
+      message="It is removed from its team and from the experiment configurations that use it. This can’t be undone."
+      confirm-label="Delete"
+      variant="error"
+      :loading="deletingAgent"
       @confirm="handleDeleteAgent"
       @after-leave="selectedAgent = null"
     />

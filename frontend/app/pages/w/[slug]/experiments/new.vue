@@ -7,7 +7,7 @@ definePageMeta({ requiresRole: 'editor' })
 const { data: agentTeams, refresh: refreshAgentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
 const { data: models } = await useMyLazyFetch<Model[]>('/models')
 const { data: allPromptVersions } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
-const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
+const { data: datasets, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 
 // Composables
 const { preview: datasetPreview, loadPreview } = useDatasetPreview()
@@ -174,6 +174,18 @@ const summaryRows = computed(() => {
   ]
 })
 
+// Agents whose model has no key: the form is valid, but those runs would fail
+const { lacksCredentials, missingKeyAdvice } = useProviderStatus()
+const warnings = computed(() => {
+  const labels = new Set<string>()
+  for (const item of pipeline.items.value) {
+    const model = models.value?.find(m => m.id === item.config.model_id)
+    if (model && lacksCredentials(model.provider))
+      labels.add(providerMeta(model.provider).label)
+  }
+  return [...labels].map(label => `No API key for ${label}: its runs will fail. ${missingKeyAdvice.value}`)
+})
+
 // The first section that still needs something, for the shortcut and the "jump" rows
 const firstIncomplete = computed(() => summaryRows.value.find(row => !row.done)?.id)
 
@@ -306,6 +318,7 @@ defineShortcuts({
             <ExperimentsStepsDataset
               :selected-dataset="selectedDataset"
               :datasets="datasets"
+              :refresh-datasets="refreshDatasets"
               :sampling-config="samplingConfig"
               @update:selected-dataset="(value) => selectedDataset = value"
               @update:sampling-type="(value) => samplingConfig.sampling_type = value"
@@ -338,6 +351,7 @@ defineShortcuts({
 
         <ExperimentsSummary
           :rows="summaryRows"
+          :warnings="warnings"
           :can-submit="canSubmit"
           :submit-label="batchMode ? (experimentCount > 0 ? `Start ${experimentCount} ${experimentCount === 1 ? 'experiment' : 'experiments'}` : 'Start batch') : 'Create and start'"
           :submitting="isSubmitting"
