@@ -20,12 +20,12 @@ const scatterDomain = computed<[number, number]>(() => {
   return [Math.min(...values) - 0.5, Math.max(...values) + 0.5]
 })
 
-// Row shown in the side panel after a click on a point
-const selected = ref<{ run: AnalysisRunResult, row: number } | null>(null)
+// Rows shown in the side panel after a click on a point: several when they share its position
+const selected = ref<{ run: AnalysisRunResult, rows: number[], index: number } | null>(null)
 const panelOpen = ref(false)
 
-function selectPoint(run: AnalysisRunResult, row: number) {
-  selected.value = { run, row }
+function selectPoint(run: AnalysisRunResult, rows: number[]) {
+  selected.value = { run, rows, index: 0 }
   panelOpen.value = true
 }
 
@@ -33,8 +33,17 @@ function selectedRowOf(run: AnalysisRunResult) {
   const current = selected.value
   return current && current.run.execution_id === run.execution_id
     && current.run.agent_name === run.agent_name
-    ? current.row
+    ? current.rows[current.index] ?? null
     : null
+}
+
+function navigate(delta: number) {
+  const current = selected.value
+  if (!current)
+    return
+  const index = current.index + delta
+  if (index >= 0 && index < current.rows.length)
+    current.index = index
 }
 
 // Default labels read "Experiment · model"; the model id goes on the secondary line
@@ -324,7 +333,7 @@ function exportCsv() {
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
         <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
-          Dashed line is y = x; click a point to see its row
+          Dashed line is y = x; click a point to see its row, or the rows stacked on it
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -356,8 +365,10 @@ function exportCsv() {
     <AnalysesRowPanel
       v-model:open="panelOpen"
       :run="selected?.run ?? null"
-      :row-index="selected?.row ?? null"
+      :rows="selected?.rows ?? []"
+      :index="selected?.index ?? 0"
       :truth-column="config.truth_column"
+      @navigate="navigate"
     />
   </div>
 </template>

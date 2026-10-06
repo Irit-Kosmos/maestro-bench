@@ -7,12 +7,13 @@ const props = defineProps<{
   run: AnalysisRunResult
   // Shared across runs so the plots can be compared
   domain: [number, number]
-  /** Row of the point shown in the side panel, if any */
+  /** Row shown in the side panel, if any */
   selectedRow?: number | null
 }>()
 
 const emit = defineEmits<{
-  select: [row: number]
+  /** Every row sitting on the clicked point: scores are often discrete, so several rows share one spot */
+  select: [rows: number[]]
 }>()
 
 interface Point {
@@ -20,16 +21,27 @@ interface Point {
   pred: number
   x: number
   y: number
-  row: number | null
+  rows: number[]
+  /** Rows on this spot, including those without a row index */
+  count: number
 }
 
-const points = computed<Point[]>(() => (props.run.points ?? []).map(p => ({
-  truth: p.truth,
-  pred: p.pred,
-  x: p.truth,
-  y: p.pred,
-  row: p.row_index,
-})))
+// Rows with the same ground truth and prediction collapse into a single point
+const points = computed<Point[]>(() => {
+  const spots = new Map<string, Point>()
+  for (const p of props.run.points ?? []) {
+    const key = `${p.truth}|${p.pred}`
+    let spot = spots.get(key)
+    if (!spot) {
+      spot = { truth: p.truth, pred: p.pred, x: p.truth, y: p.pred, rows: [], count: 0 }
+      spots.set(key, spot)
+    }
+    spot.count++
+    if (p.row_index !== null)
+      spot.rows.push(p.row_index)
+  }
+  return [...spots.values()]
+})
 
 const diagonal = computed(() => [
   { x: props.domain[0], y: props.domain[0] },
@@ -47,11 +59,19 @@ const ICONS = {
   over: icon('<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'),
   under: icon('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
   exact: icon('<path d="M20 6 9 17l-5-5"/>'),
+  rows: icon('<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'),
   click: icon('<path d="M14 4.1 12 6M5.1 8l-2.9-.8M6 12l-1.9 2M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>'),
 }
 
 // Up to two decimals, no trailing zeros; a real minus sign for negatives
+const MAX_LISTED_ROWS = 8
+
 const fmt = (n: number) => String(Number(n.toFixed(2))).replace('-', '−')
+
+function rowsList(rows: number[]) {
+  const shown = rows.slice(0, MAX_LISTED_ROWS).join(', ')
+  return rows.length > MAX_LISTED_ROWS ? `Rows ${shown} and ${rows.length - MAX_LISTED_ROWS} more` : `Rows ${shown}`
+}
 
 function pointTooltip(d: Point) {
   const error = Number((d.pred - d.truth).toFixed(2))
@@ -63,16 +83,17 @@ function pointTooltip(d: Point) {
 
   return `<div class="min-w-44 text-xs">
     <div class="flex items-center justify-between gap-6 pb-2 mb-2 border-b border-default">
-      <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-highlighted">${ICONS.row}Row ${d.row ?? '?'}</span>
+      <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-highlighted">${d.count > 1 ? `${ICONS.rows}${d.count} rows` : `${ICONS.row}Row ${d.rows[0] ?? '?'}`}</span>
       ${delta}
     </div>
     <div class="flex flex-col gap-1.5">
       ${line(ICONS.truth, 'Ground truth', fmt(d.truth))}
       ${line(ICONS.predicted, 'Predicted', fmt(d.pred))}
     </div>
-    ${d.row === null
+    ${d.count > 1 ? `<div class="mt-2 pt-2 border-t border-default text-muted tabular-nums">${rowsList(d.rows)}</div>` : ''}
+    ${d.rows.length === 0
       ? ''
-      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-dimmed">${ICONS.click}Click to open the row</div>`}
+      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-dimmed">${ICONS.click}${d.rows.length > 1 ? 'Click to browse the rows' : 'Click to open the row'}</div>`}
   </div>`
 }
 
@@ -83,17 +104,17 @@ const triggers = {
 const events = {
   [Scatter.selectors.point]: {
     click: (d: Point) => {
-      if (d.row !== null)
-        emit('select', d.row)
+      if (d.rows.length)
+        emit('select', d.rows)
     },
     mouseenter: (d: Point, event: MouseEvent) => {
-      if (d.row !== null)
+      if (d.rows.length)
         (event.currentTarget as SVGElement).style.cursor = 'pointer'
     },
   },
 }
 
-const isSelected = (d: Point) => d.row !== null && d.row === props.selectedRow
+const isSelected = (d: Point) => props.selectedRow != null && d.rows.includes(props.selectedRow)
 </script>
 
 <template>
