@@ -26,18 +26,35 @@ const form = defineModel<PromptVersionFormValues>({ required: true })
 
 const valid = computed(() => form.value.version.trim().length > 0)
 
-// Names written as {{ name }} in the prompts and not listed yet: one click declares them
-const detectedVariables = computed(() => {
-  const found = new Set<string>()
-  for (const text of [form.value.system_prompt, form.value.user_prompt]) {
-    for (const match of text.matchAll(/\{\{\s*([A-Z_]\w*)\s*\}\}/gi))
-      found.add(match[1]!)
-  }
-  return [...found].filter(name => !form.value.variables.includes(name))
-})
+const texts = computed(() => [form.value.system_prompt, form.value.user_prompt])
+
+// Names written in the prompts and not listed yet: one click declares them
+const detectedVariables = computed(() => undeclaredPlaceholders(texts.value, form.value.variables))
+// How often the prompts use each name, to tell the unused ones from the rest
+const usage = computed(() => countPlaceholders(texts.value, form.value.variables))
 
 function addVariables(names: string[]) {
   form.value.variables = [...form.value.variables, ...names]
+}
+
+// Hovering a variable shows where the prompts use it; clicking walks through those places
+interface Selectable {
+  select: (start: number, end: number) => void
+}
+const fields = [useTemplateRef<Selectable>('systemField'), useTemplateRef<Selectable>('userField')]
+const active = ref<string | null>(null)
+const visits = new Map<string, number>()
+
+function reveal(name: string) {
+  const places = texts.value.flatMap((text, field) => findPlaceholders(text, form.value.variables)
+    .filter(placeholder => placeholder.name === name && !placeholder.closing)
+    .map(placeholder => ({ field, start: placeholder.start, end: placeholder.end })))
+  if (places.length === 0)
+    return
+  const next = ((visits.get(name) ?? -1) + 1) % places.length
+  visits.set(name, next)
+  const place = places[next]!
+  fields[place.field]!.value?.select(place.start, place.end)
 }
 
 function submit() {
@@ -45,7 +62,6 @@ function submit() {
     emit('save')
 }
 
-const fieldUi = { base: 'font-mono text-[13px] leading-relaxed' }
 const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border border-default px-3'
 </script>
 
@@ -96,31 +112,49 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
       </div>
 
       <UFormField label="System prompt">
-        <UTextarea
+        <PromptTemplateField
+          ref="systemField"
           v-model="form.system_prompt"
-          placeholder="Instructions that frame the model's role"
-          autoresize
+          :variables="form.variables"
+          :active="active"
           :rows="4"
-          :ui="fieldUi"
-          class="w-full"
+          placeholder="Instructions that frame the model's role"
         />
       </UFormField>
 
-      <UFormField label="User prompt" description="Reference variables as {{ name }}">
-        <UTextarea
+      <UFormField label="User prompt" description="Reference variables as {{ name }}, or type {{ to pick one">
+        <PromptTemplateField
+          ref="userField"
           v-model="form.user_prompt"
-          placeholder="The message sent for each row"
-          autoresize
+          :variables="form.variables"
+          :active="active"
           :rows="8"
-          :ui="fieldUi"
-          class="w-full"
+          placeholder="The message sent for each row"
         />
       </UFormField>
 
       <UFormField label="Variables" description="Names the dataset must provide for each row">
-        <UInputTags v-model="form.variables" placeholder="Type a name, press Enter" class="w-full" />
-        <p v-if="detectedVariables.length" class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-          Found in the prompts:
+        <UInputTags v-model="form.variables" placeholder="Type a name, press Enter" class="w-full">
+          <template #item-text="{ item }">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted"
+              :title="usage.get(item) ? 'Show where the prompts use it' : 'Not used in the prompts'"
+              @mouseenter="active = item"
+              @mouseleave="active = null"
+              @focus="active = item"
+              @blur="active = null"
+              @click="reveal(item)"
+            >
+              <span class="font-mono">{{ item }}</span>
+              <span v-if="usage.get(item)" class="text-muted tabular-nums">{{ usage.get(item) }}×</span>
+              <span v-else class="text-warning">Unused</span>
+            </button>
+          </template>
+        </UInputTags>
+        <p v-if="detectedVariables.length" class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-warning">
+          <UIcon name="i-ph-warning-bold" class="size-3.5 shrink-0" aria-hidden="true" />
+          Used but not declared:
           <UButton
             v-for="name in detectedVariables"
             :key="name"

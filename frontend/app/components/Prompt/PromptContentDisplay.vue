@@ -1,31 +1,36 @@
 <script setup lang="ts">
+import type { Placeholder, PlaceholderSegment } from '~/utils/promptPlaceholders'
+
 interface Props {
   label: string
   content: string
   type?: 'text' | 'code'
-  /** Variable names to pick out in the text, as `{{ name }}` or `<name>` */
+  /** Declared variable names to pick out in the text, as `{{ name }}` or `<name>`; other `{{ name }}` are flagged */
   variables?: readonly string[]
+  /** Variable shown stronger, while it is looked at elsewhere */
+  active?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   type: 'code',
   variables: () => [],
+  active: null,
 })
 
 // The text cut into plain runs and variable placeholders, so the placeholders can be marked up
-const segments = computed(() => {
-  const names = props.variables.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  if (props.type !== 'code' || names.length === 0)
-    return [{ text: props.content, variable: false }]
+const segments = computed<PlaceholderSegment[]>(() => props.type === 'code'
+  ? splitPlaceholders(props.content, props.variables)
+  : [{ text: props.content }])
 
-  // Both tags of an XML slot (<name></name>) count, as does {{ name }}. Splitting on one capture group puts
-  // the matches at odd indices, so the empty strings it can return must stay until the parity is read.
-  const pattern = new RegExp(`(\\{\\{\\s*(?:${names.join('|')})\\s*\\}\\}|</?(?:${names.join('|')})>)`, 'g')
-  return props.content
-    .split(pattern)
-    .map((text, index) => ({ text, variable: index % 2 === 1 }))
-    .filter(segment => segment.text)
-})
+function markClass(placeholder: Placeholder) {
+  if (!placeholder.declared)
+    return 'bg-warning/15 text-warning underline decoration-wavy underline-offset-2'
+  return placeholder.name === props.active ? 'bg-primary/25 text-primary' : 'bg-primary/10 text-primary'
+}
+
+function markTitle(placeholder: Placeholder) {
+  return placeholder.declared ? undefined : `${placeholder.name} is not declared as a variable`
+}
 </script>
 
 <template>
@@ -40,7 +45,7 @@ const segments = computed(() => {
     <pre
       v-if="type === 'code'"
       class="whitespace-pre-wrap break-words rounded-md border border-default bg-muted/50 px-3 py-2.5 font-mono text-[13px] leading-relaxed text-highlighted"
-    ><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.variable" class="rounded-sm bg-primary/10 px-0.5 text-primary">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template></template></pre>
+    ><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.placeholder" class="rounded-sm px-0.5 transition-colors duration-100" :class="markClass(segment.placeholder)" :title="markTitle(segment.placeholder)">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template></template></pre>
 
     <p v-else class="whitespace-pre-wrap text-sm leading-relaxed text-toned">
       {{ content }}
