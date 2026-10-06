@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-import time
+import threading
 
 import pytest
 from sqlmodel import Session, select
@@ -121,39 +121,28 @@ def test_a_run_completes_and_writes_its_results(engine, experiment_id, pipeline)
     assert max(done for _, _, done in published) == ROWS
 
 
-def test_the_event_loop_stays_responsive_during_a_run(
+def test_the_progress_is_written_off_the_event_loop(
     engine, experiment_id, pipeline, monkeypatch
 ):
-    # Database and disk work is slowed down: were it done on the loop, the
-    # heartbeat below would miss beats for as long
+    # Which thread does each write run on? Measuring how long the loop stalls
+    # would say the same, but depends on how loaded the machine is
     real_commit = async_jobs._RunProgress._commit
+    writers = []
 
-    def slow_commit(self, state):
-        time.sleep(0.2)
+    def spying_commit(self, state):
+        writers.append(threading.get_ident())
         real_commit(self, state)
 
-    monkeypatch.setattr(async_jobs._RunProgress, "_commit", slow_commit)
+    monkeypatch.setattr(async_jobs._RunProgress, "_commit", spying_commit)
 
     async def scenario():
-        gaps = []
-
-        async def heartbeat():
-            last = time.perf_counter()
-            while True:
-                await asyncio.sleep(0.005)
-                now = time.perf_counter()
-                gaps.append(now - last)
-                last = now
-
-        beat = asyncio.create_task(heartbeat())
         await async_jobs.run_experiment_async(experiment_id)
-        beat.cancel()
-        return gaps
+        return threading.get_ident()
 
-    gaps = asyncio.run(scenario())
+    loop_thread = asyncio.run(scenario())
 
-    assert len(gaps) > 20
-    assert max(gaps) < 0.1
+    assert writers
+    assert loop_thread not in writers
 
 
 def test_cancelling_a_run_closes_it_as_cancelled(engine, experiment_id, monkeypatch):
