@@ -8,6 +8,8 @@ const props = defineProps<{
   matrix: number[][]
 }>()
 
+const { chartWidth } = usePrinting()
+
 interface Cell {
   truth: string
   pred: string
@@ -54,7 +56,7 @@ const triggers = {
     <div class="text-xs text-muted mb-1">
       Rows: ground truth · Columns: predicted
     </div>
-    <VisSingleContainer :data="cells" :height="Math.min(320, 36 * size + 40)">
+    <VisSingleContainer :key="chartWidth ?? 'auto'" :data="cells" :width="chartWidth" :duration="chartWidth ? 0 : undefined" :height="Math.min(320, 36 * size + 40)">
       <VisHeatmap
         :value="(d: Cell) => d.count || undefined"
         :color="cellColor"
