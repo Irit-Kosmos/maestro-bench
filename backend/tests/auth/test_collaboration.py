@@ -22,8 +22,11 @@ from tables import (
     Invitation,
     Membership,
     Model,
+    Note,
     Prompt,
     PromptVersion,
+    Study,
+    StudyItem,
     Tag,
     TagLink,
     User,
@@ -465,6 +468,9 @@ def populate(engine, workspace_id: int) -> None:
         add(Analysis(name="x", config="{}", runs="[]"))
         tag = add(Tag(name="t"))
         add(TagLink(tag_id=tag.id, kind="prompt", item_id=prompt.id))
+        study = add(Study(name="s"))
+        add(StudyItem(study_id=study.id, kind="experiment", item_id=experiment.id))
+        add(Note(kind="study", item_id=study.id, body="n"))
         add(WorkspaceCredential(provider="mistral", ciphertext="x", last4="1234"))
         db.commit()
 

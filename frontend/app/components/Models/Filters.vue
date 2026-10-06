@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { ModelGroupBy } from '~/composables/useModelFilters'
 import type { FilterDefinition, FilterState } from '~/utils/filters'
+import type { SortState } from '~/utils/sorts'
+import { modelGroups, modelSorts } from '~/composables/useModelFilters'
 
-// The toolbar of the models list: the shared one, plus how to group the rows
+// The toolbar of the models list: the shared one, with the same Group and Sort menus as the tables
 defineProps<{
   definitions: FilterDefinition[]
   total: number
@@ -16,13 +17,8 @@ const emit = defineEmits<{
 
 const search = defineModel<string>('search', { required: true })
 const filters = defineModel<FilterState>('filters', { required: true })
-const groupBy = defineModel<ModelGroupBy>('groupBy', { required: true })
-
-const groupItems = [
-  { label: 'Group by provider', value: 'provider', icon: 'i-ph-stack-bold' },
-  { label: 'Group by status', value: 'status', icon: 'i-ph-list-checks-bold' },
-  { label: 'No grouping', value: 'none', icon: 'i-ph-list-bold' },
-]
+const groupBy = defineModel<string | null>('groupBy', { required: true })
+const sortBy = defineModel<SortState | null>('sortBy', { required: true })
 </script>
 
 <template>
@@ -36,18 +32,9 @@ const groupItems = [
     item-name="model"
     @refresh="emit('refresh')"
   >
-    <template #trailing>
-      <USelectMenu
-        v-model="groupBy"
-        value-key="value"
-        :items="groupItems"
-        :search-input="false"
-        size="xs"
-        variant="ghost"
-        color="neutral"
-        class="w-40"
-        aria-label="Group models"
-      />
+    <template #group>
+      <BaseGroupMenu v-model="groupBy" :groups="modelGroups" />
+      <BaseSortMenu v-model="sortBy" :sorts="modelSorts" />
     </template>
   </BaseListToolbar>
 </template>

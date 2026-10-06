@@ -38,6 +38,7 @@ from schemas.batches import (
     VariationValueResponse,
 )
 from schemas.experiments import ExperimentCreate
+from study_utils import clear_item_links
 from tables import (
     Agent,
     AgentExecutionSnapshot,
@@ -587,5 +588,6 @@ def delete_batch(batch_id: int, session: SessionDep):
         experiment.variant = None
         session.add(experiment)
 
+    clear_item_links(session, "batch", batch_id)
     session.delete(batch)
     session.commit()

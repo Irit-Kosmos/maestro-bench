@@ -7,14 +7,28 @@ export function useExperimentSubmission() {
   const { createExperiment } = useExperiments()
   const { createBatch } = useBatches()
   const { ok, fail } = useStandardToast()
+  const { assignStudies } = useStudies()
   const router = useRouter()
 
-  async function handleSubmit(experimentData: any) {
+  // What was just created goes into the studies picked on the form. The creation stands if this fails.
+  async function putInStudies(kind: 'experiment' | 'batch', id: number, studyIds: number[]) {
+    if (!studyIds.length)
+      return
+    try {
+      await assignStudies(kind, [id], { add: studyIds })
+    }
+    catch (error) {
+      fail('Couldn’t add it to the studies', apiErrorMessage(error) ?? 'You can do it from its page.')
+    }
+  }
+
+  async function handleSubmit(experimentData: any, studyIds: number[] = []) {
     try {
       const result = await createExperiment(experimentData)
 
       if (result.success) {
         const created = result.data as { id: number, status?: string }
+        await putInStudies('experiment', created.id, studyIds)
         // A workspace already running as many experiments as it may queues the new one
         ok(created.status === 'queued' ? 'Experiment queued' : 'Experiment started')
         // Land on the run itself: its progress is live there
@@ -35,9 +49,10 @@ export function useExperimentSubmission() {
   }
 
   // One experiment per combination of the variations, started together
-  async function handleBatchSubmit(batch: Parameters<typeof createBatch>[0], experimentCount: number) {
+  async function handleBatchSubmit(batch: Parameters<typeof createBatch>[0], experimentCount: number, studyIds: number[] = []) {
     const result = await createBatch(batch)
     if (result.success) {
+      await putInStudies('batch', result.data.id, studyIds)
       ok('Batch started', { description: `${experimentCount} experiments are running.` })
       await navigateTo(`/batches/${result.data.id}`)
       return { success: true }

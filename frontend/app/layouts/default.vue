@@ -48,6 +48,9 @@ defineShortcuts({
   'g-m': () => {
     router.push('/models')
   },
+  'g-y': () => {
+    router.push('/studies')
+  },
   'g-s': () => {
     router.push('/settings')
   },
@@ -60,7 +63,7 @@ defineShortcuts({
     const path = relativePath.value
     if (path.startsWith('/analyses'))
       return router.push('/analyses/new')
-    const listed = ['/datasets', '/prompts', '/agents', '/models'].find(prefix => path.startsWith(prefix))
+    const listed = ['/datasets', '/prompts', '/agents', '/models', '/studies'].find(prefix => path.startsWith(prefix))
     router.push(listed ? `${listed}?new=1` : '/experiments/new')
   },
 })

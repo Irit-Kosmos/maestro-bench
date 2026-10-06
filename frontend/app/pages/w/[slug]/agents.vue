@@ -2,10 +2,13 @@
 import type { Agent, AgentKind, AgentTeam, Model, PromptVersion, Tag } from '~/types'
 import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupSpec } from '~/utils/groups'
+import type { SortSpec } from '~/utils/sorts'
 import { h, resolveComponent } from 'vue'
 import { useGroupBy } from '~/composables/useGroupBy'
+import { useSortBy } from '~/composables/useSortBy'
 import { byOrder } from '~/utils/filters'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 // Composables
 const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError, ok } = useStandardToast()
@@ -181,6 +184,17 @@ const groups: GroupSpec<AgentRow>[] = [
 ]
 const groupBy = useGroupBy('maestro:agents-group-by', 'team')
 
+// In the order of the columns. The list is by team then name until one is picked; inside a section the agents are sorted among themselves
+const sortBy = useSortBy('maestro:agents-sort-by')
+const sorts: SortSpec<AgentRow>[] = [
+  nameSort(agent => agent.name, 'Agent'),
+  textSort('kind', 'Type', 'i-ph-shapes-bold', agent => KINDS[agent.kind].label),
+  textSort('team', 'Team', 'i-ph-users-three-bold', agent => agent.team_name),
+  textSort('prompt', 'Prompt', 'i-ph-chat-text-bold', agent => agent.prompt_label),
+  textSort('model', 'Model', 'i-ph-cpu-bold', agent => agent.model?.name),
+  dateSort(agent => agent.created_at),
+]
+
 // Clicking a tag in a row filters the list on it
 const filterState = ref<FilterState>({})
 
@@ -329,10 +343,12 @@ async function handleDeleteAgent() {
       ref="table"
       v-model:filter-state="filterState"
       v-model:group-by="groupBy"
+      v-model:sort-by="sortBy"
       :data="rows"
       :columns="columns"
       :filters="filters"
       :groups="groups"
+      :sorts="sorts"
       :actions="actions"
       :loading="agentsPending"
       :row-open="(agent: AgentRow) => openPanel(agent.id)"
@@ -377,7 +393,7 @@ async function handleDeleteAgent() {
       </template>
 
       <template #created_at-cell="{ row }">
-        <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.created_at)">
+        <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
           {{ formatRelativeDate(row.original.created_at) }}
         </span>
       </template>

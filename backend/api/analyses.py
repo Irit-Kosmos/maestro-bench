@@ -31,6 +31,7 @@ from schemas.analyses import (
     RunResultResponse,
 )
 from schemas.tags import TagResponse
+from study_utils import clear_item_links
 from tables import (
     AgentExecutionSnapshot,
     Analysis,
@@ -411,6 +412,7 @@ def delete_analysis(
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     clear_item_tags(session, "analysis", analysis_id)
+    clear_item_links(session, "analysis", analysis_id)
     session.delete(analysis)
     session.commit()
 

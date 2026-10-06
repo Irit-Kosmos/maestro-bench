@@ -20,6 +20,9 @@ const STATUSES = {
 
 type KnownStatus = keyof typeof STATUSES
 
+/** The statuses in the order a run goes through them. */
+export const STATUS_ORDER: string[] = Object.keys(STATUSES)
+
 const isKnownStatus = (value: unknown): value is KnownStatus => typeof value === 'string' && value in STATUSES
 
 const presentStatus = (value: unknown) => isKnownStatus(value) ? STATUSES[value] : { label: String(value) }

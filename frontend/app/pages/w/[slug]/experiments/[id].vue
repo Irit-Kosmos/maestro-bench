@@ -366,10 +366,10 @@ watch(() => route.params.id, () => {
         </h1>
         <!-- Each fact has its own icon; the id is the quietest, the batch is the only link -->
         <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-          <UIMetaItem icon="i-ph-hash-bold" label="Experiment" class="tabular-nums">
+          <UIMetaItem icon="i-ph-hash-bold" label="Experiment">
             {{ experiment.id }}
           </UIMetaItem>
-          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created" class="tabular-nums">
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(experiment.created_at) }}
           </UIMetaItem>
           <UIMetaItem v-if="experiment.batch_id" icon="i-ph-arrows-split-bold" label="Batch">
@@ -381,6 +381,7 @@ watch(() => route.params.id, () => {
         <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ experiment.description }}
         </p>
+        <StudiesItemStudies :id="experiment.id" kind="experiment" class="mt-2.5" />
       </header>
 
       <!-- What is run (agents) takes the wide column; what it runs on and what came out stack beside it -->
@@ -439,13 +440,13 @@ watch(() => route.params.id, () => {
                 </UIMetaItem>
               </li>
               <li>
-                <UIMetaItem icon="i-ph-rows-bold" label="Rows used" class="tabular-nums">
+                <UIMetaItem icon="i-ph-rows-bold" label="Rows used">
                   <UIRowCount :rows="datasetRows" />
                   <span class="text-muted">· {{ samplingHint }}</span>
                 </UIMetaItem>
               </li>
               <li v-if="experiment.sampling_type === 'random' && experiment.sampling_seed != null" class="flex items-center justify-between gap-2">
-                <UIMetaItem icon="i-ph-dice-five-bold" label="Sample seed" class="tabular-nums">
+                <UIMetaItem icon="i-ph-dice-five-bold" label="Sample seed">
                   <span class="shrink-0 whitespace-nowrap">seed {{ experiment.sampling_seed }}</span>
                   <span v-if="sampleRedrawn" class="truncate text-muted" title="New rows on the next run">· new rows on the next run</span>
                 </UIMetaItem>
@@ -493,7 +494,7 @@ watch(() => route.params.id, () => {
                     <UIStatusBadge :status="row.execution.status" />
                     <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
                     <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
-                    <span class="text-xs text-muted tabular-nums" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                    <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
                   </div>
                   <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
                   <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
@@ -528,6 +529,10 @@ watch(() => route.params.id, () => {
           </ExperimentsSection>
         </div>
       </div>
+
+      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this run. Notes show up in the activity of every study that holds it.">
+        <NotesJournal kind="experiment" :item-id="experiment.id" />
+      </ExperimentsSection>
     </div>
 
     <!-- Error State -->

@@ -5,6 +5,7 @@ const labels = useBreadcrumbLabels()
 const labelMap: Record<string, { label: string, icon: string }> = {
   experiments: { label: 'Experiments', icon: 'i-ph-flask' },
   executions: { label: 'Executions', icon: 'i-ph-clock-counter-clockwise' },
+  studies: { label: 'Studies', icon: 'i-ph-notebook' },
   batches: { label: 'Batches', icon: 'i-ph-arrows-split' },
   analyses: { label: 'Analyses', icon: 'i-ph-chart-bar' },
   datasets: { label: 'Datasets', icon: 'i-ph-database' },

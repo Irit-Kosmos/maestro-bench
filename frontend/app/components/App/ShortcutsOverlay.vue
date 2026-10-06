@@ -12,6 +12,7 @@ const shortcuts = [
     { keys: ['G', 'P'], label: 'Go to Prompts' },
     { keys: ['G', 'M'], label: 'Go to Models' },
     { keys: ['G', 'A'], label: 'Go to Agents' },
+    { keys: ['G', 'Y'], label: 'Go to Studies' },
     { keys: ['G', 'S'], label: 'Go to Settings' },
   ] },
   { section: 'Actions', items: [
@@ -19,6 +20,7 @@ const shortcuts = [
     { keys: ['C'], label: 'New item on this page (an experiment elsewhere)' },
     { keys: ['['], label: 'Collapse or expand the sidebar' },
     { keys: ['T'], label: 'Switch between light and dark' },
+    { keys: ['meta', 'I'], label: 'Show or hide the properties of a study' },
     { keys: ['?'], label: 'Show keyboard shortcuts' },
   ] },
   { section: 'Dataset rows', items: [
@@ -49,7 +51,7 @@ const shortcuts = [
             >
               <span class="text-sm text-default">{{ shortcut.label }}</span>
               <div class="flex items-center gap-1">
-                <UKbd v-for="key in shortcut.keys" :key="key" :value="key" size="sm" />
+                <BaseKbd v-for="key in shortcut.keys" :key="key" :value="key" />
               </div>
             </div>
           </div>

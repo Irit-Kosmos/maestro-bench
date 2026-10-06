@@ -1,10 +1,12 @@
 import type { MaybeRefOrGetter } from 'vue'
 import type { Model } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
+import type { GroupSpec } from '~/utils/groups'
+import type { SortSpec } from '~/utils/sorts'
 import { useLocalStorage } from '@vueuse/core'
 import { byOrder } from '~/utils/filters'
-
-export type ModelGroupBy = 'provider' | 'status' | 'none'
+import { activeSortSpec, sortItems } from '~/utils/sorts'
+import { figureSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 export interface ModelGroup {
   key: string
@@ -49,20 +51,40 @@ const modelFilterSpecs: FilterSpec<Model>[] = [
   },
 ]
 
+// The entries of the group menu, the same one the tables have
+export const modelGroups: Pick<GroupSpec<Model>, 'key' | 'label' | 'icon'>[] = [
+  { key: 'provider', label: 'Provider', icon: 'i-ph-buildings-bold' },
+  { key: 'status', label: 'Status', icon: 'i-ph-radio-button-bold' },
+]
+
+// In the order of the columns. Without one the models are by name; inside a group they are sorted among themselves
+export const modelSorts: SortSpec<Model>[] = [
+  nameSort(model => model.name, 'Model'),
+  textSort('provider', 'Provider', 'i-ph-buildings-bold', model => providerLabel(model.provider)),
+  figureSort('context', 'Context', 'i-ph-ruler-bold', model => model.max_tokens),
+  figureSort('temperature', 'Temperature', 'i-ph-thermometer-bold', model => model.default_temperature),
+  // Active first when ascending
+  { key: 'status', label: 'Status', icon: 'i-ph-radio-button-bold', value: model => model.is_active ? 0 : 1 },
+]
+
 function modelSearchText(model: Model) {
   return `${model.name} ${providerLabel(model.provider)} ${model.provider} ${model.description ?? ''}`
 }
 
-/** Filtering and grouping of the models list. */
+/** Filtering, grouping and sorting of the models list. */
 export function useModelFilters(source: MaybeRefOrGetter<readonly Model[] | null | undefined>) {
   const { search, filters, definitions, filtered, hasFilters, clear } = useListFilters(source, modelFilterSpecs, modelSearchText)
 
   // Remembered per browser, like the other list preferences
-  const groupBy = useLocalStorage<ModelGroupBy>(workspaceStorageKey('maestro:models-group-by'), 'provider')
+  const groupBy = useGroupBy('maestro:models-group-by', 'provider')
+  const sortBy = useSortBy('maestro:models-sort-by')
   const collapsedKeys = useLocalStorage<string[]>(workspaceStorageKey('maestro:models-collapsed-groups'), [])
 
   const groups = computed<ModelGroup[]>(() => {
-    const sorted = filtered.value.toSorted((a, b) => a.name.localeCompare(b.name))
+    const sort = activeSortSpec(modelSorts, sortBy.value)
+    const sorted = sort
+      ? sortItems(filtered.value, sort, sortBy.value!.direction)
+      : filtered.value.toSorted((a, b) => a.name.localeCompare(b.name))
     const make = (key: string, label: string, list: Model[], provider?: string): ModelGroup => ({
       key,
       label,
@@ -71,7 +93,7 @@ export function useModelFilters(source: MaybeRefOrGetter<readonly Model[] | null
       activeCount: list.filter(model => model.is_active).length,
     })
 
-    if (groupBy.value === 'none')
+    if (!groupBy.value)
       return sorted.length ? [make('all', 'All models', sorted)] : []
 
     if (groupBy.value === 'status') {
@@ -107,6 +129,7 @@ export function useModelFilters(source: MaybeRefOrGetter<readonly Model[] | null
     filters,
     definitions,
     groupBy,
+    sortBy,
     filtered,
     groups,
     hasFilters,

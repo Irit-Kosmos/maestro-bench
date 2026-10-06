@@ -13,7 +13,7 @@ const { data: providerStatuses } = await useMyLazyFetch<ProviderStatus[]>('/prov
 
 // Composables
 const { createModel, updateModel, deleteModel: deleteModelApi, toggleModelStatus: toggleStatus } = useModels()
-const { search, filters, definitions: filterDefinitions, groupBy, filtered, groups, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
+const { search, filters, definitions: filterDefinitions, groupBy, sortBy, filtered, groups, isCollapsed, toggleCollapsed, clear: clearFilters } = useModelFilters(models)
 const { showCreateSuccess, showUpdateSuccess, showDeleteSuccess, showCreateError, showUpdateError, showDeleteError } = useStandardToast()
 
 // Whether the backend holds an API key for a provider, by canonical key
@@ -239,6 +239,7 @@ function handleDeleteLeave() {
         v-model:search="search"
         v-model:filters="filters"
         v-model:group-by="groupBy"
+        v-model:sort-by="sortBy"
         :definitions="filterDefinitions"
         :total="models.length"
         :shown="filtered.length"
@@ -249,7 +250,7 @@ function handleDeleteLeave() {
       <ModelsList
         v-if="filtered.length > 0"
         :groups="groups"
-        :grouped="groupBy !== 'none'"
+        :grouped="groupBy !== null"
         :show-provider="groupBy !== 'provider'"
         :is-collapsed="isCollapsed"
         :provider-status="providerStatus"

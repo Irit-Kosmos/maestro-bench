@@ -152,6 +152,7 @@ async function confirmDelete() {
         <div v-if="analysis.tags.length" class="mt-2 flex flex-wrap gap-1">
           <TagsChip v-for="tag in analysis.tags" :key="tag.id" :tag="tag" />
         </div>
+        <StudiesItemStudies :id="analysis.id" kind="analysis" class="mt-2.5" />
       </div>
 
       <BaseErrorState v-if="computeError" :message="computeError" />
@@ -163,6 +164,10 @@ async function confirmDelete() {
         icon="i-ph-chart-bar-bold"
       />
       <AnalysesResults v-else-if="result" :result="result" :config="analysis.config" :name="analysis.name" />
+
+      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this comparison. Notes show up in the activity of every study that holds it.">
+        <NotesJournal kind="analysis" :item-id="analysis.id" />
+      </ExperimentsSection>
     </div>
 
     <USlideover v-model:open="showEditor" title="Edit analysis" :ui="{ content: 'sm:max-w-3xl' }">

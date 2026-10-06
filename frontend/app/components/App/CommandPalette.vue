@@ -7,6 +7,7 @@ const { data: batches } = await useMyLazyFetch<Batch[]>('/batches')
 const { data: datasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 const { data: prompts } = await useMyLazyFetch<Prompt[]>('/prompts')
 
+const { studies } = useStudies()
 const router = useRouter()
 const { colorMode } = useTheme()
 const icons = useAppConfig().ui.icons
@@ -42,6 +43,7 @@ const groups = computed<CommandPaletteGroup[]>(() => {
     label: 'Navigation',
     items: [
       { label: 'Dashboard', icon: 'i-ph-squares-four-bold', kbds: ['G', 'H'], onSelect: () => navigate('/') },
+      { label: 'Studies', icon: 'i-ph-notebook-bold', kbds: ['G', 'Y'], onSelect: () => navigate('/studies') },
       { label: 'Experiments', icon: 'i-ph-flask-bold', kbds: ['G', 'E'], onSelect: () => navigate('/experiments') },
       { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold', kbds: ['G', 'X'], onSelect: () => navigate('/executions') },
       { label: 'Batches', icon: 'i-ph-arrows-split-bold', kbds: ['G', 'B'], onSelect: () => navigate('/batches') },
@@ -61,12 +63,26 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       label: 'Actions',
       items: [
         { label: 'New experiment', icon: 'i-ph-plus-bold', suffix: 'Run agents over a dataset', onSelect: () => navigate('/experiments/new') },
+        { label: 'New study', icon: 'i-ph-plus-bold', suffix: 'Gather experiments around a question, with notes', onSelect: () => navigate('/studies?new=1') },
         { label: 'New analysis', icon: 'i-ph-plus-bold', suffix: 'Compare executions to a ground truth', onSelect: () => navigate('/analyses/new') },
         { label: 'New dataset', icon: 'i-ph-plus-bold', suffix: 'Upload a CSV or JSON file', onSelect: () => navigate('/datasets?new=1') },
         { label: 'New prompt', icon: 'i-ph-plus-bold', suffix: 'Write a prompt and its first version', onSelect: () => navigate('/prompts?new=1') },
         { label: 'New agent', icon: 'i-ph-plus-bold', suffix: 'Pair a prompt version with a model', onSelect: () => navigate('/agents?new=1') },
         { label: 'New model', icon: 'i-ph-plus-bold', suffix: 'Register a provider’s model', onSelect: () => navigate('/models?new=1') },
       ],
+    })
+  }
+
+  if (studies.value.length) {
+    items.push({
+      id: 'studies',
+      label: 'Studies',
+      items: studies.value.slice(0, 20).map(study => ({
+        label: study.name,
+        icon: studyStatusMeta(study.status).icon,
+        suffix: describeCounts(study.counts),
+        onSelect: () => navigate(`/studies/${study.id}`),
+      })),
     })
   }
 

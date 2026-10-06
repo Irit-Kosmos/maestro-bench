@@ -2,12 +2,15 @@
 import type { Experiment } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupSpec } from '~/utils/groups'
+import type { SortSpec } from '~/utils/sorts'
 import { useLocalStorage } from '@vueuse/core'
 import { h, resolveComponent } from 'vue'
 import { useGroupBy } from '~/composables/useGroupBy'
+import { useSortBy } from '~/composables/useSortBy'
 import { runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
 import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { dateSort, figureSort, nameSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 // Page meta
 definePageMeta({
@@ -61,6 +64,8 @@ useSeoMeta({
 // Table configuration
 // How the list is grouped is remembered per browser
 const groupBy = useGroupBy('maestro:experiments-group-by', 'batch')
+// Remembered per browser too; the list keeps the order the API gives (the latest first) until one is picked
+const sortBy = useSortBy('maestro:experiments-sort-by')
 
 const ExperimentsName = resolveComponent('ExperimentsName')
 const figureClass = 'text-sm text-toned tabular-nums'
@@ -150,6 +155,20 @@ const groups: GroupSpec<Experiment>[] = [
     summary: items => runsSummary(items.map(exp => ({ status: runOf(exp.id)?.status ?? exp.status, rows_failed: exp.rows_failed }))),
     rail: 'bg-neutral-300 dark:bg-neutral-600',
   },
+]
+
+// In the order of the columns. Inside a batch's section the experiments are sorted among themselves
+const sorts: SortSpec<Experiment>[] = [
+  nameSort(exp => shortExperimentName(exp.name, exp.batch_name), 'Experiment'),
+  textSort('dataset', 'Dataset', 'i-ph-database-bold', exp => exp.dataset?.name),
+  textSort('batch', 'Batch', 'i-ph-arrows-split-bold', exp => exp.batch_name),
+  figureSort('rows', 'Rows', 'i-ph-rows-bold', exp => exp.row_count),
+  figureSort('executions', 'Executions', 'i-ph-repeat-bold', exp => exp.execution_count),
+  figureSort('tokens', 'Tokens', 'i-ph-coins-bold', exp => exp.total_tokens),
+  figureSort('cost', 'Cost', 'i-ph-currency-dollar-bold', exp => exp.total_cost_usd),
+  figureSort('duration', 'Duration', 'i-ph-timer-bold', exp => exp.duration_seconds),
+  statusSort(exp => exp.status ?? 'pending'),
+  dateSort(exp => exp.created_at),
 ]
 
 const filters = computed<FilterSpec<Experiment>[]>(() => [
@@ -296,12 +315,14 @@ async function handleCreateExperiment() {
         v-model:selected="selectedIds"
         v-model:filter-state="filterState"
         v-model:group-by="groupBy"
+        v-model:sort-by="sortBy"
         fill
         :row-height="57"
         :data="experiments"
         :columns="columns"
         :filters="filters"
         :groups="groups"
+        :sorts="sorts"
         :actions="actions"
         :loading="pending"
         :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
@@ -312,6 +333,7 @@ async function handleCreateExperiment() {
         @refresh="refresh"
       >
         <template #selection-actions>
+          <StudiesBulkMenu kind="experiment" :ids="selectedIds" />
           <UButton
             variant="ghost"
             color="error"
@@ -366,7 +388,7 @@ async function handleCreateExperiment() {
 
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.created_at)">
+          <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
             {{ formatRelativeDate(row.original.created_at) }}
           </span>
         </template>

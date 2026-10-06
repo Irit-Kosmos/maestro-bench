@@ -139,7 +139,7 @@ watch(() => route.params.id, () => {
           <dl class="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1 text-xs text-muted">
             <div class="flex items-baseline gap-1.5">
               <dt>Created</dt>
-              <dd class="text-toned tabular-nums" :title="formatDate(dataset.created_at)">
+              <dd class="text-toned" :title="formatDate(dataset.created_at)">
                 {{ formatRelativeDate(dataset.created_at) }}
               </dd>
             </div>

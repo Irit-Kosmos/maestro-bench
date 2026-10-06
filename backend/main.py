@@ -24,9 +24,11 @@ from api import (
     experiment_executions,
     experiments,
     models,
+    notes,
     prompts,
     providers,
     setup,
+    studies,
     tags,
 )
 from api import auth as auth_api
@@ -103,6 +105,8 @@ WORKSPACE_ROUTERS = [
     providers,
     analyses,
     tags,
+    studies,
+    notes,
     batches,
     dashboard,
     events,

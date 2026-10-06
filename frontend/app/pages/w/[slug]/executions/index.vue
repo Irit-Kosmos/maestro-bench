@@ -2,12 +2,15 @@
 import type { ExecutionListItem } from '~/types'
 import type { FilterEntry, FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupSpec, RowRenderContext } from '~/utils/groups'
+import type { SortSpec } from '~/utils/sorts'
 import { useLocalStorage } from '@vueuse/core'
 import { h, resolveComponent } from 'vue'
 import { useGroupBy } from '~/composables/useGroupBy'
+import { useSortBy } from '~/composables/useSortBy'
 import { executionBatchFilter, executionExperimentFilter, executionFailuresFilter, executionModelsFilter, isAnalyzable, runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
 import { DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, statusFilter } from '~/utils/filterSpecs'
+import { dateSort, figureSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 definePageMeta({
   title: 'Executions',
@@ -120,6 +123,8 @@ const runs = computed(() => {
 // columns give way to those sections. The choice is remembered per browser
 const groupBy = useGroupBy('maestro:executions-group-by', 'batch')
 const grouped = computed(() => groupBy.value === 'batch')
+// Remembered per browser too; the list keeps the order the API gives (the latest first) until one is picked
+const sortBy = useSortBy('maestro:executions-sort-by')
 
 const NuxtLink = resolveComponent('NuxtLink')
 const UIcon = resolveComponent('UIcon')
@@ -228,6 +233,20 @@ function modelStackOf(execution: ExecutionListItem) {
   return llmAgentsOf(execution).map(agent => ({ name: agent.model, provider: agent.provider }))
 }
 
+// In the order of the columns. Inside a batch's section the executions are sorted among themselves
+const sorts: SortSpec<ExecutionListItem>[] = [
+  figureSort('id', 'Execution', 'i-ph-hash-bold', execution => execution.id),
+  textSort('experiment', 'Experiment', 'i-ph-flask-bold', execution => shortExperimentName(execution.experiment_name, execution.batch_name)),
+  textSort('batch', 'Batch', 'i-ph-arrows-split-bold', execution => execution.batch_name),
+  statusSort(execution => execution.status),
+  textSort('dataset', 'Dataset', 'i-ph-database-bold', execution => execution.dataset_name),
+  figureSort('rows', 'Rows', 'i-ph-rows-bold', execution => execution.row_count),
+  figureSort('duration', 'Duration', 'i-ph-timer-bold', execution => execution.duration_seconds),
+  figureSort('tokens', 'Tokens', 'i-ph-coins-bold', execution => execution.total_tokens),
+  figureSort('cost', 'Cost', 'i-ph-currency-dollar-bold', execution => execution.total_cost_usd),
+  dateSort(execution => execution.started_at, 'Started'),
+]
+
 const filters = computed<FilterSpec<ExecutionListItem>[]>(() => [
   statusFilter(execution => execution.status),
   failuresFilter,
@@ -281,12 +300,14 @@ const actions = [
         v-model:selected="selectedIds"
         v-model:filter-state="filterState"
         v-model:group-by="groupBy"
+        v-model:sort-by="sortBy"
         fill
         :row-height="57"
         :data="executions"
         :columns="columns"
         :filters="filters"
         :groups="groups"
+        :sorts="sorts"
         :actions="actions"
         :loading="pending"
         :row-open="openPanel"
@@ -363,7 +384,7 @@ const actions = [
         </template>
 
         <template #started_at-cell="{ row }">
-          <span class="text-sm text-muted tabular-nums" :title="formatDate(row.original.started_at)">
+          <span class="text-sm text-muted" :title="formatDate(row.original.started_at)">
             {{ formatRelativeDate(row.original.started_at) }}
           </span>
         </template>

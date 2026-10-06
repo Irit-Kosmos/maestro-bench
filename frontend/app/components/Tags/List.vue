@@ -8,8 +8,10 @@ import type { Tag } from '~/types'
 const props = withDefaults(defineProps<{
   tags: Tag[]
   max?: number
+  // Let the tags run over several lines instead of being cut to one
+  wrap?: boolean
   selectable?: boolean
-  kind?: 'prompt' | 'analysis' | 'agent'
+  kind?: 'prompt' | 'analysis' | 'agent' | 'study'
   id?: number
 }>(), {
   max: 3,
@@ -27,7 +29,7 @@ const editable = computed(() => canEdit.value && !!props.kind && props.id !== un
 </script>
 
 <template>
-  <span class="group/tags flex w-full min-w-0 items-center gap-1">
+  <span class="group/tags flex w-full min-w-0 items-center gap-1" :class="wrap && 'flex-wrap'">
     <span v-if="!tags.length" class="text-sm text-dimmed">—</span>
     <!-- Above the row's stretched link, so clicking a tag doesn't open the row -->
     <TagsChip
@@ -40,7 +42,7 @@ const editable = computed(() => canEdit.value && !!props.kind && props.id !== un
     />
     <span
       v-if="hidden.length"
-      class="shrink-0 text-xs text-muted tabular-nums"
+      class="shrink-0 text-xs text-muted"
       :title="hidden.map(tag => tag.name).join(', ')"
     >+{{ hidden.length }}</span>
 

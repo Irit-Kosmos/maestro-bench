@@ -111,8 +111,8 @@ defineShortcuts({
         Create analysis
         <template #trailing>
           <span class="flex gap-0.5">
-            <UKbd value="meta" size="sm" />
-            <UKbd value="enter" size="sm" />
+            <BaseKbd value="meta" />
+            <BaseKbd value="enter" />
           </span>
         </template>
       </UButton>
