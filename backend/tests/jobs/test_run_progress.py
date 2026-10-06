@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 import event_bus
@@ -22,12 +24,15 @@ def execution(session):
 def test_rows_are_counted_in_the_database_and_published(session, execution):
     progress = _RunProgress(session, execution, batch_id=5, workspace_id=1)
 
-    with event_bus.subscribe() as queue:
-        progress.start(3)
-        progress.row_done(failed=False)
-        progress.row_done(failed=True)
+    async def count():
+        with event_bus.subscribe() as queue:
+            await progress.start(3)
+            await progress.row_done(failed=False)
+            await progress.row_done(failed=True)
 
-        events = [queue.get_nowait() for _ in range(3)]
+            return [queue.get_nowait() for _ in range(3)]
+
+    events = asyncio.run(count())
 
     assert {event.name for event in events} == {"progress"}
     assert [
@@ -46,11 +51,34 @@ def test_rows_are_counted_in_the_database_and_published(session, execution):
 def test_published_events_are_not_altered_by_later_rows(session, execution):
     progress = _RunProgress(session, execution, batch_id=None, workspace_id=1)
 
-    with event_bus.subscribe() as queue:
-        progress.start(2)
-        progress.row_done(failed=False)
+    async def count():
+        with event_bus.subscribe() as queue:
+            await progress.start(2)
+            await progress.row_done(failed=False)
 
-        assert [queue.get_nowait().state.rows_done for _ in range(2)] == [0, 1]
+            return [queue.get_nowait().state.rows_done for _ in range(2)]
+
+    assert asyncio.run(count()) == [0, 1]
+
+
+def test_rows_finishing_together_are_counted_once_each(session, execution):
+    progress = _RunProgress(session, execution, batch_id=None, workspace_id=1)
+
+    async def finish_together_events():
+        with event_bus.subscribe() as queue:
+            await progress.start(20)
+            await asyncio.gather(*(progress.row_done(failed=False) for _ in range(20)))
+            events = []
+            while not queue.empty():
+                events.append(queue.get_nowait().state.rows_done)
+            return events
+
+    # Rows finishing during a write are covered by the next one: counts only go up
+    published = asyncio.run(finish_together_events())
+    assert published == sorted(published)
+    assert published[-1] == 20
+    session.refresh(execution)
+    assert execution.rows_done == 20
 
 
 def test_announce_publishes_a_status_event(session, execution):

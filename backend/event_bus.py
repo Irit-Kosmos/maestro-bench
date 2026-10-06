@@ -1,8 +1,10 @@
 """
 In-process pub/sub behind the live run stream.
 
-Runs and subscribers share uvicorn's event loop, so a queue per subscriber is
-enough. It only works with a single worker process.
+Subscribers live on uvicorn's event loop, one queue each. Events can be published
+from the loop or from a worker thread (a route that cancels a queued run, for
+instance): from a thread they are handed to the subscriber's loop. It only works
+with a single worker process.
 
 Events are published once their state is committed, and each carries the whole
 state of its execution: a subscriber that falls behind loses the oldest events
@@ -17,21 +19,41 @@ from schemas.events import RunEvent
 
 QUEUE_SIZE = 1024
 
-_subscribers: set[asyncio.Queue[RunEvent]] = set()
+# Each queue with the loop it is read on (None when subscribed outside any loop)
+_subscribers: dict[asyncio.Queue[RunEvent], asyncio.AbstractEventLoop | None] = {}
+
+
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+def _put(queue: asyncio.Queue[RunEvent], event: RunEvent) -> None:
+    if queue.full():
+        queue.get_nowait()
+    queue.put_nowait(event)
 
 
 def publish(event: RunEvent) -> None:
-    for queue in _subscribers:
-        if queue.full():
-            queue.get_nowait()
-        queue.put_nowait(event)
+    here = _running_loop()
+    for queue, loop in list(_subscribers.items()):
+        if loop is None or loop is here:
+            _put(queue, event)
+        else:
+            try:
+                loop.call_soon_threadsafe(_put, queue, event)
+            except RuntimeError:
+                # The loop is closed: nobody reads this queue any more
+                _subscribers.pop(queue, None)
 
 
 @contextmanager
 def subscribe() -> Iterator[asyncio.Queue[RunEvent]]:
     queue: asyncio.Queue[RunEvent] = asyncio.Queue(maxsize=QUEUE_SIZE)
-    _subscribers.add(queue)
+    _subscribers[queue] = _running_loop()
     try:
         yield queue
     finally:
-        _subscribers.discard(queue)
+        _subscribers.pop(queue, None)

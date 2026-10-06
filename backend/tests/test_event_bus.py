@@ -40,3 +40,17 @@ def test_full_queue_drops_its_oldest_events(monkeypatch):
             event_bus.publish(progress(rows_done))
 
         assert drain(queue) == [2, 3]
+
+
+def test_events_published_from_a_thread_reach_a_subscriber_on_the_loop():
+    import asyncio
+    import threading
+
+    async def scenario():
+        with event_bus.subscribe() as queue:
+            thread = threading.Thread(target=event_bus.publish, args=(progress(7),))
+            thread.start()
+            thread.join()
+            return (await asyncio.wait_for(queue.get(), timeout=1)).state.rows_done
+
+    assert asyncio.run(scenario()) == 7
