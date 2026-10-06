@@ -1,0 +1,78 @@
+import type { Agent, AgentInputMapping } from '~/types'
+import { describe, expect, it } from 'vitest'
+import { markValues, previewValues, splitRendered } from './promptPreview'
+
+const agent = (id: number, name: string) => ({ id, name }) as Agent
+const row = { answer: 'Bonjour', score: 4, empty: null }
+
+describe('previewValues', () => {
+  it('hands the whole row over when nothing is mapped', () => {
+    const values = previewValues([], ['answer'], row, [])
+    expect(values.answer).toEqual({ text: 'Bonjour', kind: 'value' })
+    expect(values.score).toEqual({ text: '4', kind: 'value' })
+    expect(values.empty).toEqual({ text: 'None', kind: 'missing' })
+  })
+
+  it('reads dataset columns and fixed text', () => {
+    const mappings: AgentInputMapping[] = [
+      { variable: 'a', source: 'dataset', sourceColumn: 'answer' },
+      { variable: 'b', source: 'static', staticValue: 'fixed' },
+    ]
+    const values = previewValues(mappings, ['a', 'b'], row, [])
+    expect(values.a).toEqual({ text: 'Bonjour', kind: 'value' })
+    expect(values.b).toEqual({ text: 'fixed', kind: 'value' })
+  })
+
+  it('flags a column the row does not have, or that is empty, as missing', () => {
+    const mappings: AgentInputMapping[] = [
+      { variable: 'a', source: 'dataset', sourceColumn: 'nope' },
+      { variable: 'b', source: 'dataset', sourceColumn: 'empty' },
+      { variable: 'c', source: 'dataset' },
+    ]
+    const values = previewValues(mappings, ['a', 'b', 'c'], row, [])
+    expect(Object.values(values).map(v => v.kind)).toEqual(['missing', 'missing', 'missing'])
+  })
+
+  it('names the agent an output comes from, with its path', () => {
+    const mappings: AgentInputMapping[] = [
+      { variable: 'a', source: 'agent', sourceAgentId: 2, sourcePath: 'eval.score' },
+      { variable: 'b', source: 'agent', sourceAgentId: 9 },
+    ]
+    const values = previewValues(mappings, ['a', 'b'], row, [agent(2, 'Grader')])
+    expect(values.a).toEqual({ text: '‹Grader: eval.score›', kind: 'stand-in' })
+    expect(values.b!.kind).toBe('stand-in')
+  })
+
+  it('stands in for a declared variable that has no mapping', () => {
+    const mappings: AgentInputMapping[] = [{ variable: 'a', source: 'static', staticValue: 'x' }]
+    expect(previewValues(mappings, ['a', 'b'], row, []).b).toEqual({ text: '‹not mapped›', kind: 'stand-in' })
+  })
+
+  it('writes an object value as JSON', () => {
+    expect(previewValues([], [], { o: { k: 1 } }, []).o!.text).toBe('{"k":1}')
+  })
+})
+
+describe('markValues and splitRendered', () => {
+  it('lets the values be found again in the rendered text', () => {
+    const marked = markValues({ a: { text: 'one', kind: 'value' }, b: { text: '', kind: 'value' } })
+    const rendered = `x ${marked.a} y ${marked.b}!`
+    expect(splitRendered(rendered)).toEqual([
+      { text: 'x ' },
+      { text: 'one', variable: 'a' },
+      { text: ' y ' },
+      { text: '', variable: 'b' },
+      { text: '!' },
+    ])
+  })
+
+  it('drops mark characters a value would carry', () => {
+    const marked = markValues({ a: { text: 'a\uE002b', kind: 'value' } })
+    expect(splitRendered(marked.a!)).toEqual([{ text: 'ab', variable: 'a' }])
+  })
+
+  it('returns plain text as one segment', () => {
+    expect(splitRendered('plain')).toEqual([{ text: 'plain' }])
+    expect(splitRendered('')).toEqual([])
+  })
+})

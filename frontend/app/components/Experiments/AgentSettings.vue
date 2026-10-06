@@ -33,10 +33,11 @@ function toNumber(value: string | number | undefined, parse: (s: string) => numb
 
 // --- Variables ---
 
-const variables = computed(() => {
-  const versionId = props.config?.prompt_version_id
-  return parsePromptVariables(props.promptVersions.find(v => v.id === versionId)?.variables)
-})
+const promptVersion = computed(() => props.promptVersions.find(v => v.id === props.config?.prompt_version_id))
+const variables = computed(() => parsePromptVariables(promptVersion.value?.variables))
+
+// The variable under the pointer in the mappings, picked out in the prompt below
+const highlighted = ref<string | null>(null)
 </script>
 
 <template>
@@ -107,6 +108,15 @@ const variables = computed(() => {
       title="Prompt variables"
       description="Where each variable of the prompt gets its value for every row."
       @set-mapping="mapping => emit('setMapping', mapping)"
+      @highlight="variable => highlighted = variable"
+    />
+
+    <ExperimentsPromptPreview
+      :version="promptVersion"
+      :variables="variables"
+      :mappings="config?.input_mappings"
+      :upstream-agents="upstreamAgents"
+      :active="highlighted"
     />
   </div>
 </template>
