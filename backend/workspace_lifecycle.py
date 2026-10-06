@@ -22,8 +22,11 @@ from tables import (
     Invitation,
     Membership,
     Model,
+    Note,
     Prompt,
     PromptVersion,
+    Study,
+    StudyItem,
     Tag,
     TagLink,
     Workspace,
@@ -34,6 +37,9 @@ from tables import (
 # make a loop (a batch's base experiment, an experiment's batch) are cut first.
 DELETE_ORDER = (
     TagLink,
+    StudyItem,
+    Note,
+    Study,
     AgentExecutionSnapshot,
     ExperimentAgentConfig,
     ExperimentExecution,

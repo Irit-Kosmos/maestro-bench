@@ -26,7 +26,11 @@ EXPERIMENT_STATUSES = (
 EXECUTION_STATUSES = ("running", "completed", "failed", "cancelled", "interrupted")
 AGENT_KINDS = ("llm", "aggregator")
 SAMPLING_TYPES = ("all", "random", "range")
-TAGGED_KINDS = ("prompt", "analysis", "agent")
+TAGGED_KINDS = ("prompt", "analysis", "agent", "study")
+STUDY_STATUSES = ("active", "concluded", "archived")
+# What a study can gather, and what a note can be attached to (a study too)
+STUDY_ITEM_KINDS = ("experiment", "batch", "analysis")
+NOTE_KINDS = (*STUDY_ITEM_KINDS, "study")
 # From the least to the most powerful
 ROLES = ("viewer", "editor", "owner")
 
@@ -489,13 +493,68 @@ class TagLink(WorkspaceOwned, table=True):
     """Puts a tag on an item: `kind` says which table `item_id` belongs to"""
 
     tag_id: int = Field(foreign_key="tag.id", primary_key=True)
-    kind: str = Field(primary_key=True)  # "prompt" | "analysis" | "agent"
+    kind: str = Field(primary_key=True)  # "prompt" | "analysis" | "agent" | "study"
     item_id: int = Field(primary_key=True)
 
     __table_args__ = (
         CheckConstraint(_one_of("kind", TAGGED_KINDS), name="ck_taglink_kind"),
         # The tags of an item: the primary key starts with the tag
         Index("ix_taglink_kind_item", "kind", "item_id"),
+    )
+
+
+class Study(Authored, table=True):
+    """A theme that gathers experiments, batches and analyses, with a journal of notes.
+
+    A study only points to what it gathers: an item can belong to several studies,
+    and deleting a study never deletes an item.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    description: str | None = None  # markdown
+    status: str = "active"  # active, concluded, archived (read-only)
+    created_at: datetime = now_field()
+    # Moves when the study, its items or its notes change
+    updated_at: datetime = now_field()
+
+    __table_args__ = (
+        CheckConstraint(_one_of("status", STUDY_STATUSES), name="ck_study_status"),
+        # The lists of a workspace, most recently touched first
+        Index("ix_study_workspace_updated", "workspace_id", "updated_at"),
+    )
+
+
+class StudyItem(WorkspaceOwned, table=True):
+    """Puts an item in a study: `kind` says which table `item_id` belongs to"""
+
+    study_id: int = Field(foreign_key="study.id", ondelete="CASCADE", primary_key=True)
+    kind: str = Field(primary_key=True)  # "experiment" | "batch" | "analysis"
+    item_id: int = Field(primary_key=True)
+    added_at: datetime = now_field()
+    added_by: int | None = Field(default=None, foreign_key="user.id", ondelete="SET NULL")
+
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", STUDY_ITEM_KINDS), name="ck_studyitem_kind"),
+        # The studies of an item: the primary key starts with the study
+        Index("ix_studyitem_kind_item", "kind", "item_id"),
+    )
+
+
+class Note(Authored, table=True):
+    """An entry of the journal of an item (or of a study): `created_by` is its author"""
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str  # "experiment" | "batch" | "analysis" | "study"
+    item_id: int
+    body: str  # markdown
+    created_at: datetime = now_field()
+    updated_at: datetime = now_field()
+
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", NOTE_KINDS), name="ck_note_kind"),
+        # The journal of an item, in order
+        Index("ix_note_kind_item_created", "kind", "item_id", "created_at"),
     )
 
 

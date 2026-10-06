@@ -24,7 +24,9 @@ from api import (
     experiment_executions,
     experiments,
     prompts,
+    studies,
 )
+from auth.workspaces import WorkspaceContext, workspace_context
 from batch_utils import serialize_point
 from db import get_session
 from tables import (
@@ -38,8 +40,11 @@ from tables import (
     ExperimentAgentConfig,
     ExperimentExecution,
     Model,
+    Note,
     Prompt,
     PromptVersion,
+    Study,
+    StudyItem,
     Tag,
     TagLink,
 )
@@ -60,6 +65,7 @@ def client(engine):
         experiment_executions,
         experiments,
         prompts,
+        studies,
     ):
         app.include_router(module.router)
 
@@ -69,6 +75,14 @@ def client(engine):
             yield session
 
     app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[workspace_context] = lambda: WorkspaceContext(
+        id=TEST_WORKSPACE_ID,
+        slug="test",
+        name="Test",
+        role="owner",
+        archived=False,
+        user_id=0,
+    )
     return TestClient(app)
 
 
@@ -124,6 +138,8 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
 
         first: dict = {"agent": team_agents[0].id, "executions": []}
         batch = None
+        made_batches: list[Batch] = []
+        made_experiments: list[Experiment] = []
         for i in range(experiments):
             if i % batch_size == 0:
                 batch = Batch(
@@ -140,6 +156,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                 )
                 s.add(batch)
                 s.flush()
+                made_batches.append(batch)
                 first.setdefault("batch", batch.id)
             experiment = Experiment(
                 name=f"Experiment {i}",
@@ -152,6 +169,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
             )
             s.add(experiment)
             s.flush()
+            made_experiments.append(experiment)
             first.setdefault("experiment", experiment.id)
             s.add_all(
                 [
@@ -193,19 +211,36 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                         for n, a in enumerate(team_agents, start=1)
                     ]
                 )
-        s.add(
-            Analysis(
-                name="Analysis",
-                config=json.dumps(
-                    {
-                        "truth_column": "truth",
-                        "value_type": "numeric",
-                        "metrics": ["mae"],
-                    }
-                ),
-                runs=json.dumps([]),
-            )
+        analysis = Analysis(
+            name="Analysis",
+            config=json.dumps(
+                {
+                    "truth_column": "truth",
+                    "value_type": "numeric",
+                    "metrics": ["mae"],
+                }
+            ),
+            runs=json.dumps([]),
         )
+        s.add(analysis)
+        s.flush()
+
+        # A study for each batch: the batch, its first experiment and the analysis
+        for n, made in enumerate(made_batches):
+            study = Study(name=f"Study {n}")
+            s.add(study)
+            s.flush()
+            first.setdefault("study", study.id)
+            member = next(e for e in made_experiments if e.batch_id == made.id)
+            s.add_all(
+                [
+                    StudyItem(study_id=study.id, kind="batch", item_id=made.id),
+                    StudyItem(study_id=study.id, kind="experiment", item_id=member.id),
+                    StudyItem(study_id=study.id, kind="analysis", item_id=analysis.id),
+                    Note(kind="study", item_id=study.id, body="About the study"),
+                    Note(kind="experiment", item_id=member.id, body="About a run"),
+                ]
+            )
         s.commit()
         return first
 
@@ -223,6 +258,10 @@ ENDPOINTS = [
     "/agent-teams",
     "/analyses",
     "/analyses/executions",
+    "/studies",
+    "/studies/{study}",
+    "/studies/{study}/activity",
+    "/studies/memberships?kind=experiment",
     "/prompts",
     "/prompt-versions",
     "/dashboard",

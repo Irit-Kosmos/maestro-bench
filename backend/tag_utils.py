@@ -1,4 +1,4 @@
-"""Tags shared by prompts, analyses and agents: the palette and the helpers that read and write links."""
+"""Tags shared by prompts, analyses, agents and studies: the palette and the helpers that read and write links."""
 
 from collections.abc import Iterable
 from typing import Literal, get_args
@@ -6,7 +6,7 @@ from typing import Literal, get_args
 from fastapi import HTTPException
 from sqlmodel import Session, col, delete, select
 
-from tables import Agent, Analysis, Prompt, Tag, TagLink
+from tables import Agent, Analysis, Prompt, Study, Tag, TagLink
 
 # Mid-scale hues that read on both light and dark surfaces; the frontend maps each to a dot colour
 TagColor = Literal[
@@ -23,7 +23,7 @@ TagColor = Literal[
 ]
 TAG_COLORS: tuple[str, ...] = get_args(TagColor)
 
-TaggedKind = Literal["prompt", "analysis", "agent"]
+TaggedKind = Literal["prompt", "analysis", "agent", "study"]
 
 
 def normalize_tag_name(name: str) -> str:
@@ -107,7 +107,7 @@ def add_and_remove_tags(
     to_add = set(add)
     to_remove = set(remove) - to_add
 
-    table = {"prompt": Prompt, "analysis": Analysis, "agent": Agent}[kind]
+    table = {"prompt": Prompt, "analysis": Analysis, "agent": Agent, "study": Study}[kind]
     known_items = set(
         session.exec(select(table.id).where(col(table.id).in_(items))).all()
     )

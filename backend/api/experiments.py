@@ -20,6 +20,7 @@ from schemas.experiments import (
     ExperimentRerunResponse,
     ExperimentResponse,
 )
+from study_utils import clear_item_links
 from tables import (
     Batch,
     Dataset,
@@ -204,6 +205,7 @@ def delete_experiment(exp_id: int, session: SessionDep):
         batch.base_experiment_id = None
         session.add(batch)
 
+    clear_item_links(session, "experiment", exp_id)
     session.delete(experiment)
     session.commit()
 
