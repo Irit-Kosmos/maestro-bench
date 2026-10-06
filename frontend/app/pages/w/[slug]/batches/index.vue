@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Batch } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
+import type { SortSpec } from '~/utils/sorts'
 import { datasetFilter, dateFilter, earlierRunsFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { dateSort, figureSort, nameSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 definePageMeta({
   title: 'Batches',
@@ -46,6 +48,18 @@ const filters: FilterSpec<Batch>[] = [
   datasetFilter(batch => batch.dataset_name),
   runsFilter(batch => batch.execution_count, batch => batch.experiments.length),
   dateFilter(batch => batch.created_at),
+]
+
+// In the order of the columns
+const sorts: SortSpec<Batch>[] = [
+  nameSort(batch => batch.name, 'Batch'),
+  figureSort('experiments', 'Experiments', 'i-ph-flask-bold', batch => batch.experiments.length),
+  statusSort(batch => batch.status),
+  figureSort('executions', 'Executions', 'i-ph-repeat-bold', batch => batch.execution_count),
+  figureSort('tokens', 'Tokens', 'i-ph-coins-bold', batch => batch.total_tokens),
+  figureSort('cost', 'Cost', 'i-ph-currency-dollar-bold', batch => batch.total_cost_usd),
+  textSort('dataset', 'Dataset', 'i-ph-database-bold', batch => batch.dataset_name),
+  dateSort(batch => batch.created_at),
 ]
 
 const actions = [
@@ -123,6 +137,7 @@ async function confirmDelete() {
         :data="[...batches]"
         :columns="columns"
         :filters="filters"
+        :sorts="sorts"
         :actions="actions"
         :loading="pending"
         :row-to="(batch: Batch) => `/batches/${batch.id}`"

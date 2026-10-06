@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { CreateDatasetForm, Dataset } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
+import type { SortSpec } from '~/utils/sorts'
 import { dateFilter } from '~/utils/filterSpecs'
+import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 // Page meta
 definePageMeta({
@@ -47,6 +49,12 @@ const columns = [
 
 const filters: FilterSpec<Dataset>[] = [
   dateFilter(dataset => dataset.created_at),
+]
+
+const sorts: SortSpec<Dataset>[] = [
+  nameSort(dataset => dataset.name, 'Dataset'),
+  textSort('description', 'Description', 'i-ph-text-align-left-bold', dataset => dataset.description),
+  dateSort(dataset => dataset.created_at),
 ]
 
 const actions = [
@@ -157,6 +165,7 @@ useCreateFromQuery(handleCreateClick)
         :data="[...(datasets || [])]"
         :columns="columns"
         :filters="filters"
+        :sorts="sorts"
         :actions="actions"
         :loading="pending"
         :row-to="(dataset: Dataset) => `/datasets/${dataset.id}`"

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Analysis } from '~/types'
 import type { FilterSpec, FilterState } from '~/utils/filters'
+import type { SortSpec } from '~/utils/sorts'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { dateSort, figureSort, nameSort } from '~/utils/sortSpecs'
 
 definePageMeta({
   title: 'Analyses',
@@ -65,6 +67,12 @@ const filters: FilterSpec<Analysis>[] = [
   },
   tagsFilter<Analysis>(analysis => analysis.tags),
   dateFilter(analysis => analysis.updated_at, 'Updated'),
+]
+
+const sorts: SortSpec<Analysis>[] = [
+  nameSort(analysis => analysis.name, 'Analysis'),
+  figureSort('runs', 'Executions', 'i-ph-repeat-bold', analysis => analysis.runs.length),
+  dateSort(analysis => analysis.updated_at, 'Updated'),
 ]
 
 // Clicking a tag in a row filters the list on it
@@ -136,6 +144,7 @@ async function confirmDelete() {
         :data="[...(analyses || [])]"
         :columns="columns"
         :filters="filters"
+        :sorts="sorts"
         :actions="actions"
         :loading="pending"
         :row-to="(analysis: Analysis) => `/analyses/${analysis.id}`"

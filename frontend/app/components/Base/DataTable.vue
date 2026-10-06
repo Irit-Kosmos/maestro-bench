@@ -2,11 +2,13 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { VNodeChild } from 'vue'
 import type { WorkspaceRole } from '~/types'
-import type { FilterOption, FilterSpec, FilterState, FilterValue } from '~/utils/filters'
+import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupRowInfo, GroupSpec, RowRenderContext } from '~/utils/groups'
+import type { SortSpec, SortState } from '~/utils/sorts'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { h, resolveComponent } from 'vue'
 import { arrangeRows, GROUP_ROW } from '~/utils/groups'
+import { activeSortSpec, sortItems } from '~/utils/sorts'
 
 interface Column {
   key: string
@@ -48,6 +50,8 @@ interface Props {
   actionTo?: string
   /** Ways to cut the rows into sections, picked from a menu in the toolbar (see `v-model:group-by`) */
   groups?: GroupSpec<any>[]
+  /** Things the rows can be sorted on, picked from a menu in the toolbar (see `v-model:sort-by`). Within a section when grouped */
+  sorts?: SortSpec<any>[]
   /** Makes every row a link: the first column becomes the row's link, the whole row is clickable */
   rowTo?: (item: any) => string
   /** Like `rowTo`, for a row that opens something on the page (a panel) instead of going elsewhere: the first column
@@ -82,6 +86,7 @@ const props = withDefaults(defineProps<Props>(), {
   searchable: false,
   filters: () => [],
   groups: () => [],
+  sorts: () => [],
   rowTo: undefined,
   rowOpen: undefined,
   activeKey: null,
@@ -143,24 +148,19 @@ function toggleSection(id: string) {
   collapsed.value = next
 }
 
-// Same option list as the filters; '' stands for "No grouping"
-const groupOptions = computed<FilterOption[]>(() => [
-  { value: '', label: 'No grouping', icon: 'i-ph-x-bold' },
-  ...props.groups.map(group => ({ value: group.key, label: group.label, icon: group.icon })),
-])
-const groupMenuOpen = ref(false)
-
-function pickGroup(value: FilterValue) {
-  groupBy.value = value === '' ? null : String(value)
-  groupMenuOpen.value = false
-}
+const sortBy = defineModel<SortState | null>('sortBy', { default: null })
+const activeSort = computed(() => activeSortSpec(props.sorts, sortBy.value))
+// Selection and counts read `filteredData`: sorting only changes the order the rows are shown in
+const sortedData = computed(() => activeSort.value
+  ? sortItems(filteredData.value, activeSort.value, sortBy.value!.direction)
+  : filteredData.value)
 
 const isGroupRow = (row: any) => !!row?.[GROUP_ROW]
 
 // Grouped, each section is preceded by a stand-in row (see `GROUP_ROW`) that the cells draw as a header
 const arranged = computed(() => activeGroup.value
-  ? arrangeRows(filteredData.value, activeGroup.value, props.rowKey, collapsed.value)
-  : { rows: filteredData.value as any[], trails: new Map<string | number, string[]>() })
+  ? arrangeRows(sortedData.value, activeGroup.value, props.rowKey, collapsed.value)
+  : { rows: sortedData.value as any[], trails: new Map<string | number, string[]>() })
 const displayRows = computed(() => arranged.value.rows)
 
 // The rail running down the rows of a section is drawn in its first cell, over the row (see `renderRails`)
@@ -523,24 +523,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       <!-- Page-specific filters -->
       <slot name="toolbar" />
 
-      <template v-if="groups.length" #group>
-        <UPopover v-model:open="groupMenuOpen" :content="{ align: 'start', sideOffset: 6, collisionPadding: 16 }">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            icon="i-ph-rows-bold"
-            :label="activeGroup ? `Group: ${activeGroup.label}` : 'Group'"
-          />
-          <template #content>
-            <BaseFilterOptionList
-              class="w-44"
-              :options="groupOptions"
-              :selected="[groupBy ?? '']"
-              @toggle="pickGroup"
-            />
-          </template>
-        </UPopover>
+      <template v-if="groups.length || sorts.length" #group>
+        <BaseGroupMenu v-if="groups.length" v-model="groupBy" :groups="groups" />
+        <BaseSortMenu v-if="sorts.length" v-model="sortBy" :sorts="sorts" />
       </template>
     </BaseListToolbar>
 

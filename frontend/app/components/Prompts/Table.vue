@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Prompt } from '~/types'
 import type { FilterSpec, FilterState } from '~/utils/filters'
+import type { SortSpec } from '~/utils/sorts'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 interface Props {
   data: Prompt[]
@@ -44,6 +46,12 @@ const filters: FilterSpec<Prompt>[] = [
   dateFilter(prompt => prompt.created_at),
 ]
 
+const sorts: SortSpec<Prompt>[] = [
+  nameSort(prompt => prompt.name, 'Prompt'),
+  textSort('description', 'Description', 'i-ph-text-align-left-bold', prompt => prompt.description),
+  dateSort(prompt => prompt.created_at),
+]
+
 // Clicking a tag in a row filters the list on it
 const filterState = ref<FilterState>({})
 </script>
@@ -54,6 +62,7 @@ const filterState = ref<FilterState>({})
     :data="data"
     :columns="columns"
     :filters="filters"
+    :sorts="sorts"
     :loading="loading"
     :row-to="(prompt: Prompt) => `/prompts/${prompt.id}`"
     item-name="prompt"
