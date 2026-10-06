@@ -19,6 +19,13 @@ const loadError = ref<FetchErrorKind | null>(null)
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
 
+// The editor stays mounted behind the other view: switching must not drop unsaved edits
+const views = [
+  { value: 'rows', label: 'Rows', icon: 'i-ph-rows-bold' },
+  { value: 'agreement', label: 'Agreement', icon: 'i-ph-users-three-bold' },
+] as const
+const view = ref<(typeof views)[number]['value']>('rows')
+
 // Computed
 const { formatDate, formatRelativeDate } = useUIHelpers()
 
@@ -156,16 +163,39 @@ watch(() => route.params.id, () => {
           </dl>
         </header>
 
+        <UFieldGroup v-if="dataset.file_path" class="self-start">
+          <UButton
+            v-for="v in views"
+            :key="v.value"
+            :label="v.label"
+            :icon="v.icon"
+            :variant="view === v.value ? 'subtle' : 'outline'"
+            color="neutral"
+            size="xs"
+            :aria-pressed="view === v.value"
+            @click="() => { view = v.value }"
+          />
+        </UFieldGroup>
+
         <!-- Rows: browse, search and edit the whole file -->
         <DatasetsEditor
           v-if="dataset.file_path"
+          v-show="view === 'rows'"
           class="flex-1 min-h-0"
           :dataset-id="dataset.id"
           :experiment-count="datasetStats?.experiment_count ?? null"
         />
 
+        <!-- Agreement: how much some columns rate the rows alike. Reopened each time, so it follows saved edits -->
+        <DatasetsAgreement
+          v-if="dataset.file_path && view === 'agreement'"
+          :key="dataset.id"
+          class="flex-1 min-h-0"
+          :dataset-id="dataset.id"
+        />
+
         <BaseEmptyState
-          v-else
+          v-if="!dataset.file_path"
           icon="i-ph-file-x-bold"
           title="No file attached"
           message="This dataset has no file yet. Create a new dataset with a CSV or JSON file to use it in experiments."
