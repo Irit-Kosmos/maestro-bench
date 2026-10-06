@@ -2,15 +2,14 @@
 API router for the getting-started checklist: what the workspace has set up so far.
 """
 
-from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import select
 
 import credentials
 from core.llm import SUPPORTED_PROVIDERS
-from db import get_session
+from db import SessionDep
 from tables import Agent, Dataset, Experiment, Model, PromptVersion
 
 router = APIRouter(tags=["setup"])
@@ -28,7 +27,7 @@ class SetupProgress(BaseModel):
 
 
 @router.get("/setup", response_model=SetupProgress)
-def get_setup(session: Annotated[Session, Depends(get_session)]):
+def get_setup(session: SessionDep):
     """Which steps of the first run the workspace has taken."""
     stored = credentials.stored_keys(session)
 

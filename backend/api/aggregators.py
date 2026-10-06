@@ -4,9 +4,9 @@ rows of a past execution, and suggesting the paths an agent's outputs contain.
 """
 
 import json
-from typing import Annotated
+from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, col, select
 
 from analysis import result_rows
@@ -14,7 +14,7 @@ from auth.workspaces import requires
 from core.formula import check_outputs, free_variables
 from core.json_output import list_paths, parse_json_output, scalar_paths
 from core.orchestrator import AGGREGATOR, AgentConfig, run_aggregator
-from db import get_session
+from db import SessionDep
 from results_files import results_path
 from schemas.aggregators import (
     AgentOutputPaths,
@@ -60,12 +60,23 @@ def _executions_with(
         )
         .order_by(col(ExperimentExecution.started_at).desc())
     ).all()
-    for execution in executions:
-        snapshots = session.exec(
-            select(AgentExecutionSnapshot).where(
-                AgentExecutionSnapshot.execution_id == execution.id
+    snapshots_of: dict[int, list] = defaultdict(list)
+    if executions:
+        for snapshot in session.exec(
+            select(
+                AgentExecutionSnapshot.execution_id,
+                AgentExecutionSnapshot.agent_id,
+                AgentExecutionSnapshot.agent_name_snapshot,
+                AgentExecutionSnapshot.prompt_version_id,
+            ).where(
+                col(AgentExecutionSnapshot.execution_id).in_(
+                    [e.id for e in executions]
+                )
             )
-        ).all()
+        ).all():
+            snapshots_of[snapshot.execution_id].append(snapshot)
+    for execution in executions:
+        snapshots = snapshots_of[execution.id]
         names = {s.agent_id: s.agent_name_snapshot for s in snapshots}
         if not agent_ids <= names.keys():
             continue
@@ -88,7 +99,7 @@ def check_formulas(request: FormulaCheckRequest):
 @requires("viewer")
 def preview_aggregator(
     request: AggregatorPreviewRequest,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """
     Evaluate formulas on the first rows of the latest execution that ran every
@@ -165,7 +176,7 @@ def preview_aggregator(
 @router.get("/agents/{agent_id}/output-paths", response_model=AgentOutputPaths)
 def get_agent_output_paths(
     agent_id: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
     prompt_version_id: int | None = None,
 ):
     """

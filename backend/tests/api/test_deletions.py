@@ -76,7 +76,7 @@ def world(engine):
 
 
 def test_deleting_a_model_empties_the_references_to_it(client, engine, world):
-    assert client.delete(f"/models/{world['model']}").status_code == 200
+    assert client.delete(f"/models/{world['model']}").status_code == 204
 
     with scoped(engine) as s:
         assert s.get(Agent, world["agent"]).default_model_id is None
@@ -88,7 +88,7 @@ def test_deleting_a_model_empties_the_references_to_it(client, engine, world):
 def test_deleting_a_prompt_version_empties_the_references_to_it(
     client, engine, world
 ):
-    assert client.delete(f"/prompt-versions/{world['version']}").status_code == 200
+    assert client.delete(f"/prompt-versions/{world['version']}").status_code == 204
 
     with scoped(engine) as s:
         assert s.get(Agent, world["agent"]).default_prompt_version_id is None
@@ -111,7 +111,7 @@ def test_an_unused_agent_can_be_deleted(client, engine, world):
         s.delete(s.get(ExperimentAgentConfig, world["config"]))
         s.commit()
 
-    assert client.delete(f"/agents/{world['agent']}").status_code == 200
+    assert client.delete(f"/agents/{world['agent']}").status_code == 204
 
     with scoped(engine) as s:
         assert s.get(Agent, world["agent"]) is None

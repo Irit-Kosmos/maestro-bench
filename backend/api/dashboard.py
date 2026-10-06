@@ -2,14 +2,16 @@
 API router for the dashboard: recent activity in a single request.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from sqlmodel import Session, col, func, select
 
-from db import get_session
+from db import SessionDep
+from loading import by_id, grouped_by
 from results_files import execution_row_count
 from schemas.dashboard import (
     DashboardActiveExperiment,
@@ -71,66 +73,103 @@ def _distinct(models: list[DashboardModel]) -> list[DashboardModel]:
     return list({(m.name, m.provider): m for m in models}.values())
 
 
-def _models(
-    experiment: Experiment, execution: ExperimentExecution | None, session: Session
-) -> list[DashboardModel]:
-    """Models the pipeline ran with, or will run with while nothing has executed yet."""
-    if execution:
-        snapshots = session.exec(
+def _models_of(
+    experiments: list[Experiment],
+    latest: dict[int, ExperimentExecution],
+    session: Session,
+) -> dict[int, list[DashboardModel]]:
+    """Models each pipeline ran with, or will run with while nothing has executed yet."""
+    snapshots_of: dict[int, list[tuple[str, str]]] = defaultdict(list)
+    if latest:
+        for execution_id, name, provider in session.exec(
             select(
+                AgentExecutionSnapshot.execution_id,
                 AgentExecutionSnapshot.model_name_snapshot,
                 AgentExecutionSnapshot.model_provider_snapshot,
             )
-            .where(AgentExecutionSnapshot.execution_id == execution.id)
+            .where(
+                col(AgentExecutionSnapshot.execution_id).in_(
+                    [e.id for e in latest.values()]
+                )
+            )
             .order_by(col(AgentExecutionSnapshot.execution_order))
-        ).all()
+        ).all():
+            snapshots_of[execution_id].append((name, provider))
+
+    models: dict[int, list[DashboardModel]] = {}
+    unexecuted: list[int] = []
+    for experiment in experiments:
+        execution = latest.get(experiment.id)
+        snapshots = snapshots_of[execution.id] if execution else []
         if snapshots:
             # Aggregators have no model
-            return _distinct(
+            models[experiment.id] = _distinct(
                 [DashboardModel(name=n, provider=p) for n, p in snapshots if n]
             )
+        else:
+            unexecuted.append(experiment.id)
 
-    configured = session.exec(
-        select(Model.name, Model.provider)
-        .join(
-            ExperimentAgentConfig, col(ExperimentAgentConfig.model_id) == col(Model.id)
-        )
-        .where(
-            ExperimentAgentConfig.experiment_id == experiment.id,
-            col(ExperimentAgentConfig.is_active).is_(True),
-        )
-        .order_by(col(ExperimentAgentConfig.execution_order))
-    ).all()
-    return _distinct([DashboardModel(name=n, provider=p) for n, p in configured])
+    configured: dict[int, list[DashboardModel]] = defaultdict(list)
+    if unexecuted:
+        for experiment_id, name, provider in session.exec(
+            select(ExperimentAgentConfig.experiment_id, Model.name, Model.provider)
+            .join(
+                Model, col(ExperimentAgentConfig.model_id) == col(Model.id)
+            )
+            .where(
+                col(ExperimentAgentConfig.experiment_id).in_(unexecuted),
+                col(ExperimentAgentConfig.is_active).is_(True),
+            )
+            .order_by(col(ExperimentAgentConfig.execution_order))
+        ).all():
+            configured[experiment_id].append(DashboardModel(name=name, provider=provider))
+    for experiment_id in unexecuted:
+        models[experiment_id] = _distinct(configured[experiment_id])
+    return models
 
 
-def _recent_experiment(experiment: Experiment, session: Session) -> DashboardExperiment:
-    dataset = session.get(Dataset, experiment.dataset_id)
-    batch = session.get(Batch, experiment.batch_id) if experiment.batch_id else None
-    execution = session.exec(
-        select(ExperimentExecution)
-        .where(ExperimentExecution.experiment_id == experiment.id)
-        .order_by(col(ExperimentExecution.started_at).desc())
-    ).first()
-
-    duration = None
-    if execution and execution.completed_at:
-        duration = (execution.completed_at - execution.started_at).total_seconds()
-
-    return DashboardExperiment(
-        id=int(experiment.id) if experiment.id is not None else 0,
-        name=experiment.name,
-        status=experiment.status,
-        created_at=experiment.created_at,
-        batch_id=experiment.batch_id,
-        batch_name=batch.name if batch else None,
-        dataset_name=dataset.name if dataset else None,
-        models=_models(experiment, execution, session),
-        row_count=execution_row_count(execution) if execution else None,
-        duration_seconds=duration,
-        total_tokens=execution.total_tokens if execution else None,
-        total_cost_usd=execution.total_cost_usd if execution else None,
+def _recent_experiments(
+    experiments: list[Experiment], session: Session
+) -> list[DashboardExperiment]:
+    datasets = by_id(session, Dataset, (e.dataset_id for e in experiments))
+    batches = by_id(session, Batch, (e.batch_id for e in experiments))
+    executions = grouped_by(
+        session,
+        ExperimentExecution,
+        ExperimentExecution.experiment_id,
+        [e.id for e in experiments if e.id is not None],
+        col(ExperimentExecution.started_at).desc(),
     )
+    latest = {
+        experiment_id: found[0] for experiment_id, found in executions.items() if found
+    }
+    models = _models_of(experiments, latest, session)
+
+    recent = []
+    for experiment in experiments:
+        execution = latest.get(experiment.id)
+        dataset = datasets.get(experiment.dataset_id)
+        batch = batches.get(experiment.batch_id)
+        duration = None
+        if execution and execution.completed_at:
+            duration = (execution.completed_at - execution.started_at).total_seconds()
+        recent.append(
+            DashboardExperiment(
+                id=int(experiment.id) if experiment.id is not None else 0,
+                name=experiment.name,
+                status=experiment.status,
+                created_at=experiment.created_at,
+                batch_id=experiment.batch_id,
+                batch_name=batch.name if batch else None,
+                dataset_name=dataset.name if dataset else None,
+                models=models[experiment.id],
+                row_count=execution_row_count(execution) if execution else None,
+                duration_seconds=duration,
+                total_tokens=execution.total_tokens if execution else None,
+                total_cost_usd=execution.total_cost_usd if execution else None,
+            )
+        )
+    return recent
 
 
 def _window(range_: str, now: datetime, session: Session) -> _Window:
@@ -149,8 +188,7 @@ def _window(range_: str, now: datetime, session: Session) -> _Window:
 
 
 def _activity(range_: str, session: Session) -> DashboardActivity:
-    # The database stores naive UTC datetimes
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = datetime.now(UTC)
     window = _window(range_, now, session)
     # One read covers the period and the one before it
     floor = window.start - window.length if window.has_previous else window.start
@@ -238,7 +276,7 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
 
 @router.get("/dashboard", response_model=DashboardResponse)
 def get_dashboard(
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
     period: Annotated[DashboardRange, Query(alias="range")] = "7d",
 ):
     """Recent experiments with their cost and timing, and the activity over a period."""
@@ -249,5 +287,5 @@ def get_dashboard(
     ).all()
     return DashboardResponse(
         activity=_activity(period, session),
-        recent_experiments=[_recent_experiment(exp, session) for exp in recent],
+        recent_experiments=_recent_experiments(list(recent), session),
     )

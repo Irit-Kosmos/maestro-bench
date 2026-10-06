@@ -8,20 +8,20 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 import config
 from auth.deps import SAFE_METHODS, CurrentUser, get_engine, require_user
 from auth.policy import is_instance_admin
-from db import get_session
-from tables import Membership, User, Workspace
+from db import SessionDep
+from tables import ROLES, Membership, User, Workspace
 from workspace_scope import scope_session
 
 logger = logging.getLogger(__name__)
 
-# From the least to the most powerful
-ROLES = ("viewer", "editor", "owner")
 DEFAULT_SLUG = "default"
+SLUG_ATTEMPTS = 5
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
@@ -110,7 +110,7 @@ def workspace_context(
 
 def scope_to_workspace(
     context: Annotated[WorkspaceContext, Depends(workspace_context)],
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ) -> WorkspaceContext:
     """Router-level dependency: the request's session only sees this workspace.
 
@@ -141,15 +141,25 @@ def free_slug(db: Session, name: str) -> str:
 
 
 def create_workspace(db: Session, name: str, owner_id: int) -> Workspace:
-    workspace = Workspace(
-        slug=free_slug(db, name), name=name.strip(), created_by=owner_id
-    )
-    db.add(workspace)
-    db.flush()
-    db.add(Membership(workspace_id=workspace.id, user_id=owner_id, role="owner"))
-    db.commit()
-    db.refresh(workspace)
-    return workspace
+    # Another workspace with the same name may take the slug between `free_slug` looking
+    # and the insert: the unique index says so, and the next slug is tried
+    for attempt in range(SLUG_ATTEMPTS):
+        workspace = Workspace(
+            slug=free_slug(db, name), name=name.strip(), created_by=owner_id
+        )
+        db.add(workspace)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            if attempt == SLUG_ATTEMPTS - 1:
+                raise
+            continue
+        db.add(Membership(workspace_id=workspace.id, user_id=owner_id, role="owner"))
+        db.commit()
+        db.refresh(workspace)
+        return workspace
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _owners(db: Session, workspace_id: int) -> list[Membership]:

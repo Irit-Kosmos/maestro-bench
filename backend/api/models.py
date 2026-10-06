@@ -1,9 +1,8 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, HTTPException
+from sqlmodel import select
 
-from db import get_session
+from db import SessionDep
 from schemas.models import ModelCreate, ModelUpdate
 from tables import Model as ModelTable
 
@@ -11,13 +10,13 @@ router = APIRouter(tags=["models"])
 
 
 @router.get("/models", response_model=list[ModelTable])
-def list_models(session: Annotated[Session, Depends(get_session)]):
+def list_models(session: SessionDep):
     return session.exec(select(ModelTable)).all()
 
 
 @router.post("/models", response_model=ModelTable, status_code=201)
 def create_model(
-    model_data: ModelCreate, session: Annotated[Session, Depends(get_session)]
+    model_data: ModelCreate, session: SessionDep
 ):
     model = ModelTable(
         name=model_data.name,
@@ -35,7 +34,7 @@ def create_model(
 
 
 @router.get("/models/{model_id}", response_model=ModelTable)
-def get_model(model_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_model(model_id: int, session: SessionDep):
     model = session.get(ModelTable, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -46,7 +45,7 @@ def get_model(model_id: int, session: Annotated[Session, Depends(get_session)]):
 def update_model(
     model_id: int,
     model_data: ModelUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     model = session.get(ModelTable, model_id)
     if not model:
@@ -61,20 +60,19 @@ def update_model(
     return model
 
 
-@router.delete("/models/{model_id}")
-def delete_model(model_id: int, session: Annotated[Session, Depends(get_session)]):
+@router.delete("/models/{model_id}", status_code=204)
+def delete_model(model_id: int, session: SessionDep):
     model = session.get(ModelTable, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
     session.delete(model)
     session.commit()
-    return {"message": "Model deleted successfully"}
 
 
 @router.patch("/models/{model_id}/toggle-status", response_model=ModelTable)
 def toggle_model_status(
-    model_id: int, session: Annotated[Session, Depends(get_session)]
+    model_id: int, session: SessionDep
 ):
     model = session.get(ModelTable, model_id)
     if not model:

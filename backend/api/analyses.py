@@ -1,16 +1,17 @@
 import json
+from collections import defaultdict
 from dataclasses import asdict
 from datetime import UTC, datetime
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, col, select
 
 from analysis import METRICS, AnalysisConfig, RunInput, result_rows
 from analysis.compute import comparison_warnings, compute_run, validate_config
 from auth.workspaces import requires
 from core.json_output import parse_json_output, scalar_paths
-from db import get_session
+from db import SessionDep
+from loading import by_id
 from references import missing_ids
 from results_files import execution_row_count, results_path
 from schemas.analyses import (
@@ -104,10 +105,15 @@ def _compute(
     _check_config(config)
     analysis_config = _to_config(config)
 
+    executions = by_id(session, ExperimentExecution, (r.execution_id for r in refs))
+    experiments = by_id(
+        session, Experiment, (e.experiment_id for e in executions.values())
+    )
+
     responses: list[RunResultResponse] = []
     inputs: list[RunInput] = []
     for ref in refs:
-        execution = session.get(ExperimentExecution, ref.execution_id)
+        execution = executions.get(ref.execution_id)
         if not execution:
             responses.append(
                 RunResultResponse(
@@ -120,7 +126,7 @@ def _compute(
             )
             continue
 
-        experiment = session.get(Experiment, execution.experiment_id)
+        experiment = experiments.get(execution.experiment_id)
         results = _load_results(execution)
         if results is None:
             responses.append(
@@ -191,7 +197,7 @@ def list_metrics():
 
 
 @router.get("/analyses/executions", response_model=list[AvailableExecution])
-def list_available_executions(session: Annotated[Session, Depends(get_session)]):
+def list_available_executions(session: SessionDep):
     """Completed executions that have a results file, newest first."""
     executions = session.exec(
         select(ExperimentExecution)
@@ -202,14 +208,27 @@ def list_available_executions(session: Annotated[Session, Depends(get_session)])
         .order_by(col(ExperimentExecution.started_at).desc())
     ).all()
 
+    experiments = by_id(session, Experiment, (e.experiment_id for e in executions))
+    agents_of: dict[int, list[dict]] = defaultdict(list)
+    if executions:
+        for execution_id, name, model in session.exec(
+            select(
+                AgentExecutionSnapshot.execution_id,
+                AgentExecutionSnapshot.agent_name_snapshot,
+                AgentExecutionSnapshot.model_name_snapshot,
+            )
+            .where(
+                col(AgentExecutionSnapshot.execution_id).in_(
+                    [e.id for e in executions]
+                )
+            )
+            .order_by(col(AgentExecutionSnapshot.execution_order))
+        ).all():
+            agents_of[execution_id].append({"name": name, "model": model})
+
     available = []
     for execution in executions:
-        experiment = session.get(Experiment, execution.experiment_id)
-        snapshots = session.exec(
-            select(AgentExecutionSnapshot)
-            .where(AgentExecutionSnapshot.execution_id == execution.id)
-            .order_by(AgentExecutionSnapshot.execution_order)
-        ).all()
+        experiment = experiments.get(execution.experiment_id)
         dataset = json.loads(execution.dataset_snapshot or "{}")
         available.append(
             AvailableExecution(
@@ -220,10 +239,7 @@ def list_available_executions(session: Annotated[Session, Depends(get_session)])
                 started_at=execution.started_at,
                 completed_at=execution.completed_at,
                 row_count=execution_row_count(execution),
-                agents=[
-                    {"name": s.agent_name_snapshot, "model": s.model_name_snapshot}
-                    for s in snapshots
-                ],
+                agents=agents_of[execution.id],
             )
         )
     return available
@@ -233,7 +249,7 @@ def list_available_executions(session: Annotated[Session, Depends(get_session)])
     "/executions/{execution_id}/analysis-fields", response_model=ExecutionFields
 )
 def get_execution_fields(
-    execution_id: int, session: Annotated[Session, Depends(get_session)]
+    execution_id: int, session: SessionDep
 ):
     """Dataset columns and agent output paths that an analysis can select."""
     execution = session.get(ExperimentExecution, execution_id)
@@ -278,7 +294,7 @@ def get_execution_fields(
 def get_execution_row(
     execution_id: int,
     row_index: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """One row of an execution, to look up a point of an analysis."""
     execution = session.get(ExperimentExecution, execution_id)
@@ -314,14 +330,14 @@ def get_execution_row(
 @requires("viewer")
 def compute_unsaved_analysis(
     request: AnalysisComputeRequest,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """Compute an analysis without saving it (previews, scripts, notebooks)."""
     return _compute(request.config, request.runs, session)
 
 
 @router.get("/analyses", response_model=list[AnalysisResponse])
-def list_analyses(session: Annotated[Session, Depends(get_session)]):
+def list_analyses(session: SessionDep):
     analyses = session.exec(
         select(Analysis).order_by(col(Analysis.updated_at).desc())
     ).all()
@@ -331,7 +347,7 @@ def list_analyses(session: Annotated[Session, Depends(get_session)]):
 
 @router.post("/analyses", response_model=AnalysisResponse, status_code=201)
 def create_analysis(
-    data: AnalysisCreate, session: Annotated[Session, Depends(get_session)]
+    data: AnalysisCreate, session: SessionDep
 ):
     _check_config(data.config)
     _check_runs(data.runs, session)
@@ -350,7 +366,7 @@ def create_analysis(
 
 
 @router.get("/analyses/{analysis_id}", response_model=AnalysisResponse)
-def get_analysis(analysis_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_analysis(analysis_id: int, session: SessionDep):
     analysis = session.get(Analysis, analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -361,7 +377,7 @@ def get_analysis(analysis_id: int, session: Annotated[Session, Depends(get_sessi
 def update_analysis(
     analysis_id: int,
     data: AnalysisUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     analysis = session.get(Analysis, analysis_id)
     if not analysis:
@@ -387,9 +403,9 @@ def update_analysis(
     return _to_response(analysis, item_tags(session, "analysis", analysis_id))
 
 
-@router.delete("/analyses/{analysis_id}")
+@router.delete("/analyses/{analysis_id}", status_code=204)
 def delete_analysis(
-    analysis_id: int, session: Annotated[Session, Depends(get_session)]
+    analysis_id: int, session: SessionDep
 ):
     analysis = session.get(Analysis, analysis_id)
     if not analysis:
@@ -397,12 +413,11 @@ def delete_analysis(
     clear_item_tags(session, "analysis", analysis_id)
     session.delete(analysis)
     session.commit()
-    return {"message": "Analysis deleted successfully"}
 
 
 @router.get("/analyses/{analysis_id}/results", response_model=AnalysisResultResponse)
 def get_analysis_results(
-    analysis_id: int, session: Annotated[Session, Depends(get_session)]
+    analysis_id: int, session: SessionDep
 ):
     """Recompute the analysis from the executions' results files."""
     analysis = session.get(Analysis, analysis_id)

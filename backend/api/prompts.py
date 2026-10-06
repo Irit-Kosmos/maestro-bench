@@ -1,9 +1,9 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, HTTPException
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
 
-from db import get_session
+from db import SessionDep
 from schemas.prompts import (
     PromptCreate,
     PromptDetail,
@@ -26,7 +26,7 @@ def _detail(prompt: Prompt, tags: list[Tag]) -> PromptDetail:
 
 # Prompt endpoints
 @router.get("/prompts", response_model=list[PromptDetail])
-def list_prompts(session: Annotated[Session, Depends(get_session)]):
+def list_prompts(session: SessionDep):
     prompts = session.exec(select(Prompt)).all()
     tags = tags_by_item(session, "prompt", [p.id for p in prompts if p.id])
     return [_detail(p, tags.get(p.id or 0, [])) for p in prompts]
@@ -34,7 +34,7 @@ def list_prompts(session: Annotated[Session, Depends(get_session)]):
 
 @router.post("/prompts", response_model=PromptDetail, status_code=201)
 def create_prompt(
-    prompt_data: PromptCreate, session: Annotated[Session, Depends(get_session)]
+    prompt_data: PromptCreate, session: SessionDep
 ):
     prompt = Prompt(
         name=prompt_data.name,
@@ -49,7 +49,7 @@ def create_prompt(
 
 
 @router.get("/prompts/{prompt_id}", response_model=PromptDetail)
-def get_prompt(prompt_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_prompt(prompt_id: int, session: SessionDep):
     prompt = session.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found")
@@ -60,7 +60,7 @@ def get_prompt(prompt_id: int, session: Annotated[Session, Depends(get_session)]
 def update_prompt(
     prompt_id: int,
     prompt_data: PromptUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     prompt = session.get(Prompt, prompt_id)
     if not prompt:
@@ -79,8 +79,8 @@ def update_prompt(
     return _detail(prompt, item_tags(session, "prompt", prompt_id))
 
 
-@router.delete("/prompts/{prompt_id}")
-def delete_prompt(prompt_id: int, session: Annotated[Session, Depends(get_session)]):
+@router.delete("/prompts/{prompt_id}", status_code=204)
+def delete_prompt(prompt_id: int, session: SessionDep):
     prompt = session.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found")
@@ -88,28 +88,23 @@ def delete_prompt(prompt_id: int, session: Annotated[Session, Depends(get_sessio
     clear_item_tags(session, "prompt", prompt_id)
     session.delete(prompt)
     session.commit()
-    return {"message": "Prompt deleted successfully"}
 
 
 # Prompt Version endpoints
 @router.get("/prompt-versions", response_model=list[PromptVersionResponse])
-def list_all_prompt_versions(session: Annotated[Session, Depends(get_session)]):
+def list_all_prompt_versions(session: SessionDep):
     """Get all prompt versions across all prompts for dropdown selections"""
-    # Use JOIN to include prompt data in the query
-    query = select(PromptVersion).join(Prompt).where(PromptVersion.is_active)
-    versions = session.exec(query).all()
-
-    # Explicitly load prompt relationship for each version
-    for version in versions:
-        if version.prompt_id and not version.prompt:
-            version.prompt = session.get(Prompt, version.prompt_id)
-
-    return versions
+    query = (
+        select(PromptVersion)
+        .where(PromptVersion.is_active)
+        .options(selectinload(PromptVersion.prompt))
+    )
+    return session.exec(query).all()
 
 
 @router.get("/prompts/{prompt_id}/versions", response_model=list[PromptVersion])
 def list_prompt_versions(
-    prompt_id: int, session: Annotated[Session, Depends(get_session)]
+    prompt_id: int, session: SessionDep
 ):
     return session.exec(
         select(PromptVersion).where(PromptVersion.prompt_id == prompt_id)
@@ -122,7 +117,7 @@ def list_prompt_versions(
 def create_prompt_version(
     prompt_id: int,
     version_data: PromptVersionCreate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     # Check if prompt exists
     prompt = session.get(Prompt, prompt_id)
@@ -159,7 +154,7 @@ def create_prompt_version(
 
 @router.get("/prompt-versions/{version_id}", response_model=PromptVersion)
 def get_prompt_version(
-    version_id: int, session: Annotated[Session, Depends(get_session)]
+    version_id: int, session: SessionDep
 ):
     version = session.get(PromptVersion, version_id)
     if not version:
@@ -171,7 +166,7 @@ def get_prompt_version(
 def update_prompt_version(
     version_id: int,
     version_data: PromptVersionUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     version = session.get(PromptVersion, version_id)
     if not version:
@@ -199,9 +194,9 @@ def update_prompt_version(
     return version
 
 
-@router.delete("/prompt-versions/{version_id}")
+@router.delete("/prompt-versions/{version_id}", status_code=204)
 def delete_prompt_version(
-    version_id: int, session: Annotated[Session, Depends(get_session)]
+    version_id: int, session: SessionDep
 ):
     version = session.get(PromptVersion, version_id)
     if not version:
@@ -209,4 +204,3 @@ def delete_prompt_version(
 
     session.delete(version)
     session.commit()
-    return {"message": "Prompt version deleted successfully"}

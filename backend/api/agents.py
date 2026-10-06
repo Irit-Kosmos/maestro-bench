@@ -1,10 +1,9 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
-from db import get_session
+from db import SessionDep
 from references import missing_ids
 from schemas.agent_teams import AgentCreate, AgentResponse, AgentUpdate
 from tables import (
@@ -32,7 +31,7 @@ def _check_references(session: Session, fields: dict) -> None:
 
 
 @router.get("/agents", response_model=list[AgentResponse])
-def list_agents(session: Annotated[Session, Depends(get_session)]):
+def list_agents(session: SessionDep):
     agents = session.exec(select(Agent)).all()
     tags = tags_by_item(session, "agent", [a.id for a in agents if a.id])
     return [AgentResponse.from_agent(a, tags.get(a.id or 0, [])) for a in agents]
@@ -41,7 +40,7 @@ def list_agents(session: Annotated[Session, Depends(get_session)]):
 @router.post("/agents", response_model=AgentResponse, status_code=201)
 def create_agent(
     agent_data: AgentCreate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     _check_references(session, agent_data.model_dump())
     agent = Agent(
@@ -61,7 +60,7 @@ def create_agent(
 
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
-def get_agent(agent_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_agent(agent_id: int, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -72,7 +71,7 @@ def get_agent(agent_id: int, session: Annotated[Session, Depends(get_session)]):
 def update_agent(
     agent_id: int,
     agent_data: AgentUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -92,10 +91,10 @@ def update_agent(
     return AgentResponse.from_agent(agent, item_tags(session, "agent", agent_id))
 
 
-@router.delete("/agents/{agent_id}")
+@router.delete("/agents/{agent_id}", status_code=204)
 def delete_agent(
     agent_id: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     agent = session.get(Agent, agent_id)
     if not agent:
@@ -115,4 +114,3 @@ def delete_agent(
     session.delete(agent)
     session.commit()
 
-    return {"message": "Agent deleted successfully"}

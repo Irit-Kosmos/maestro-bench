@@ -1,9 +1,9 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, HTTPException
+from sqlmodel import select
 
-from db import get_session
+from db import SessionDep
+from loading import grouped_by
 from schemas.agent_teams import (
     AgentResponse,
     AgentTeamCreate,
@@ -15,70 +15,53 @@ from tables import Agent, AgentTeam
 router = APIRouter(tags=["agent-teams"])
 
 
+def _with_agents(team: AgentTeam, agents: list[Agent]) -> AgentTeamWithAgents:
+    return AgentTeamWithAgents(
+        id=int(team.id) if team.id is not None else 0,
+        name=team.name,
+        description=team.description,
+        created_at=team.created_at,
+        agents=[AgentResponse.from_agent(agent) for agent in agents],
+    )
+
+
 @router.get("/agent-teams", response_model=list[AgentTeamWithAgents])
-def list_agent_teams(session: Annotated[Session, Depends(get_session)]):
+def list_agent_teams(session: SessionDep):
     teams = session.exec(select(AgentTeam)).all()
-    result = []
-    for team in teams:
-        # Fetch agents for this team
-        agents = session.exec(select(Agent).where(Agent.team_id == team.id)).all()
-        team_with_agents = AgentTeamWithAgents(
-            id=int(team.id) if team.id is not None else 0,
-            name=team.name,
-            description=team.description,
-            created_at=team.created_at,
-            agents=[
-                AgentResponse.from_agent(agent) for agent in agents
-            ],
-        )
-        result.append(team_with_agents)
-    return result
+    agents = grouped_by(
+        session, Agent, Agent.team_id, [t.id for t in teams if t.id is not None]
+    )
+    return [_with_agents(team, agents[team.id]) for team in teams]
 
 
 @router.post("/agent-teams", response_model=AgentTeamWithAgents, status_code=201)
 def create_agent_team(
     team_data: AgentTeamCreate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     team = AgentTeam(name=team_data.name, description=team_data.description)
     session.add(team)
     session.commit()
     session.refresh(team)
 
-    # Return with empty agents list for new team
-    return AgentTeamWithAgents(
-        id=int(team.id) if team.id is not None else 0,
-        name=team.name,
-        description=team.description,
-        created_at=team.created_at,
-        agents=[],
-    )
+    return _with_agents(team, [])
 
 
 @router.get("/agent-teams/{team_id}", response_model=AgentTeamWithAgents)
-def get_agent_team(team_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_agent_team(team_id: int, session: SessionDep):
     team = session.get(AgentTeam, team_id)
     if not team:
         raise HTTPException(404, "Agent team not found")
 
-    # Fetch agents for this team
     agents = session.exec(select(Agent).where(Agent.team_id == team.id)).all()
-    return AgentTeamWithAgents(
-        id=int(team.id) if team.id is not None else 0,
-        name=team.name,
-        description=team.description,
-        created_at=team.created_at,
-        agents=[
-            AgentResponse.from_agent(agent) for agent in agents
-        ],
-    )
+    return _with_agents(team, list(agents))
 
 
 @router.put("/agent-teams/{team_id}", response_model=AgentTeamWithAgents)
 def update_agent_team(
     team_id: int,
     team_data: AgentTeamUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     team = session.get(AgentTeam, team_id)
     if not team:
@@ -92,23 +75,14 @@ def update_agent_team(
     session.commit()
     session.refresh(team)
 
-    # Fetch agents for the updated team
     agents = session.exec(select(Agent).where(Agent.team_id == team.id)).all()
-    return AgentTeamWithAgents(
-        id=int(team.id) if team.id is not None else 0,
-        name=team.name,
-        description=team.description,
-        created_at=team.created_at,
-        agents=[
-            AgentResponse.from_agent(agent) for agent in agents
-        ],
-    )
+    return _with_agents(team, list(agents))
 
 
-@router.delete("/agent-teams/{team_id}")
+@router.delete("/agent-teams/{team_id}", status_code=204)
 def delete_agent_team(
     team_id: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     team = session.get(AgentTeam, team_id)
     if not team:
@@ -117,4 +91,3 @@ def delete_agent_team(
     session.delete(team)
     session.commit()
 
-    return {"message": "Agent team deleted successfully"}
