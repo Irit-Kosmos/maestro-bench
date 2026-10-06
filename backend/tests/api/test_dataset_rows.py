@@ -122,3 +122,80 @@ def test_dataset_over_the_row_limit_is_refused(
     dataset_id = _add_dataset(engine, "a.csv")
 
     assert client.get(f"/datasets/{dataset_id}/rows").status_code == 413
+
+
+# ---------------------------------------------------------------------------
+# Agreement between columns
+# ---------------------------------------------------------------------------
+
+RATED = "id,a,b,c,text\n1,4,4,5,x\n2,3,2,3,y\n3,5,5,5,z\n4,,3,2,w\n"
+
+
+def _rated_dataset(engine, datasets_dir) -> int:
+    (datasets_dir / "rated.csv").write_text(RATED, encoding="utf-8")
+    return _add_dataset(engine, "rated.csv")
+
+
+def test_agreement_of_two_columns(client, engine, datasets_dir):
+    dataset_id = _rated_dataset(engine, datasets_dir)
+
+    response = client.get(
+        f"/datasets/{dataset_id}/agreement", params={"columns": ["a", "b"]}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["value_type"] == "numeric"
+    assert body["n_rows"] == 4
+    assert [m["key"] for m in body["metrics"]][:2] == ["accuracy", "mae"]
+    assert body["metrics"][0]["label"] == "Exact agreement"
+    assert body["columns"][0] == {"column": "a", "n": 3, "n_missing": 1, "mean": 4.0}
+
+    (pair,) = body["pairs"]
+    assert (pair["a"], pair["b"], pair["n"]) == ("a", "b", 3)
+    assert pair["metrics"]["accuracy"]["value"] == pytest.approx(2 / 3)
+    assert body["overall"]["n_items"] == 3
+    assert body["overall"]["alpha"]["value"] is not None
+
+
+def test_agreement_pairs_and_value_type(client, engine, datasets_dir):
+    dataset_id = _rated_dataset(engine, datasets_dir)
+
+    three = client.get(
+        f"/datasets/{dataset_id}/agreement", params={"columns": ["a", "b", "c"]}
+    ).json()
+    assert [(p["a"], p["b"]) for p in three["pairs"]] == [("a", "b"), ("a", "c"), ("b", "c")]
+
+    # Free text has no scale: the columns are compared as labels
+    labels = client.get(
+        f"/datasets/{dataset_id}/agreement", params={"columns": ["a", "text"]}
+    ).json()
+    assert labels["value_type"] == "categorical"
+
+    forced = client.get(
+        f"/datasets/{dataset_id}/agreement",
+        params={"columns": ["a", "b"], "value_type": "categorical"},
+    ).json()
+    assert forced["value_type"] == "categorical"
+    assert [m["key"] for m in forced["metrics"]] == ["accuracy", "cohen_kappa"]
+
+
+@pytest.mark.parametrize(
+    ("columns", "message"),
+    [
+        (["a"], "between 2 and"),
+        (["a", "a"], "only be selected once"),
+        (["a", "nope"], "Unknown column: nope"),
+    ],
+)
+def test_agreement_refuses_bad_columns(client, engine, datasets_dir, columns, message):
+    dataset_id = _rated_dataset(engine, datasets_dir)
+    response = client.get(
+        f"/datasets/{dataset_id}/agreement", params={"columns": columns}
+    )
+    assert response.status_code == 400
+    assert message in response.json()["detail"]
+
+
+def test_agreement_of_a_missing_dataset(client):
+    response = client.get("/datasets/999/agreement", params={"columns": ["a", "b"]})
+    assert response.status_code == 404

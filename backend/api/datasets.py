@@ -1,10 +1,11 @@
 import asyncio
 import csv
+import dataclasses
 import json
 import logging
 import secrets
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
@@ -12,10 +13,12 @@ from sqlmodel import Session, col, select
 
 import config
 import workspace_files
+from analysis.agreement import compute_agreement, pair_metric_infos
 from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 from db import SessionDep
 from schemas.datasets import (
+    DatasetAgreement,
     DatasetCreate,
     DatasetInfo,
     DatasetPreview,
@@ -33,6 +36,9 @@ router = APIRouter(tags=["datasets"])
 
 # Number of sample rows returned by the /preview endpoint
 _PREVIEW_ROWS = 5
+
+# Every pair of columns is a comparison to compute and to read
+_AGREEMENT_MAX_COLUMNS = 10
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +310,46 @@ def update_dataset_rows(
     except Exception as e:
         logger.exception("Cannot write the rows of dataset %s", dataset_id)
         raise HTTPException(500, "Error writing the dataset file") from e
+
+
+@router.get("/datasets/{dataset_id}/agreement", response_model=DatasetAgreement)
+def get_dataset_agreement(
+    dataset_id: int,
+    session: SessionDep,
+    columns: Annotated[list[str], Query(description="Columns that rate the same rows")],
+    value_type: Literal["numeric", "categorical"] | None = None,
+):
+    """How much the given columns agree: per pair of columns, and overall."""
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+    if len(set(columns)) != len(columns):
+        raise HTTPException(400, "A column can only be selected once")
+    if not 2 <= len(columns) <= _AGREEMENT_MAX_COLUMNS:
+        raise HTTPException(
+            400, f"Select between 2 and {_AGREEMENT_MAX_COLUMNS} columns"
+        )
+
+    file_path = _resolve_dataset_file(dataset)
+    try:
+        content = read_dataset_rows(file_path)
+    except DatasetFileError as e:
+        raise HTTPException(e.status_code, e.detail) from e
+    except Exception as e:
+        logger.exception("Cannot read the rows of dataset %s", dataset_id)
+        raise HTTPException(500, "Error reading the dataset file") from e
+
+    unknown = [c for c in columns if c not in content["headers"]]
+    if unknown:
+        raise HTTPException(400, f"Unknown column: {', '.join(unknown)}")
+
+    result = compute_agreement(
+        {c: [row.get(c) for row in content["rows"]] for c in columns}, value_type
+    )
+    return {
+        **dataclasses.asdict(result),
+        "metrics": [dataclasses.asdict(m) for m in pair_metric_infos(result.value_type)],
+    }
 
 
 @router.get("/datasets/{dataset_id}/info", response_model=DatasetInfo)

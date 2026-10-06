@@ -5,7 +5,7 @@ Request and response models for datasets API
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -69,3 +69,51 @@ class DatasetRows(BaseModel):
 class DatasetRowsSaved(BaseModel):
     revision: str
     total_rows: int
+
+
+class AgreementMetricInfo(BaseModel):
+    key: str
+    label: str
+    description: str
+
+
+class AgreementValueResponse(BaseModel):
+    value: float | None
+    undefined_reason: str | None
+
+
+class AgreementColumnResponse(BaseModel):
+    column: str
+    # Rows with a usable value, and rows left out because blank or invalid
+    n: int
+    n_missing: int
+    # Numeric columns only
+    mean: float | None
+
+
+class AgreementPairResponse(BaseModel):
+    a: str
+    b: str
+    # Rows rated by both columns
+    n: int
+    metrics: dict[str, AgreementValueResponse]
+
+
+class AgreementOverallResponse(BaseModel):
+    # Rows rated by at least two columns
+    n_items: int
+    # Share of those rows where every rating is the same
+    unanimous: float | None
+    alpha: AgreementValueResponse
+
+
+class DatasetAgreement(BaseModel):
+    """How much the selected columns agree on the rows of a dataset."""
+
+    value_type: Literal["numeric", "categorical"]
+    n_rows: int
+    metrics: list[AgreementMetricInfo]
+    columns: list[AgreementColumnResponse]
+    pairs: list[AgreementPairResponse]
+    overall: AgreementOverallResponse
+    warnings: list[str]
