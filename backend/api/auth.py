@@ -5,6 +5,7 @@ The browser is sent to the identity provider, comes back to the callback, and
 leaves it with a session cookie; the API never hands a token to the page.
 """
 
+import asyncio
 import logging
 from typing import Annotated
 from urllib.parse import quote, urlsplit
@@ -19,7 +20,7 @@ from sqlmodel import Session
 import config
 from auth import providers
 from auth.deps import CurrentUser, get_engine, require_user
-from auth.policy import has_restriction, is_allowed
+from auth.policy import Profile, has_restriction, is_allowed
 from auth.sessions import create_session, csrf_token, end_session
 from auth.users import sign_in
 from auth.workspaces import can_create_workspace, claim_default_workspace
@@ -91,6 +92,16 @@ def logout(
     return response
 
 
+def _open_session(engine: Engine, profile: Profile) -> tuple[int, str | None]:
+    """Find or create the user of a profile; the session token, None when deactivated."""
+    with Session(engine) as db:
+        user = sign_in(db, profile)
+        if not user.is_active:
+            return user.id, None
+        claim_default_workspace(db, user)
+        return user.id, create_session(db, user.id)
+
+
 @router.get("/{provider}/login")
 async def login(provider: str, request: Request, next: str | None = None):
     client = providers.get_client(provider)
@@ -129,13 +140,10 @@ async def callback(
         )
         return _login_error("not_allowed")
 
-    with Session(engine) as db:
-        user = sign_in(db, profile)
-        if not user.is_active:
-            logger.warning("Sign-in refused: user %s is deactivated", user.id)
-            return _login_error("inactive")
-        claim_default_workspace(db, user)
-        token_value = create_session(db, user.id)
+    user_id, token_value = await asyncio.to_thread(_open_session, engine, profile)
+    if token_value is None:
+        logger.warning("Sign-in refused: user %s is deactivated", user_id)
+        return _login_error("inactive")
 
     response = RedirectResponse(
         f"{config.FRONTEND_URL}{quote(next_path, safe='/?=&%')}"

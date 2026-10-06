@@ -162,6 +162,7 @@ function exportCsv() {
             color="neutral"
             icon="i-ph-download-simple-bold"
             size="sm"
+            class="print:hidden"
             @click="exportCsv"
           >
             Export CSV
@@ -169,8 +170,8 @@ function exportCsv() {
         </div>
       </template>
 
-      <div class="overflow-x-auto -mx-1">
-        <table class="w-full text-sm">
+      <div class="overflow-x-auto -mx-1 print:overflow-visible">
+        <table class="metrics-table w-full text-sm">
           <thead>
             <tr class="text-left text-xs text-muted border-b border-default">
               <th class="px-1 pb-2 pr-4 font-medium">
@@ -304,6 +305,7 @@ function exportCsv() {
               color="neutral"
               variant="outline"
               aria-label="Highlight the best execution of each chart"
+              class="print:hidden"
               :class="highlightBest && 'bg-elevated'"
               @mouseenter="highlightBest = true"
               @mouseleave="highlightBest = false"
@@ -315,7 +317,7 @@ function exportCsv() {
           </UTooltip>
         </div>
       </template>
-      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
         <AnalysesMetricBars
           v-for="m in result.metrics"
           :key="m.key"
@@ -323,6 +325,7 @@ function exportCsv() {
           :runs="okRuns"
           :confidence="config.confidence"
           :highlight-best="highlightBest"
+          class="print:break-inside-avoid"
         />
       </div>
     </UCard>
@@ -336,8 +339,8 @@ function exportCsv() {
           Dashed line is y = x; click a point to see its row, or the rows stacked on it
         </p>
       </template>
-      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <div v-for="run in okRuns" :key="`${run.execution_id}-${run.agent_name}`">
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
+        <div v-for="run in okRuns" :key="`${run.execution_id}-${run.agent_name}`" class="print:break-inside-avoid">
           <h4 class="text-sm font-semibold text-highlighted mb-2 truncate">
             {{ run.label }}
           </h4>

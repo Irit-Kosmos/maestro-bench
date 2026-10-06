@@ -459,7 +459,7 @@ class TestManageBatch:
     def test_deleting_a_batch_keeps_its_experiments(self, client, world, engine):
         body = self.create(client, world)
 
-        assert client.delete(f"/batches/{body['id']}").status_code == 200
+        assert client.delete(f"/batches/{body['id']}").status_code == 204
 
         assert client.get(f"/batches/{body['id']}").status_code == 404
         with scoped(engine) as s:

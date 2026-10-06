@@ -37,8 +37,7 @@ def _now() -> datetime:
 
 
 def _is_past(moment: datetime) -> bool:
-    """Moments come back from the database without a time zone: they are UTC."""
-    return (moment if moment.tzinfo else moment.replace(tzinfo=UTC)) <= _now()
+    return moment <= _now()
 
 
 def create_invitation(

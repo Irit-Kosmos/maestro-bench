@@ -141,7 +141,7 @@ def test_deleting_a_tag_takes_it_off_its_items(client, engine):
     a = make_tag(client, "a")
     prompt = client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]}).json()
 
-    assert client.delete(f"/tags/{a['id']}").status_code == 200
+    assert client.delete(f"/tags/{a['id']}").status_code == 204
     assert client.get(f"/prompts/{prompt['id']}").json()["tags"] == []
     with scoped(engine) as s:
         assert s.exec(select(TagLink)).all() == []
@@ -205,7 +205,7 @@ def test_assign_adds_and_removes_tags_on_several_items(client):
             "remove": [b["id"]],
         },
     )
-    assert response.status_code == 200, response.text
+    assert response.status_code == 204, response.text
 
     names = {
         p["name"]: [t["name"] for t in p["tags"]] for p in client.get("/prompts").json()
@@ -218,8 +218,8 @@ def test_assign_twice_does_not_duplicate_links(client, engine):
     a = make_tag(client, "a")
     prompt = client.post("/prompts", json={"name": "P", "tag_ids": [a["id"]]}).json()
     body = {"kind": "prompt", "item_ids": [prompt["id"]], "add": [a["id"]]}
-    assert client.post("/tags/assign", json=body).status_code == 200
-    assert client.post("/tags/assign", json=body).status_code == 200
+    assert client.post("/tags/assign", json=body).status_code == 204
+    assert client.post("/tags/assign", json=body).status_code == 204
     with scoped(engine) as s:
         assert len(s.exec(select(TagLink)).all()) == 1
 

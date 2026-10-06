@@ -51,6 +51,34 @@ html {
   background-color: var(--ui-bg);
 }
 
+/* Sheet margins for the PDF export; the shell itself is unclipped in the default layout via `print:` classes */
+@page {
+  margin: 14mm;
+}
+
+/*
+ * The metrics table has up to six value columns, each with a confidence interval underneath:
+ * wider than a portrait sheet at screen size, so it is compacted on paper instead of scrolled.
+ * Unlayered, so it wins over the Tailwind utilities on the cells.
+ */
+@media print {
+  .metrics-table {
+    font-size: 11px;
+  }
+
+  .metrics-table :is(th, td) {
+    padding-inline: 4px;
+  }
+
+  .metrics-table .text-xs {
+    font-size: 10px;
+  }
+
+  .metrics-table td:first-child {
+    max-width: 8rem;
+  }
+}
+
 /* On phones, top-bar actions shrink to their icon so the breadcrumb keeps room; screen readers keep the label */
 @media (width < 40rem) {
   #page-actions :is(button, a):has(> [data-slot="leadingIcon"]) {

@@ -36,6 +36,9 @@ async function compute() {
 
 watch(analysisId, compute, { immediate: true })
 
+// The print stylesheet (see the default layout) turns the page into the report; the browser's dialog writes the PDF
+const { print: exportPdf } = usePrinting()
+
 // Editing happens on a copy, saved as a whole
 const showEditor = ref(false)
 const draft = ref<AnalysisForm | null>(null)
@@ -108,6 +111,18 @@ async function confirmDelete() {
         >
           Recompute
         </UButton>
+        <UTooltip text="Opens the print dialog: choose “Save as PDF”">
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-ph-file-pdf-bold"
+            size="sm"
+            :disabled="!result || isComputing"
+            @click="exportPdf"
+          >
+            Export PDF
+          </UButton>
+        </UTooltip>
         <UIGuardedButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
           Edit
         </UIGuardedButton>

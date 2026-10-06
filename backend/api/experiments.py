@@ -1,21 +1,23 @@
 import json
 import logging
 import secrets
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, col, select
 
 import async_jobs
 from batch_utils import parse_point
-from db import get_session
+from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment
+from loading import by_id, grouped_by
 from results_files import execution_row_count
 from schemas.experiments import (
     DatasetResponse,
     ExperimentAgentConfigResponse,
+    ExperimentCancelResponse,
     ExperimentCreate,
+    ExperimentRerunResponse,
     ExperimentResponse,
 )
 from tables import (
@@ -36,28 +38,54 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _build_experiment_responses(
+    experiments: list[Experiment], session: Session
+) -> list[ExperimentResponse]:
+    """Fully-populated ExperimentResponses, with a fixed number of queries."""
+    ids = [e.id for e in experiments if e.id is not None]
+    datasets = by_id(session, Dataset, (e.dataset_id for e in experiments))
+    batches = by_id(session, Batch, (e.batch_id for e in experiments))
+    configs = grouped_by(
+        session,
+        ExperimentAgentConfig,
+        ExperimentAgentConfig.experiment_id,
+        ids,
+        col(ExperimentAgentConfig.id),
+    )
+    executions = grouped_by(
+        session,
+        ExperimentExecution,
+        ExperimentExecution.experiment_id,
+        ids,
+        col(ExperimentExecution.started_at).desc(),
+    )
+    return [
+        _experiment_response(
+            experiment,
+            dataset=datasets.get(experiment.dataset_id),
+            batch=batches.get(experiment.batch_id),
+            experiment_configs=configs[experiment.id],
+            executions=executions[experiment.id],
+        )
+        for experiment in experiments
+    ]
+
+
 def _build_experiment_response(
-    experiment: Experiment,
-    session: Session,
-    experiment_configs: list[ExperimentAgentConfig] | None = None,
+    experiment: Experiment, session: Session
 ) -> ExperimentResponse:
-    """Build a fully-populated ExperimentResponse from an ORM Experiment."""
-    dataset = session.get(Dataset, experiment.dataset_id) if experiment.dataset_id else None
+    return _build_experiment_responses([experiment], session)[0]
 
-    batch = session.get(Batch, experiment.batch_id) if experiment.batch_id else None
 
-    if experiment_configs is None:
-        experiment_configs = session.exec(
-            select(ExperimentAgentConfig).where(
-                ExperimentAgentConfig.experiment_id == experiment.id
-            )
-        ).all()
-
-    executions = session.exec(
-        select(ExperimentExecution)
-        .where(ExperimentExecution.experiment_id == experiment.id)
-        .order_by(col(ExperimentExecution.started_at).desc())
-    ).all()
+def _experiment_response(
+    experiment: Experiment,
+    *,
+    dataset: Dataset | None,
+    batch: Batch | None,
+    experiment_configs: list[ExperimentAgentConfig],
+    executions: list[ExperimentExecution],
+) -> ExperimentResponse:
+    """`executions` are ordered from the newest to the oldest."""
     latest_with_results = next((e for e in executions if e.results_file_path), None)
 
     return ExperimentResponse(
@@ -119,17 +147,17 @@ def _build_experiment_response(
 
 
 @router.get("/experiments", response_model=list[ExperimentResponse])
-def list_experiments(session: Annotated[Session, Depends(get_session)]):
+def list_experiments(session: SessionDep):
     """Get all experiments"""
     experiments = session.exec(
         select(Experiment).order_by(Experiment.created_at.desc())
     ).all()
-    return [_build_experiment_response(exp, session) for exp in experiments]
+    return _build_experiment_responses(list(experiments), session)
 
 
 @router.post("/experiments", response_model=ExperimentResponse, status_code=201)
-async def create_experiment(
-    exp_data: ExperimentCreate, session: Annotated[Session, Depends(get_session)]
+def create_experiment(
+    exp_data: ExperimentCreate, session: SessionDep
 ):
     """Create a new experiment and automatically start it."""
     try:
@@ -154,7 +182,7 @@ async def create_experiment(
 
 
 @router.get("/experiments/{exp_id}", response_model=ExperimentResponse)
-def get_experiment(exp_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_experiment(exp_id: int, session: SessionDep):
     """Get a specific experiment with all its configurations."""
     experiment = session.get(Experiment, exp_id)
     if not experiment:
@@ -162,8 +190,8 @@ def get_experiment(exp_id: int, session: Annotated[Session, Depends(get_session)
     return _build_experiment_response(experiment, session)
 
 
-@router.delete("/experiments/{exp_id}")
-def delete_experiment(exp_id: int, session: Annotated[Session, Depends(get_session)]):
+@router.delete("/experiments/{exp_id}", status_code=204)
+def delete_experiment(exp_id: int, session: SessionDep):
     """Delete an experiment and all its data (handled by ORM cascade)."""
     experiment = session.get(Experiment, exp_id)
     if not experiment:
@@ -178,12 +206,11 @@ def delete_experiment(exp_id: int, session: Annotated[Session, Depends(get_sessi
 
     session.delete(experiment)
     session.commit()
-    return {"message": "Experiment deleted successfully"}
 
 
 @router.post("/experiments/{exp_id}/resample", response_model=ExperimentResponse)
 def resample_experiment(
-    exp_id: int, session: Annotated[Session, Depends(get_session)]
+    exp_id: int, session: SessionDep
 ):
     """Draw a new random sample: the next run takes other rows than the previous ones.
 
@@ -211,18 +238,18 @@ def resample_experiment(
 
 
 @router.post("/experiments/{experiment_id}/cancel")
-def cancel_experiment(experiment_id: int):
+def cancel_experiment(experiment_id: int) -> ExperimentCancelResponse:
     """Cancel a running experiment task."""
-    return {
-        "experiment_id": experiment_id,
-        "cancelled": async_jobs.cancel_experiment(experiment_id),
-    }
+    return ExperimentCancelResponse(
+        experiment_id=experiment_id,
+        cancelled=async_jobs.cancel_experiment(experiment_id),
+    )
 
 
 @router.post("/experiments/{experiment_id}/rerun")
-async def rerun_experiment(
-    experiment_id: int, session: Annotated[Session, Depends(get_session)]
-):
+def rerun_experiment(
+    experiment_id: int, session: SessionDep
+) -> ExperimentRerunResponse:
     """Re-run an experiment with the same configuration."""
     experiment = session.get(Experiment, experiment_id)
     if not experiment:
@@ -243,13 +270,14 @@ async def rerun_experiment(
         outcome = async_jobs.start_experiment(
             experiment_id, current_workspace_id(session)
         )
-        return {
-            "experiment_id": experiment_id,
-            "message": "Experiment re-run "
+        return ExperimentRerunResponse(
+            experiment_id=experiment_id,
+            message="Experiment re-run "
             + ("queued" if outcome == "queued" else "started successfully"),
-            "status": outcome,
-        }
+            status=outcome,
+        )
     except Exception as e:
+        logger.exception("Failed to start experiment %s", experiment_id)
         raise HTTPException(
-            status_code=500, detail=f"Failed to start experiment re-run: {e}"
+            status_code=500, detail="Failed to start the experiment re-run"
         ) from e

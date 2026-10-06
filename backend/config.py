@@ -12,6 +12,21 @@ DATABASE_URL = os.getenv(
 )
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
 
+# Connections kept open to Postgres, and how many more a burst may open. A request holds
+# one while it queries (a worker thread serves one request at a time).
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+# How long a request waits for a free connection before giving up
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+# Limits set on every connection, in milliseconds (0 turns one off): a query that runs
+# too long, a wait for a lock, and a transaction left open without doing anything. They
+# keep one stuck request from holding the database, and the locks, for everyone.
+DB_STATEMENT_TIMEOUT_MS = int(os.getenv("DB_STATEMENT_TIMEOUT_MS", "60000"))
+DB_LOCK_TIMEOUT_MS = int(os.getenv("DB_LOCK_TIMEOUT_MS", "10000"))
+DB_IDLE_IN_TRANSACTION_TIMEOUT_MS = int(
+    os.getenv("DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "300000")
+)
+
 # Root of everything the app stores on disk. Each workspace has its own folder,
 # <DATA_DIR>/workspaces/<id>/, with its datasets in datasets/ and its execution
 # results in results/. Paths kept in the database are relative to those folders.

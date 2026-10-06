@@ -1,10 +1,10 @@
 import json
 import logging
 import secrets
-from collections import Counter
-from typing import Annotated
+from collections import Counter, defaultdict
+from collections.abc import Iterable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, col, select
 
 import async_jobs
@@ -22,9 +22,10 @@ from batch_utils import (
     unmapped_variables,
     variant_label,
 )
-from db import get_session
+from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment
+from loading import by_id, grouped_by
 from results_files import execution_row_count
 from schemas.batches import (
     BatchCancelResponse,
@@ -45,6 +46,7 @@ from tables import (
     Experiment,
     ExperimentExecution,
     Model,
+    Prompt,
     PromptVersion,
 )
 from workspace_scope import current_workspace_id
@@ -58,22 +60,46 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _value_label(field: str, value: int | float | None, session: Session) -> str:
+class _Labels:
+    """Names the rows a batch's values point to, each one looked up once.
+
+    `preload` fetches many rows in one query. A row that is not found is
+    remembered as missing, so a dangling id costs a single query too.
+    """
+
+    def __init__(self, session: Session):
+        self._session = session
+        self._rows: dict[tuple[type, int], object | None] = {}
+
+    def preload(self, table: type, ids: Iterable[int | None]) -> None:
+        wanted = {i for i in ids if i is not None and (table, i) not in self._rows}
+        found = by_id(self._session, table, wanted)
+        for row_id in wanted:
+            self._rows[(table, row_id)] = found.get(row_id)
+
+    def get(self, table: type, row_id: int):
+        if (table, row_id) not in self._rows:
+            self._rows[(table, row_id)] = self._session.get(table, row_id)
+        return self._rows[(table, row_id)]
+
+
+def _value_label(field: str, value: int | float | None, labels: _Labels) -> str:
     """Human-readable name of a value of a varied field."""
     if field == "temperature":
         return format_temperature(None if value is None else float(value))
     if field == "model_id":
-        model = session.get(Model, int(value))
+        model = labels.get(Model, int(value))
         return model.name if model else f"model {value}"
-    version = session.get(PromptVersion, int(value))
+    version = labels.get(PromptVersion, int(value))
     if version is None:
         return f"prompt {value}"
-    prompt_name = version.prompt.name if version.prompt else "Prompt"
+    prompt = labels.get(Prompt, version.prompt_id)
+    prompt_name = prompt.name if prompt else "Prompt"
     return f"{prompt_name} v{version.version}"
 
 
-def _agent_name(agent_id: int, session: Session) -> str:
-    agent = session.get(Agent, agent_id)
+def _agent_name(agent_id: int, labels: _Labels) -> str:
+    agent = labels.get(Agent, agent_id)
     return agent.name if agent else f"agent {agent_id}"
 
 
@@ -191,7 +217,7 @@ def _validate_batch(
             if missing:
                 fail(
                     f"Agent '{agent.name}': prompt "
-                    f"'{_value_label('prompt_version_id', version_id, session)}' "
+                    f"'{_value_label('prompt_version_id', version_id, _Labels(session))}' "
                     f"needs variables with no input mapping: "
                     f"{', '.join(sorted(missing))}"
                 )
@@ -202,28 +228,123 @@ def _validate_batch(
 # ---------------------------------------------------------------------------
 
 
-def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
-    variations = json.loads(batch.variations or "[]")
-    experiments = session.exec(
-        select(Experiment)
-        .where(Experiment.batch_id == batch.id)
-        .order_by(col(Experiment.id))
-    ).all()
-    base = (
-        session.get(Experiment, batch.base_experiment_id)
-        if batch.base_experiment_id
-        else None
+def _build_batch_responses(
+    batches: list[Batch], session: Session
+) -> list[BatchResponse]:
+    """Fully-populated BatchResponses, with a fixed number of queries."""
+    experiments_of = grouped_by(
+        session,
+        Experiment,
+        Experiment.batch_id,
+        [b.id for b in batches if b.id is not None],
+        col(Experiment.id),
     )
-    dataset = session.get(Dataset, experiments[0].dataset_id) if experiments else None
+    experiments = [e for batch in batches for e in experiments_of[batch.id]]
+    executions_of = grouped_by(
+        session,
+        ExperimentExecution,
+        ExperimentExecution.experiment_id,
+        [e.id for e in experiments if e.id is not None],
+        col(ExperimentExecution.started_at).desc(),
+    )
+
+    # The agents each experiment's latest execution ran, in order
+    latest_ids = [found[0].id for found in executions_of.values() if found]
+    agent_names_of: dict[int, list[str]] = defaultdict(list)
+    if latest_ids:
+        for execution_id, name in session.exec(
+            select(
+                AgentExecutionSnapshot.execution_id,
+                AgentExecutionSnapshot.agent_name_snapshot,
+            )
+            .where(col(AgentExecutionSnapshot.execution_id).in_(latest_ids))
+            .order_by(col(AgentExecutionSnapshot.execution_order))
+        ).all():
+            agent_names_of[execution_id].append(name)
+
+    bases = by_id(session, Experiment, (b.base_experiment_id for b in batches))
+    datasets = by_id(
+        session,
+        Dataset,
+        (experiments_of[b.id][0].dataset_id for b in batches if experiments_of[b.id]),
+    )
+    labels = _preload_labels(batches, experiments, session)
+
+    return [
+        _batch_response(
+            batch,
+            labels,
+            experiments=experiments_of[batch.id],
+            base=bases.get(batch.base_experiment_id),
+            dataset=datasets.get(experiments_of[batch.id][0].dataset_id)
+            if experiments_of[batch.id]
+            else None,
+            executions_of=executions_of,
+            agent_names_of=agent_names_of,
+        )
+        for batch in batches
+    ]
+
+
+def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
+    return _build_batch_responses([batch], session)[0]
+
+
+def _preload_labels(
+    batches: list[Batch], experiments: list[Experiment], session: Session
+) -> _Labels:
+    """The labels of the batches, with every row they name loaded in a few queries."""
+    agent_ids: set[int] = set()
+    model_ids: set[int] = set()
+    version_ids: set[int] = set()
+
+    def note(agent_id: int, field: str, value: object) -> None:
+        agent_ids.add(agent_id)
+        if value is None:
+            return
+        if field == "model_id":
+            model_ids.add(int(value))
+        elif field == "prompt_version_id":
+            version_ids.add(int(value))
+
+    for batch in batches:
+        for variation in json.loads(batch.variations or "[]"):
+            for value in variation["values"]:
+                note(variation["agent_id"], variation["field"], value)
+    for experiment in experiments:
+        for agent_id, fields in parse_point(experiment.variant).items():
+            for field, value in fields.items():
+                note(agent_id, field, value)
+
+    labels = _Labels(session)
+    labels.preload(Agent, agent_ids)
+    labels.preload(Model, model_ids)
+    labels.preload(PromptVersion, version_ids)
+    versions = [labels.get(PromptVersion, i) for i in version_ids]
+    labels.preload(Prompt, (v.prompt_id for v in versions if v is not None))
+    return labels
+
+
+def _batch_response(
+    batch: Batch,
+    labels: _Labels,
+    *,
+    experiments: list[Experiment],
+    base: Experiment | None,
+    dataset: Dataset | None,
+    executions_of: dict[int, list[ExperimentExecution]],
+    agent_names_of: dict[int, list[str]],
+) -> BatchResponse:
+    variations = json.loads(batch.variations or "[]")
 
     axis_responses = [
         VariationResponse(
             agent_id=v["agent_id"],
-            agent_name=_agent_name(v["agent_id"], session),
+            agent_name=_agent_name(v["agent_id"], labels),
             field=v["field"],
             values=[
                 VariationValueResponse(
-                    value=value, label=_value_label(v["field"], value, session)
+                    value=value, label=_value_label(v["field"], value, labels)
                 )
                 for value in v["values"]
             ],
@@ -240,32 +361,19 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
                 agent_id=v["agent_id"],
                 field=v["field"],
                 value=point[v["agent_id"]][v["field"]],
-                label=_value_label(v["field"], point[v["agent_id"]][v["field"]], session),
+                label=_value_label(v["field"], point[v["agent_id"]][v["field"]], labels),
             )
             for v in variations
             if v["field"] in point.get(v["agent_id"], {})
         ]
-        executions = session.exec(
-            select(ExperimentExecution)
-            .where(ExperimentExecution.experiment_id == experiment.id)
-            .order_by(col(ExperimentExecution.started_at).desc())
-        ).all()
+        executions = executions_of[experiment.id]
         execution = executions[0] if executions else None
         earlier_executions.extend(executions[1:])
         # The latest execution may have failed or be running again: analyses
         # work from the latest one that completed
         last_completed = next((e for e in executions if e.status == "completed"), None)
 
-        agent_names: list[str] = []
-        if execution:
-            agent_names = [
-                s.agent_name_snapshot
-                for s in session.exec(
-                    select(AgentExecutionSnapshot)
-                    .where(AgentExecutionSnapshot.execution_id == execution.id)
-                    .order_by(col(AgentExecutionSnapshot.execution_order))
-                ).all()
-            ]
+        agent_names = agent_names_of[execution.id] if execution else []
 
         experiment_responses.append(
             BatchExperimentResponse(
@@ -321,15 +429,15 @@ def _build_batch_response(batch: Batch, session: Session) -> BatchResponse:
 
 
 @router.get("/batches", response_model=list[BatchResponse])
-def list_batches(session: Annotated[Session, Depends(get_session)]):
+def list_batches(session: SessionDep):
     """Get all batches, newest first."""
     batches = session.exec(select(Batch).order_by(col(Batch.created_at).desc())).all()
-    return [_build_batch_response(batch, session) for batch in batches]
+    return _build_batch_responses(list(batches), session)
 
 
 @router.post("/batches", response_model=BatchResponse, status_code=201)
-async def create_batch(
-    data: BatchCreate, session: Annotated[Session, Depends(get_session)]
+def create_batch(
+    data: BatchCreate, session: SessionDep
 ):
     """Create one experiment per point of the variations' grid, and start them all."""
     try:
@@ -371,14 +479,15 @@ async def create_batch(
     )
     multi_agent = len({v["agent_id"] for v in variations}) > 1
 
+    labels = _Labels(session)
     experiment_ids = []
     for point in points:
         parts = []
         for variation in variations:
             value = point[variation["agent_id"]][variation["field"]]
-            label = _value_label(variation["field"], value, session)
+            label = _value_label(variation["field"], value, labels)
             parts.append(
-                f"{_agent_name(variation['agent_id'], session)}: {label}"
+                f"{_agent_name(variation['agent_id'], labels)}: {label}"
                 if multi_agent
                 else label
             )
@@ -409,7 +518,7 @@ async def create_batch(
 
 
 @router.get("/batches/{batch_id}", response_model=BatchResponse)
-def get_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_batch(batch_id: int, session: SessionDep):
     batch = session.get(Batch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
@@ -417,7 +526,7 @@ def get_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
 
 
 @router.post("/batches/{batch_id}/cancel", response_model=BatchCancelResponse)
-def cancel_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
+def cancel_batch(batch_id: int, session: SessionDep):
     """Cancel every experiment of the batch that is running or waiting to run."""
     batch = session.get(Batch, batch_id)
     if not batch:
@@ -432,16 +541,12 @@ def cancel_batch(batch_id: int, session: Annotated[Session, Depends(get_session)
 
 
 @router.post("/batches/{batch_id}/rerun", response_model=BatchRerunResponse)
-async def rerun_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
+def rerun_batch(batch_id: int, session: SessionDep):
     """Run again every experiment of the batch that is not running.
 
     Each one gets a new execution with its own configuration, and the batch's
     sample, so the variants stay comparable. Running and queued experiments are left
     alone: restarting a running one would cancel its current run.
-
-    Async, unlike the other handlers that read the batch: starting an experiment
-    schedules an asyncio task, which needs the event loop a sync handler (run in
-    a worker thread) does not have.
     """
     batch = session.get(Batch, batch_id)
     if not batch:
@@ -468,8 +573,8 @@ async def rerun_batch(batch_id: int, session: Annotated[Session, Depends(get_ses
     return BatchRerunResponse(batch_id=batch_id, started=started, skipped=skipped)
 
 
-@router.delete("/batches/{batch_id}")
-def delete_batch(batch_id: int, session: Annotated[Session, Depends(get_session)]):
+@router.delete("/batches/{batch_id}", status_code=204)
+def delete_batch(batch_id: int, session: SessionDep):
     """Delete the batch; its experiments stay, as ordinary experiments."""
     batch = session.get(Batch, batch_id)
     if not batch:
@@ -484,4 +589,3 @@ def delete_batch(batch_id: int, session: Annotated[Session, Depends(get_session)
 
     session.delete(batch)
     session.commit()
-    return {"message": "Batch deleted successfully"}

@@ -27,4 +27,8 @@ USER maestro
 
 EXPOSE 8000
 
+# Healthy once the API answers and so does the database
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"API_PORT\", \"8000\")}/health', timeout=4)"
+
 CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

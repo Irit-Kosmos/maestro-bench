@@ -364,6 +364,26 @@ export interface ExperimentAgentConfig {
   model?: Model
 }
 
+/** How much several columns of a dataset agree on the same rows */
+export interface DatasetAgreement {
+  value_type: AnalysisValueType
+  n_rows: number
+  metrics: { key: string, label: string, description: string }[]
+  columns: { column: string, n: number, n_missing: number, mean: number | null }[]
+  pairs: {
+    a: string
+    b: string
+    n: number
+    metrics: Record<string, { value: number | null, undefined_reason: string | null }>
+  }[]
+  overall: {
+    n_items: number
+    unanimous: number | null
+    alpha: { value: number | null, undefined_reason: string | null }
+  }
+  warnings: string[]
+}
+
 // Analyses
 export type AnalysisValueType = 'numeric' | 'categorical'
 

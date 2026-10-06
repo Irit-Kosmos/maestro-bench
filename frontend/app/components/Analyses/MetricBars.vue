@@ -37,12 +37,14 @@ const bars = computed<Bar[]>(() => props.runs.map((run, i) => {
 const AXIS_GUTTER = 48
 const root = ref<HTMLElement>()
 const { width: rootWidth } = useElementSize(root)
+const { chartWidth } = usePrinting()
 
 // Each label gets at most its slot, so neighbours never overlap; the full name stays in the tooltip
 const tickTextWidth = computed(() => {
-  if (!rootWidth.value || !bars.value.length)
+  const width = chartWidth.value ?? rootWidth.value
+  if (!width || !bars.value.length)
     return 110
-  return Math.max(32, Math.min(110, Math.floor((rootWidth.value - AXIS_GUTTER) / bars.value.length) - 8))
+  return Math.max(32, Math.min(110, Math.floor((width - AXIS_GUTTER) / bars.value.length) - 8))
 })
 
 const hasValues = computed(() => bars.value.some(b => b.value !== null))
@@ -145,7 +147,7 @@ const triggers = {
       </h4>
       <span v-if="metric.lower_is_better" class="text-xs text-muted">lower is better</span>
     </div>
-    <VisXYContainer v-if="hasValues" :data="bars" :height="200" :padding="{ top: 8 }">
+    <VisXYContainer v-if="hasValues" :data="bars" :width="chartWidth" :height="200" :padding="{ top: 8 }">
       <VisGroupedBar
         :x="(d: Bar) => d.x"
         :y="[(d: Bar) => d.value ?? undefined]"
@@ -177,5 +179,18 @@ const triggers = {
     <p v-else class="text-sm text-muted py-8 text-center">
       Undefined for every execution
     </p>
+    <!-- On paper there is no tooltip: the values the chart would show on hover are written out -->
+    <ul v-if="hasValues" class="hidden print:block mt-1 space-y-0.5 text-xs">
+      <li v-for="b in bars" :key="b.x" class="flex items-baseline justify-between gap-3">
+        <span class="truncate text-muted">{{ b.label }}</span>
+        <span v-if="b.value !== null" class="shrink-0 tabular-nums text-highlighted" :class="rank(b)?.position === 1 && 'font-semibold'">
+          {{ formatMetric(b.value) }}
+          <span v-if="b.low !== null && b.high !== null" class="font-normal text-muted">
+            [{{ formatMetric(b.low) }}, {{ formatMetric(b.high) }}]
+          </span>
+        </span>
+        <span v-else class="shrink-0 text-dimmed">—</span>
+      </li>
+    </ul>
   </div>
 </template>

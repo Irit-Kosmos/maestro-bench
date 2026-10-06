@@ -8,10 +8,12 @@ and run through the core pipeline engine (LiteLLM + orchestrator).
 import asyncio
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+import anyio.from_thread
 import pandas as pd
 from sqlalchemy import update
 from sqlmodel import Session, col, select
@@ -89,12 +91,22 @@ def _start_waiting() -> None:
             _launch(*entry)
 
 
-def start_experiment(experiment_id: int, workspace_id: int) -> str:
-    """Run an experiment now, or queue it when the limits are reached.
+def _on_loop[T](fn: Callable[..., T], *args: Any) -> T:
+    """Run `fn` on the event loop, whichever thread asks.
 
-    Returns "started" or "queued". Starting an experiment that is already running
-    restarts it on the slot it holds; one that is already queued keeps its place.
+    The scheduler's state (`_running_tasks`, `_queue`) and the asyncio tasks belong
+    to the loop. The routes are plain functions that run in worker threads, so they
+    reach it through here instead of touching it from the wrong thread.
     """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return anyio.from_thread.run_sync(fn, *args)
+    return fn(*args)
+
+
+def _schedule(experiment_id: int, workspace_id: int) -> str:
+    """Start, restart or queue a run: "started", "queued" or "waiting" (already queued)."""
     existing = _running_tasks.get(experiment_id)
     if existing and not existing.done():
         existing.cancel()
@@ -102,53 +114,90 @@ def start_experiment(experiment_id: int, workspace_id: int) -> str:
         return "started"
 
     if any(queued_id == experiment_id for queued_id, _ in _queue):
-        return "queued"
+        return "waiting"
 
     if _has_room(workspace_id):
         _launch(experiment_id, workspace_id)
         return "started"
 
     _queue.append((experiment_id, workspace_id))
-    _mark_queued(experiment_id)
-    logger.info("Experiment %s queued", experiment_id)
     return "queued"
 
 
-def cancel_experiment(experiment_id: int) -> bool:
-    """Cancel a running experiment task, or take a waiting one out of the queue."""
+def start_experiment(experiment_id: int, workspace_id: int) -> str:
+    """Run an experiment now, or queue it when the limits are reached.
+
+    Returns "started" or "queued". Starting an experiment that is already running
+    restarts it on the slot it holds; one that is already queued keeps its place.
+    Callable from a worker thread or from the event loop.
+    """
+    outcome = _on_loop(_schedule, experiment_id, workspace_id)
+    if outcome == "waiting":
+        return "queued"
+    if outcome == "queued":
+        logger.info("Experiment %s queued", experiment_id)
+        _mark_queued(experiment_id, workspace_id)
+    return outcome
+
+
+def _unschedule(experiment_id: int) -> str | None:
+    """Take a run out of the queue, or cancel its task: "waiting", "running" or None."""
     waiting = next((e for e in _queue if e[0] == experiment_id), None)
     if waiting is not None:
         _queue.remove(waiting)
-        _close_run(experiment_id, "cancelled", "cancelled while queued")
-        return True
+        return "waiting"
 
     task = _running_tasks.get(experiment_id)
     if task and not task.done():
         task.cancel()
-        return True
-    return False
+        return "running"
+    return None
 
 
-def _mark_queued(experiment_id: int) -> None:
-    """Record that an experiment waits, and tell the clients."""
+def cancel_experiment(experiment_id: int) -> bool:
+    """Cancel a running experiment task, or take a waiting one out of the queue.
+
+    Callable from a worker thread or from the event loop.
+    """
+    found = _on_loop(_unschedule, experiment_id)
+    if found == "waiting":
+        _close_run(experiment_id, "cancelled", "cancelled while queued")
+    return found is not None
+
+
+def _mark_queued(experiment_id: int, workspace_id: int) -> None:
+    """Record that an experiment waits, and tell the clients.
+
+    A run that got its slot in the meantime has already said it is running: that
+    status wins.
+    """
     try:
         with Session(engine) as db_session:
-            experiment = db_session.get(Experiment, experiment_id)
-            if not experiment:
-                return
-            scope_session(db_session, experiment.workspace_id)
-            experiment.status = "queued"
-            db_session.add(experiment)
+            scope_session(db_session, workspace_id)
+            marked = db_session.execute(
+                update(Experiment)
+                .where(
+                    col(Experiment.id) == experiment_id,
+                    col(Experiment.status) != "running",
+                )
+                .values(status="queued")
+            ).rowcount
+            batch_id = db_session.exec(
+                select(Experiment.batch_id).where(Experiment.id == experiment_id)
+            ).first()
             db_session.commit()
-            state = RunState(
-                experiment_id=experiment_id,
-                batch_id=experiment.batch_id,
-                status="queued",
+        if marked:
+            event_bus.publish(
+                RunEvent(
+                    name="status",
+                    state=RunState(
+                        experiment_id=experiment_id,
+                        batch_id=batch_id,
+                        status="queued",
+                    ),
+                    workspace_id=workspace_id,
+                )
             )
-            workspace_id = experiment.workspace_id
-        event_bus.publish(
-            RunEvent(name="status", state=state, workspace_id=workspace_id)
-        )
     except Exception:
         logger.exception("Failed to mark experiment %s as queued", experiment_id)
 
@@ -180,63 +229,126 @@ def reap_interrupted_runs() -> int:
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class _Run:
+    """What a run works on. The ORM objects belong to the thread that is using the
+    session: they are only read and written inside `asyncio.to_thread` calls, never
+    on the event loop, where touching an expired attribute would query the database.
+    """
+
+    session: Session
+    workspace_id: int
+    experiment: Experiment
+    execution: ExperimentExecution
+    progress: "_RunProgress"
+    agent_configs: list[AgentConfig]
+    dataset_file_path: str
+    sampling_config: dict
+
+
+def _begin_run(db_session: Session, experiment_id: int) -> _Run | None:
+    """Mark the experiment running and snapshot what is about to run (blocking)."""
+    experiment = db_session.get(Experiment, experiment_id)
+    if not experiment:
+        logger.warning("Experiment %s not found", experiment_id)
+        return None
+
+    # From here on the run only sees the experiment's own workspace
+    scope_session(db_session, experiment.workspace_id)
+    logger.info("Found experiment: %s", experiment.name)
+    experiment.status = "running"
+    db_session.add(experiment)
+    db_session.commit()
+
+    # Create immutable execution snapshot
+    execution = create_execution_snapshot(experiment_id, db_session)
+    logger.info("Created execution snapshot %s", execution.id)
+
+    agent_configs = build_agent_configs_from_snapshot(execution, db_session)
+    if not agent_configs:
+        raise ValueError("No agent configurations found in execution snapshot")
+    logger.info("Pipeline has %d agents", len(agent_configs))
+
+    dataset_snapshot = json.loads(execution.dataset_snapshot)
+    dataset_file_path = dataset_snapshot.get("file_path")
+    if not dataset_file_path:
+        raise ValueError("Dataset file path not found in snapshot")
+
+    run = _Run(
+        session=db_session,
+        workspace_id=experiment.workspace_id,
+        experiment=experiment,
+        execution=execution,
+        progress=_RunProgress(
+            db_session, execution, experiment.batch_id, experiment.workspace_id
+        ),
+        agent_configs=agent_configs,
+        dataset_file_path=dataset_file_path,
+        sampling_config=dataset_snapshot.get("sampling_config", {}),
+    )
+    # Nothing is left open while the run waits for its first rows: the database drops
+    # a transaction that idles for too long (see config.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS)
+    db_session.commit()
+    return run
+
+
+def _finish_run(run: _Run, results: list[PipelineResult]) -> dict[str, Any]:
+    """Write the results file and close the run as completed (blocking)."""
+    summary = process_pipeline_results(run.execution, results, run.session)
+    now = datetime.now(UTC)
+    run.execution.status = "completed"
+    run.execution.completed_at = now
+    run.experiment.status = "completed"
+    run.experiment.completed_at = now
+    run.session.add(run.execution)
+    run.session.add(run.experiment)
+    run.session.commit()
+    return summary
+
+
 async def run_experiment_async(experiment_id: int) -> None:
-    """Top-level coroutine that runs an experiment end-to-end."""
+    """Top-level coroutine that runs an experiment end-to-end.
+
+    Everything that touches the database or the disk runs in a worker thread, so
+    that a run never holds up the API, the live stream or the other runs.
+    """
     logger.info("Starting experiment %s", experiment_id)
 
     try:
         with Session(engine) as db_session:
-            experiment = db_session.get(Experiment, experiment_id)
-            if not experiment:
-                logger.warning("Experiment %s not found", experiment_id)
-                return
+            run: _Run | None = None
+            try:
+                run = await asyncio.to_thread(_begin_run, db_session, experiment_id)
+                if run is None:
+                    return
+                run.progress.announce("running")
 
-            # From here on the run only sees the experiment's own workspace
-            scope_session(db_session, experiment.workspace_id)
-            logger.info("Found experiment: %s", experiment.name)
-            experiment.status = "running"
-            db_session.add(experiment)
-            db_session.commit()
+                # Run the experiment pipeline
+                processor = _ExperimentProcessor(
+                    run.progress,
+                    chunk_size=DEFAULT_CHUNK_SIZE,
+                    max_concurrent=DEFAULT_MAX_CONCURRENT,
+                )
+                results = await processor.process_experiment(run)
+                results_summary = await asyncio.to_thread(_finish_run, run, results)
+                run.progress.announce("completed")
 
-            # Create immutable execution snapshot
-            execution = create_execution_snapshot(experiment_id, db_session)
-            logger.info("Created execution snapshot %s", execution.id)
-
-            progress = _RunProgress(
-                db_session, execution, experiment.batch_id, experiment.workspace_id
-            )
-            progress.announce("running")
-
-            # Run the experiment pipeline
-            processor = _ExperimentProcessor(
-                progress,
-                chunk_size=DEFAULT_CHUNK_SIZE,
-                max_concurrent=DEFAULT_MAX_CONCURRENT,
-            )
-            results_summary = await processor.process_experiment(
-                execution, db_session
-            )
-
-            execution.status = "completed"
-            execution.completed_at = datetime.now(UTC)
-            experiment.status = "completed"
-            experiment.completed_at = datetime.now(UTC)
-
-            db_session.add(execution)
-            db_session.add(experiment)
-            db_session.commit()
-            progress.announce("completed")
-
-            logger.info("Experiment %s completed: %s", experiment_id, results_summary)
+                logger.info(
+                    "Experiment %s completed: %s", experiment_id, results_summary
+                )
+            finally:
+                # A write still going in a thread must end before the session closes
+                if run is not None:
+                    await run.progress.settle()
 
     except asyncio.CancelledError:
         logger.info("Experiment %s cancelled", experiment_id)
-        _close_run(experiment_id, "cancelled", "cancelled")
+        await asyncio.to_thread(_close_run, experiment_id, "cancelled", "cancelled")
         raise
 
     except Exception as e:
         logger.exception("Error in experiment %s", experiment_id)
-        _close_run(experiment_id, "failed", str(e))
+        await asyncio.to_thread(_close_run, experiment_id, "failed", str(e))
 
 
 def _close_run(experiment_id: int, status: str, reason: str) -> None:
@@ -285,7 +397,11 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
 
 
 class _RunProgress:
-    """Counts the rows of an execution as they finish and publishes the count."""
+    """Counts the rows of an execution as they finish and publishes the count.
+
+    The counts are committed one write at a time, in a worker thread, before the
+    event that announces them is published.
+    """
 
     def __init__(
         self,
@@ -298,15 +414,20 @@ class _RunProgress:
         self._execution = execution
         self._workspace_id = workspace_id
         self._state = RunState.from_execution(execution, batch_id)
+        self._lock = asyncio.Lock()
+        self._write: asyncio.Future | None = None
+        # What the last write carried: rows that finish while a write is going are
+        # all covered by the next one
+        self._saved: tuple[int | None, int, int] | None = None
 
-    def start(self, total: int) -> None:
+    async def start(self, total: int) -> None:
         self._state.rows_total = total
-        self._save()
+        await self._save()
 
-    def row_done(self, *, failed: bool) -> None:
+    async def row_done(self, *, failed: bool) -> None:
         self._state.rows_done += 1
         self._state.rows_failed += int(failed)
-        self._save()
+        await self._save()
 
     def announce(self, status: str) -> None:
         """Publish a status the caller has already committed."""
@@ -319,18 +440,34 @@ class _RunProgress:
             )
         )
 
-    def _save(self) -> None:
-        self._execution.rows_total = self._state.rows_total
-        self._execution.rows_done = self._state.rows_done
-        self._execution.rows_failed = self._state.rows_failed
-        self._session.commit()
-        event_bus.publish(
-            RunEvent(
-                name="progress",
-                state=self._state.model_copy(),
-                workspace_id=self._workspace_id,
+    async def settle(self) -> None:
+        """Wait for the write that may still be going after a cancellation."""
+        if self._write is not None and not self._write.done():
+            await asyncio.wait([self._write])
+
+    async def _save(self) -> None:
+        async with self._lock:
+            state = self._state.model_copy()
+            counts = (state.rows_total, state.rows_done, state.rows_failed)
+            if counts == self._saved:
+                return
+            # Shielded: a cancelled run leaves the write to finish, see `settle`
+            self._write = asyncio.ensure_future(
+                asyncio.to_thread(self._commit, state)
             )
-        )
+            await asyncio.shield(self._write)
+            self._saved = counts
+            event_bus.publish(
+                RunEvent(
+                    name="progress", state=state, workspace_id=self._workspace_id
+                )
+            )
+
+    def _commit(self, state: RunState) -> None:
+        self._execution.rows_total = state.rows_total
+        self._execution.rows_done = state.rows_done
+        self._execution.rows_failed = state.rows_failed
+        self._session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -352,55 +489,37 @@ class _ExperimentProcessor:
         self.max_concurrent = max_concurrent
         self.semaphore = asyncio.Semaphore(max_concurrent)
 
-    async def process_experiment(
-        self,
-        execution: ExperimentExecution,
-        db_session: Session,
-    ) -> dict[str, Any]:
-        """Process an experiment: run the agent pipeline over the dataset."""
-        # Build agent configs from execution snapshot
-        agent_configs = build_agent_configs_from_snapshot(execution, db_session)
-        if not agent_configs:
-            raise ValueError("No agent configurations found in execution snapshot")
-
-        logger.info("Pipeline has %d agents", len(agent_configs))
-
-        # Load dataset
-        dataset_snapshot = json.loads(execution.dataset_snapshot)
-        dataset_file_path = dataset_snapshot.get("file_path")
-        sampling_config = dataset_snapshot.get("sampling_config", {})
-
-        if not dataset_file_path:
-            raise ValueError("Dataset file path not found in snapshot")
-
+    async def process_experiment(self, run: _Run) -> list[PipelineResult]:
+        """Run the agent pipeline over the dataset; the results of every row."""
         chunks, total = await self._open_dataset(
-            execution.workspace_id, dataset_file_path, sampling_config
+            run.workspace_id, run.dataset_file_path, run.sampling_config
         )
-        self.progress.start(total)
+        await self.progress.start(total)
 
-        # Process all rows
         all_results: list[PipelineResult] = []
         total_processed = 0
 
         async for chunk_results, chunk_size in self._process_chunks(
-            chunks, agent_configs
+            chunks, run.agent_configs
         ):
             all_results.extend(chunk_results)
             total_processed += chunk_size
             logger.info("Processed %d rows so far...", total_processed)
 
-        return process_pipeline_results(execution, all_results, db_session)
+        return all_results
 
     async def _open_dataset(
         self, workspace_id: int, dataset_file_path: str, sampling_config: dict
     ) -> tuple[AsyncGenerator[pd.DataFrame, None], int]:
         """Chunks of the rows to run, and how many rows there are in all."""
-        dataset_full_path = validate_dataset_file(workspace_id, dataset_file_path)
+        dataset_full_path = await asyncio.to_thread(
+            validate_dataset_file, workspace_id, dataset_file_path
+        )
         sampling_type = sampling_config.get("sampling_type", "all")
 
         if sampling_type == "random":
-            df = apply_dataset_sampling(
-                workspace_id, dataset_file_path, sampling_config
+            df = await asyncio.to_thread(
+                apply_dataset_sampling, workspace_id, dataset_file_path, sampling_config
             )
             return self._dataframe_to_chunks(df), len(df)
 
@@ -484,9 +603,9 @@ class _ExperimentProcessor:
                     agent_configs, row, row_index, dataset_row_id
                 )
             except Exception:
-                self.progress.row_done(failed=True)
+                await self.progress.row_done(failed=True)
                 raise
-        self.progress.row_done(failed=bool(result.error))
+        await self.progress.row_done(failed=bool(result.error))
         return result
 
     # ------------------------------------------------------------------
@@ -496,7 +615,10 @@ class _ExperimentProcessor:
     async def _read_csv_chunks(
         self, file_path
     ) -> AsyncGenerator[pd.DataFrame, None]:
-        for chunk in pd.read_csv(file_path, chunksize=self.chunk_size):
+        reader = await asyncio.to_thread(
+            pd.read_csv, file_path, chunksize=self.chunk_size
+        )
+        async for chunk in _chunks_of(reader):
             yield chunk
 
     async def _read_csv_range_chunks(
@@ -504,12 +626,14 @@ class _ExperimentProcessor:
     ) -> AsyncGenerator[pd.DataFrame, None]:
         nrows = None if end_row is None else (end_row - start_row)
         skiprows = list(range(1, start_row + 1)) if start_row > 0 else None
-        for chunk in pd.read_csv(
+        reader = await asyncio.to_thread(
+            pd.read_csv,
             file_path,
             chunksize=self.chunk_size,
             skiprows=skiprows,
             nrows=nrows,
-        ):
+        )
+        async for chunk in _chunks_of(reader):
             # Skipped rows restart the index at 0; shift it back to file positions
             chunk.index = chunk.index + start_row
             yield chunk
@@ -519,3 +643,12 @@ class _ExperimentProcessor:
     ) -> AsyncGenerator[pd.DataFrame, None]:
         for i in range(0, len(df), self.chunk_size):
             yield df.iloc[i : i + self.chunk_size]
+
+
+async def _chunks_of(reader) -> AsyncGenerator[pd.DataFrame, None]:
+    """The chunks of a pandas reader, each one read in a worker thread."""
+    try:
+        while (chunk := await asyncio.to_thread(next, reader, None)) is not None:
+            yield chunk
+    finally:
+        reader.close()

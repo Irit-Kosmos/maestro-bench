@@ -1,3 +1,6 @@
+import { fileURLToPath } from 'node:url'
+import { unscopedRoutePath } from './app/utils/workspacePath'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {
@@ -50,4 +53,18 @@ export default defineNuxtConfig({
   },
 
   ssr: false,
+
+  hooks: {
+    // Links and shortcuts name a page without its workspace (`/experiments/3`) and the auth middleware
+    // sends them to `/w/<slug>/...`. Without a route for these paths, the router warns on every one.
+    // (An alias cannot do it: it must have the same params as its page, `slug` included.)
+    'pages:extend': (pages) => {
+      const file = fileURLToPath(new URL('./app/components/App/Redirecting.vue', import.meta.url))
+      const unscoped = pages.flatMap((page) => {
+        const path = unscopedRoutePath(page.path)
+        return path ? [{ path, file }] : []
+      })
+      pages.push(...unscoped)
+    },
+  },
 })

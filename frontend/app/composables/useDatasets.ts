@@ -1,4 +1,4 @@
-import type { CreateDatasetForm, Dataset, DatasetStats } from '~/types'
+import type { CreateDatasetForm, Dataset, DatasetAgreement, DatasetStats } from '~/types'
 
 /**
  * Composable for managing datasets data and operations
@@ -70,6 +70,10 @@ export function useDatasets() {
     }
   }
 
+  // Agreement between columns that rate the same rows, computed from the saved file
+  const fetchAgreement = (id: number, columns: string[]) =>
+    $api<DatasetAgreement>(`/datasets/${id}/agreement`, { query: { columns } })
+
   // Get a single dataset by ID
   async function getDataset(id: number) {
     try {
@@ -87,6 +91,7 @@ export function useDatasets() {
     deleteDataset,
     getDataset,
     getDatasetStats,
+    fetchAgreement,
     canPreview,
     getFileExtension,
   }

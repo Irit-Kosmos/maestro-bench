@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inWorkspace, isWorkspaceApiPath, stripWorkspace, workspaceOfPath } from './workspacePath'
+import { inWorkspace, isWorkspaceApiPath, stripWorkspace, unscopedRoutePath, workspaceOfPath } from './workspacePath'
 
 describe('stripWorkspace', () => {
   it('keeps the part inside the workspace', () => {
@@ -33,6 +33,25 @@ describe('inWorkspace', () => {
 
   it('maps the dashboard to the workspace itself', () => {
     expect(inWorkspace('a', '/')).toBe('/w/a')
+  })
+})
+
+describe('unscopedRoutePath', () => {
+  it('drops the workspace from a route path', () => {
+    expect(unscopedRoutePath('/w/:slug()/experiments/new')).toBe('/experiments/new')
+    expect(unscopedRoutePath('/w/:slug()/experiments/:id()')).toBe('/experiments/:id()')
+    expect(unscopedRoutePath('/w/:slug/models')).toBe('/models')
+  })
+
+  it('maps the dashboard to the root', () => {
+    expect(unscopedRoutePath('/w/:slug()')).toBe('/')
+    expect(unscopedRoutePath('/w/:slug()/')).toBe('/')
+  })
+
+  it('finds none outside a workspace', () => {
+    expect(unscopedRoutePath('/w')).toBeNull()
+    expect(unscopedRoutePath('/login')).toBeNull()
+    expect(unscopedRoutePath('/join/:token()')).toBeNull()
   })
 })
 

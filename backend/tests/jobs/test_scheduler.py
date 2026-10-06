@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime
 
+import anyio.to_thread
 import pytest
 from sqlalchemy import text
 from sqlmodel import select
@@ -251,6 +252,43 @@ def test_a_finished_run_frees_its_slot(scheduler, make):
         assert async_jobs.start_experiment(third, TEST_WORKSPACE_ID) == "started"
 
     run(scenario())
+
+
+def test_routes_schedule_and_cancel_from_their_worker_thread(scheduler, make, engine):
+    ids = [make() for _ in range(3)]
+
+    async def scenario():
+        # What a route does: it runs in an anyio worker thread, not on the loop
+        outcomes = [
+            await anyio.to_thread.run_sync(
+                async_jobs.start_experiment, i, TEST_WORKSPACE_ID
+            )
+            for i in ids
+        ]
+        await settle()
+        assert outcomes == ["started", "started", "queued"]
+        assert scheduler.ran == ids[:2]
+        assert status_of(engine, ids[2]) == "queued"
+
+        with event_bus.subscribe() as events:
+            cancelled = await anyio.to_thread.run_sync(
+                async_jobs.cancel_experiment, ids[2]
+            )
+            published = await asyncio.wait_for(events.get(), timeout=1)
+        assert cancelled is True
+        assert published.state.status == "cancelled"
+        assert async_jobs._queue == []
+        assert status_of(engine, ids[2]) == "cancelled"
+
+    run(scenario())
+
+
+def test_a_run_that_got_its_slot_is_not_marked_queued_afterwards(make, engine):
+    experiment_id = make(status="running")
+
+    async_jobs._mark_queued(experiment_id, TEST_WORKSPACE_ID)
+
+    assert status_of(engine, experiment_id) == "running"
 
 
 def test_a_restart_leaves_no_run_marked_as_going(engine, make):

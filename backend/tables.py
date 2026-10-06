@@ -1,7 +1,79 @@
+import json
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, Index, UniqueConstraint, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Index,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
+
+# Closed sets of values, enforced by CHECK constraints. Adding one takes a migration.
+EXPERIMENT_STATUSES = (
+    "pending",
+    "queued",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+    "interrupted",
+)
+EXECUTION_STATUSES = ("running", "completed", "failed", "cancelled", "interrupted")
+AGENT_KINDS = ("llm", "aggregator")
+SAMPLING_TYPES = ("all", "random", "range")
+TAGGED_KINDS = ("prompt", "analysis", "agent")
+# From the least to the most powerful
+ROLES = ("viewer", "editor", "owner")
+
+
+class JsonText(TypeDecorator):
+    """A jsonb column that the code reads and writes as JSON text.
+
+    The database checks that what it stores is JSON, and can query it. The application
+    keeps handling strings, as the API does: it parses them where it needs the value.
+    Key order and spacing are the database's, not the writer's.
+    """
+
+    impl = JSONB
+    cache_ok = True
+
+    def __init__(self):
+        # A missing value is SQL NULL, not a JSON null
+        super().__init__(none_as_null=True)
+
+    def process_bind_param(self, value, dialect):
+        return None if value is None else json.loads(value)
+
+    def process_result_value(self, value, dialect):
+        return None if value is None else json.dumps(value, ensure_ascii=False)
+
+
+# Every moment is stored with its time zone (timestamptz) and handled as an aware UTC datetime
+TIMESTAMPTZ = DateTime(timezone=True)
+
+
+def now_field():
+    """A moment that defaults to now."""
+    return Field(default_factory=lambda: datetime.now(UTC), sa_type=TIMESTAMPTZ)
+
+
+def moment_field(**kwargs):
+    """A moment that may be unknown yet (a completion, a use)."""
+    return Field(default=None, sa_type=TIMESTAMPTZ, **kwargs)
+
+
+def required_moment_field(**kwargs):
+    """A moment the row cannot go without (an expiry)."""
+    return Field(sa_type=TIMESTAMPTZ, **kwargs)
+
+
+def _one_of(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(v) for v in values)})"
 
 
 class WorkspaceOwned(SQLModel):
@@ -43,7 +115,7 @@ class Model(Authored, table=True):
     default_max_tokens: int | None = None
 
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
 
 class Prompt(Authored, table=True):
@@ -52,7 +124,7 @@ class Prompt(Authored, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)  # e.g., "Language Evaluator", "Content Scorer"
     description: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     # Relationships
     versions: list["PromptVersion"] = Relationship(back_populates="prompt")
@@ -62,17 +134,19 @@ class PromptVersion(WorkspaceOwned, table=True):
     """Versioned prompt configurations - pure prompts without model coupling"""
 
     id: int | None = Field(default=None, primary_key=True)
-    prompt_id: int = Field(foreign_key="prompt.id")
+    prompt_id: int = Field(foreign_key="prompt.id", index=True)
     version: str = Field(index=True)  # e.g., "1.0", "1.1", "2.0-beta"
     system_prompt: str | None = None
     user_prompt: str | None = None
-    variables: str | None = None  # JSON string of variable definitions
+    variables: str | None = Field(  # JSON of variable definitions
+        default=None, sa_type=JsonText
+    )
 
     # Metadata
     is_active: bool = Field(default=True)
     is_default: bool = Field(default=False)  # Default version for this prompt
     notes: str | None = None  # Version notes/changelog
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     # Relationships
     prompt: Prompt | None = Relationship(back_populates="versions")
@@ -84,7 +158,7 @@ class AgentTeam(Authored, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     # Relationships
     agents: list["Agent"] = Relationship(
@@ -104,14 +178,18 @@ class Agent(WorkspaceOwned, table=True):
 
     # Default configurations (can be overridden in experiments)
     default_prompt_version_id: int | None = Field(
-        default=None, foreign_key="promptversion.id", ondelete="SET NULL"
+        default=None, foreign_key="promptversion.id", ondelete="SET NULL", index=True
     )
     default_model_id: int | None = Field(
-        default=None, foreign_key="model.id", ondelete="SET NULL"
+        default=None, foreign_key="model.id", ondelete="SET NULL", index=True
     )
 
-    team_id: int = Field(foreign_key="agentteam.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    team_id: int = Field(foreign_key="agentteam.id", index=True)
+    created_at: datetime = now_field()
+
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", AGENT_KINDS), name="ck_agent_kind"),
+    )
 
     # Relationships
     team: AgentTeam | None = Relationship(back_populates="agents")
@@ -128,7 +206,7 @@ class Dataset(Authored, table=True):
     file_path: str | None = Field(
         default=None, description="Relative path to dataset file on disk"
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     # Relationships
     experiments: list["Experiment"] = Relationship(back_populates="dataset")
@@ -145,15 +223,18 @@ class Batch(Authored, table=True):
     name: str
     description: str | None = None
     # Experiment the batch was derived from. Not part of the batch itself.
-    base_experiment_id: int | None = Field(default=None, foreign_key="experiment.id")
+    base_experiment_id: int | None = Field(
+        default=None, foreign_key="experiment.id", index=True
+    )
     variations: str = Field(
         default="[]",
+        sa_type=JsonText,
         description="JSON list of {agent_id, field, values} axes (cartesian product)",
     )
     # Seed of the random sample, shared by the batch's experiments so that they
     # all run on the same dataset rows
     sampling_seed: int | None = Field(default=None, sa_type=BigInteger)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
 
 class Experiment(Authored, table=True):
@@ -162,12 +243,12 @@ class Experiment(Authored, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str | None = None
-    dataset_id: int = Field(foreign_key="dataset.id")
+    dataset_id: int = Field(foreign_key="dataset.id", index=True)
     status: str = Field(
         default="pending"
     )  # pending, queued, running, completed, failed, cancelled, interrupted
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    completed_at: datetime | None = None
+    created_at: datetime = now_field()
+    completed_at: datetime | None = moment_field()
 
     # Batch membership: the experiment's coordinates in the batch's grid, as
     # {"<agent_id>": {"<field>": value}}
@@ -191,6 +272,24 @@ class Experiment(Authored, table=True):
     # the sample is redrawn. An experiment of a batch uses the batch's seed instead.
     sampling_seed: int | None = Field(default=None, sa_type=BigInteger)
 
+    __table_args__ = (
+        CheckConstraint(
+            _one_of("status", EXPERIMENT_STATUSES), name="ck_experiment_status"
+        ),
+        CheckConstraint(
+            "sampling_type IS NULL OR " + _one_of("sampling_type", SAMPLING_TYPES),
+            name="ck_experiment_sampling_type",
+        ),
+        # The lists of a workspace, newest first
+        Index("ix_experiment_workspace_created", "workspace_id", "created_at"),
+        # What the dashboard shows as in progress
+        Index(
+            "ix_experiment_workspace_active",
+            "workspace_id",
+            postgresql_where=text("status IN ('pending', 'queued', 'running')"),
+        ),
+    )
+
     # Relationships
     dataset: Dataset | None = Relationship(back_populates="experiments")
     executions: list["ExperimentExecution"] = Relationship(
@@ -208,14 +307,14 @@ class ExperimentAgentConfig(WorkspaceOwned, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     experiment_id: int = Field(foreign_key="experiment.id")
-    agent_id: int = Field(foreign_key="agent.id")
+    agent_id: int = Field(foreign_key="agent.id", index=True)
 
     # Configuration (uses agent defaults if not specified)
     prompt_version_id: int | None = Field(
-        default=None, foreign_key="promptversion.id", ondelete="SET NULL"
+        default=None, foreign_key="promptversion.id", ondelete="SET NULL", index=True
     )
     model_id: int | None = Field(
-        default=None, foreign_key="model.id", ondelete="SET NULL"
+        default=None, foreign_key="model.id", ondelete="SET NULL", index=True
     )
 
     # Optional overrides for model parameters
@@ -230,12 +329,13 @@ class ExperimentAgentConfig(WorkspaceOwned, table=True):
     # map to this agent's prompt variables (or an aggregator's formula variables)
     input_mappings: str | None = Field(
         default=None,
+        sa_type=JsonText,
         description="JSON string of per-agent input mappings",
     )
     # Aggregators: JSON list of {name, formula}
-    formulas: str | None = None
+    formulas: str | None = Field(default=None, sa_type=JsonText)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     # Add unique constraint to prevent duplicate agent configurations per experiment
     __table_args__ = (
@@ -256,8 +356,8 @@ class ExperimentExecution(WorkspaceOwned, table=True):
     experiment_id: int = Field(foreign_key="experiment.id")
 
     # Execution metadata
-    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    completed_at: datetime | None = None
+    started_at: datetime = now_field()
+    completed_at: datetime | None = moment_field()
     status: str = Field(default="running")  # running, completed, failed, cancelled, interrupted
 
     # Live progress, in dataset rows; rows_failed are counted in rows_done
@@ -267,6 +367,7 @@ class ExperimentExecution(WorkspaceOwned, table=True):
 
     # Dataset snapshot at execution time
     dataset_snapshot: str = Field(
+        sa_type=JsonText,
         description="JSON snapshot of dataset metadata at execution"
     )
 
@@ -276,6 +377,20 @@ class ExperimentExecution(WorkspaceOwned, table=True):
     # Aggregated metrics
     total_tokens: int | None = None
     total_cost_usd: float | None = None
+
+    __table_args__ = (
+        CheckConstraint(
+            _one_of("status", EXECUTION_STATUSES), name="ck_experimentexecution_status"
+        ),
+        CheckConstraint(
+            "rows_done >= 0 AND rows_failed >= 0",
+            name="ck_experimentexecution_rows",
+        ),
+        # The executions of an experiment, newest first (also covers its foreign key)
+        Index("ix_experimentexecution_experiment_started", "experiment_id", "started_at"),
+        # Every execution of a workspace, newest first
+        Index("ix_experimentexecution_workspace_started", "workspace_id", "started_at"),
+    )
 
     # Relationships
     experiment: Experiment | None = Relationship(back_populates="executions")
@@ -289,10 +404,10 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     """Immutable snapshot of each agent's configuration used during execution"""
 
     id: int | None = Field(default=None, primary_key=True)
-    execution_id: int = Field(foreign_key="experimentexecution.id")
+    execution_id: int = Field(foreign_key="experimentexecution.id", index=True)
     # Empty once the agent is deleted: the snapshot keeps its name
     agent_id: int | None = Field(
-        default=None, foreign_key="agent.id", ondelete="SET NULL"
+        default=None, foreign_key="agent.id", ondelete="SET NULL", index=True
     )
 
     # Snapshot of configuration at execution time (exactly what was used).
@@ -310,20 +425,25 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     # Actual configuration used (resolved from defaults + overrides)
     final_system_prompt: str | None = None
     final_user_prompt: str | None = None
-    final_variables: str | None = None  # JSON string
+    final_variables: str | None = Field(default=None, sa_type=JsonText)
     final_temperature: float | None = None
     final_max_tokens: int | None = None
 
     # Per-agent input mappings snapshot
     final_input_mappings: str | None = Field(
         default=None,
+        sa_type=JsonText,
         description="JSON string of input mappings used at execution time",
     )
     # Aggregators: JSON list of {name, formula} used at execution time
-    final_formulas: str | None = None
+    final_formulas: str | None = Field(default=None, sa_type=JsonText)
 
     execution_order: int = Field(description="Order in which this agent was executed")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
+
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", AGENT_KINDS), name="ck_agentexecutionsnapshot_kind"),
+    )
 
     # Relationships
     execution: ExperimentExecution | None = Relationship(
@@ -343,12 +463,13 @@ class Analysis(Authored, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str | None = None
-    config: str = Field(description="JSON analysis configuration")
+    config: str = Field(sa_type=JsonText, description="JSON analysis configuration")
     runs: str = Field(
+        sa_type=JsonText,
         description="JSON list of {execution_id, agent_name, label} to compare"
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
+    updated_at: datetime = now_field()
 
 
 class Tag(Authored, table=True):
@@ -357,7 +478,7 @@ class Tag(Authored, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)  # unique ignoring case, enforced by the API
     color: str = "gray"  # one of tags.TAG_COLORS
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
     __table_args__ = (
         Index("uq_tag_workspace_name", "workspace_id", text("lower(name)"), unique=True),
@@ -371,6 +492,12 @@ class TagLink(WorkspaceOwned, table=True):
     kind: str = Field(primary_key=True)  # "prompt" | "analysis" | "agent"
     item_id: int = Field(primary_key=True)
 
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", TAGGED_KINDS), name="ck_taglink_kind"),
+        # The tags of an item: the primary key starts with the tag
+        Index("ix_taglink_kind_item", "kind", "item_id"),
+    )
+
 
 class WorkspaceCredential(WorkspaceOwned, table=True):
     """The API key a workspace uses for a provider, encrypted (see `credentials`)"""
@@ -381,7 +508,7 @@ class WorkspaceCredential(WorkspaceOwned, table=True):
     provider: str
     ciphertext: str = Field(exclude=True)
     last4: str  # the only part of the key that is ever shown again
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = now_field()
     updated_by: int | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
@@ -394,11 +521,14 @@ class User(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     display_name: str
-    email: str | None = Field(default=None, index=True)  # not unique: never a key
+    email: str | None = None  # not unique: never a key
     avatar_url: str | None = None
     is_active: bool = Field(default=True)  # False signs the user out everywhere
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_login_at: datetime | None = None
+    created_at: datetime = now_field()
+    last_login_at: datetime | None = moment_field()
+
+    # Users are looked up by email ignoring case
+    __table_args__ = (Index("ix_user_email_lower", text("lower(email)")),)
 
 
 class Identity(SQLModel, table=True):
@@ -411,7 +541,7 @@ class Identity(SQLModel, table=True):
     provider: str  # "gitlab"
     subject: str  # the provider's stable id for the account
     email_at_login: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
 
 
 class AuthSession(SQLModel, table=True):
@@ -421,10 +551,10 @@ class AuthSession(SQLModel, table=True):
 
     id: str = Field(primary_key=True)  # sha256 of the cookie token
     user_id: int = Field(foreign_key="user.id", index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime  # slides with activity
-    absolute_expires_at: datetime  # never moves
+    created_at: datetime = now_field()
+    last_seen_at: datetime = now_field()
+    expires_at: datetime = required_moment_field()  # slides with activity
+    absolute_expires_at: datetime = required_moment_field(index=True)  # never moves
 
 
 class Workspace(SQLModel, table=True):
@@ -433,8 +563,8 @@ class Workspace(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     slug: str = Field(unique=True, index=True)  # in the URLs
     name: str
-    archived_at: datetime | None = None  # an archived workspace is read-only
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    archived_at: datetime | None = moment_field()  # an archived workspace is read-only
+    created_at: datetime = now_field()
     created_by: int | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
@@ -450,7 +580,9 @@ class Membership(SQLModel, table=True):
         foreign_key="user.id", primary_key=True, index=True, ondelete="CASCADE"
     )
     role: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = now_field()
+
+    __table_args__ = (CheckConstraint(_one_of("role", ROLES), name="ck_membership_role"),)
 
 
 class Invitation(SQLModel, table=True):
@@ -465,10 +597,14 @@ class Invitation(SQLModel, table=True):
     created_by: int | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime
-    used_at: datetime | None = None
+    created_at: datetime = now_field()
+    expires_at: datetime = required_moment_field()
+    used_at: datetime | None = moment_field()
     used_by: int | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
-    revoked_at: datetime | None = None
+    revoked_at: datetime | None = moment_field()
+
+    __table_args__ = (
+        CheckConstraint(_one_of("role", ROLES), name="ck_invitation_role"),
+    )

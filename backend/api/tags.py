@@ -1,10 +1,10 @@
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, delete, select
 
-from db import get_session
+from db import SessionDep
 from schemas.tags import TagAssign, TagCreate, TagResponse, TagUpdate
 from tables import Tag, TagLink
 from tag_utils import add_and_remove_tags, normalize_tag_name
@@ -26,35 +26,45 @@ def _checked_name(name: str) -> str:
     return cleaned
 
 
+def _commit(session: Session, name: str) -> None:
+    """Commit; the unique index catches a same-named tag created since `_name_taken` looked."""
+    try:
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=409, detail=f'Tag "{name}" already exists'
+        ) from e
+
+
 @router.get("/tags", response_model=list[TagResponse])
-def list_tags(session: Annotated[Session, Depends(get_session)]):
+def list_tags(session: SessionDep):
     """Every tag, by name."""
     return sorted(session.exec(select(Tag)).all(), key=lambda t: t.name.lower())
 
 
 @router.post("/tags", response_model=TagResponse, status_code=201)
-def create_tag(data: TagCreate, session: Annotated[Session, Depends(get_session)]):
+def create_tag(data: TagCreate, session: SessionDep):
     name = _checked_name(data.name)
     if _name_taken(session, name):
         raise HTTPException(status_code=409, detail=f'Tag "{name}" already exists')
     tag = Tag(name=name, color=data.color)
     session.add(tag)
-    session.commit()
+    _commit(session, name)
     session.refresh(tag)
     return tag
 
 
-@router.post("/tags/assign")
-def assign_tags(data: TagAssign, session: Annotated[Session, Depends(get_session)]):
+@router.post("/tags/assign", status_code=204)
+def assign_tags(data: TagAssign, session: SessionDep):
     """Put tags on several items, take tags off them, or both, in one go."""
     add_and_remove_tags(session, data.kind, data.item_ids, data.add, data.remove)
     session.commit()
-    return {"message": "Tags updated successfully"}
 
 
 @router.put("/tags/{tag_id}", response_model=TagResponse)
 def update_tag(
-    tag_id: int, data: TagUpdate, session: Annotated[Session, Depends(get_session)]
+    tag_id: int, data: TagUpdate, session: SessionDep
 ):
     tag = session.get(Tag, tag_id)
     if not tag:
@@ -67,13 +77,13 @@ def update_tag(
     if data.color is not None:
         tag.color = data.color
     session.add(tag)
-    session.commit()
+    _commit(session, tag.name)
     session.refresh(tag)
     return tag
 
 
-@router.delete("/tags/{tag_id}")
-def delete_tag(tag_id: int, session: Annotated[Session, Depends(get_session)]):
+@router.delete("/tags/{tag_id}", status_code=204)
+def delete_tag(tag_id: int, session: SessionDep):
     """Delete a tag and take it off every item that carried it."""
     tag = session.get(Tag, tag_id)
     if not tag:
@@ -81,4 +91,3 @@ def delete_tag(tag_id: int, session: Annotated[Session, Depends(get_session)]):
     session.exec(delete(TagLink).where(col(TagLink.tag_id) == tag_id))
     session.delete(tag)
     session.commit()
-    return {"message": "Tag deleted successfully"}

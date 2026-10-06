@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 import uvicorn
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 import async_jobs
@@ -34,7 +36,7 @@ from auth.policy import validate_config
 from auth.providers import setup_providers
 from auth.workspaces import scope_to_workspace
 from config import API_HOST, API_PORT, CORS_ORIGINS
-from db import init_db
+from db import SessionDep, init_db
 
 logging.basicConfig(
     level=logging.INFO,
@@ -78,8 +80,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # What the interface uses, and nothing else
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Accept", "Content-Type", "Last-Event-ID", "X-CSRF-Token"],
 )
 
 app.include_router(auth_api.router)
@@ -114,7 +117,15 @@ for module in WORKSPACE_ROUTERS:
 
 
 @app.get("/health")
-def health_check():
+def health_check(session: SessionDep):
+    """Whether the API can serve: 200 when the database answers, 503 when it does not."""
+    try:
+        session.exec(text("SELECT 1"))
+    except Exception:
+        logger.exception("The database does not answer")
+        return JSONResponse(
+            {"status": "unhealthy", "version": API_VERSION}, status_code=503
+        )
     return {
         "status": "healthy",
         "version": API_VERSION,

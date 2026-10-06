@@ -2,16 +2,16 @@
 API router for LLM providers: which are usable, and the workspace's own API keys.
 """
 
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session
 
 import credentials
 from auth.workspaces import requires
 from core.llm import SUPPORTED_PROVIDERS
-from db import get_session
+from db import SessionDep
 from workspace_scope import current_user_id
 
 router = APIRouter(tags=["providers"])
@@ -21,27 +21,37 @@ class ApiKeyIn(BaseModel):
     api_key: str
 
 
-def _provider_view(provider: str, spec: dict, stored) -> dict:
+class ProviderResponse(BaseModel):
+    provider: str
+    configured: bool
+    env_var: str
+    kind: str
+    # Where the calls get their key: the workspace's own, or the instance's
+    source: Literal["workspace", "instance"] | None
+    # The workspace's key is never shown again, only its end
+    key_hint: str | None
+    can_store_key: bool
+
+
+def _provider_view(provider: str, spec: dict, stored) -> ProviderResponse:
     kind = spec.get("kind", "key")
-    return {
-        "provider": provider,
-        "configured": stored is not None or credentials.instance_provides(provider),
-        "env_var": spec["env_var"],
-        "kind": kind,
-        # Where the calls get their key: the workspace's own, or the instance's
-        "source": "workspace"
+    return ProviderResponse(
+        provider=provider,
+        configured=stored is not None or credentials.instance_provides(provider),
+        env_var=spec["env_var"],
+        kind=kind,
+        source="workspace"
         if stored is not None
         else "instance"
         if credentials.instance_provides(provider)
         else None,
-        # The workspace's key is never shown again, only its end
-        "key_hint": stored.last4 if stored is not None else None,
-        "can_store_key": kind == "key" and credentials.keys_enabled(),
-    }
+        key_hint=stored.last4 if stored is not None else None,
+        can_store_key=kind == "key" and credentials.keys_enabled(),
+    )
 
 
 @router.get("/providers")
-def list_providers(session: Annotated[Session, Depends(get_session)]):
+def list_providers(session: SessionDep) -> list[ProviderResponse]:
     """List supported providers, whether the workspace can call them, and with whose key."""
     stored = credentials.stored_keys(session)
     return [
@@ -67,8 +77,8 @@ def _checked(provider: str) -> str:
 def set_provider_key(
     provider: str,
     data: ApiKeyIn,
-    session: Annotated[Session, Depends(get_session)],
-):
+    session: SessionDep,
+) -> ProviderResponse:
     """Store the workspace's own API key for a provider, replacing any previous one."""
     name = _checked(provider)
     if not credentials.keys_enabled():
@@ -85,7 +95,7 @@ def set_provider_key(
 @router.delete("/providers/{provider}/key", status_code=204)
 @requires("owner")
 def delete_provider_key(
-    provider: str, session: Annotated[Session, Depends(get_session)]
+    provider: str, session: SessionDep
 ):
     """Forget the workspace's key: the provider goes back to the instance's, if any."""
     if not credentials.delete_key(session, _checked(provider)):

@@ -72,11 +72,11 @@ defineShortcuts({
     :max-size="360"
     :collapsed-size="56"
     :ui="{
-      root: 'peer min-w-14 bg-muted dark:bg-(--ui-bg-sidebar)',
+      root: 'peer min-w-14 bg-muted dark:bg-(--ui-bg-sidebar) print:hidden',
       header: 'px-3',
       body: 'px-2 py-1 gap-5',
       footer: 'px-2 py-2',
-      handle: 'after:absolute after:inset-y-0 after:-left-px after:w-0.5 hover:after:bg-accented peer-data-[dragging=true]:after:bg-primary',
+      handle: 'print:hidden after:absolute after:inset-y-0 after:-left-px after:w-0.5 hover:after:bg-accented peer-data-[dragging=true]:after:bg-primary',
     }"
   >
     <template #header="{ collapsed: isCollapsed }">

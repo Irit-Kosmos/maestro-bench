@@ -1,27 +1,44 @@
 import asyncio
 import csv
+import dataclasses
 import json
+import logging
 import secrets
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 import config
 import workspace_files
+from analysis.agreement import compute_agreement, pair_metric_infos
 from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
-from db import get_session
-from schemas.datasets import DatasetCreate, DatasetRowsUpdate
+from db import SessionDep
+from schemas.datasets import (
+    DatasetAgreement,
+    DatasetCreate,
+    DatasetInfo,
+    DatasetPreview,
+    DatasetRows,
+    DatasetRowsSaved,
+    DatasetRowsUpdate,
+    DatasetStats,
+)
 from tables import Dataset, Experiment
 from workspace_scope import current_workspace_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["datasets"])
 
 # Number of sample rows returned by the /preview endpoint
 _PREVIEW_ROWS = 5
+
+# Every pair of columns is a comparison to compute and to read
+_AGREEMENT_MAX_COLUMNS = 10
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +78,7 @@ def _read_dataset_metadata(file_path: Path, include_sample: bool = False) -> dic
             "sample_data": sample_data if include_sample else None,
         }
 
-    elif ext == ".json":
+    if ext == ".json":
         with file_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -127,6 +144,12 @@ def _check_uploaded_file(path: Path) -> None:
         raise HTTPException(400, "The file has no rows")
 
 
+def _store(session: Session, dataset: Dataset) -> None:
+    session.add(dataset)
+    session.commit()
+    session.refresh(dataset)
+
+
 async def _receive_upload(request: Request, destination: Path) -> None:
     """Write the request body to ``destination``, refusing a body over the limit."""
     limit = config.MAX_UPLOAD_MB * 1024 * 1024
@@ -142,7 +165,7 @@ async def _receive_upload(request: Request, destination: Path) -> None:
             size += len(chunk)
             if size > limit:
                 raise too_large
-            out.write(chunk)
+            await asyncio.to_thread(out.write, chunk)
     if size == 0:
         raise HTTPException(400, "The file is empty")
 
@@ -153,14 +176,14 @@ async def _receive_upload(request: Request, destination: Path) -> None:
 
 
 @router.get("/datasets", response_model=list[Dataset])
-def list_datasets(session: Annotated[Session, Depends(get_session)]):
+def list_datasets(session: SessionDep):
     return session.exec(select(Dataset)).all()
 
 
 @router.post("/datasets", response_model=Dataset, status_code=201)
 def create_dataset(
     dataset_data: DatasetCreate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     if dataset_data.file_path:
         try:
@@ -182,7 +205,7 @@ def create_dataset(
 @router.post("/datasets/upload", response_model=Dataset, status_code=201)
 async def upload_dataset(
     request: Request,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
     filename: Annotated[str, Query(min_length=1, max_length=255)],
     name: Annotated[str | None, Query(max_length=_NAME_MAX_LENGTH)] = None,
     description: Annotated[str | None, Query(max_length=2000)] = None,
@@ -212,28 +235,26 @@ async def upload_dataset(
         description=description,
         file_path=destination.name,
     )
-    session.add(dataset)
     try:
-        session.commit()
+        await asyncio.to_thread(_store, session, dataset)
     except BaseException:
         destination.unlink(missing_ok=True)
         raise
-    session.refresh(dataset)
     return dataset
 
 
 @router.get("/datasets/{dataset_id}", response_model=Dataset)
-def get_dataset(dataset_id: int, session: Annotated[Session, Depends(get_session)]):
+def get_dataset(dataset_id: int, session: SessionDep):
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")
     return dataset
 
 
-@router.get("/datasets/{dataset_id}/preview")
+@router.get("/datasets/{dataset_id}/preview", response_model=DatasetPreview)
 def get_dataset_preview(
     dataset_id: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """Get a preview of the dataset including headers and first few rows."""
     dataset = session.get(Dataset, dataset_id)
@@ -246,13 +267,14 @@ def get_dataset_preview(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Error reading dataset file: {e}") from e
+        logger.exception("Cannot read dataset %s", dataset_id)
+        raise HTTPException(500, "Error reading the dataset file") from e
 
 
-@router.get("/datasets/{dataset_id}/rows")
+@router.get("/datasets/{dataset_id}/rows", response_model=DatasetRows)
 def get_dataset_rows(
     dataset_id: int,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """Get every row of the dataset file, for viewing and editing."""
     dataset = session.get(Dataset, dataset_id)
@@ -265,14 +287,15 @@ def get_dataset_rows(
     except DatasetFileError as e:
         raise HTTPException(e.status_code, e.detail) from e
     except Exception as e:
-        raise HTTPException(500, f"Error reading dataset file: {e}") from e
+        logger.exception("Cannot read the rows of dataset %s", dataset_id)
+        raise HTTPException(500, "Error reading the dataset file") from e
 
 
-@router.put("/datasets/{dataset_id}/rows")
+@router.put("/datasets/{dataset_id}/rows", response_model=DatasetRowsSaved)
 def update_dataset_rows(
     dataset_id: int,
     payload: DatasetRowsUpdate,
-    session: Annotated[Session, Depends(get_session)],
+    session: SessionDep,
 ):
     """Replace the rows of the dataset file. Columns stay as they are on disk."""
     dataset = session.get(Dataset, dataset_id)
@@ -285,12 +308,53 @@ def update_dataset_rows(
     except DatasetFileError as e:
         raise HTTPException(e.status_code, e.detail) from e
     except Exception as e:
-        raise HTTPException(500, f"Error writing dataset file: {e}") from e
+        logger.exception("Cannot write the rows of dataset %s", dataset_id)
+        raise HTTPException(500, "Error writing the dataset file") from e
 
 
-@router.get("/datasets/{dataset_id}/info")
+@router.get("/datasets/{dataset_id}/agreement", response_model=DatasetAgreement)
+def get_dataset_agreement(
+    dataset_id: int,
+    session: SessionDep,
+    columns: Annotated[list[str], Query(description="Columns that rate the same rows")],
+    value_type: Literal["numeric", "categorical"] | None = None,
+):
+    """How much the given columns agree: per pair of columns, and overall."""
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+    if len(set(columns)) != len(columns):
+        raise HTTPException(400, "A column can only be selected once")
+    if not 2 <= len(columns) <= _AGREEMENT_MAX_COLUMNS:
+        raise HTTPException(
+            400, f"Select between 2 and {_AGREEMENT_MAX_COLUMNS} columns"
+        )
+
+    file_path = _resolve_dataset_file(dataset)
+    try:
+        content = read_dataset_rows(file_path)
+    except DatasetFileError as e:
+        raise HTTPException(e.status_code, e.detail) from e
+    except Exception as e:
+        logger.exception("Cannot read the rows of dataset %s", dataset_id)
+        raise HTTPException(500, "Error reading the dataset file") from e
+
+    unknown = [c for c in columns if c not in content["headers"]]
+    if unknown:
+        raise HTTPException(400, f"Unknown column: {', '.join(unknown)}")
+
+    result = compute_agreement(
+        {c: [row.get(c) for row in content["rows"]] for c in columns}, value_type
+    )
+    return {
+        **dataclasses.asdict(result),
+        "metrics": [dataclasses.asdict(m) for m in pair_metric_infos(result.value_type)],
+    }
+
+
+@router.get("/datasets/{dataset_id}/info", response_model=DatasetInfo)
 def get_dataset_info(
-    dataset_id: int, session: Annotated[Session, Depends(get_session)]
+    dataset_id: int, session: SessionDep
 ):
     """Get dataset information including row count for sampling configuration."""
     dataset = session.get(Dataset, dataset_id)
@@ -309,23 +373,24 @@ def get_dataset_info(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Error reading dataset file: {e}") from e
+        logger.exception("Cannot read dataset %s", dataset_id)
+        raise HTTPException(500, "Error reading the dataset file") from e
 
 
-@router.get("/datasets/{dataset_id}/stats", response_model=dict)
+@router.get("/datasets/{dataset_id}/stats", response_model=DatasetStats)
 def get_dataset_stats(
-    dataset_id: int, session: Annotated[Session, Depends(get_session)]
+    dataset_id: int, session: SessionDep
 ):
     """Get dataset with additional statistics including experiment count."""
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")
 
-    experiment_count = len(
-        session.exec(
-            select(Experiment).where(Experiment.dataset_id == dataset_id)
-        ).all()
-    )
+    experiment_count = session.exec(
+        select(func.count()).select_from(Experiment).where(
+            Experiment.dataset_id == dataset_id
+        )
+    ).one()
 
     return {
         "id": dataset.id,
@@ -338,7 +403,7 @@ def get_dataset_stats(
 
 
 @router.delete("/datasets/{dataset_id}", status_code=204)
-def delete_dataset(dataset_id: int, session: Annotated[Session, Depends(get_session)]):
+def delete_dataset(dataset_id: int, session: SessionDep):
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")

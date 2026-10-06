@@ -4,11 +4,27 @@ Request and response models for prompts API
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AfterValidator, BaseModel, ConfigDict
 
 from schemas.tags import TagResponse
+
+
+def _json_or_none(value: str | None) -> str | None:
+    """The variables are kept as JSON: blank means none, anything else must parse."""
+    if value is None or not value.strip():
+        return None
+    try:
+        json.loads(value)
+    except ValueError as e:
+        raise ValueError("must be valid JSON") from e
+    return value
+
+
+JsonString = Annotated[str | None, AfterValidator(_json_or_none)]
 
 
 class PromptCreate(BaseModel):
@@ -28,7 +44,7 @@ class PromptVersionCreate(BaseModel):
     version: str
     system_prompt: str | None = None
     user_prompt: str | None = None
-    variables: str | None = None
+    variables: JsonString = None
     is_active: bool = True
     is_default: bool = False
     notes: str | None = None
@@ -38,7 +54,7 @@ class PromptVersionUpdate(BaseModel):
     version: str | None = None
     system_prompt: str | None = None
     user_prompt: str | None = None
-    variables: str | None = None
+    variables: JsonString = None
     is_active: bool | None = None
     is_default: bool | None = None
     notes: str | None = None

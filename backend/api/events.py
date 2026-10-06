@@ -2,6 +2,7 @@
 API router for the live run stream (Server-Sent Events)
 """
 
+import asyncio
 from collections.abc import AsyncIterable
 from typing import Annotated
 
@@ -39,6 +40,12 @@ def _running_states(session: Session) -> list[RunState]:
     ]
 
 
+def _snapshot(workspace_id: int) -> list[RunState]:
+    with Session(engine) as session:
+        scope_session(session, workspace_id)
+        return _running_states(session)
+
+
 @router.get("/events", response_class=EventSourceResponse)
 async def stream_events(
     context: Annotated[WorkspaceContext, Depends(workspace_context)],
@@ -53,9 +60,7 @@ async def stream_events(
     between the two.
     """
     with event_bus.subscribe() as queue:
-        with Session(engine) as session:
-            scope_session(session, context.id)
-            snapshot = _running_states(session)
+        snapshot = await asyncio.to_thread(_snapshot, context.id)
         for state in snapshot:
             if _wanted(state, experiment_id, batch_id):
                 yield ServerSentEvent(data=state, event="snapshot")

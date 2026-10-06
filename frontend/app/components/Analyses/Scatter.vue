@@ -16,6 +16,8 @@ const emit = defineEmits<{
   select: [rows: number[]]
 }>()
 
+const { chartWidth } = usePrinting()
+
 interface Point {
   truth: number
   pred: number
@@ -119,7 +121,15 @@ const isSelected = (d: Point) => props.selectedRow != null && d.rows.includes(pr
 
 <template>
   <div class="viz-root">
-    <VisXYContainer :height="260" :x-domain="domain" :y-domain="domain">
+    <!-- Keyed on the width: a redraw at the new size keeps the old x scale, a fresh chart doesn't -->
+    <VisXYContainer
+      :key="chartWidth ?? 'auto'"
+      :width="chartWidth"
+      :height="260"
+      :duration="chartWidth ? 0 : undefined"
+      :x-domain="domain"
+      :y-domain="domain"
+    >
       <VisLine
         :data="diagonal"
         :x="(d: { x: number }) => d.x"
