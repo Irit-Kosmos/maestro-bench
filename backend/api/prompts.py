@@ -1,12 +1,17 @@
 
 from fastapi import APIRouter, HTTPException
+from jinja2 import TemplateError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
+from auth.workspaces import requires
+from core.prompt_renderer import render_prompt
 from db import SessionDep
 from schemas.prompts import (
     PromptCreate,
     PromptDetail,
+    PromptRenderRequest,
+    PromptRenderResponse,
     PromptUpdate,
     PromptVersionCreate,
     PromptVersionResponse,
@@ -46,6 +51,28 @@ def create_prompt(
     session.commit()
     session.refresh(prompt)
     return _detail(prompt, item_tags(session, "prompt", prompt.id or 0))
+
+
+@router.post("/prompts/render", response_model=PromptRenderResponse)
+@requires("viewer")
+def render_prompts(request: PromptRenderRequest):
+    """
+    The prompts as an agent would receive them, rendered with these values.
+
+    Nothing is stored or sent to a model, so reading access is enough. The template
+    comes from the request, so it renders in Jinja's sandbox.
+    """
+    try:
+        return PromptRenderResponse(
+            system=render_prompt(
+                request.system_prompt or "", request.variables, sandboxed=True
+            ),
+            user=render_prompt(
+                request.user_prompt or "", request.variables, sandboxed=True
+            ),
+        )
+    except TemplateError as e:
+        raise HTTPException(422, f"The prompt cannot be rendered: {e}") from e
 
 
 @router.get("/prompts/{prompt_id}", response_model=PromptDetail)
