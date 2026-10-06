@@ -229,7 +229,11 @@ const stats = computed(() => study.value
         :ui="{ root: 'gap-0', list: 'gap-5 p-0', trigger: 'px-0' }"
       />
 
-      <div class="grid gap-x-10 gap-y-6" :class="showProperties ? 'lg:grid-cols-[minmax(0,1fr)_16rem]' : undefined">
+      <!-- The panel stays in the grid and its column closes to nothing: the page glides, and what is hidden is out of reach -->
+      <div
+        class="grid gap-y-6 transition-[grid-template-columns,column-gap] ease-(--ease-out) motion-reduce:transition-none lg:grid-cols-[minmax(0,1fr)_var(--properties-width)]"
+        :class="showProperties ? 'duration-200 [--properties-width:16rem] lg:gap-x-10' : 'duration-150 [--properties-width:0rem] lg:gap-x-0'"
+      >
         <div class="min-w-0">
           <div v-show="tab === 'overview'" class="flex flex-col gap-8">
             <dl class="flex flex-wrap gap-x-10 gap-y-4">
@@ -259,8 +263,13 @@ const stats = computed(() => study.value
           </div>
         </div>
 
-        <div v-if="showProperties">
-          <StudiesProperties :study="study" @changed="reload" />
+        <div class="min-w-0 overflow-hidden" :class="!showProperties && 'max-lg:hidden'" :inert="!showProperties" :aria-hidden="!showProperties">
+          <StudiesProperties
+            :study="study"
+            class="w-64 transition-[opacity,translate] ease-(--ease-out) motion-reduce:transition-none"
+            :class="showProperties ? 'translate-x-0 opacity-100 duration-200' : 'translate-x-2 opacity-0 duration-150'"
+            @changed="reload"
+          />
         </div>
       </div>
     </div>
