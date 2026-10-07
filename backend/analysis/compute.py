@@ -210,9 +210,16 @@ def _categorical(config: AnalysisConfig, extraction: Extraction):
         cm = confusion_matrix(indices)
         return {key: _evaluate(METRICS[key].fn, cm, labels) for key in config.metrics}
 
+    # Dataset rows behind each cell, to open them from the matrix
+    rows: list[list[list[int]]] = [[[] for _ in range(k)] for _ in range(k)]
+    for t, p, i in zip(truth, pred, extraction.row_indices, strict=True):
+        if i is not None:
+            rows[t][p].append(i)
+
     confusion = {
         "labels": labels,
         "matrix": confusion_matrix(np.arange(len(truth))).tolist(),
+        "rows": rows,
     }
     return statistics, None, confusion
 

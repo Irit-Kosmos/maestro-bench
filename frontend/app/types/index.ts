@@ -461,7 +461,7 @@ export interface AnalysisRunResult {
   excluded_rows: ExcludedRow[]
   warnings: string[]
   points?: { pred: number, truth: number, row_index: number | null }[] | null
-  confusion?: { labels: string[], matrix: number[][] } | null
+  confusion?: { labels: string[], matrix: number[][], rows?: number[][][] } | null
 }
 
 export interface AnalysisResult {

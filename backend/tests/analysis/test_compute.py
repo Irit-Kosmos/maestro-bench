@@ -119,7 +119,11 @@ def test_categorical_run():
     run = compute_analysis(config, [RunInput("A", "Grader", rows)]).runs[0]
 
     assert run.metrics["accuracy"].value == pytest.approx(0.75)
-    assert run.confusion == {"labels": ["neg", "pos"], "matrix": [[1, 1], [0, 2]]}
+    assert run.confusion == {
+        "labels": ["neg", "pos"],
+        "matrix": [[1, 1], [0, 2]],
+        "rows": [[[2], [1]], [[], [0, 3]]],
+    }
     assert run.points is None
 
 

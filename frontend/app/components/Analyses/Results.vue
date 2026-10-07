@@ -335,8 +335,13 @@ function exportCsv() {
         <h3 class="font-semibold">
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
-        <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
-          Dashed line is y = x; click a point to see its row, or the rows stacked on it
+        <p class="text-sm text-muted">
+          <template v-if="config.value_type === 'numeric'">
+            Dashed line is y = x; click a point to see its row, or the rows stacked on it
+          </template>
+          <template v-else>
+            Click a cell to see the rows it counts
+          </template>
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
@@ -360,6 +365,8 @@ function exportCsv() {
             v-else-if="run.confusion"
             :labels="run.confusion.labels"
             :matrix="run.confusion.matrix"
+            :rows="run.confusion.rows"
+            @select="selectPoint(run, $event)"
           />
         </div>
       </div>
