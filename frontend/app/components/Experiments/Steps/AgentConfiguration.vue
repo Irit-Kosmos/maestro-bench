@@ -8,6 +8,8 @@ const props = defineProps<{
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   datasetHeaders?: readonly string[]
+  /** Variables of the prompt variations, per agent: they keep their mappings */
+  extraVariables?: Record<number, readonly string[]>
   /** Reloads the agent teams, so an agent created here can be added */
   refreshAgents?: () => Promise<void>
 }>()
@@ -29,6 +31,7 @@ const pipeline = useAgentPipeline({
   configurations,
   promptVersions,
   datasetHeaders,
+  extraVariables: computed(() => props.extraVariables ?? {}),
 })
 const { items } = pipeline
 
@@ -201,13 +204,18 @@ function removeAgent(agent: Agent) {
 
 // --- Keeping mappings in step with the dataset ---
 
-watch(datasetHeaders, () => {
+function syncMappings() {
   // The graph owns the order while it is shown, so only fill in what it can't break
   if (view.value === 'graph')
     pipeline.autoMapAll()
   else
     pipeline.syncAll()
-}, { immediate: true })
+}
+
+watch(datasetHeaders, syncMappings, { immediate: true })
+
+// A prompt variation brings variables of its own, and drops them when it is removed
+watch(() => props.extraVariables, syncMappings, { deep: true })
 
 // Coming back to this step: open the agents that still need something
 onMounted(() => {

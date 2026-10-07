@@ -57,10 +57,14 @@ const variations = computed(() => resolveVariations(variationDrafts.value, agent
 const skipBase = computed(() => batchMode.value && !!sourceExperiment.value
   && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value) === experimentSignature(sourceExperiment.value))
 const experimentCount = computed(() => variationCount(variations.value, skipBase.value))
+// A prompt variation can bring variables the agent's prompt does not have: they need a mapping too
+const addedVariables = computed(() => addedVariablesByAgent(variationDrafts.value, agentConfigurations.value, allPromptVersions.value ?? []))
+const unmappedAdded = computed(() => unmappedAddedCount(addedVariables.value, agentConfigurations.value))
 const variationsValid = computed(() =>
   !batchMode.value
   || (variationDrafts.value.every(draft => draft.extras.length > 0)
     && variationIssues(variationDrafts.value).length === 0
+    && unmappedAdded.value === 0
     && experimentCount.value > 0),
 )
 const showConfirmBatch = ref(false)
@@ -173,9 +177,11 @@ const summaryRows = computed(() => {
       label: 'Variations',
       value: !batchMode.value
         ? 'None, runs a single experiment'
-        : experimentCount.value > 0
-          ? `${experimentCount.value} ${experimentCount.value === 1 ? 'experiment' : 'experiments'}`
-          : 'Add a value to each variation',
+        : unmappedAdded.value > 0
+          ? `Map ${unmappedAdded.value === 1 ? 'a variable' : `${unmappedAdded.value} variables`} of the prompts`
+          : experimentCount.value > 0
+            ? `${experimentCount.value} ${experimentCount.value === 1 ? 'experiment' : 'experiments'}`
+            : 'Add a value to each variation',
       done: variationsValid.value,
       attention: batchMode.value && !variationsValid.value,
     },
@@ -345,6 +351,7 @@ defineShortcuts({
             :models="models"
             :all-prompt-versions="allPromptVersions"
             :dataset-headers="datasetHeaders"
+            :extra-variables="addedVariables"
             :refresh-agents="refreshAgentTeams"
             @open-prompt-details="openPromptDetails"
           />
@@ -354,8 +361,10 @@ defineShortcuts({
             :items="pipeline.items.value"
             :models="models"
             :prompt-versions="allPromptVersions"
+            :dataset-headers="datasetHeaders"
             :count="experimentCount"
             :skipped-origin="skipBase ? sourceExperiment?.name : null"
+            @set-mapping="(agentId, mapping) => pipeline.setMapping(agentId, mapping)"
           />
         </div>
 
