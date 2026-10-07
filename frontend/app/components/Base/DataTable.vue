@@ -167,6 +167,13 @@ const displayRows = computed(() => arranged.value.rows)
 const RAIL_STEP = 8
 // Content steps in by this much for each section a row or header sits in; the checkboxes stay in line
 const INDENT_STEP = 16
+// What a section header spends on its caret and the gap after it. With checkboxes they already leave the room (the
+// header's content is lined up with the rows' own, see `renderGroup`); without, grouped rows step in to make it
+const CARET_SIZE = 12
+const CARET_GAP = 8
+const GUTTER = CARET_SIZE + CARET_GAP
+const CELL_PADDING = 16
+const CHECKBOX_SIZE = 16
 const railOf = (level: string) => [activeGroup.value, activeGroup.value?.then].find(found => found?.key === level)?.rail
 
 function renderRails(trail: string[]) {
@@ -301,10 +308,15 @@ function cellStyle(cell: CellInfo): Record<string, string> {
   return virtualized.value ? { height: `${props.rowHeight}px` } : {}
 }
 
+// Without checkboxes, grouped rows leave room on the left for the carets of the headers
+const gutter = computed(() => activeGroup.value && !props.selectable ? GUTTER : 0)
+
 // The first column of a row inside sections steps in with them
 function indentedStyle(cell: CellInfo): Record<string, string> {
-  const depth = isGroupRow(cell.row.original) ? 0 : trailOf(cell.row.original).length
-  return depth ? { ...cellStyle(cell), paddingLeft: `${16 + depth * INDENT_STEP}px` } : cellStyle(cell)
+  if (isGroupRow(cell.row.original))
+    return cellStyle(cell)
+  const offset = gutter.value + trailOf(cell.row.original).length * INDENT_STEP
+  return offset ? { ...cellStyle(cell), paddingLeft: `${CELL_PADDING + offset}px` } : cellStyle(cell)
 }
 
 // The row whose panel is open stays marked. Rails are drawn from the row, so grouped rows are positioned
@@ -326,6 +338,10 @@ const columnCount = computed(() => visibleColumns.value.length + (props.selectab
 // The caret and the empty space are the toggle: its ::after covers the header, and what has its own job (the box
 // that ticks the section, the link to it) sits above, like the row links do
 function renderGroup(group: GroupRowInfo) {
+  // What follows the caret starts where the content of the section's own rows does, so icons and names line up down the list
+  const rowDepth = group.flow ? group.trail.length + 1 : 0
+  const contentLeft = (props.selectable ? SELECT_WIDTH : GUTTER) + CELL_PADDING + rowDepth * INDENT_STEP
+  const caretLeft = CELL_PADDING + (props.selectable ? CHECKBOX_SIZE + CARET_GAP : 0)
   const nested = group.trail.length > 0
   const nameClass = nested ? 'font-medium text-default' : 'font-medium text-highlighted'
   const name = group.to
@@ -350,23 +366,26 @@ function renderGroup(group: GroupRowInfo) {
       'type': 'button',
       'aria-expanded': !group.collapsed,
       'class': 'flex shrink-0 items-center outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted',
-      'style': { marginLeft: `${group.trail.length * INDENT_STEP}px` },
+      'style': { marginLeft: `${contentLeft - GUTTER - caretLeft}px` },
       'onClick': () => toggleSection(group.id),
     }, [
-      h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3.5 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
+      h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
       h('span', { class: 'sr-only' }, `${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`),
     ]),
     group.dot ? h('span', { 'class': ['size-2 shrink-0 rounded-full', group.dot], 'aria-hidden': 'true' }) : null,
     group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0 text-muted', group.iconClass], 'aria-hidden': 'true' }) : null,
-    name,
-    h('span', { class: 'shrink-0 text-xs text-muted tabular-nums' }, String(group.count)),
-    group.summary?.length
-      ? h('span', { class: 'flex shrink-0 items-center gap-1.5 text-xs text-muted' }, group.summary.flatMap((part, i) => [
-          i > 0 ? h('span', { 'class': 'text-dimmed', 'aria-hidden': 'true' }, '·') : null,
-          h('span', { class: [part.class, 'tabular-nums'] }, part.label),
-        ]))
-      : null,
-    group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+    // The text parts share a baseline: centring their boxes would leave the text-xs count ~1px off the text-sm name
+    h('div', { class: 'flex min-w-0 items-baseline gap-2' }, [
+      name,
+      h('span', { class: 'shrink-0 text-xs text-muted tabular-nums' }, String(group.count)),
+      group.summary?.length
+        ? h('span', { class: 'flex shrink-0 items-baseline gap-1.5 text-xs text-muted' }, group.summary.flatMap((part, i) => [
+            i > 0 ? h('span', { 'class': 'text-dimmed', 'aria-hidden': 'true' }, '·') : null,
+            h('span', { class: [part.class, 'tabular-nums'] }, part.label),
+          ]))
+        : null,
+      group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+    ]),
   ])
 }
 
@@ -415,7 +434,9 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
         td: (cell: CellInfo) => isGroupRow(cell.row.original) && leads(index) ? String(columnCount.value) : '1',
       },
       style: {
-        th: col.width ? { width: `${col.width}px` } : undefined,
+        th: col.width || (index === 0 && gutter.value)
+          ? { width: col.width ? `${col.width}px` : undefined, paddingLeft: index === 0 && gutter.value ? `${CELL_PADDING + gutter.value}px` : undefined }
+          : undefined,
         td: index === 0 ? indentedStyle : cellStyle,
       },
     },
