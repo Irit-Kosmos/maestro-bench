@@ -268,25 +268,25 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
 
     <!-- Nothing chosen yet -->
     <div v-if="items.length === 0">
-      <div v-if="hasAgents" class="flex flex-col gap-4">
+      <div v-if="hasAgents" class="flex flex-col gap-3">
         <div v-for="group in teamGroups" :key="group.team.id">
-          <h3 class="mb-1.5 text-xs font-medium text-muted">
+          <h3 class="mb-1 text-xs font-medium text-muted">
             {{ group.team.name }}
           </h3>
-          <ul class="flex flex-col gap-2">
+          <ul class="flex flex-col gap-1.5">
             <li v-for="agent in group.agents" :key="agent.id">
               <!-- Native button: a full-width row shouldn't inherit the press scale of UButton -->
               <button
                 type="button"
-                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-3 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
+                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-2 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
                 @click="addAgent(agent)"
               >
                 <UIcon :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold'" class="size-4 shrink-0 text-muted" aria-hidden="true" />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium text-highlighted">{{ agent.name }}</span>
-                  <span v-if="agent.description" class="mt-0.5 block truncate text-sm text-muted">{{ agent.description }}</span>
+                <span class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-3">
+                  <span class="shrink-0 text-sm font-medium text-highlighted">{{ agent.name }}</span>
+                  <span v-if="agent.description" class="truncate text-sm text-muted" :title="agent.description">{{ agent.description }}</span>
                 </span>
-                <span v-if="defaultSummary(agent)" class="hidden shrink-0 text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
+                <span v-if="defaultSummary(agent)" class="hidden max-w-56 shrink-0 truncate text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
                 <UIcon name="i-ph-plus-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
               </button>
             </li>
