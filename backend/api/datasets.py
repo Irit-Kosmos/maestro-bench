@@ -18,6 +18,8 @@ from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 from db import SessionDep
 from schemas.datasets import (
+    DESCRIPTION_MAX_LENGTH,
+    NAME_MAX_LENGTH,
     DatasetAgreement,
     DatasetCreate,
     DatasetInfo,
@@ -26,6 +28,7 @@ from schemas.datasets import (
     DatasetRowsSaved,
     DatasetRowsUpdate,
     DatasetStats,
+    DatasetUpdate,
 )
 from tables import Dataset, Experiment
 from workspace_scope import current_workspace_id
@@ -123,7 +126,6 @@ def _resolve_dataset_file(dataset: Dataset) -> Path:
 # ---------------------------------------------------------------------------
 
 _UPLOAD_EXTENSIONS = {".csv", ".json"}
-_NAME_MAX_LENGTH = 200
 
 
 def _check_uploaded_file(path: Path) -> None:
@@ -207,8 +209,8 @@ async def upload_dataset(
     request: Request,
     session: SessionDep,
     filename: Annotated[str, Query(min_length=1, max_length=255)],
-    name: Annotated[str | None, Query(max_length=_NAME_MAX_LENGTH)] = None,
-    description: Annotated[str | None, Query(max_length=2000)] = None,
+    name: Annotated[str | None, Query(max_length=NAME_MAX_LENGTH)] = None,
+    description: Annotated[str | None, Query(max_length=DESCRIPTION_MAX_LENGTH)] = None,
 ):
     """
     Create a dataset from a CSV or JSON file sent as the raw request body.
@@ -231,7 +233,7 @@ async def upload_dataset(
         raise
 
     dataset = Dataset(
-        name=(name or "").strip() or Path(filename).stem[:_NAME_MAX_LENGTH],
+        name=(name or "").strip() or Path(filename).stem[:NAME_MAX_LENGTH],
         description=description,
         file_path=destination.name,
     )
@@ -248,6 +250,27 @@ def get_dataset(dataset_id: int, session: SessionDep):
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")
+    return dataset
+
+
+@router.put("/datasets/{dataset_id}", response_model=Dataset)
+def update_dataset(dataset_id: int, data: DatasetUpdate, session: SessionDep):
+    """Rename or describe a dataset. An empty description clears it."""
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(404, "Dataset not found")
+
+    if data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(422, "A dataset needs a name")
+        dataset.name = name
+    if "description" in data.model_fields_set:
+        dataset.description = (data.description or "").strip() or None
+
+    session.add(dataset)
+    session.commit()
+    session.refresh(dataset)
     return dataset
 
 

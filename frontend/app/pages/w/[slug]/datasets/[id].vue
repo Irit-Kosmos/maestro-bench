@@ -17,6 +17,7 @@ const datasetStats = ref<DatasetStats | null>(null)
 const loading = ref(true)
 const loadError = ref<FetchErrorKind | null>(null)
 const showDeleteDialog = ref(false)
+const showEditDialog = ref(false)
 const isDeleting = ref(false)
 
 // The editor stays mounted behind the other view: switching must not drop unsaved edits
@@ -116,10 +117,12 @@ watch(() => route.params.id, () => {
 
       <!-- Dataset Details -->
       <div v-else-if="dataset" class="flex flex-col flex-1 min-h-0 gap-3">
-        <!-- Edit isn't available yet, so it isn't shown as a dead button -->
         <AppPageActions v-if="canEdit">
           <UDropdownMenu
-            :items="[{ label: 'Delete dataset', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
+            :items="[
+              { label: 'Edit dataset', icon: 'i-ph-pencil-simple-bold', onSelect: () => { showEditDialog = true } },
+              { label: 'Delete dataset', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } },
+            ]"
             :content="{ align: 'end' }"
           >
             <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
@@ -214,6 +217,8 @@ watch(() => route.params.id, () => {
         @retry="loadDataset()"
       />
     </div>
+
+    <DatasetsEditDatasetModal v-model:open="showEditDialog" :dataset="dataset" @saved="loadDataset" />
 
     <!-- Delete Confirmation Dialog -->
     <BaseConfirmDialog

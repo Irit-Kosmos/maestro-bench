@@ -75,6 +75,11 @@ def apply_dataset_sampling(
     return df
 
 
+def new_sampling_seed(requested: int | None) -> int:
+    """The seed asked for, or a fresh one."""
+    return requested if requested is not None else secrets.randbelow(2**32)
+
+
 def add_experiment(
     session: Session,
     exp_data: ExperimentCreate,
@@ -102,7 +107,7 @@ def add_experiment(
         sampling_size=exp_data.sampling_size,
         sampling_start_row=exp_data.sampling_start_row,
         sampling_end_row=exp_data.sampling_end_row,
-        sampling_seed=secrets.randbelow(2**32)
+        sampling_seed=new_sampling_seed(exp_data.sampling_seed)
         if exp_data.sampling_type == "random" and batch_id is None
         else None,
         batch_id=batch_id,
@@ -335,7 +340,7 @@ def create_execution_snapshot(
             sampling_seed = batch.sampling_seed
         else:
             if experiment.sampling_seed is None:
-                experiment.sampling_seed = secrets.randbelow(2**32)
+                experiment.sampling_seed = new_sampling_seed(None)
                 session.add(experiment)
             sampling_seed = experiment.sampling_seed
     dataset_snapshot = (

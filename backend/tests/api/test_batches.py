@@ -218,6 +218,24 @@ class TestCreateBatch:
         with scoped(engine) as s:
             assert s.get(Batch, batch_id).sampling_seed is not None
 
+    def test_random_sampling_takes_the_seed_it_is_given(self, client, world, engine):
+        data = payload(world, [model_axis(world, 0, 1)])
+        data["config"].update(sampling_type="random", sampling_size=5, sampling_seed=42)
+        body = client.post("/batches", json=data).json()
+
+        with scoped(engine) as s:
+            assert s.get(Batch, body["id"]).sampling_seed == 42
+        exp_id = body["experiments"][0]["id"]
+        assert client.get(f"/experiments/{exp_id}").json()["sampling_seed"] == 42
+
+    def test_a_seed_is_a_whole_number_pandas_accepts(self, client, world):
+        for seed in (-1, 2**32):
+            data = payload(world, [model_axis(world, 0, 1)])
+            data["config"].update(
+                sampling_type="random", sampling_size=5, sampling_seed=seed
+            )
+            assert client.post("/batches", json=data).status_code == 422
+
     def test_no_seed_when_the_sample_is_not_random(self, client, world, engine):
         batch_id = client.post(
             "/batches", json=payload(world, [model_axis(world, 0, 1)])
@@ -628,6 +646,51 @@ class TestExecutionFigures:
         assert experiments[first]["execution_status"] == "failed"
         assert experiments[first]["last_completed_execution_id"] == completed
         assert experiments[second]["last_completed_execution_id"] is None
+
+
+class TestCreateWithSeed:
+    def create(self, client, world, **fields):
+        return client.post(
+            "/experiments",
+            json={
+                "name": "Solo",
+                "dataset_id": world["dataset"],
+                "agent_teams": [str(world["team"])],
+                "agent_configurations": {
+                    str(world["agent"]): {
+                        "is_active": True,
+                        "prompt_version_id": world["v1"],
+                        "model_id": world["models"][0],
+                        "input_mappings": [
+                            {"variable": "answer", "source": "dataset", "sourceColumn": "text"}
+                        ],
+                    }
+                },
+                **fields,
+            },
+        )
+
+    def test_random_sample_takes_the_seed_it_is_given(self, client, world):
+        response = self.create(
+            client, world, sampling_type="random", sampling_size=5, sampling_seed=7
+        )
+
+        assert response.status_code in (200, 201)
+        assert response.json()["sampling_seed"] == 7
+
+    def test_random_sample_draws_a_seed_when_none_is_given(self, client, world):
+        body = self.create(
+            client, world, sampling_type="random", sampling_size=5
+        ).json()
+
+        assert body["sampling_seed"] is not None
+
+    def test_seed_is_ignored_when_the_sample_is_not_random(self, client, world):
+        body = self.create(
+            client, world, sampling_type="all", sampling_seed=7
+        ).json()
+
+        assert body["sampling_seed"] is None
 
 
 class TestResample:

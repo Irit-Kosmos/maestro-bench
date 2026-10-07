@@ -11,6 +11,7 @@ interface Props {
     sampling_size?: number
     sampling_start_row?: number
     sampling_end_row?: number
+    sampling_seed?: number
   }
 }
 
@@ -20,6 +21,7 @@ interface Emits {
   'update:sampling-size': [value: number | undefined]
   'update:sampling-start-row': [value: number | undefined]
   'update:sampling-end-row': [value: number | undefined]
+  'update:sampling-seed': [value: number | undefined]
 }
 
 const props = defineProps<Props>()
@@ -161,10 +163,12 @@ function togglePreview(datasetId: number) {
         :sampling-size="samplingConfig.sampling_size"
         :sampling-start-row="samplingConfig.sampling_start_row"
         :sampling-end-row="samplingConfig.sampling_end_row"
+        :sampling-seed="samplingConfig.sampling_seed"
         @update:sampling-type="(value: string) => emit('update:sampling-type', value)"
         @update:sampling-size="(value: number | undefined) => emit('update:sampling-size', value)"
         @update:sampling-start-row="(value: number | undefined) => emit('update:sampling-start-row', value)"
         @update:sampling-end-row="(value: number | undefined) => emit('update:sampling-end-row', value)"
+        @update:sampling-seed="(value: number | undefined) => emit('update:sampling-seed', value)"
       />
     </section>
   </div>

@@ -7,6 +7,7 @@ interface Props {
   samplingSize?: number
   samplingStartRow?: number
   samplingEndRow?: number
+  samplingSeed?: number
 }
 
 interface Emits {
@@ -14,6 +15,7 @@ interface Emits {
   'update:samplingSize': [value: number | undefined]
   'update:samplingStartRow': [value: number | undefined]
   'update:samplingEndRow': [value: number | undefined]
+  'update:samplingSeed': [value: number | undefined]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,14 +80,29 @@ const rangeError = computed(() => {
   return undefined
 })
 
-const samplingError = computed(() => sampleSizeError.value || rangeError.value)
+// pandas takes seeds from 0 to 2**32 - 1
+const MAX_SEED = 2 ** 32 - 1
+
+const seedError = computed(() => {
+  const seed = props.samplingSeed
+  if (props.samplingType !== 'random' || seed === undefined)
+    return undefined
+  return seed >= 0 && seed <= MAX_SEED
+    ? undefined
+    : `Seed must be a whole number between 0 and ${formatNumber(MAX_SEED)}.`
+})
+
+const samplingError = computed(() => sampleSizeError.value || rangeError.value || seedError.value)
 
 const hint = computed(() => {
   const total = formatNumber(maxRows.value)
   if (props.samplingType === 'random') {
+    const kept = props.samplingSeed === undefined
+      ? 'kept for every run until you resample'
+      : 'the same on every run: the same seed takes the same rows from this dataset'
     return props.samplingSize && isValidSampleSize.value
-      ? `${formatNumber(props.samplingSize)} of ${total} rows, drawn at random and kept for every run until you resample.`
-      : 'Rows are drawn at random once, then kept for every run until you resample.'
+      ? `${formatNumber(props.samplingSize)} of ${total} rows, drawn at random and ${kept}.`
+      : `Rows are drawn at random once, then ${kept}.`
   }
   if (props.samplingType === 'range') {
     return props.samplingStartRow && props.samplingEndRow && isValidRange.value
@@ -127,6 +144,7 @@ function updateSamplingType(value: string) {
   // Clear other values when changing type
   if (value !== 'random') {
     emit('update:samplingSize', undefined)
+    emit('update:samplingSeed', undefined)
   }
   if (value !== 'range') {
     emit('update:samplingStartRow', undefined)
@@ -137,6 +155,12 @@ function updateSamplingType(value: string) {
 function updateSamplingSize(value: string) {
   const num = value ? Number.parseInt(value) : undefined
   emit('update:samplingSize', num)
+}
+
+function updateSamplingSeed(value: string) {
+  // Empty means a seed drawn at creation; anything else is a whole number
+  const num = value === '' ? undefined : Number.parseInt(value)
+  emit('update:samplingSeed', Number.isNaN(num) ? undefined : num)
 }
 
 function updateSamplingStartRow(value: string) {
@@ -194,6 +218,19 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             @update:model-value="updateSamplingSize"
           />
           <span class="text-sm text-muted tabular-nums">of {{ formatNumber(maxRows) }} rows</span>
+          <UInput
+            :model-value="samplingSeed?.toString() || ''"
+            type="number"
+            size="sm"
+            class="w-36"
+            :min="0"
+            :max="MAX_SEED"
+            placeholder="Seed (random)"
+            aria-label="Sample seed"
+            :color="seedError ? 'error' : undefined"
+            :highlight="!!seedError"
+            @update:model-value="updateSamplingSeed"
+          />
         </div>
 
         <!-- Range Configuration -->

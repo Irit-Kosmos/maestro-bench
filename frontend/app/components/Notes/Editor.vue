@@ -141,7 +141,7 @@ const UI = computed(() => ({
     <template v-if="editable">
       <UEditorToolbar :editor="editor" :items="toolbar" layout="bubble" />
       <UEditorToolbar :editor="editor" :items="tableToolbar" layout="bubble" plugin-key="tableMenu" :should-show="inTable" />
-      <UEditorSuggestionMenu :editor="editor" :items="suggestions" />
+      <UEditorSuggestionMenu :editor="editor" :items="suggestions" size="sm" />
     </template>
   </UEditor>
 </template>

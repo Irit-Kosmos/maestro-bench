@@ -27,6 +27,8 @@ useSeoMeta({
 // State
 const isSubmitting = ref(false)
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const datasetToEdit = ref<Dataset | null>(null)
 const showDeleteModal = ref(false)
 const isDeleting = ref(false)
 const datasetToDelete = ref<Dataset | null>(null)
@@ -62,6 +64,12 @@ const actions = [
     label: 'Open',
     icon: 'i-ph-arrow-up-right-bold',
     handler: (dataset: Dataset) => handleViewDataset(dataset.id),
+  },
+  {
+    label: 'Edit',
+    icon: 'i-ph-pencil-simple-bold',
+    requires: 'editor' as const,
+    handler: (dataset: Dataset) => startEditing(dataset),
   },
   {
     label: 'Delete',
@@ -100,6 +108,11 @@ async function handleCreateDataset(formData: CreateDatasetForm) {
 
 async function handleViewDataset(id: number) {
   await navigateTo(`/datasets/${id}`)
+}
+
+function startEditing(dataset: Dataset) {
+  datasetToEdit.value = dataset
+  showEditModal.value = true
 }
 
 function confirmDelete(dataset: Dataset) {
@@ -198,6 +211,12 @@ useCreateFromQuery(handleCreateClick)
       v-model:open="showCreateModal"
       :loading="isSubmitting"
       @submit="handleCreateDataset"
+    />
+
+    <DatasetsEditDatasetModal
+      v-model:open="showEditModal"
+      :dataset="datasetToEdit"
+      @saved="refresh()"
     />
 
     <!-- Delete Confirmation Modal -->

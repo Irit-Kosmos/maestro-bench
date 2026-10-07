@@ -91,12 +91,13 @@ function agentsSignature(agents: { agent_id: number, config: AgentConfiguration 
 /** What an experiment runs, comparable between the form and the experiment it was copied from */
 export function formSignature(
   datasetId: number | null | undefined,
-  sampling: { sampling_type?: string, sampling_size?: number, sampling_start_row?: number, sampling_end_row?: number },
+  sampling: { sampling_type?: string, sampling_size?: number, sampling_start_row?: number, sampling_end_row?: number, sampling_seed?: number },
   configurations: Record<number, AgentConfiguration>,
 ): string {
   const signature: Signature = {
     dataset_id: datasetId,
-    sampling: [sampling.sampling_type ?? 'all', sampling.sampling_size ?? null, sampling.sampling_start_row ?? null, sampling.sampling_end_row ?? null],
+    // A random sample is the same rows only with the same seed
+    sampling: [sampling.sampling_type ?? 'all', sampling.sampling_size ?? null, sampling.sampling_start_row ?? null, sampling.sampling_end_row ?? null, sampling.sampling_type === 'random' ? sampling.sampling_seed ?? null : null],
     agents: agentsSignature(Object.entries(configurations)
       .filter(([, config]) => config?.is_active !== false)
       .map(([id, config]) => ({ agent_id: Number(id), config }))),
@@ -112,6 +113,7 @@ export function experimentSignature(experiment: Experiment): string {
       sampling_size: experiment.sampling_size ?? undefined,
       sampling_start_row: experiment.sampling_start_row ?? undefined,
       sampling_end_row: experiment.sampling_end_row ?? undefined,
+      sampling_seed: experiment.sampling_seed ?? undefined,
     },
     Object.fromEntries((experiment.experiment_configs ?? [])
       .filter(config => config.is_active)

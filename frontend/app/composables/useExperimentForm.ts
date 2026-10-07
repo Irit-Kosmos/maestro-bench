@@ -10,6 +10,7 @@ interface SamplingConfig {
   sampling_size?: number
   sampling_start_row?: number
   sampling_end_row?: number
+  sampling_seed?: number
 }
 
 /**
@@ -36,6 +37,7 @@ export function useExperimentForm(
     sampling_size: undefined,
     sampling_start_row: undefined,
     sampling_end_row: undefined,
+    sampling_seed: undefined,
   })
 
   const agentConfigurations = ref<Record<number, AgentConfiguration>>({})
@@ -161,6 +163,7 @@ export function useExperimentForm(
       sampling_size: samplingConfig.value.sampling_size,
       sampling_start_row: samplingConfig.value.sampling_start_row,
       sampling_end_row: samplingConfig.value.sampling_end_row,
+      sampling_seed: samplingConfig.value.sampling_type === 'random' ? samplingConfig.value.sampling_seed : undefined,
     }
   }
 

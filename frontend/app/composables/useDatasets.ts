@@ -26,6 +26,11 @@ export function useDatasets() {
     }
   }
 
+  // Rename or describe a dataset; the file is edited through its rows. An empty description clears it
+  function updateDataset(id: number, patch: { name?: string, description?: string | null }) {
+    return $api<Dataset>(`/datasets/${id}`, { method: 'PUT', body: patch })
+  }
+
   // Delete a dataset
   async function deleteDataset(id: number) {
     try {
@@ -88,6 +93,7 @@ export function useDatasets() {
 
   return {
     createDataset,
+    updateDataset,
     deleteDataset,
     getDataset,
     getDatasetStats,

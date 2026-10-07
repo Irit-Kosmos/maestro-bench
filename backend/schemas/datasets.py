@@ -7,13 +7,23 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+NAME_MAX_LENGTH = 200
+DESCRIPTION_MAX_LENGTH = 2000
 
 
 class DatasetCreate(BaseModel):
     name: str
     description: str | None = None
     file_path: str | None = None
+
+
+class DatasetUpdate(BaseModel):
+    """What can be renamed or described; the file is changed through its rows."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=NAME_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=DESCRIPTION_MAX_LENGTH)
 
 
 class DatasetRowsUpdate(BaseModel):

@@ -78,6 +78,8 @@ watch([sourceExperiment, agentTeams], ([source, teams]) => {
     sampling_size: source.sampling_size ?? undefined,
     sampling_start_row: source.sampling_start_row ?? undefined,
     sampling_end_row: source.sampling_end_row ?? undefined,
+    // The same rows as the source, so that the runs can be compared row by row
+    sampling_seed: source.sampling_type === 'random' ? source.sampling_seed ?? undefined : undefined,
   }
   agentConfigurations.value = Object.fromEntries((source.experiment_configs ?? [])
     .filter(config => config.is_active)
@@ -332,6 +334,7 @@ defineShortcuts({
               @update:sampling-size="(value) => samplingConfig.sampling_size = value"
               @update:sampling-start-row="(value) => samplingConfig.sampling_start_row = value"
               @update:sampling-end-row="(value) => samplingConfig.sampling_end_row = value"
+              @update:sampling-seed="(value) => samplingConfig.sampling_seed = value"
             />
           </ExperimentsSection>
 

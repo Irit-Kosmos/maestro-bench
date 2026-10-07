@@ -1,6 +1,5 @@
 import json
 import logging
-import secrets
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 
@@ -24,7 +23,7 @@ from batch_utils import (
 )
 from db import SessionDep
 from execution_stats import latest_figures
-from experiment_utils import ExperimentConfigError, add_experiment
+from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
 from loading import by_id, grouped_by
 from results_files import execution_row_count
 from schemas.batches import (
@@ -459,7 +458,7 @@ def create_batch(
         description=data.description,
         base_experiment_id=data.base_experiment_id,
         # One random sample for the whole batch: the runs differ only by what varies
-        sampling_seed=secrets.randbelow(2**32)
+        sampling_seed=new_sampling_seed(data.config.sampling_seed)
         if data.config.sampling_type == "random"
         else None,
         variations=json.dumps(variations),

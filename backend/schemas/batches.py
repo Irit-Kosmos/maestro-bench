@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from schemas.experiment_executions import LatestExecutionFigures
-from schemas.experiments import SamplingType
+from schemas.experiments import MAX_SAMPLING_SEED, SamplingType
 
 VariableField = Literal["model_id", "prompt_version_id", "temperature"]
 
@@ -35,6 +35,8 @@ class BatchBaseConfig(BaseModel):
     sampling_size: int | None = None
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
+    # Seed of the batch's random sample; drawn at random when left out
+    sampling_seed: int | None = Field(default=None, ge=0, le=MAX_SAMPLING_SEED)
 
 
 class BatchCreate(BaseModel):

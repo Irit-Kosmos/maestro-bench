@@ -97,7 +97,7 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
             ref="tabListEl"
             role="tablist"
             aria-orientation="vertical"
-            class="flex min-h-40 w-36 shrink-0 flex-col border-e border-default p-1"
+            class="flex min-h-72 w-36 shrink-0 flex-col border-e border-default p-1"
             @pointermove="moveInTabs"
             @pointerleave="leaveTabs"
           >

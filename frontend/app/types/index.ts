@@ -48,7 +48,7 @@ export interface PromptVersion {
 export interface Dataset {
   id: number
   name: string
-  description: string
+  description: string | null
   created_at: string
   file_path?: string
 }
@@ -321,6 +321,7 @@ export interface CreateExperimentForm {
   sampling_size?: number // Number of rows for random sampling
   sampling_start_row?: number // Start row for range sampling (1-based)
   sampling_end_row?: number // End row for range sampling (1-based, inclusive)
+  sampling_seed?: number // Seed of a random sample; drawn at random when left out
 }
 
 export interface CreateDatasetForm {

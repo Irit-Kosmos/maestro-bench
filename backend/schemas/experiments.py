@@ -7,11 +7,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from schemas.experiment_executions import LatestExecutionFigures
 
 SamplingType = Literal["all", "random", "range"]
+
+# pandas takes seeds from 0 to 2**32 - 1
+MAX_SAMPLING_SEED = 2**32 - 1
 
 
 class DatasetResponse(BaseModel):
@@ -52,6 +55,9 @@ class ExperimentCreate(BaseModel):
     sampling_size: int | None = None
     sampling_start_row: int | None = None
     sampling_end_row: int | None = None
+    # Seed of a random sample: the same seed takes the same rows from the same dataset
+    # and sample size. Drawn at random when left out.
+    sampling_seed: int | None = Field(default=None, ge=0, le=MAX_SAMPLING_SEED)
 
 
 class ExperimentResponse(LatestExecutionFigures):
