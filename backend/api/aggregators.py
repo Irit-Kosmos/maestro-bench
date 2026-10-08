@@ -11,7 +11,7 @@ from sqlmodel import Session, col, select
 
 from analysis import result_rows
 from auth.workspaces import requires
-from core.formula import check_outputs, free_variables
+from core.formula import check_outputs, free_variables, name_errors
 from core.json_output import list_paths, parse_json_output, scalar_paths
 from core.orchestrator import AGGREGATOR, AgentConfig, run_aggregator
 from db import SessionDep
@@ -91,7 +91,9 @@ def check_formulas(request: FormulaCheckRequest):
     """Errors of each formula, and the variables they leave to map."""
     formulas = [f.model_dump() for f in request.formulas]
     return FormulaCheckResponse(
-        errors=check_outputs(formulas), variables=free_variables(formulas)
+        errors=check_outputs(formulas),
+        name_invalid=[e is not None for e in name_errors(formulas)],
+        variables=free_variables(formulas),
     )
 
 

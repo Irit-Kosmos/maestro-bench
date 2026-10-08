@@ -6,6 +6,7 @@ from core.formula import (
     coerce_input,
     evaluate_outputs,
     free_variables,
+    name_errors,
 )
 
 
@@ -222,3 +223,13 @@ def test_lists_go_through_reducing_functions(formula, expected):
 def test_lists_cannot_be_used_as_numbers(formula, message):
     with pytest.raises(FormulaError, match=message):
         evaluate(formula, dist=[0.1, 0.9])
+
+
+def test_name_errors_tell_which_outputs_have_a_bad_name():
+    outputs = [
+        {"name": "min", "formula": "min(a, b)"},
+        {"name": "ok", "formula": "1 +"},
+    ]
+    assert name_errors(outputs)[0] is not None
+    assert name_errors(outputs)[1] is None
+    assert check_outputs(outputs)[1] is not None

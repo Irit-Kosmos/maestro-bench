@@ -287,6 +287,12 @@ def _check_name(name: Any, earlier: list[str]) -> str | None:
     return None
 
 
+def name_errors(outputs: list[dict]) -> list[str | None]:
+    """One error message per output whose name is not valid, else None."""
+    names = [o.get("name") for o in outputs]
+    return [_check_name(names[i], names[:i]) for i in range(len(names))]
+
+
 def check_outputs(outputs: list[dict]) -> list[str | None]:
     """One error message per output, or None when it is valid."""
     names = [o.get("name") for o in outputs]
