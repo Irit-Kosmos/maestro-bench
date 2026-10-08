@@ -299,21 +299,18 @@ function exportCsv() {
             </p>
           </div>
           <UTooltip v-if="okRuns.length > 1" text="Highlight the best execution of each chart" :content="{ align: 'end' }">
-            <UButton
-              icon="i-ph-trophy-bold"
-              size="sm"
-              color="neutral"
-              variant="outline"
-              aria-label="Highlight the best execution of each chart"
-              class="print:hidden"
-              :class="highlightBest && 'bg-elevated'"
+            <span
+              tabindex="0"
+              class="inline-flex items-center gap-1.5 text-xs cursor-help select-none transition-colors print:hidden"
+              :class="highlightBest ? 'text-highlighted' : 'text-muted'"
               @mouseenter="highlightBest = true"
               @mouseleave="highlightBest = false"
               @focus="highlightBest = true"
               @blur="highlightBest = false"
             >
-              Best
-            </UButton>
+              <UIcon name="i-ph-trophy-bold" class="size-3.5" />
+              <span class="underline decoration-dotted underline-offset-4">Hover to see the best</span>
+            </span>
           </UTooltip>
         </div>
       </template>
