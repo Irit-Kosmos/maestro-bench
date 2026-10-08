@@ -373,7 +373,7 @@ function renderGroup(group: GroupRowInfo) {
       h('span', { class: 'sr-only' }, `${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`),
     ]),
     group.dot ? h('span', { 'class': ['size-2 shrink-0 rounded-full', group.dot], 'aria-hidden': 'true' }) : null,
-    group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0 text-muted', group.iconClass], 'aria-hidden': 'true' }) : null,
+    group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0', group.iconClass ?? 'text-muted'], 'aria-hidden': 'true' }) : null,
     // The text parts share a baseline: centring their boxes would leave the text-xs count ~1px off the text-sm name
     h('div', { class: 'flex min-w-0 items-baseline gap-2' }, [
       name,
