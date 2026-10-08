@@ -1,5 +1,6 @@
-import type { Edge, Node } from '@vue-flow/core'
 import type { Agent, AgentInputMapping, AgentTeam, PromptVersion } from '~/types'
+import type { GraphEdge } from '~/utils/graphLayout'
+import { graphReaches } from '~/utils/graphLayout'
 
 export interface AgentFlowNodeData {
   agent: Agent
@@ -7,19 +8,31 @@ export interface AgentFlowNodeData {
   config?: Record<string, any>
 }
 
+/** A node has no position: the canvas lays the graph out itself */
+export interface AgentFlowNode {
+  id: string
+  data: AgentFlowNodeData
+}
+
+export interface AgentFlowEdge extends GraphEdge {
+  /** Variables of the target read from the source: the edge exists because of these mappings */
+  variables?: string[]
+  /** Created by a mapping, not drawn by hand: it goes when the mapping does */
+  fromMapping?: boolean
+}
+
 export type InputMappingSource = 'dataset' | 'agent' | 'static'
 
 /**
- * Composable for managing the Vue Flow agent graph state
+ * State of the agent graph: which agents are on it and how they are connected
  */
 export function useAgentFlow(
   agentTeams: Ref<AgentTeam[] | null | undefined>,
   agentConfigurations: Ref<Record<number, any>>,
   allPromptVersions: Ref<PromptVersion[] | null | undefined> = ref(null),
 ) {
-  // Cast avoids TS "excessively deep" instantiation on Vue Flow's Node type
-  const nodes = ref([]) as Ref<Node<AgentFlowNodeData>[]>
-  const edges = ref([]) as Ref<Edge[]>
+  const nodes = ref<AgentFlowNode[]>([])
+  const edges = ref<AgentFlowEdge[]>([])
   const selectedNodeId = ref<string | null>(null)
 
   // Get all available agents grouped by team
@@ -58,7 +71,7 @@ export function useAgentFlow(
   }
 
   // Add an agent to the flow canvas
-  function addAgentToFlow(agent: Agent, position?: { x: number, y: number }) {
+  function addAgentToFlow(agent: Agent) {
     const nodeId = `agent-${agent.id}`
 
     if (isAgentInFlow(agent.id)) {
@@ -72,14 +85,8 @@ export function useAgentFlow(
 
     const team = getTeamForAgent(agent.id)
 
-    // Determine position - if not provided, auto-layout horizontally
-    const xPos = position?.x ?? 50 + (nodes.value.length * 250)
-    const yPos = position?.y ?? 100 + (nodes.value.length % 3) * 120
-
     nodes.value.push({
       id: nodeId,
-      type: 'agent',
-      position: { x: xPos, y: yPos },
       data: {
         agent,
         team,
@@ -89,8 +96,7 @@ export function useAgentFlow(
   }
 
   // Remove an agent from the flow and drop its configuration.
-  // Safe to call when the node has already been removed from the canvas
-  // (e.g. by Vue Flow's Delete/Backspace shortcut): the config cleanup must
+  // Safe to call for a node that is already gone: the config cleanup must
   // still happen, otherwise the orphaned entry keeps blocking form validation.
   function removeAgentFromFlow(nodeId: string) {
     const agentId = Number.parseInt(nodeId.replace('agent-', ''))
@@ -364,54 +370,68 @@ export function useAgentFlow(
       }
     }
 
-    const next: Edge[] = []
+    const next: AgentFlowEdge[] = []
     for (const edge of edges.value) {
       const carried = wanted.get(edge.id)
       if (carried) {
         next.push(mappingEdge(edge, carried.variables))
         wanted.delete(edge.id)
       }
-      else if (edge.data?.fromMapping) {
+      else if (edge.fromMapping) {
         // Drawn for a mapping that is gone
         continue
       }
-      else if (edge.data?.variables) {
+      else if (edge.variables) {
         // Drawn by hand, and no longer carries anything: plain order edge again
-        next.push({ id: edge.id, source: edge.source, target: edge.target, animated: true })
+        next.push({ id: edge.id, source: edge.source, target: edge.target })
       }
       else {
         next.push(edge)
       }
     }
     for (const [id, { source, target, variables }] of wanted)
-      next.push(mappingEdge({ id, source, target, data: { fromMapping: true } }, variables))
+      next.push(mappingEdge({ id, source, target, fromMapping: true }, variables))
 
     if (JSON.stringify(next.map(edgeKey)) !== JSON.stringify(edges.value.map(edgeKey)))
       edges.value = next
   }
 
-  function mappingEdge(edge: Edge, variables: string[]): Edge {
+  function mappingEdge(edge: AgentFlowEdge, variables: string[]): AgentFlowEdge {
     return {
       ...edge,
-      animated: true,
       // Removing it would leave the mapping without its source: change the mapping instead
       deletable: false,
       label: variables.join(', '),
-      labelStyle: { fill: 'var(--ui-text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
-      labelBgStyle: { fill: 'var(--ui-bg)' },
-      labelBgPadding: [4, 2] as [number, number],
-      labelBgBorderRadius: 4,
-      data: { ...edge.data, variables },
+      variables,
     }
   }
 
-  function edgeKey(edge: Edge) {
-    return [edge.id, edge.label ?? '', edge.data?.fromMapping ?? false]
+  function edgeKey(edge: AgentFlowEdge) {
+    return [edge.id, edge.label ?? '', edge.fromMapping ?? false]
+  }
+
+  // Whether `source` may feed `target`: not itself, not twice, and never in a loop
+  function canConnect(source: string, target: string): boolean {
+    if (source === target || edges.value.some(e => e.source === source && e.target === target))
+      return false
+    return !graphReaches(edges.value, target, source)
+  }
+
+  function connect(source: string, target: string) {
+    if (!canConnect(source, target))
+      return
+    edges.value.push({ id: `e-${source}-${target}`, source, target })
+  }
+
+  function disconnect(edgeId: string) {
+    const edge = edges.value.find(e => e.id === edgeId)
+    // An edge carrying variables stays as long as their mappings do
+    if (edge && !edge.variables?.length)
+      edges.value = edges.value.filter(e => e.id !== edgeId)
   }
 
   // Sync flow nodes from existing agent configurations.
-  // Agents are laid out left to right in run order and chained, so the graph opens
-  // as the same sequence the list showed.
+  // Agents are chained in run order, so the graph opens as the same sequence the list showed.
   function syncFromConfigs() {
     // Only sync if canvas is empty (preserve existing layout)
     if (nodes.value.length > 0)
@@ -426,12 +446,9 @@ export function useAgentFlow(
         || a.id - b.id)
 
     ordered.forEach((agent, index) => {
-      addAgentToFlow(agent, { x: 50 + index * 260, y: 100 })
-      if (index > 0) {
-        const source = `agent-${ordered[index - 1]!.id}`
-        const target = `agent-${agent.id}`
-        edges.value.push({ id: `e-${source}-${target}`, source, target, animated: true })
-      }
+      addAgentToFlow(agent)
+      if (index > 0)
+        connect(`agent-${ordered[index - 1]!.id}`, `agent-${agent.id}`)
     })
     syncMappingEdges()
   }
@@ -456,6 +473,9 @@ export function useAgentFlow(
     updateAgentConfig,
     syncFromConfigs,
     syncMappingEdges,
+    canConnect,
+    connect,
+    disconnect,
 
     // Input mapping helpers
     parsePromptVariables,

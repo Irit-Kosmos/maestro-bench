@@ -13,61 +13,43 @@ const aggregator = computed(() => snapshot.value.kind === 'aggregator')
 const variables = computed(() => aggregator.value
   ? formulaVariables(formulas.value)
   : parsePromptVariables(snapshot.value.final_variables))
+const team = computed(() => {
+  const name = snapshot.value.agent_team_name_snapshot
+  return name && name !== snapshot.value.agent_name_snapshot ? name : undefined
+})
 </script>
 
 <template>
-  <div
-    class="agent-node min-w-[200px] max-w-[240px] rounded-lg border-2 bg-default transition-[border-color,box-shadow] duration-150"
-    :class="selected ? 'border-primary shadow-lg' : 'border-default shadow-sm'"
+  <GraphNodeCard
+    :kicker="aggregator ? `Step ${data.step} · Aggregator` : `Step ${data.step}`"
+    :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
+    :accent="aggregator"
+    :title="snapshot.agent_name_snapshot"
+    :subtitle="team"
+    :selected="selected"
   >
-    <VueFlowHandle type="target" position="left" :connectable="false" class="!size-3 !border-2 !border-[var(--ui-bg)] !bg-primary" />
-
-    <div class="p-3">
-      <div class="flex items-start gap-2">
-        <span class="flex size-5 shrink-0 items-center justify-center rounded-full border border-default text-xs font-medium text-toned tabular-nums">
-          <span class="sr-only">Step </span>{{ data.step }}
+    <template v-if="aggregator">
+      <div v-for="f in formulas" :key="f.name" class="flex items-center gap-1.5 text-xs text-toned">
+        <UIcon name="i-ph-function-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+        <span class="truncate font-mono" :title="`${f.name} = ${f.formula}`">{{ f.name }} = {{ f.formula }}</span>
+      </div>
+    </template>
+    <template v-else>
+      <div class="flex items-center gap-1.5 text-xs text-toned">
+        <UIcon name="i-ph-chat-text-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+        <span class="truncate" :title="`${snapshot.prompt_name_snapshot} v${snapshot.prompt_version_snapshot}`">
+          {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
         </span>
-        <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-highlighted" :title="snapshot.agent_name_snapshot">
-            {{ snapshot.agent_name_snapshot }}
-          </div>
-          <div v-if="snapshot.agent_team_name_snapshot && snapshot.agent_team_name_snapshot !== snapshot.agent_name_snapshot" class="mt-0.5 truncate text-xs text-muted">
-            {{ snapshot.agent_team_name_snapshot }}
-          </div>
-        </div>
       </div>
+      <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" class="text-xs text-toned" />
+    </template>
 
-      <div class="mt-2 space-y-1.5 border-t border-muted pt-2">
-        <template v-if="aggregator">
-          <div v-for="f in formulas" :key="f.name" class="flex items-center gap-1 text-xs text-muted">
-            <UIcon name="i-ph-function-bold" class="size-3 shrink-0" aria-hidden="true" />
-            <span class="truncate font-mono" :title="`${f.name} = ${f.formula}`">{{ f.name }} = {{ f.formula }}</span>
-          </div>
-        </template>
-        <template v-else>
-          <div class="flex items-center gap-1 text-xs text-muted">
-            <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" aria-hidden="true" />
-            <span class="truncate" :title="`${snapshot.prompt_name_snapshot} v${snapshot.prompt_version_snapshot}`">
-              {{ snapshot.prompt_name_snapshot }} v{{ snapshot.prompt_version_snapshot }}
-            </span>
-          </div>
-          <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" class="text-xs text-muted" />
-        </template>
-
-        <div v-if="variables.length > 0" class="flex flex-wrap gap-1 pt-1">
-          <UBadge v-for="variable in variables" :key="variable" size="xs" color="neutral" variant="subtle" class="font-mono">
-            {{ variable }}
-          </UBadge>
-        </div>
-      </div>
+    <div v-if="variables.length > 0" class="flex flex-wrap gap-1 border-t border-default pt-2">
+      <span
+        v-for="variable in variables"
+        :key="variable"
+        class="rounded-md border border-default bg-default px-1.5 py-0.5 font-mono text-[11px] leading-none text-toned"
+      >{{ variable }}</span>
     </div>
-
-    <VueFlowHandle type="source" position="right" :connectable="false" class="!size-3 !border-2 !border-[var(--ui-bg)] !bg-primary" />
-  </div>
+  </GraphNodeCard>
 </template>
-
-<style scoped>
-.agent-node {
-  user-select: none;
-}
-</style>

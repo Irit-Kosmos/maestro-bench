@@ -6,192 +6,100 @@ const props = defineProps<{
   id: string
   data: AgentFlowNodeData
   selected?: boolean
+  /** Nothing reads from this node yet: it offers to add what comes next */
+  leaf?: boolean
 }>()
 
-const isActive = computed(() => {
-  return props.data?.config?.is_active !== false
-})
+const isActive = computed(() => props.data?.config?.is_active !== false)
+const aggregator = computed(() => props.data?.agent?.kind === 'aggregator')
 
-const agentName = computed(() => props.data?.agent?.name || 'Unknown Agent')
-const teamName = computed(() => props.data?.team?.name)
-const isSelected = computed(() => props.selected || false)
-
-// Inject lookup arrays from parent flow view
+// Lookups provided by the flow view
 const models = inject<Ref<Model[]>>('agentFlowModels', ref([]))
 const promptVersions = inject<Ref<PromptVersion[]>>('agentFlowPromptVersions', ref([]))
+const order = inject<Ref<Map<number, number>>>('agentFlowOrder', ref(new Map()))
 
-// Read once at mount: only the node that was just added plays its entrance
-const entering = inject<Ref<string | null>>('agentFlowEnteringNode', ref(null)).value === props.id
+const step = computed(() => order.value.get(props.data.agent.id))
+const kicker = computed(() => {
+  const label = step.value ? `Step ${step.value}` : 'Step'
+  return aggregator.value ? `${label} · Aggregator` : label
+})
 
 const selectedPromptVersion = computed(() => {
   const id = props.data?.config?.prompt_version_id
-  if (!id)
-    return undefined
-  return promptVersions.value.find(v => v.id === id)
+  return id ? promptVersions.value.find(v => v.id === id) : undefined
 })
 
-const aggregator = computed(() => props.data?.agent?.kind === 'aggregator')
-const outputsDisplay = computed(() => (props.data?.config?.formulas ?? [])
+const outputs = computed(() => (props.data?.config?.formulas ?? [])
   .map((f: { name: string }) => f.name)
   .filter(Boolean)
-  .join(', ') || 'No output')
+  .join(', '))
 
-const promptVariables = computed<string[]>(() => {
-  if (aggregator.value)
-    return formulaVariables(props.data?.config?.formulas)
-  const version = selectedPromptVersion.value
-  if (!version?.variables)
-    return []
-  try {
-    const parsed = JSON.parse(version.variables)
-    if (Array.isArray(parsed))
-      return parsed
-    if (typeof parsed === 'object' && parsed !== null)
-      return Object.keys(parsed)
-    return []
-  }
-  catch {
-    return []
-  }
-})
+const variables = computed<string[]>(() => aggregator.value
+  ? formulaVariables(props.data?.config?.formulas)
+  : parsePromptVariables(selectedPromptVersion.value?.variables))
 
-const inputMappings = computed<AgentInputMapping[]>(() => {
-  return props.data?.config?.input_mappings || []
-})
-
-function isVariableMapped(variable: string): boolean {
-  return inputMappings.value.some(m => m.variable === variable)
-}
+const inputMappings = computed<AgentInputMapping[]>(() => props.data?.config?.input_mappings || [])
+const unmapped = computed(() => variables.value.filter(v => !inputMappings.value.some(m => m.variable === v)))
 
 const promptDisplay = computed(() => {
   const version = selectedPromptVersion.value
-  if (!version)
-    return 'No prompt'
-  const name = version.prompt?.name || 'Unknown'
-  return `${name} v${version.version}`
+  return version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null
 })
 
 const model = computed(() => {
   const id = props.data?.config?.model_id
   return id ? models.value.find(m => m.id === id) : undefined
 })
-
-const modelDisplay = computed(() => {
-  if (!props.data?.config?.model_id)
-    return 'No model'
-  return model.value?.name || 'Model set'
-})
 </script>
 
 <template>
-  <div
-    class="agent-node rounded-lg border-2 transition-[border-color,box-shadow,opacity] duration-150 min-w-[180px]"
-    :class="{
-      'agent-node-enter': entering,
-      'border-primary bg-default shadow-lg': isSelected,
-      'border-default bg-default shadow-sm': !isSelected,
-      'opacity-60': !isActive,
-    }"
+  <GraphNodeCard
+    :kicker="kicker"
+    :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
+    :accent="aggregator"
+    :title="data.agent.name"
+    :subtitle="data.team?.name"
+    :selected="selected"
+    :muted="!isActive"
   >
-    <!-- Target handle (left side - incoming connection) -->
-    <VueFlowHandle
-      type="target"
-      position="left"
-      class="!w-3 !h-3 !bg-primary !border-2 !border-[var(--ui-bg)]"
-    />
+    <template v-if="!isActive" #aside>
+      <span class="shrink-0 rounded-md border border-default px-1.5 py-0.5 text-[11px] leading-none text-muted">Inactive</span>
+    </template>
 
-    <!-- Node content -->
-    <div class="p-3">
-      <!-- Header -->
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0 flex-1">
-          <div class="font-medium text-sm text-highlighted truncate">
-            {{ agentName }}
-          </div>
-          <div v-if="teamName" class="text-xs text-muted truncate mt-0.5">
-            {{ teamName }}
-          </div>
-        </div>
-        <div
-          class="size-2 rounded-full shrink-0 mt-1.5"
-          :class="isActive ? 'bg-success' : 'bg-accented'"
-        />
+    <template v-if="aggregator">
+      <div class="flex items-center gap-1.5 text-xs" :class="outputs ? 'text-toned' : 'text-warning'">
+        <UIcon name="i-ph-function-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+        <span class="truncate font-mono" :title="outputs">{{ outputs || 'No output' }}</span>
       </div>
-
-      <!-- Config summary -->
-      <div class="mt-2 pt-2 border-t border-muted space-y-1.5">
-        <div v-if="aggregator" class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-ph-function-bold" class="size-3 shrink-0" />
-          <span class="truncate font-mono" :title="outputsDisplay">
-            {{ outputsDisplay }}
-          </span>
-        </div>
-        <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
-          <UIcon name="i-ph-chat-bold" class="size-3 shrink-0" />
-          <span class="truncate" :title="promptDisplay">
-            {{ promptDisplay }}
-          </span>
-        </div>
-        <div v-if="!aggregator" class="flex items-center gap-1 text-xs text-muted">
-          <UIProviderIcon v-if="model" :provider="model.provider" class="size-3" />
-          <UIcon v-else name="i-ph-brain-bold" class="size-3 shrink-0" />
-          <span class="truncate" :title="modelDisplay">
-            {{ modelDisplay }}
-          </span>
-        </div>
-
-        <!-- Input variables -->
-        <div v-if="promptVariables.length > 0" class="flex flex-wrap gap-1 pt-1">
-          <UBadge
-            v-for="variable in promptVariables"
-            :key="variable"
-            size="xs"
-            :color="isVariableMapped(variable) ? 'success' : 'warning'"
-            variant="subtle"
-            class="font-mono"
-          >
-            {{ variable }}
-          </UBadge>
-        </div>
+    </template>
+    <template v-else>
+      <div class="flex items-center gap-1.5 text-xs" :class="promptDisplay ? 'text-toned' : 'text-warning'">
+        <UIcon name="i-ph-chat-text-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+        <span class="truncate" :title="promptDisplay ?? undefined">{{ promptDisplay ?? 'No prompt' }}</span>
       </div>
+      <div class="flex items-center gap-1.5 text-xs" :class="data.config?.model_id ? 'text-toned' : 'text-warning'">
+        <UIProviderIcon v-if="model" :provider="model.provider" class="size-3.5 shrink-0" />
+        <UIcon v-else name="i-ph-brain-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+        <span class="truncate" :title="model?.name">{{ data.config?.model_id ? (model?.name || 'Model set') : 'No model' }}</span>
+      </div>
+    </template>
+
+    <div v-if="variables.length > 0" class="flex flex-wrap gap-1 border-t border-default pt-2">
+      <span
+        v-for="variable in variables"
+        :key="variable"
+        class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] leading-none"
+        :class="unmapped.includes(variable) ? 'border-warning/40 bg-warning/10 text-warning' : 'border-default bg-default text-toned'"
+        :title="unmapped.includes(variable) ? `${variable}: not mapped yet` : variable"
+      >
+        <span class="size-1 shrink-0 rounded-full" :class="unmapped.includes(variable) ? 'bg-warning' : 'bg-success'" aria-hidden="true" />
+        {{ variable }}
+        <span v-if="unmapped.includes(variable)" class="sr-only">(not mapped)</span>
+      </span>
     </div>
 
-    <!-- Source handle (right side - outgoing connection) -->
-    <VueFlowHandle
-      type="source"
-      position="right"
-      class="!w-3 !h-3 !bg-primary !border-2 !border-[var(--ui-bg)]"
-    />
-  </div>
+    <template v-if="leaf" #footer>
+      <ExperimentsAgentFlowAdd :node-id="id" />
+    </template>
+  </GraphNodeCard>
 </template>
-
-<style scoped>
-.agent-node {
-  /* Prevent text selection during drag */
-  user-select: none;
-}
-
-/* A node added from the palette: occasional, so a short entrance is fine; never from scale(0) */
-.agent-node-enter {
-  animation: agent-node-enter 200ms var(--ease-out);
-}
-
-@keyframes agent-node-enter {
-  from {
-    opacity: 0;
-    scale: 0.95;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-node-enter {
-    animation-name: agent-node-fade;
-  }
-
-  @keyframes agent-node-fade {
-    from {
-      opacity: 0;
-    }
-  }
-}
-</style>

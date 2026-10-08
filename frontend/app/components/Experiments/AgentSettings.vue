@@ -10,6 +10,8 @@ const props = defineProps<{
   datasetHeaders: readonly string[]
   /** Agents whose output this agent may read, nearest last */
   upstreamAgents: readonly Agent[]
+  /** Smaller type and controls, for a side panel */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,9 +43,9 @@ const highlighted = ref<string | null>(null)
 </script>
 
 <template>
-  <div class="@container flex flex-col gap-5">
-    <div class="grid gap-4 @md:grid-cols-2">
-      <UFormField label="Prompt version" required>
+  <div class="@container flex flex-col" :class="compact ? 'gap-4' : 'gap-5'">
+    <div class="grid" :class="compact ? 'grid-cols-2 gap-3' : 'gap-4 @md:grid-cols-2'">
+      <UFormField label="Prompt version" required :size="compact ? 'sm' : undefined" :class="compact && 'col-span-2'">
         <template v-if="config?.prompt_version_id" #hint>
           <UButton
             variant="link"
@@ -64,7 +66,7 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Model" required>
+      <UFormField label="Model" required :size="compact ? 'sm' : undefined" :class="compact && 'col-span-2'">
         <ModelsSelect
           :model-value="config?.model_id"
           :models="models"
@@ -73,7 +75,7 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Temperature" hint="Optional">
+      <UFormField label="Temperature" hint="Optional" :size="compact ? 'sm' : undefined">
         <UInput
           :model-value="config?.temperature?.toString() ?? ''"
           type="number"
@@ -87,7 +89,7 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Max tokens" hint="Optional">
+      <UFormField label="Max tokens" hint="Optional" :size="compact ? 'sm' : undefined">
         <UInput
           :model-value="config?.max_tokens?.toString() ?? ''"
           type="number"
@@ -107,6 +109,7 @@ const highlighted = ref<string | null>(null)
       :upstream-agents="upstreamAgents"
       title="Prompt variables"
       description="Where each variable of the prompt gets its value for every row."
+      :compact="compact"
       @set-mapping="mapping => emit('setMapping', mapping)"
       @highlight="variable => highlighted = variable"
     />
@@ -117,6 +120,7 @@ const highlighted = ref<string | null>(null)
       :mappings="config?.input_mappings"
       :upstream-agents="upstreamAgents"
       :active="highlighted"
+      :compact="compact"
     />
   </div>
 </template>

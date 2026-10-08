@@ -221,32 +221,6 @@ html:root.dark {
   --vis-tooltip-shadow-color: rgb(0 0 0 / 0.5);
 }
 
-/* Vue Flow ships a light-only theme; point its chrome at the same tokens */
-.vue-flow__controls {
-  box-shadow: none;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
-  overflow: hidden;
-}
-
-.vue-flow__controls-button {
-  background: var(--ui-bg);
-  border-bottom-color: var(--ui-border);
-  fill: var(--ui-text-toned);
-
-  &:hover {
-    background: var(--ui-bg-elevated);
-  }
-}
-
-.vue-flow__edge-path {
-  stroke: var(--ui-border-accented);
-}
-
-.vue-flow__edge.selected .vue-flow__edge-path {
-  stroke: var(--ui-primary);
-}
-
 /* Reordering by drag: the slot left behind recedes, the row in hand lifts */
 .sortable-ghost {
   opacity: 0.35;

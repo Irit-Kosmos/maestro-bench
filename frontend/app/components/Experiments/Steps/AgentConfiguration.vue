@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentConfiguration, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, AgentTeam, Model, PromptVersion } from '~/types'
 
 // Agents of the experiment. The backend runs them one after another and returns the last one's output,
 // so the default view is an ordered list. The graph is kept for those who prefer to wire agents visually.
@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 const configurations = defineModel<Record<number, AgentConfiguration>>('agentConfigurations', { required: true })
 
-const { info, fail } = useStandardToast()
+const { info } = useStandardToast()
 
 const models = computed(() => props.models ?? [])
 const promptVersions = computed(() => props.allPromptVersions ?? [])
@@ -40,13 +40,7 @@ provide(AGENT_PROMPT_VERSIONS, computed(() => Object.fromEntries(Object.entries(
   .map(([id, config]) => [Number(id), config?.prompt_version_id]))))
 
 const view = ref<'list' | 'graph'>('list')
-const flowViewRef = ref<{ computeExecutionOrder: () => Map<number, number> } | null>(null)
-
-// One agent has nothing to order or wire: the graph is only offered from two
-watch(() => items.value.length, (count) => {
-  if (count < 2 && view.value === 'graph')
-    view.value = 'list'
-})
+const flowViewRef = ref<{ computeExecutionOrder: () => Map<number, number>, addAgent: (agent: Agent) => void } | null>(null)
 
 // Run order for submission: the graph's topological order, or simply the list's
 function getExecutionOrder() {
@@ -81,18 +75,9 @@ function showView(next: 'list' | 'graph') {
 
 // --- Adding agents ---
 
-const pickerItems = computed<any[]>(() => (props.agentTeams ?? []).flatMap((team) => {
-  const available = (team.agents ?? []).filter(agent => !pipeline.addedIds.value.has(agent.id))
-  if (available.length === 0)
-    return []
-  return [
-    { type: 'label' as const, label: team.name },
-    ...available.map(agent => ({ label: agent.name, value: agent.id })),
-  ]
-}))
+const { canEdit } = useCurrentWorkspace()
 
 const hasAgents = computed(() => (props.agentTeams ?? []).some(team => (team.agents?.length ?? 0) > 0))
-const allAdded = computed(() => hasAgents.value && pickerItems.value.length === 0)
 
 const openIds = ref(new Set<number>())
 
@@ -106,66 +91,28 @@ function setOpen(id: number, value: boolean) {
 }
 
 function addAgent(agent: Agent) {
-  pipeline.add(agent)
-  // A new agent is what the eyes are on: open it and fold the others. A lone agent is already a form.
-  openIds.value = new Set([agent.id])
-}
-
-// The menu is only a way to add: it never keeps a selection
-const picked = ref<number>()
-
-function addById(id: number | undefined) {
-  const agent = id === undefined ? undefined : pipeline.catalog.value.get(id)?.agent
-  if (agent)
-    addAgent(agent)
-  nextTick(() => {
-    picked.value = undefined
-  })
-}
-
-// The agents of a team, as the first-time choice
-const teamGroups = computed(() => (props.agentTeams ?? [])
-  .filter(team => (team.agents?.length ?? 0) > 0)
-  .map(team => ({ team, agents: team.agents })))
-
-function defaultSummary(agent: Agent) {
-  if (agent.kind === 'aggregator')
-    return 'Aggregator'
-  const version = promptVersions.value.find(v => v.id === agent.default_prompt_version_id)
-  const model = models.value.find(m => m.id === agent.default_model_id)
-  return [
-    version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null,
-    model?.name,
-  ].filter(Boolean).join(' · ')
-}
-
-// --- Creating an aggregator on the spot ---
-
-const { createAgent } = useAgents()
-const { canEdit } = useCurrentWorkspace()
-const showCreateAggregator = ref(false)
-const showCreateAgent = ref(false)
-const creatingAgent = ref(false)
-
-// The team of the agents it will most likely read
-const aggregatorTeamId = computed(() => items.value.at(-1)?.agent.team_id)
-
-// An agent created here joins the experiment right away, so the form never loses its place
-async function createAgentHere(data: CreateAgentForm) {
-  creatingAgent.value = true
-  const result = await createAgent(data)
-  creatingAgent.value = false
-  if (!result.success) {
-    fail(data.kind === 'aggregator' ? 'Couldn’t create the aggregator' : 'Couldn’t create the agent', result.error)
+  // An agent created a moment ago comes from the reloaded teams
+  const known = pipeline.catalog.value.get(agent.id)?.agent ?? agent
+  if (view.value === 'graph' && flowViewRef.value) {
+    flowViewRef.value.addAgent(known)
     return
   }
-  showCreateAggregator.value = false
-  showCreateAgent.value = false
-  await props.refreshAgents?.()
-  const created = result.data as Agent
-  const agent = pipeline.catalog.value.get(created.id)?.agent ?? created
-  addAgent(agent)
+  pipeline.add(known)
+  // A new agent is what the eyes are on: open it and fold the others. A lone agent is already a form.
+  openIds.value = new Set([known.id])
 }
+
+// The team of the agents an aggregator will most likely read
+const aggregatorTeamId = computed(() => items.value.at(-1)?.agent.team_id)
+
+const pickerProps = computed(() => ({
+  agentTeams: props.agentTeams,
+  models: models.value,
+  promptVersions: promptVersions.value,
+  addedIds: pipeline.addedIds.value,
+  aggregatorTeamId: aggregatorTeamId.value,
+  refreshAgents: props.refreshAgents,
+}))
 
 // --- Reordering ---
 
@@ -230,14 +177,15 @@ function onGraphUpdate(agentId: number, field: string) {
     nextTick(() => pipeline.autoMap(agentId))
 }
 
-const description = computed(() => {
-  if (items.value.length === 0)
-    return 'Choose the agent to run on each row. You can add more afterwards to chain them.'
-  if (items.value.length === 1)
-    return 'Set its prompt and model, and where each variable of the prompt gets its value.'
-  return view.value === 'list'
-    ? 'Agents run from top to bottom and can read the output of the ones above. The last agent\'s output is the result.'
-    : 'Connect agents to set the order they run in. The last one\'s output is the result.'
+// Said once, whatever is chosen, so the section doesn't change under the eyes
+const description = 'What runs on each row. Chain several: they run in order, and the last output is the result.'
+
+const emptyText = computed(() => {
+  if (!props.agentTeams)
+    return 'Loading agents…'
+  if (!hasAgents.value)
+    return canEdit.value ? 'No agents yet. Type a name above to create one.' : 'No agents in this workspace yet.'
+  return canEdit.value ? 'No agent yet. Pick one above, or type a new name to create it.' : 'No agent yet. Pick one above.'
 })
 
 const problems = computed(() => items.value
@@ -248,9 +196,9 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
 
 <template>
   <ExperimentsSection id="agents" title="Agents" :description="description">
-    <template v-if="items.length > 0" #actions>
+    <!-- Offered from the start: one agent can still be better read as a graph -->
+    <template #actions>
       <UTabs
-        v-if="items.length > 1"
         :model-value="view"
         :items="viewOptions"
         :content="false"
@@ -266,85 +214,17 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
       />
     </template>
 
-    <!-- Nothing chosen yet -->
-    <div v-if="items.length === 0">
-      <div v-if="hasAgents" class="flex flex-col gap-3">
-        <div v-for="group in teamGroups" :key="group.team.id">
-          <h3 class="mb-1 text-xs font-medium text-muted">
-            {{ group.team.name }}
-          </h3>
-          <ul class="flex flex-col gap-1.5">
-            <li v-for="agent in group.agents" :key="agent.id">
-              <!-- Native button: a full-width row shouldn't inherit the press scale of UButton -->
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 rounded-lg border border-default px-4 py-2 text-left outline-none hover:border-accented hover:bg-elevated/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
-                @click="addAgent(agent)"
-              >
-                <UIcon :name="agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold'" class="size-4 shrink-0 text-muted" aria-hidden="true" />
-                <span class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-baseline sm:gap-3">
-                  <span class="shrink-0 text-sm font-medium text-highlighted">{{ agent.name }}</span>
-                  <span v-if="agent.description" class="truncate text-sm text-muted" :title="agent.description">{{ agent.description }}</span>
-                </span>
-                <span v-if="defaultSummary(agent)" class="hidden max-w-56 shrink-0 truncate text-xs text-toned md:block">{{ defaultSummary(agent) }}</span>
-                <UIcon name="i-ph-plus-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
-              </button>
-            </li>
-          </ul>
-        </div>
+    <div class="flex flex-col gap-4">
+      <!-- Always there, in both views and whatever is chosen: the one place to add or create an agent -->
+      <div class="flex">
+        <ExperimentsAgentPicker v-bind="pickerProps" @add="addAgent" />
       </div>
 
-      <BaseEmptyState
-        v-else-if="agentTeams"
-        icon="i-ph-ghost-bold"
-        title="No agents yet"
-        message="An agent pairs a prompt version with a model. Create one here and it joins this experiment."
-        action-label="New agent"
-        action-requires="editor"
-        @action="() => { showCreateAgent = true }"
-      />
-
-      <BaseLoadingState v-else message="Loading agents…" />
-    </div>
-
-    <div v-else class="flex flex-col gap-4">
       <!-- List view -->
       <div v-if="view === 'list'" ref="listRef" class="flex flex-col gap-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <USelectMenu
-            v-if="!allAdded"
-            v-model="picked"
-            value-key="value"
-            :items="pickerItems"
-            :ui="{ content: 'min-w-60' }"
-            icon="i-ph-plus-bold"
-            placeholder="Add an agent"
-            :search-input="{ placeholder: 'Search agents…' }"
-            class="w-full sm:w-64"
-            aria-label="Add an agent"
-            @update:model-value="(id) => addById(id as number | undefined)"
-          />
-          <UButton
-            v-if="canEdit"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            icon="i-ph-ghost-bold"
-            @click="() => { showCreateAgent = true }"
-          >
-            New agent
-          </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            icon="i-ph-function-bold"
-            title="Combine the outputs of the agents above with formulas, like a weighted score"
-            @click="() => { showCreateAggregator = true }"
-          >
-            New aggregator
-          </UButton>
-        </div>
+        <p v-if="items.length === 0" class="rounded-lg border border-dashed border-default px-4 py-3 text-sm text-muted">
+          {{ emptyText }}
+        </p>
 
         <div
           v-if="items.length > 1"
@@ -435,30 +315,15 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         @remove-agent-config="id => pipeline.remove(id)"
         @add-agent="id => nextTick(() => pipeline.autoMap(id))"
         @open-prompt-details="id => emit('openPromptDetails', id)"
-      />
+      >
+        <template #tools="{ settled }">
+          <ExperimentsAgentPicker v-if="settled" v-bind="pickerProps" @add="addAgent" />
+        </template>
+      </ExperimentsAgentFlowView>
 
       <p class="sr-only" role="status">
         {{ announcement }}
       </p>
     </div>
-
-    <AgentsCreateAgentModal
-      v-model:open="showCreateAggregator"
-      :available-teams="agentTeams ?? []"
-      initial-kind="aggregator"
-      lock-kind
-      :initial-team-id="aggregatorTeamId"
-      :loading="creatingAgent"
-      @submit="createAgentHere"
-    />
-
-    <AgentsCreateAgentModal
-      v-model:open="showCreateAgent"
-      :available-teams="agentTeams ?? []"
-      :available-prompt-versions="promptVersions"
-      :available-models="models"
-      :loading="creatingAgent"
-      @submit="createAgentHere"
-    />
   </ExperimentsSection>
 </template>

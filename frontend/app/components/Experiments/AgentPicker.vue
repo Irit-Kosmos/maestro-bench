@@ -1,0 +1,164 @@
+<script setup lang="ts">
+import type { Agent, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/types'
+
+// The one field to add an agent to an experiment, in the list and in the graph: typing filters the agents
+// left, and a name nothing matches can be created from it
+// The field and its dialog are siblings: the attributes (a width, say) belong to the field
+defineOptions({ inheritAttrs: false })
+
+const props = defineProps<{
+  agentTeams?: readonly AgentTeam[] | null
+  models?: readonly Model[]
+  promptVersions?: readonly PromptVersion[]
+  /** Agents already in the experiment: they are not offered again */
+  addedIds: ReadonlySet<number>
+  /** Team an aggregator is created in: the one of the agents it will most likely read */
+  aggregatorTeamId?: number
+  /** Reloads the agent teams, so an agent created here can be added */
+  refreshAgents?: () => Promise<void>
+}>()
+
+const emit = defineEmits<{
+  add: [agent: Agent]
+}>()
+
+const { createAgent } = useAgents()
+const { canEdit } = useCurrentWorkspace()
+const { fail } = useStandardToast()
+
+const NEW_AGENT = 'new:llm'
+const NEW_AGGREGATOR = 'new:aggregator'
+
+const search = ref('')
+// The menu is only a way to add: it never keeps a selection
+const picked = ref<number | string>()
+
+const allAgents = computed(() => (props.agentTeams ?? []).flatMap(team => team.agents ?? []))
+const hasAgents = computed(() => allAgents.value.length > 0)
+
+function defaultSummary(agent: Agent) {
+  if (agent.kind === 'aggregator')
+    return 'Aggregator'
+  const version = props.promptVersions?.find(v => v.id === agent.default_prompt_version_id)
+  const model = props.models?.find(m => m.id === agent.default_model_id)
+  return [
+    version ? `${version.prompt?.name || 'Unknown'} v${version.version}` : null,
+    model?.name,
+  ].filter(Boolean).join(' · ')
+}
+
+const menuItems = computed<any[]>(() => {
+  const name = search.value.trim()
+  const term = name.toLowerCase()
+
+  const groups = (props.agentTeams ?? [])
+    .map(team => ({
+      team,
+      agents: (team.agents ?? []).filter(agent => !props.addedIds.has(agent.id)
+        && (!term || `${agent.name} ${agent.description ?? ''}`.toLowerCase().includes(term))),
+    }))
+    .filter(group => group.agents.length > 0)
+
+  // A team label only helps when there is more than one team to tell apart
+  const labelled = groups.length > 1
+  const entries: any[] = groups.flatMap(({ team, agents }) => [
+    ...(labelled ? [{ type: 'label' as const, label: team.name }] : []),
+    ...agents.map(agent => ({
+      label: agent.name,
+      hint: agent.description || defaultSummary(agent),
+      value: agent.id,
+      icon: agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold',
+    })),
+  ])
+
+  const taken = allAgents.value.some(agent => agent.name.trim().toLowerCase() === term)
+  if (canEdit.value && name && !taken) {
+    if (entries.length > 0)
+      entries.push({ type: 'separator' as const })
+    entries.push(
+      { label: `Create agent “${name}”`, value: NEW_AGENT, icon: 'i-ph-ghost-bold', onSelect: () => startCreate('llm', name) },
+      { label: `Create aggregator “${name}”`, value: NEW_AGGREGATOR, icon: 'i-ph-function-bold', hint: 'Combines agents with formulas', onSelect: () => startCreate('aggregator', name) },
+    )
+  }
+  return entries
+})
+
+function onPick(value: unknown) {
+  const agent = typeof value === 'number' ? allAgents.value.find(a => a.id === value) : undefined
+  if (agent)
+    emit('add', agent)
+  nextTick(() => {
+    picked.value = undefined
+  })
+}
+
+// --- Creating an agent on the spot ---
+
+const showCreate = ref(false)
+const creating = ref(false)
+const createKind = ref<'llm' | 'aggregator'>('llm')
+const createName = ref('')
+
+function startCreate(kind: 'llm' | 'aggregator', name: string) {
+  createKind.value = kind
+  createName.value = name
+  showCreate.value = true
+}
+
+// An agent created here joins the experiment right away, so the form never loses its place
+async function onCreate(data: CreateAgentForm) {
+  creating.value = true
+  const result = await createAgent(data)
+  creating.value = false
+  if (!result.success) {
+    fail(data.kind === 'aggregator' ? 'Couldn’t create the aggregator' : 'Couldn’t create the agent', result.error)
+    return
+  }
+  showCreate.value = false
+  await props.refreshAgents?.()
+  emit('add', result.data as Agent)
+}
+</script>
+
+<template>
+  <UInputMenu
+    v-model="picked"
+    v-model:search-term="search"
+    value-key="value"
+    :items="menuItems"
+    ignore-filter
+    open-on-focus
+    open-on-click
+    icon="i-ph-plus-bold"
+    :disabled="!agentTeams"
+    placeholder="Add or create an agent"
+    class="w-full sm:w-72"
+    v-bind="$attrs"
+    :ui="{ content: 'w-96 max-w-[calc(100vw-2rem)]' }"
+    aria-label="Add or create an agent"
+    @update:model-value="onPick"
+  >
+    <template #item-label="{ item }">
+      <span class="flex min-w-0 items-baseline gap-2">
+        <span class="shrink-0">{{ item.label }}</span>
+        <span v-if="item.hint" class="truncate text-xs font-normal text-muted">{{ item.hint }}</span>
+      </span>
+    </template>
+    <template #empty>
+      {{ search.trim() ? 'No agent matches' : hasAgents ? 'Every agent is already added' : 'No agents yet' }}
+    </template>
+  </UInputMenu>
+
+  <AgentsCreateAgentModal
+    v-model:open="showCreate"
+    :available-teams="agentTeams ?? []"
+    :available-prompt-versions="promptVersions"
+    :available-models="models"
+    :initial-kind="createKind"
+    lock-kind
+    :initial-team-id="createKind === 'aggregator' ? aggregatorTeamId : undefined"
+    :initial-name="createName"
+    :loading="creating"
+    @submit="onCreate"
+  />
+</template>

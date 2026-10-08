@@ -16,6 +16,8 @@ const props = withDefaults(defineProps<{
   isComplete?: (mapping: AgentInputMapping | undefined) => boolean
   /** Offer agent output fields that hold lists */
   withLists?: boolean
+  /** Tighter type and rows, for a side panel */
+  compact?: boolean
 }>(), {
   staticLabel: 'Fixed text',
   staticPlaceholder: 'Text sent on every row',
@@ -91,20 +93,21 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
 <template>
   <section v-if="rows.length > 0" :aria-labelledby="`${ids}-vars`">
     <div class="flex items-baseline justify-between gap-2">
-      <h4 :id="`${ids}-vars`" class="text-sm font-medium text-highlighted">
+      <h4 :id="`${ids}-vars`" class="font-medium text-highlighted" :class="compact ? 'text-xs' : 'text-sm'">
         {{ title }}
       </h4>
       <span class="text-xs text-muted tabular-nums">{{ mappedCount }} of {{ rows.length }} mapped</span>
     </div>
-    <p class="mt-0.5 text-sm text-muted">
+    <p class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
       {{ description }}
     </p>
 
-    <ul class="mt-3 divide-y divide-default rounded-lg border border-default">
+    <ul class="divide-y divide-default rounded-lg border border-default" :class="compact ? 'mt-2' : 'mt-3'">
       <li
         v-for="row in rows"
         :key="row.variable"
-        class="grid items-center gap-2 px-3 py-2.5 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
+        class="grid items-center gap-2 @xl:grid-cols-[minmax(6rem,10rem)_auto_11rem_minmax(0,1fr)]"
+        :class="compact ? 'px-2.5 py-2' : 'px-3 py-2.5'"
         @mouseenter="emit('highlight', row.variable)"
         @mouseleave="emit('highlight', null)"
         @focusin="emit('highlight', row.variable)"
