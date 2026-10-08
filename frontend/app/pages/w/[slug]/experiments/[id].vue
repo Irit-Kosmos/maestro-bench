@@ -301,54 +301,50 @@ watch(() => route.params.id, () => {
     <div v-else-if="experiment" class="@container flex max-w-[96rem] flex-col gap-6">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
-        <UTooltip text="Run this setup with other models, prompts or temperatures" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="neutral"
-            icon="i-ph-arrows-split-bold"
-            size="sm"
-            :to="{ path: '/experiments/new', query: { from: experiment.id } }"
-          >
-            Vary
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip v-if="status === 'running' || status === 'queued'" :text="status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="error"
-            icon="i-ph-stop-circle-bold"
-            size="sm"
-            :loading="isCancelling"
-            @click="() => { showCancelDialog = true }"
-          >
-            Cancel run
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip v-else text="Create a new execution with the same configuration" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="neutral"
-            icon="i-ph-play-bold"
-            size="sm"
-            :loading="isRerunning"
-            :disabled="!experiment"
-            @click="handleRerunExperiment"
-          >
-            Re-run
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip :text="analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'" :disabled="!canEdit">
-          <UIGuardedButton
-            color="neutral"
-            variant="soft"
-            icon="i-ph-chart-bar-bold"
-            size="sm"
-            :disabled="!analyzeLink"
-            :to="analyzeLink"
-          >
-            Analyze
-          </UIGuardedButton>
-        </UTooltip>
+        <UIGuardedButton
+          :data-tooltip="canEdit ? 'Run this setup with other models, prompts or temperatures' : undefined"
+          variant="soft"
+          color="neutral"
+          icon="i-ph-arrows-split-bold"
+          size="sm"
+          :to="{ path: '/experiments/new', query: { from: experiment.id } }"
+        >
+          Vary
+        </UIGuardedButton>
+        <UIGuardedButton
+          v-if="status === 'running' || status === 'queued'" :data-tooltip="!canEdit ? undefined : status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'"
+          variant="soft"
+          color="error"
+          icon="i-ph-stop-circle-bold"
+          size="sm"
+          :loading="isCancelling"
+          @click="() => { showCancelDialog = true }"
+        >
+          Cancel run
+        </UIGuardedButton>
+        <UIGuardedButton
+          v-else :data-tooltip="canEdit ? 'Create a new execution with the same configuration' : undefined"
+          variant="soft"
+          color="neutral"
+          icon="i-ph-play-bold"
+          size="sm"
+          :loading="isRerunning"
+          :disabled="!experiment"
+          @click="handleRerunExperiment"
+        >
+          Re-run
+        </UIGuardedButton>
+        <UIGuardedButton
+          :data-tooltip="!canEdit ? undefined : analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'"
+          color="neutral"
+          variant="soft"
+          icon="i-ph-chart-bar-bold"
+          size="sm"
+          :disabled="!analyzeLink"
+          :to="analyzeLink"
+        >
+          Analyze
+        </UIGuardedButton>
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete experiment', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"

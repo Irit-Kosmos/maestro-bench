@@ -111,18 +111,17 @@ async function confirmDelete() {
         >
           Recompute
         </UButton>
-        <UTooltip text="Opens the print dialog: choose “Save as PDF”">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-ph-file-pdf-bold"
-            size="sm"
-            :disabled="!result || isComputing"
-            @click="exportPdf"
-          >
-            Export PDF
-          </UButton>
-        </UTooltip>
+        <UButton
+          data-tooltip="Opens the print dialog: choose “Save as PDF”"
+          variant="ghost"
+          color="neutral"
+          icon="i-ph-file-pdf-bold"
+          size="sm"
+          :disabled="!result || isComputing"
+          @click="exportPdf"
+        >
+          Export PDF
+        </UButton>
         <UIGuardedButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
           Edit
         </UIGuardedButton>

@@ -13,12 +13,14 @@ const props = withDefaults(defineProps<{
 
 const { denial } = useCurrentWorkspace()
 const reason = computed(() => denial(props.requires))
+// In a tooltip group (the top bar), the group's shared tooltip says why
+const inGroup = inject(tooltipGroupKey, false)
 </script>
 
 <template>
-  <UTooltip v-if="reason" :text="reason">
+  <UTooltip v-if="reason" :text="reason" :disabled="inGroup">
     <!-- A disabled button swallows hover: the wrapper is what the tooltip listens to -->
-    <span class="inline-flex" tabindex="0">
+    <span class="inline-flex" tabindex="0" :data-tooltip="inGroup ? reason : undefined">
       <UButton v-bind="{ ...$attrs, onClick: undefined, to: undefined }" disabled>
         <slot />
       </UButton>

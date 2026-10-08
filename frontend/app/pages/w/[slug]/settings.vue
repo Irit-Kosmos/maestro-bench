@@ -82,17 +82,16 @@ async function recheck() {
 <template>
   <div class="flex flex-col gap-6 max-w-3xl">
     <AppPageActions>
-      <UTooltip text="Check again">
-        <UButton
-          icon="i-ph-arrows-clockwise-bold"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          aria-label="Check again"
-          :loading="isRefreshing"
-          @click="recheck"
-        />
-      </UTooltip>
+      <UButton
+        data-tooltip="Check again"
+        icon="i-ph-arrows-clockwise-bold"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        aria-label="Check again"
+        :loading="isRefreshing"
+        @click="recheck"
+      />
     </AppPageActions>
 
     <BaseSection title="LLM providers">

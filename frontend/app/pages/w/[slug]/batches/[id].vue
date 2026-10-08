@@ -152,31 +152,29 @@ async function handleDelete() {
         >
           Cancel all
         </UIGuardedButton>
-        <UTooltip text="Create a new execution of every experiment that is not running" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="neutral"
-            icon="i-ph-play-bold"
-            size="sm"
-            :loading="isRerunning"
-            :disabled="isActive"
-            @click="handleRerun"
-          >
-            Re-run
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip :text="analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'" :disabled="!canEdit">
-          <UIGuardedButton
-            color="neutral"
-            variant="soft"
-            icon="i-ph-chart-bar-bold"
-            size="sm"
-            :disabled="!analyzeLink"
-            :to="analyzeLink"
-          >
-            Analyze
-          </UIGuardedButton>
-        </UTooltip>
+        <UIGuardedButton
+          :data-tooltip="canEdit ? 'Create a new execution of every experiment that is not running' : undefined"
+          variant="soft"
+          color="neutral"
+          icon="i-ph-play-bold"
+          size="sm"
+          :loading="isRerunning"
+          :disabled="isActive"
+          @click="handleRerun"
+        >
+          Re-run
+        </UIGuardedButton>
+        <UIGuardedButton
+          :data-tooltip="!canEdit ? undefined : analyzeLink ? 'Compare the completed experiments to a ground-truth column' : 'Available once an experiment has completed'"
+          color="neutral"
+          variant="soft"
+          icon="i-ph-chart-bar-bold"
+          size="sm"
+          :disabled="!analyzeLink"
+          :to="analyzeLink"
+        >
+          Analyze
+        </UIGuardedButton>
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete batch', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"

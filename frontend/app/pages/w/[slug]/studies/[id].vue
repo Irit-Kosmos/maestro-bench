@@ -155,17 +155,17 @@ const stats = computed(() => study.value
 
     <div v-else-if="study" :key="study.id" class="mx-auto flex max-w-6xl flex-col gap-5">
       <AppPageActions>
-        <UTooltip text="Properties" :kbds="['meta', 'I']">
-          <UButton
-            icon="i-ph-sidebar-simple-bold"
-            color="neutral"
-            :variant="showProperties ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-pressed="showProperties"
-            aria-label="Toggle the properties panel"
-            @click="() => { showProperties = !showProperties }"
-          />
-        </UTooltip>
+        <UButton
+          data-tooltip="Properties"
+          data-tooltip-kbds="meta,I"
+          icon="i-ph-sidebar-simple-bold"
+          color="neutral"
+          :variant="showProperties ? 'soft' : 'ghost'"
+          size="sm"
+          :aria-pressed="showProperties"
+          aria-label="Toggle the properties panel"
+          @click="() => { showProperties = !showProperties }"
+        />
         <UDropdownMenu v-if="canEdit" :items="menu" :content="{ align: 'end' }">
           <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
         </UDropdownMenu>
