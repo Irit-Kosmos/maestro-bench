@@ -21,6 +21,7 @@ from batch_utils import (
     unmapped_variables,
     variant_label,
 )
+from core.orchestrator import AGGREGATOR
 from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
@@ -176,6 +177,9 @@ def _validate_batch(
         if not agent or agent.team_id not in team_ids:
             continue
         active_agents += 1
+        if agent.kind == AGGREGATOR:
+            # Computed from formulas: no prompt and no model
+            continue
         axes = varied.get(agent.id, {})
         if not (
             "prompt_version_id" in axes
