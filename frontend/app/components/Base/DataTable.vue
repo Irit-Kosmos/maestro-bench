@@ -432,7 +432,10 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       },
       style: {
         th: col.width || (index === 0 && gutter.value)
-          ? { width: col.width ? `${col.width}px` : undefined, paddingLeft: index === 0 && gutter.value ? `${CELL_PADDING + gutter.value}px` : undefined }
+          ? {
+              ...(col.width ? { width: `${col.width}px` } : {}),
+              ...(index === 0 && gutter.value ? { paddingLeft: `${CELL_PADDING + gutter.value}px` } : {}),
+            }
           : undefined,
         td: index === 0 ? indentedStyle : cellStyle,
       },
