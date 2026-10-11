@@ -34,6 +34,7 @@ const fieldNames: Record<string, string> = {
 const axes = computed(() => (batch.value?.variations ?? []).map(v => ({
   key: `${v.agent_id}:${v.field}`,
   agent_id: v.agent_id,
+  agent_name: v.agent_name,
   field: v.field,
   title: multipleAgents.value ? `${v.agent_name} · ${fieldNames[v.field]}` : fieldNames[v.field],
   values: v.values.map(value => value.label),
@@ -52,6 +53,18 @@ function groupByProvider(values: Batch['variations'][number]['values']) {
     .sort((a, b) => (a && b) ? compareProviders(a, b) : Number(!a) - Number(!b))
     .map(key => ({ key, label: key ? providerLabel(key) : '', names: groups.get(key)! }))
 }
+
+// With several agents, one column per axis would make the table unreadable: the table gets a single
+// configuration column instead, with one line per agent listing what varies on it
+const agentGroups = computed(() => {
+  const groups = new Map<number, { agent_id: number, name: string, axes: typeof axes.value }>()
+  for (const axis of axes.value) {
+    const group = groups.get(axis.agent_id) ?? { agent_id: axis.agent_id, name: axis.agent_name, axes: [] }
+    group.axes.push(axis)
+    groups.set(axis.agent_id, group)
+  }
+  return [...groups.values()]
+})
 
 function labelOf(experiment: Batch['experiments'][number], axis: { agent_id: number, field: string }) {
   return experiment.coordinates.find(c => c.agent_id === axis.agent_id && c.field === axis.field)?.label ?? '—'
@@ -262,9 +275,14 @@ async function handleDelete() {
           <table class="w-full text-sm">
             <thead class="border-b border-default text-left text-xs text-muted">
               <tr>
-                <th v-for="axis in axes" :key="axis.key" scope="col" class="px-4 py-2 font-medium">
-                  {{ axis.title }}
+                <th v-if="multipleAgents" scope="col" class="px-4 py-2 font-medium">
+                  Configuration
                 </th>
+                <template v-else>
+                  <th v-for="axis in axes" :key="axis.key" scope="col" class="px-4 py-2 font-medium">
+                    {{ axis.title }}
+                  </th>
+                </template>
                 <th scope="col" class="px-4 py-2 font-medium">
                   Status
                 </th>
@@ -287,21 +305,40 @@ async function handleDelete() {
             </thead>
             <tbody class="divide-y divide-default">
               <tr v-for="experiment in batch.experiments" :key="experiment.id" class="relative hover:bg-elevated/50">
-                <td v-for="(axis, index) in axes" :key="axis.key" class="px-4 py-2.5">
-                  <!-- Stretched link on the first cell: the whole row opens the experiment -->
+                <!-- Stretched link on the first cell: the whole row opens the experiment -->
+                <td v-if="multipleAgents" class="px-4 py-2.5">
                   <NuxtLink
-                    v-if="index === 0"
                     :to="`/experiments/${experiment.id}`"
-                    class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
+                    class="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   >
-                    <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
-                    <template v-else>
-                      {{ labelOf(experiment, axis) }}
-                    </template>
+                    <span v-for="group in agentGroups" :key="group.agent_id" class="contents">
+                      <span class="truncate text-xs text-muted" :title="group.name">{{ group.name }}</span>
+                      <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium text-highlighted">
+                        <template v-for="(axis, index) in group.axes" :key="axis.key">
+                          <span v-if="index > 0" class="font-normal text-muted" aria-hidden="true">·</span>
+                          <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
+                          <span v-else :class="index > 0 && 'font-normal text-toned'">{{ labelOf(experiment, axis) }}</span>
+                        </template>
+                      </span>
+                    </span>
                   </NuxtLink>
-                  <ModelsLabel v-else-if="axis.field === 'model_id'" class="text-toned" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
-                  <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
                 </td>
+                <template v-else>
+                  <td v-for="(axis, index) in axes" :key="axis.key" class="px-4 py-2.5">
+                    <NuxtLink
+                      v-if="index === 0"
+                      :to="`/experiments/${experiment.id}`"
+                      class="font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
+                    >
+                      <ModelsLabel v-if="axis.field === 'model_id'" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
+                      <template v-else>
+                        {{ labelOf(experiment, axis) }}
+                      </template>
+                    </NuxtLink>
+                    <ModelsLabel v-else-if="axis.field === 'model_id'" class="text-toned" :name="labelOf(experiment, axis)" :provider="providerOf(experiment, axis)" />
+                    <span v-else class="text-toned">{{ labelOf(experiment, axis) }}</span>
+                  </td>
+                </template>
                 <td class="px-4 py-2.5">
                   <div class="flex items-center gap-3">
                     <UIStatusBadge :status="experiment.status" />
