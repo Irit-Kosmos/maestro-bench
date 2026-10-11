@@ -67,7 +67,7 @@ async function create(name: string) {
         </button>
 
         <template #content>
-          <StudiesPicker :selected="model" :creating="creating" @toggle="toggle" @create="create" />
+          <StudiesPicker :selected="model" :creating="creating" active-only @toggle="toggle" @create="create" />
         </template>
       </UPopover>
     </div>
