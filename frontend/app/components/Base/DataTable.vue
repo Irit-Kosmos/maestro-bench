@@ -72,10 +72,6 @@ interface Props {
   selectable?: boolean
   /** Property that identifies a row in `v-model:selected` */
   rowKey?: string
-  /** Virtualizes the rows so a long list stays light: only those in view are in the DOM. Needs `fill` (the rows scroll
-   * inside the table) and a fixed row height in px, which every row must fit in, so no wrapping content. Section
-   * headers have a height of their own (see `HEADER_HEIGHT`) */
-  rowHeight?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -97,7 +93,6 @@ const props = withDefaults(defineProps<Props>(), {
   fill: false,
   selectable: false,
   rowKey: 'id',
-  rowHeight: undefined,
 })
 
 const emit = defineEmits<{
@@ -204,16 +199,20 @@ const fixedLayout = computed(() => visibleColumns.value.some(column => column.wi
 const tableMinWidth = computed(() => visibleColumns.value.reduce((sum, column) => sum + (column.width ?? FLEX_MIN_WIDTH), 0)
   + (props.selectable ? SELECT_WIDTH : 0) + (hasActions.value ? ACTIONS_WIDTH : 0))
 
-// Virtualized rows: UTable is given only the rows in view, and two spacer rows stand in for the others. That keeps the
+// Every row of every table is this tall (separator included), so lists read the same from page to page. It fits two
+// lines of text (a name and its hint), which is why the cells of a row must not wrap
+const ROW_HEIGHT = 57
+// Virtualized rows (a table that `fill`s its parent, so its rows scroll inside it): a long list stays light, only the
+// rows in view are in the DOM. UTable is given those, and two spacer rows stand in for the others. That keeps the
 // table as tall as the whole list, which is what lets the header stay stuck to the top all the way down.
 // A section header is shorter than a row, and the two are the only heights there are
 const HEADER_HEIGHT = 36
-const virtualized = computed(() => props.fill && !!props.rowHeight)
+const virtualized = computed(() => props.fill)
 const tableEl = ref<{ $el: HTMLElement } | null>(null)
 const virtualizer = useVirtualizer(computed(() => ({
   count: displayRows.value.length,
   getScrollElement: () => tableEl.value?.$el ?? null,
-  estimateSize: (index: number) => isGroupRow(displayRows.value[index]) ? HEADER_HEIGHT : props.rowHeight ?? 0,
+  estimateSize: (index: number) => isGroupRow(displayRows.value[index]) ? HEADER_HEIGHT : ROW_HEIGHT,
   getItemKey: (index: number) => displayRows.value[index]?.[props.rowKey] ?? index,
   overscan: 12,
   enabled: virtualized.value,
@@ -303,9 +302,7 @@ interface CellInfo {
 
 // A row is exactly this tall, which is what the spacers rely on
 function cellStyle(cell: CellInfo): Record<string, string> {
-  if (isGroupRow(cell.row.original))
-    return { height: `${HEADER_HEIGHT}px` }
-  return virtualized.value ? { height: `${props.rowHeight}px` } : {}
+  return { height: `${isGroupRow(cell.row.original) ? HEADER_HEIGHT : ROW_HEIGHT}px` }
 }
 
 // Without checkboxes, grouped rows leave room on the left for the carets of the headers
@@ -581,13 +578,13 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       :style="fixedLayout ? { '--table-min-width': `${tableMinWidth}px` } : undefined"
       :ui="{
         base: fixedLayout ? 'w-full min-w-(--table-min-width) table-fixed' : '',
-        // Opaque when sticky, so rows don't show through while scrolling under it
-        thead: fill ? 'bg-muted' : 'bg-muted/60',
-        // Virtualized, the separators are drawn inside the cells: a border would add to the fixed row height
-        tbody: virtualized ? 'divide-y-0' : '',
+        // Opaque, so rows don't show through while scrolling under it when sticky; the same everywhere, sticky or not
+        thead: 'bg-muted',
+        // The separators are drawn inside the cells: a border would add to the fixed row height
+        tbody: 'divide-y-0',
         th: 'px-4 py-2 text-xs font-medium text-muted',
         tr: rowTo || rowOpen ? 'relative hover:bg-elevated/50' : '',
-        td: ['px-4 py-2.5 text-sm text-toned', fixedLayout && 'overflow-hidden text-ellipsis', virtualized && 'shadow-[inset_0_-1px_0_var(--ui-border)]'],
+        td: ['px-4 py-2.5 text-sm text-toned shadow-[inset_0_-1px_0_var(--ui-border)]', fixedLayout && 'overflow-hidden text-ellipsis'],
       }"
     >
       <!-- Stand-ins for the rows above and below the ones in the DOM -->

@@ -302,7 +302,6 @@ const actions = [
         v-model:group-by="groupBy"
         v-model:sort-by="sortBy"
         fill
-        :row-height="57"
         :data="executions"
         :columns="columns"
         :filters="filters"
