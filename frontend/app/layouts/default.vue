@@ -84,7 +84,7 @@ defineShortcuts({
       id="main"
       :ui="{
         root: 'print:min-h-0 print:block',
-        body: 'p-4 sm:px-8 sm:py-6 print:block print:overflow-visible print:p-1',
+        body: '[scrollbar-gutter:stable] p-4 sm:px-8 sm:py-6 print:block print:overflow-visible print:p-1',
       }"
     >
       <template #header>

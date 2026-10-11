@@ -43,8 +43,11 @@ export function useAgentPipeline(options: {
   configurations: Ref<Record<number, AgentConfiguration>>
   promptVersions: Ref<readonly PromptVersion[] | null | undefined>
   datasetHeaders: Ref<readonly string[]>
+  /** Variables an agent has to map besides its prompt's: the ones a prompt variation adds */
+  extraVariables?: Ref<Record<number, readonly string[]>>
 }) {
   const { agentTeams, configurations, promptVersions, datasetHeaders } = options
+  const extraVariables = options.extraVariables ?? ref<Record<number, readonly string[]>>({})
 
   const catalog = computed(() => {
     const byId = new Map<number, { agent: Agent, team: AgentTeam }>()
@@ -80,6 +83,11 @@ export function useAgentPipeline(options: {
     return parsePromptVariables(promptVersions.value?.find(v => v.id === versionId)?.variables)
   }
 
+  // What the agent's mappings are for: its prompt's variables and those of its prompt variations
+  function mappableOf(agentId: number): string[] {
+    return [...new Set([...variablesOf(agentId), ...(extraVariables.value[agentId] ?? [])])]
+  }
+
   // Agents that run before this one and are enabled: the only valid "previous agent output" sources
   function upstreamOf(agentId: number): Agent[] {
     const list = items.value
@@ -108,7 +116,7 @@ export function useAgentPipeline(options: {
       const mappings = item.config.input_mappings
       if (!mappings?.length)
         continue
-      const variables = variablesOf(item.agent.id)
+      const variables = mappableOf(item.agent.id)
       const upstreamIds = new Set(upstreamOf(item.agent.id).map(a => a.id))
       // Formulas change on every keystroke: an aggregator keeps the mappings of variables it
       // no longer reads, so retyping a name finds its value back (the backend ignores the extra ones)
@@ -136,7 +144,7 @@ export function useAgentPipeline(options: {
       return
     const mappings = [...(config.input_mappings ?? [])]
     let changed = false
-    for (const variable of variablesOf(agentId)) {
+    for (const variable of mappableOf(agentId)) {
       if (mappings.some(m => m.variable === variable))
         continue
       const column = headers.find(h => normalizeName(h) === normalizeName(variable))

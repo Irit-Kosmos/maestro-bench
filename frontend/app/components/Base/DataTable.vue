@@ -72,10 +72,6 @@ interface Props {
   selectable?: boolean
   /** Property that identifies a row in `v-model:selected` */
   rowKey?: string
-  /** Virtualizes the rows so a long list stays light: only those in view are in the DOM. Needs `fill` (the rows scroll
-   * inside the table) and a fixed row height in px, which every row must fit in, so no wrapping content. Section
-   * headers have a height of their own (see `HEADER_HEIGHT`) */
-  rowHeight?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -97,7 +93,6 @@ const props = withDefaults(defineProps<Props>(), {
   fill: false,
   selectable: false,
   rowKey: 'id',
-  rowHeight: undefined,
 })
 
 const emit = defineEmits<{
@@ -167,6 +162,13 @@ const displayRows = computed(() => arranged.value.rows)
 const RAIL_STEP = 8
 // Content steps in by this much for each section a row or header sits in; the checkboxes stay in line
 const INDENT_STEP = 16
+// What a section header spends on its caret and the gap after it. With checkboxes they already leave the room (the
+// header's content is lined up with the rows' own, see `renderGroup`); without, grouped rows step in to make it
+const CARET_SIZE = 12
+const CARET_GAP = 8
+const GUTTER = CARET_SIZE + CARET_GAP
+const CELL_PADDING = 16
+const CHECKBOX_SIZE = 16
 const railOf = (level: string) => [activeGroup.value, activeGroup.value?.then].find(found => found?.key === level)?.rail
 
 function renderRails(trail: string[]) {
@@ -197,16 +199,20 @@ const fixedLayout = computed(() => visibleColumns.value.some(column => column.wi
 const tableMinWidth = computed(() => visibleColumns.value.reduce((sum, column) => sum + (column.width ?? FLEX_MIN_WIDTH), 0)
   + (props.selectable ? SELECT_WIDTH : 0) + (hasActions.value ? ACTIONS_WIDTH : 0))
 
-// Virtualized rows: UTable is given only the rows in view, and two spacer rows stand in for the others. That keeps the
+// Every row of every table is this tall (separator included), so lists read the same from page to page. It fits two
+// lines of text (a name and its hint), which is why the cells of a row must not wrap
+const ROW_HEIGHT = 57
+// Virtualized rows (a table that `fill`s its parent, so its rows scroll inside it): a long list stays light, only the
+// rows in view are in the DOM. UTable is given those, and two spacer rows stand in for the others. That keeps the
 // table as tall as the whole list, which is what lets the header stay stuck to the top all the way down.
 // A section header is shorter than a row, and the two are the only heights there are
 const HEADER_HEIGHT = 36
-const virtualized = computed(() => props.fill && !!props.rowHeight)
+const virtualized = computed(() => props.fill)
 const tableEl = ref<{ $el: HTMLElement } | null>(null)
 const virtualizer = useVirtualizer(computed(() => ({
   count: displayRows.value.length,
   getScrollElement: () => tableEl.value?.$el ?? null,
-  estimateSize: (index: number) => isGroupRow(displayRows.value[index]) ? HEADER_HEIGHT : props.rowHeight ?? 0,
+  estimateSize: (index: number) => isGroupRow(displayRows.value[index]) ? HEADER_HEIGHT : ROW_HEIGHT,
   getItemKey: (index: number) => displayRows.value[index]?.[props.rowKey] ?? index,
   overscan: 12,
   enabled: virtualized.value,
@@ -296,15 +302,18 @@ interface CellInfo {
 
 // A row is exactly this tall, which is what the spacers rely on
 function cellStyle(cell: CellInfo): Record<string, string> {
-  if (isGroupRow(cell.row.original))
-    return { height: `${HEADER_HEIGHT}px` }
-  return virtualized.value ? { height: `${props.rowHeight}px` } : {}
+  return { height: `${isGroupRow(cell.row.original) ? HEADER_HEIGHT : ROW_HEIGHT}px` }
 }
+
+// Without checkboxes, grouped rows leave room on the left for the carets of the headers
+const gutter = computed(() => activeGroup.value && !props.selectable ? GUTTER : 0)
 
 // The first column of a row inside sections steps in with them
 function indentedStyle(cell: CellInfo): Record<string, string> {
-  const depth = isGroupRow(cell.row.original) ? 0 : trailOf(cell.row.original).length
-  return depth ? { ...cellStyle(cell), paddingLeft: `${16 + depth * INDENT_STEP}px` } : cellStyle(cell)
+  if (isGroupRow(cell.row.original))
+    return cellStyle(cell)
+  const offset = gutter.value + trailOf(cell.row.original).length * INDENT_STEP
+  return offset ? { ...cellStyle(cell), paddingLeft: `${CELL_PADDING + offset}px` } : cellStyle(cell)
 }
 
 // The row whose panel is open stays marked. Rails are drawn from the row, so grouped rows are positioned
@@ -326,6 +335,10 @@ const columnCount = computed(() => visibleColumns.value.length + (props.selectab
 // The caret and the empty space are the toggle: its ::after covers the header, and what has its own job (the box
 // that ticks the section, the link to it) sits above, like the row links do
 function renderGroup(group: GroupRowInfo) {
+  // What follows the caret starts where the content of the section's own rows does, so icons and names line up down the list
+  const rowDepth = group.flow ? group.trail.length + 1 : 0
+  const contentLeft = (props.selectable ? SELECT_WIDTH : GUTTER) + CELL_PADDING + rowDepth * INDENT_STEP
+  const caretLeft = CELL_PADDING + (props.selectable ? CHECKBOX_SIZE + CARET_GAP : 0)
   const nested = group.trail.length > 0
   const nameClass = nested ? 'font-medium text-default' : 'font-medium text-highlighted'
   const name = group.to
@@ -350,23 +363,26 @@ function renderGroup(group: GroupRowInfo) {
       'type': 'button',
       'aria-expanded': !group.collapsed,
       'class': 'flex shrink-0 items-center outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted',
-      'style': { marginLeft: `${group.trail.length * INDENT_STEP}px` },
+      'style': { marginLeft: `${contentLeft - GUTTER - caretLeft}px` },
       'onClick': () => toggleSection(group.id),
     }, [
-      h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3.5 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
+      h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
       h('span', { class: 'sr-only' }, `${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`),
     ]),
     group.dot ? h('span', { 'class': ['size-2 shrink-0 rounded-full', group.dot], 'aria-hidden': 'true' }) : null,
-    group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0 text-muted', group.iconClass], 'aria-hidden': 'true' }) : null,
-    name,
-    h('span', { class: 'shrink-0 text-xs text-muted tabular-nums' }, String(group.count)),
-    group.summary?.length
-      ? h('span', { class: 'flex shrink-0 items-center gap-1.5 text-xs text-muted' }, group.summary.flatMap((part, i) => [
-          i > 0 ? h('span', { 'class': 'text-dimmed', 'aria-hidden': 'true' }, '·') : null,
-          h('span', { class: [part.class, 'tabular-nums'] }, part.label),
-        ]))
-      : null,
-    group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+    group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0', group.iconClass ?? 'text-muted'], 'aria-hidden': 'true' }) : null,
+    // The text parts share a baseline: centring their boxes would leave the text-xs count ~1px off the text-sm name
+    h('div', { class: 'flex min-w-0 items-baseline gap-2' }, [
+      name,
+      h('span', { class: 'shrink-0 text-xs text-muted tabular-nums' }, String(group.count)),
+      group.summary?.length
+        ? h('span', { class: 'flex shrink-0 items-baseline gap-1.5 text-xs text-muted' }, group.summary.flatMap((part, i) => [
+            i > 0 ? h('span', { 'class': 'text-dimmed', 'aria-hidden': 'true' }, '·') : null,
+            h('span', { class: [part.class, 'tabular-nums'] }, part.label),
+          ]))
+        : null,
+      group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+    ]),
   ])
 }
 
@@ -415,7 +431,12 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
         td: (cell: CellInfo) => isGroupRow(cell.row.original) && leads(index) ? String(columnCount.value) : '1',
       },
       style: {
-        th: col.width ? { width: `${col.width}px` } : undefined,
+        th: col.width || (index === 0 && gutter.value)
+          ? {
+              ...(col.width ? { width: `${col.width}px` } : {}),
+              ...(index === 0 && gutter.value ? { paddingLeft: `${CELL_PADDING + gutter.value}px` } : {}),
+            }
+          : undefined,
         td: index === 0 ? indentedStyle : cellStyle,
       },
     },
@@ -560,13 +581,13 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       :style="fixedLayout ? { '--table-min-width': `${tableMinWidth}px` } : undefined"
       :ui="{
         base: fixedLayout ? 'w-full min-w-(--table-min-width) table-fixed' : '',
-        // Opaque when sticky, so rows don't show through while scrolling under it
-        thead: fill ? 'bg-muted' : 'bg-muted/60',
-        // Virtualized, the separators are drawn inside the cells: a border would add to the fixed row height
-        tbody: virtualized ? 'divide-y-0' : '',
+        // Opaque, so rows don't show through while scrolling under it when sticky; the same everywhere, sticky or not
+        thead: 'bg-muted',
+        // The separators are drawn inside the cells: a border would add to the fixed row height
+        tbody: 'divide-y-0',
         th: 'px-4 py-2 text-xs font-medium text-muted',
         tr: rowTo || rowOpen ? 'relative hover:bg-elevated/50' : '',
-        td: ['px-4 py-2.5 text-sm text-toned', fixedLayout && 'overflow-hidden text-ellipsis', virtualized && 'shadow-[inset_0_-1px_0_var(--ui-border)]'],
+        td: ['px-4 py-2.5 text-sm text-toned shadow-[inset_0_-1px_0_var(--ui-border)]', fixedLayout && 'overflow-hidden text-ellipsis'],
       }"
     >
       <!-- Stand-ins for the rows above and below the ones in the DOM -->

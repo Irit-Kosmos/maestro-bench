@@ -47,7 +47,7 @@ const breadcrumbs = computed(() => {
     <template #left>
       <UBreadcrumb
         :items="breadcrumbs"
-        :ui="{ list: 'min-w-0', item: 'min-w-0', link: 'text-sm min-w-0', linkLabel: 'truncate max-w-[40ch]' }"
+        :ui="{ list: 'min-w-0', item: 'min-w-0', link: 'text-sm min-w-0', linkLabel: 'truncate max-w-[40ch]', separatorIcon: 'size-3.5 text-dimmed' }"
       />
     </template>
 

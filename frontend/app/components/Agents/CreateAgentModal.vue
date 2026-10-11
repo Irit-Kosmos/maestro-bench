@@ -12,6 +12,8 @@ interface Props {
   lockKind?: boolean
   /** Team selected when the modal opens; the first team otherwise */
   initialTeamId?: number
+  /** Name filled in when the modal opens */
+  initialName?: string
   /** The request is under way: the dialog stays open, and keeps the form if it fails */
   loading?: boolean
 }
@@ -29,6 +31,7 @@ const props = withDefaults(defineProps<Props>(), {
   initialKind: 'llm',
   lockKind: false,
   initialTeamId: undefined,
+  initialName: '',
   loading: false,
 })
 const emit = defineEmits<Emits>()
@@ -65,7 +68,7 @@ const formValid = computed(() => {
 // Methods
 function resetForm() {
   formData.value = {
-    name: '',
+    name: props.initialName,
     description: '',
     kind: props.initialKind,
     default_prompt_version_id: null,

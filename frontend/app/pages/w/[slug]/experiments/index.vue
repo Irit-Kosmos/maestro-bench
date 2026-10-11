@@ -317,7 +317,6 @@ async function handleCreateExperiment() {
         v-model:group-by="groupBy"
         v-model:sort-by="sortBy"
         fill
-        :row-height="57"
         :data="experiments"
         :columns="columns"
         :filters="filters"

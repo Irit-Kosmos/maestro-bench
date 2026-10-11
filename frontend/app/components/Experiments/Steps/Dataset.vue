@@ -71,26 +71,26 @@ function togglePreview(datasetId: number) {
     <!-- Dataset Selection -->
     <div>
       <!-- Native radios: arrow keys move the selection, and the checked dot doesn't rely on color -->
-      <div v-if="datasets && datasets.length > 0" role="radiogroup" aria-labelledby="dataset-title" class="flex flex-col gap-2">
+      <div v-if="datasets && datasets.length > 0" role="radiogroup" aria-labelledby="dataset-title" class="flex flex-col gap-1.5">
         <div
           v-for="dataset in datasets"
           :key="dataset.id"
           class="rounded-lg border"
           :class="selectedDataset === dataset.id ? 'border-primary bg-primary/5' : 'border-default hover:border-accented'"
         >
-          <div class="flex items-center gap-3 px-4 py-3">
-            <label class="flex flex-1 items-start gap-3 min-w-0 cursor-pointer">
+          <div class="flex items-center gap-3 px-4 py-1.5">
+            <label class="flex flex-1 items-center gap-3 min-w-0 cursor-pointer">
               <input
                 type="radio"
                 name="dataset"
                 :value="dataset.id"
                 :checked="selectedDataset === dataset.id"
-                class="mt-0.5 size-4 shrink-0 accent-(--ui-primary) cursor-pointer"
+                class="size-4 shrink-0 accent-(--ui-primary) cursor-pointer"
                 @change="selectDataset(dataset.id)"
               >
-              <span class="min-w-0">
-                <span class="block text-sm font-medium text-highlighted">{{ dataset.name }}</span>
-                <span v-if="dataset.description" class="block mt-0.5 text-sm text-muted text-pretty">{{ dataset.description }}</span>
+              <span class="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-3 py-1">
+                <span class="shrink-0 text-sm font-medium text-highlighted">{{ dataset.name }}</span>
+                <span v-if="dataset.description" class="truncate text-sm text-muted" :title="dataset.description">{{ dataset.description }}</span>
               </span>
             </label>
 

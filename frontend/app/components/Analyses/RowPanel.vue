@@ -27,9 +27,21 @@ const error = ref<string | null>(null)
 
 const rowIndex = computed(() => props.rows[props.index] ?? null)
 
-const point = computed(() =>
-  props.run?.points?.find(p => p.row_index === rowIndex.value) ?? null,
-)
+// Numeric runs list their points; categorical ones know a row through its confusion cell
+const point = computed<{ pred: number | string, truth: number | string } | null>(() => {
+  const { confusion, points } = props.run ?? {}
+  const found = points?.find(p => p.row_index === rowIndex.value)
+  if (found)
+    return found
+  if (!confusion?.rows)
+    return null
+  for (const [i, cells] of confusion.rows.entries()) {
+    const j = cells.findIndex(rows => rows.includes(rowIndex.value as number))
+    if (j >= 0)
+      return { truth: confusion.labels[i]!, pred: confusion.labels[j]! }
+  }
+  return null
+})
 
 // Latest request wins when the user clicks through points quickly
 let request = 0

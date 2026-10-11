@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PipelineItem } from '~/composables/useAgentPipeline'
-import type { Model, PromptVersion, VariationDraft, VariationField } from '~/types'
+import type { AgentInputMapping, Model, PromptVersion, VariationDraft, VariationField } from '~/types'
 
 // Turns the experiment into a batch: each variation is an axis (an agent's model, prompt version or
 // temperature and the values to try besides the current one), and one experiment runs per combination.
@@ -10,10 +10,15 @@ const props = defineProps<{
   items: readonly PipelineItem[]
   models?: readonly Model[] | null
   promptVersions?: readonly PromptVersion[] | null
+  datasetHeaders?: readonly string[]
   /** Experiments the batch will start */
   count: number
   /** Name of the existing experiment the current setup was copied from, which is not run again */
   skippedOrigin?: string | null
+}>()
+
+const emit = defineEmits<{
+  setMapping: [agentId: number, mapping: AgentInputMapping]
 }>()
 
 const variations = defineModel<VariationDraft[]>('variations', { required: true })
@@ -41,14 +46,35 @@ function onlyAdded(variation: VariationDraft, selected: unknown): number[] {
   return (selected as number[]).filter(value => value !== base)
 }
 
-// A prompt version can replace the agent's one only if the agent's mappings cover its variables
+// A prompt version with variables the agent's prompt lacks says so: they get a mapping right below
 function promptState(agentId: number) {
   const config = agents.value.find(item => item.agent.id === agentId)?.config
   return (version: PromptVersion) => {
-    const missing = unmappedVariables(version, config)
-    return missing.length > 0 ? { description: `Needs a mapping for ${missing.join(', ')}`, disabled: true } : undefined
+    const added = addedVariables({ agent_id: agentId, field: 'prompt_version_id', extras: [version.id] }, config, props.promptVersions ?? [])
+    return added.length > 0 ? { description: `Adds ${added.join(', ')}` } : undefined
   }
 }
+
+// Variables the chosen prompts add to the agent's own, and what they can read: the dataset and the agents before
+function addedOf(variation: VariationDraft) {
+  return addedVariables(variation, agents.value.find(item => item.agent.id === variation.agent_id)?.config, props.promptVersions ?? [])
+}
+
+function mappingsOf(agentId: number) {
+  return agents.value.find(item => item.agent.id === agentId)?.config.input_mappings
+}
+
+function upstreamOf(agentId: number) {
+  const index = props.items.findIndex(item => item.agent.id === agentId)
+  return props.items.slice(0, Math.max(index, 0))
+    .filter(item => item.config.is_active !== false)
+    .map(item => item.agent)
+}
+
+const unmappedCount = computed(() => variations.value.reduce((total, variation) => {
+  const mapped = new Set((mappingsOf(variation.agent_id) ?? []).filter(isMappingComplete).map(m => m.variable))
+  return total + addedOf(variation).filter(variable => !mapped.has(variable)).length
+}, 0))
 
 function firstFreeField(agentId: number): VariationField {
   const used = new Set(variations.value.filter(v => v.agent_id === agentId).map(v => v.field))
@@ -186,12 +212,27 @@ watch(agents, (list) => {
             aria-label="Remove variation"
             @click="remove(index)"
           />
+
+          <div v-if="addedOf(variation).length > 0" class="@container min-w-0 sm:col-span-full">
+            <ExperimentsVariableMappings
+              :variables="addedOf(variation)"
+              :mappings="mappingsOf(variation.agent_id)"
+              :dataset-headers="datasetHeaders ?? []"
+              :upstream-agents="upstreamOf(variation.agent_id)"
+              title="Variables of these prompts"
+              description="They use variables the current prompt does not have. Choose where each gets its value; the prompts that do not use one ignore it."
+              @set-mapping="mapping => emit('setMapping', variation.agent_id, mapping)"
+            />
+          </div>
         </li>
       </ul>
 
       <p class="text-sm" :class="count > BATCH_CONFIRM_THRESHOLD ? 'text-warning' : 'text-toned'" role="status">
         <template v-if="incomplete">
           Add at least one value besides the current one in each variation.
+        </template>
+        <template v-else-if="unmappedCount > 0">
+          Map {{ unmappedCount === 1 ? 'the variable' : `the ${unmappedCount} variables` }} of the prompts above.
         </template>
         <template v-else>
           <span class="font-medium tabular-nums">{{ count }}</span>

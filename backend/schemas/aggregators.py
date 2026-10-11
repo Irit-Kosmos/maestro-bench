@@ -18,6 +18,8 @@ class FormulaCheckRequest(BaseModel):
 class FormulaCheckResponse(BaseModel):
     # One message per formula, None when it is valid
     errors: list[str | None]
+    # Whether each error is about the output's name rather than its formula
+    name_invalid: list[bool]
     # Variables to map, in order of first appearance
     variables: list[str]
 

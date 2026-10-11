@@ -12,6 +12,8 @@ const props = defineProps<{
   upstreamAgents: readonly Agent[]
   /** Variable under the pointer in the mappings */
   active?: string | null
+  /** Tighter type, for a side panel */
+  compact?: boolean
 }>()
 
 const ids = useId()
@@ -71,7 +73,7 @@ const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none foc
 <template>
   <section v-if="version && variables.length > 0" :aria-labelledby="`${ids}-title`">
     <div class="flex items-center justify-between gap-2">
-      <h4 :id="`${ids}-title`" class="text-sm font-medium text-highlighted">
+      <h4 :id="`${ids}-title`" class="font-medium text-highlighted" :class="compact ? 'text-xs' : 'text-sm'">
         Prompt
       </h4>
 
@@ -104,11 +106,11 @@ const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none foc
         </div>
       </div>
     </div>
-    <p class="mt-0.5 text-sm text-muted">
+    <p class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
       {{ view === 'template' ? 'Point at a variable above to find it in the prompt.' : 'What the model receives for this row.' }}
     </p>
 
-    <div class="mt-3 max-h-80 space-y-4 overflow-y-auto">
+    <div class="space-y-4 overflow-y-auto" :class="compact ? 'mt-2 max-h-64' : 'mt-3 max-h-80'">
       <template v-if="view === 'template'">
         <PromptContentDisplay v-if="version.system_prompt" label="System prompt" :content="version.system_prompt" :variables="variables" :active="active" />
         <PromptContentDisplay v-if="version.user_prompt" label="User prompt" :content="version.user_prompt" :variables="variables" :active="active" />

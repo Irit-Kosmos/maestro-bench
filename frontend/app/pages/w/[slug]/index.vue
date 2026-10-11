@@ -45,22 +45,19 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
 <template>
   <div class="flex flex-col gap-6">
     <AppPageActions>
-      <UTooltip text="Refresh">
-        <UButton
-          icon="i-ph-arrows-clockwise-bold"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          aria-label="Refresh"
-          :loading="isRefreshing"
-          @click="refresh"
-        />
-      </UTooltip>
-      <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']">
-        <UButton to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
-          New experiment
-        </UButton>
-      </UTooltip>
+      <UButton
+        data-tooltip="Refresh"
+        icon="i-ph-arrows-clockwise-bold"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        aria-label="Refresh"
+        :loading="isRefreshing"
+        @click="refresh"
+      />
+      <UButton v-if="canEdit" data-tooltip="New experiment" data-tooltip-kbds="C" to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
+        New experiment
+      </UButton>
       <UIGuardedButton v-else to="/experiments/new" icon="i-ph-plus-bold" color="neutral" variant="soft" size="sm">
         New experiment
       </UIGuardedButton>

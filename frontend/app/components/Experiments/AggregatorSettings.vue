@@ -8,6 +8,8 @@ const props = defineProps<{
   datasetHeaders: readonly string[]
   /** Agents whose output this aggregator may read, nearest last */
   upstreamAgents: readonly Agent[]
+  /** Smaller type, for a side panel */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +29,10 @@ const { check, preview, previewing, runPreview } = useFormulaCheck(
 
 function errorOf(index: number) {
   return check.value?.errors[index] ?? null
+}
+
+function nameInvalid(index: number) {
+  return !!errorOf(index) && !!check.value?.name_invalid?.[index]
 }
 
 function patch(index: number, change: Partial<FormulaOutput>) {
@@ -67,11 +73,11 @@ function outputLabel(output: Record<string, unknown>) {
 </script>
 
 <template>
-  <div class="@container flex flex-col gap-5">
+  <div class="@container flex flex-col" :class="compact ? 'gap-4' : 'gap-5'">
     <!-- Outputs -->
     <section :aria-labelledby="`${ids}-outputs`">
       <div class="flex items-baseline justify-between gap-2">
-        <h4 :id="`${ids}-outputs`" class="text-sm font-medium text-highlighted">
+        <h4 :id="`${ids}-outputs`" class="font-medium text-highlighted" :class="compact ? 'text-xs' : 'text-sm'">
           Outputs
         </h4>
         <UPopover :content="{ align: 'end' }">
@@ -98,7 +104,7 @@ function outputLabel(output: Record<string, unknown>) {
           </template>
         </UPopover>
       </div>
-      <p class="mt-0.5 text-sm text-muted">
+      <p class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
         Computed in order on every row, a later formula can use an earlier output. An analysis compares any of them to the ground truth.
       </p>
 
@@ -109,9 +115,13 @@ function outputLabel(output: Record<string, unknown>) {
               :model-value="output.name"
               placeholder="name"
               size="sm"
-              class="w-32 shrink-0"
+              class="shrink-0" :class="compact ? 'w-24' : 'w-32'"
               :ui="{ base: 'font-mono text-xs' }"
+              :color="nameInvalid(index) ? 'error' : 'neutral'"
+              :highlight="nameInvalid(index)"
               :aria-label="`Name of output ${index + 1}`"
+              :aria-invalid="nameInvalid(index)"
+              :aria-describedby="nameInvalid(index) ? `${ids}-error-${index}` : undefined"
               @update:model-value="(value: string | number) => patch(index, { name: String(value).trim() })"
             />
             <span class="text-sm text-dimmed" aria-hidden="true">=</span>
@@ -122,11 +132,11 @@ function outputLabel(output: Record<string, unknown>) {
               size="sm"
               class="min-w-0 flex-1"
               :ui="{ base: 'font-mono text-xs' }"
-              :color="errorOf(index) ? 'error' : 'neutral'"
-              :highlight="!!errorOf(index)"
+              :color="errorOf(index) && !nameInvalid(index) ? 'error' : 'neutral'"
+              :highlight="!!errorOf(index) && !nameInvalid(index)"
               :aria-label="`Formula of ${output.name || `output ${index + 1}`}`"
-              :aria-invalid="!!errorOf(index)"
-              :aria-describedby="errorOf(index) ? `${ids}-error-${index}` : undefined"
+              :aria-invalid="!!errorOf(index) && !nameInvalid(index)"
+              :aria-describedby="errorOf(index) && !nameInvalid(index) ? `${ids}-error-${index}` : undefined"
               @update:model-value="(value: string | number) => patch(index, { formula: String(value) })"
             />
             <UButton
@@ -139,7 +149,7 @@ function outputLabel(output: Record<string, unknown>) {
               @click="removeOutput(index)"
             />
           </div>
-          <p v-if="errorOf(index)" :id="`${ids}-error-${index}`" class="mt-1 ps-34 text-xs text-error">
+          <p v-if="errorOf(index)" :id="`${ids}-error-${index}`" class="mt-1 text-xs text-error" :class="nameInvalid(index) ? '' : compact ? 'ps-26' : 'ps-34'">
             {{ errorOf(index) }}
           </p>
         </li>
@@ -161,13 +171,14 @@ function outputLabel(output: Record<string, unknown>) {
       static-placeholder="A number or a text, like 0.4"
       :is-complete="isFormulaMappingComplete"
       with-lists
+      :compact="compact"
       @set-mapping="mapping => emit('setMapping', mapping)"
     />
 
     <!-- Preview on what agents already returned -->
     <section v-if="variables.length > 0" :aria-labelledby="`${ids}-preview`">
       <div class="flex items-center justify-between gap-2">
-        <h4 :id="`${ids}-preview`" class="text-sm font-medium text-highlighted">
+        <h4 :id="`${ids}-preview`" class="font-medium text-highlighted" :class="compact ? 'text-xs' : 'text-sm'">
           Preview
         </h4>
         <UButton
@@ -182,16 +193,16 @@ function outputLabel(output: Record<string, unknown>) {
           Try on a past run
         </UButton>
       </div>
-      <p v-if="!preview" class="mt-0.5 text-sm text-muted">
+      <p v-if="!preview" class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
         {{ canPreview
           ? 'Computes the outputs on the first rows of the latest run of the agents they read.'
           : 'Map a variable to a previous agent to try the formulas on what it returned.' }}
       </p>
-      <p v-else-if="preview.execution_id === null" class="mt-0.5 text-sm text-muted">
+      <p v-else-if="preview.execution_id === null" class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
         No completed run has every agent these formulas read yet.
       </p>
       <template v-else>
-        <p class="mt-0.5 text-sm text-muted">
+        <p class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
           First rows of execution #{{ preview.execution_id }}<template v-if="preview.experiment_name">
             ({{ preview.experiment_name }})
           </template>

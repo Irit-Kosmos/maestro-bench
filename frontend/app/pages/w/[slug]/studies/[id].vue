@@ -134,10 +134,10 @@ const menu = computed(() => [
 
 const stats = computed(() => study.value
   ? [
-      { label: 'Items', value: String(itemCount(study.value.counts)) },
-      { label: 'Executions', value: study.value.execution_count ? String(study.value.execution_count) : '—' },
-      { label: 'Tokens', value: formatTokens(study.value.total_tokens), title: formatCount(study.value.total_tokens) },
-      { label: 'Cost', value: formatCost(study.value.total_cost_usd), title: formatCostPrecise(study.value.total_cost_usd) },
+      { label: 'Items', icon: 'i-ph-stack-bold', value: String(itemCount(study.value.counts)) },
+      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold', value: study.value.execution_count ? String(study.value.execution_count) : '—' },
+      { label: 'Tokens', icon: 'i-ph-coins-bold', value: formatTokens(study.value.total_tokens), title: formatCount(study.value.total_tokens) },
+      { label: 'Cost', icon: 'i-ph-currency-dollar-bold', value: formatCost(study.value.total_cost_usd), title: formatCostPrecise(study.value.total_cost_usd) },
     ]
   : [])
 </script>
@@ -155,17 +155,17 @@ const stats = computed(() => study.value
 
     <div v-else-if="study" :key="study.id" class="mx-auto flex max-w-6xl flex-col gap-5">
       <AppPageActions>
-        <UTooltip text="Properties" :kbds="['meta', 'I']">
-          <UButton
-            icon="i-ph-sidebar-simple-bold"
-            color="neutral"
-            :variant="showProperties ? 'soft' : 'ghost'"
-            size="sm"
-            :aria-pressed="showProperties"
-            aria-label="Toggle the properties panel"
-            @click="() => { showProperties = !showProperties }"
-          />
-        </UTooltip>
+        <UButton
+          data-tooltip="Properties"
+          data-tooltip-kbds="meta,I"
+          icon="i-ph-sidebar-simple-bold"
+          color="neutral"
+          :variant="showProperties ? 'soft' : 'ghost'"
+          size="sm"
+          :aria-pressed="showProperties"
+          aria-label="Toggle the properties panel"
+          @click="() => { showProperties = !showProperties }"
+        />
         <UDropdownMenu v-if="canEdit" :items="menu" :content="{ align: 'end' }">
           <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
         </UDropdownMenu>
@@ -237,13 +237,18 @@ const stats = computed(() => study.value
         <div class="min-w-0">
           <div v-show="tab === 'overview'" class="flex flex-col gap-8">
             <dl class="flex flex-wrap gap-x-10 gap-y-4">
-              <div v-for="stat in stats" :key="stat.label">
-                <dt class="text-xs text-muted">
-                  {{ stat.label }}
-                </dt>
-                <dd class="mt-0.5 text-lg font-semibold text-highlighted" :title="stat.title">
-                  {{ stat.value }}
-                </dd>
+              <div v-for="stat in stats" :key="stat.label" class="flex items-center gap-3">
+                <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated text-muted">
+                  <UIcon :name="stat.icon" class="size-4.5" aria-hidden="true" />
+                </span>
+                <div>
+                  <dt class="text-xs text-muted">
+                    {{ stat.label }}
+                  </dt>
+                  <dd class="text-lg/6 font-semibold text-highlighted" :title="stat.title">
+                    {{ stat.value }}
+                  </dd>
+                </div>
               </div>
             </dl>
 

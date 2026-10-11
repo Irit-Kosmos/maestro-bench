@@ -15,6 +15,14 @@
   --ui-header-height: 3.25rem;
 }
 
+/* Tailwind v4 leaves buttons on the default cursor: give them the hand links already have, so both kinds match */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /*
  * Dark theme uses true neutral grays instead of the bluish slate scale (light keeps slate).
  * Literal values: Nuxt UI aliases --color-neutral-* to the configured scale, so the
@@ -211,32 +219,6 @@ html:root.dark {
   --viz-series-1: #6da7ec;
   --vis-scatter-fill-opacity: 0.6;
   --vis-tooltip-shadow-color: rgb(0 0 0 / 0.5);
-}
-
-/* Vue Flow ships a light-only theme; point its chrome at the same tokens */
-.vue-flow__controls {
-  box-shadow: none;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
-  overflow: hidden;
-}
-
-.vue-flow__controls-button {
-  background: var(--ui-bg);
-  border-bottom-color: var(--ui-border);
-  fill: var(--ui-text-toned);
-
-  &:hover {
-    background: var(--ui-bg-elevated);
-  }
-}
-
-.vue-flow__edge-path {
-  stroke: var(--ui-border-accented);
-}
-
-.vue-flow__edge.selected .vue-flow__edge-path {
-  stroke: var(--ui-primary);
 }
 
 /* Reordering by drag: the slot left behind recedes, the row in hand lifts */

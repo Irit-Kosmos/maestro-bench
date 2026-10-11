@@ -299,21 +299,18 @@ function exportCsv() {
             </p>
           </div>
           <UTooltip v-if="okRuns.length > 1" text="Highlight the best execution of each chart" :content="{ align: 'end' }">
-            <UButton
-              icon="i-ph-trophy-bold"
-              size="sm"
-              color="neutral"
-              variant="outline"
-              aria-label="Highlight the best execution of each chart"
-              class="print:hidden"
-              :class="highlightBest && 'bg-elevated'"
+            <span
+              tabindex="0"
+              class="inline-flex items-center gap-1.5 text-xs cursor-help select-none transition-colors print:hidden"
+              :class="highlightBest ? 'text-highlighted' : 'text-muted'"
               @mouseenter="highlightBest = true"
               @mouseleave="highlightBest = false"
               @focus="highlightBest = true"
               @blur="highlightBest = false"
             >
-              Best
-            </UButton>
+              <UIcon name="i-ph-trophy-bold" class="size-3.5" />
+              <span class="underline decoration-dotted underline-offset-4">Hover to see the best</span>
+            </span>
           </UTooltip>
         </div>
       </template>
@@ -335,8 +332,13 @@ function exportCsv() {
         <h3 class="font-semibold">
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
         </h3>
-        <p v-if="config.value_type === 'numeric'" class="text-sm text-muted">
-          Dashed line is y = x; click a point to see its row, or the rows stacked on it
+        <p class="text-sm text-muted">
+          <template v-if="config.value_type === 'numeric'">
+            Dashed line is y = x; click a point to see its row, or the rows stacked on it
+          </template>
+          <template v-else>
+            Click a cell to see the rows it counts
+          </template>
         </p>
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
@@ -360,6 +362,8 @@ function exportCsv() {
             v-else-if="run.confusion"
             :labels="run.confusion.labels"
             :matrix="run.confusion.matrix"
+            :rows="run.confusion.rows"
+            @select="selectPoint(run, $event)"
           />
         </div>
       </div>

@@ -1,4 +1,5 @@
 import type { AgentConfiguration, Experiment, PromptVersion, Variation, VariationDraft, VariationField } from '~/types'
+import { isMappingComplete, parsePromptVariables } from './utils'
 
 // Past this many experiments at once, ask before starting (each one is a paid run over the whole sample)
 export const BATCH_CONFIRM_THRESHOLD = 10
@@ -37,14 +38,43 @@ export function variationCount(variations: readonly Variation[], skipBase = fals
   return Math.max(total - (skipBase ? 1 : 0), 0)
 }
 
-/** Variables of a prompt version that the agent's mappings do not provide */
-export function unmappedVariables(version: PromptVersion | undefined, config: AgentConfiguration | undefined): string[] {
-  const mappings = config?.input_mappings ?? []
-  // Without mappings the backend gives the agent the whole row, so any prompt can run
-  if (mappings.length === 0)
+/**
+ * Variables that the prompt versions of a variation have and the agent's current prompt does not.
+ * They share the agent's mappings, so each one needs a source of its own.
+ */
+export function addedVariables(
+  draft: VariationDraft,
+  config: AgentConfiguration | undefined,
+  promptVersions: readonly PromptVersion[],
+): string[] {
+  if (draft.field !== 'prompt_version_id')
     return []
-  const mapped = new Set(mappings.filter(isMappingComplete).map(m => m.variable))
-  return parsePromptVariables(version?.variables).filter(variable => !mapped.has(variable))
+  const variablesOf = (id: number | undefined) => parsePromptVariables(promptVersions.find(v => v.id === id)?.variables)
+  const own = new Set(variablesOf(config?.prompt_version_id))
+  return [...new Set(draft.extras.flatMap(variablesOf).filter(variable => !own.has(variable)))]
+}
+
+/** The same, per agent */
+export function addedVariablesByAgent(
+  drafts: readonly VariationDraft[],
+  configs: Record<number, AgentConfiguration>,
+  promptVersions: readonly PromptVersion[],
+): Record<number, string[]> {
+  const byAgent: Record<number, string[]> = {}
+  for (const draft of drafts) {
+    const added = addedVariables(draft, configs[draft.agent_id], promptVersions)
+    if (added.length > 0)
+      byAgent[draft.agent_id] = [...new Set([...(byAgent[draft.agent_id] ?? []), ...added])]
+  }
+  return byAgent
+}
+
+/** How many of those variables still have no complete mapping */
+export function unmappedAddedCount(added: Record<number, readonly string[]>, configs: Record<number, AgentConfiguration>): number {
+  return Object.entries(added).reduce((total, [agentId, variables]) => {
+    const mapped = new Set((configs[Number(agentId)]?.input_mappings ?? []).filter(isMappingComplete).map(m => m.variable))
+    return total + variables.filter(variable => !mapped.has(variable)).length
+  }, 0)
 }
 
 /** Why the variations cannot be submitted yet, in words */

@@ -5,6 +5,8 @@ import { watchDebounced } from '@vueuse/core'
 export interface FormulaCheck {
   /** One message per formula, null when it is valid */
   errors: (string | null)[]
+  /** Whether each error is about the output's name rather than its formula */
+  name_invalid: boolean[]
   variables: string[]
 }
 

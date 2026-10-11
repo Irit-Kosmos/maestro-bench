@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Experiment, ExperimentExecution } from '~/types'
 import type { FetchErrorKind } from '~/utils/fetchError'
+import { useResizeObserver } from '@vueuse/core'
 
 // Route params
 const route = useRoute()
@@ -273,6 +274,16 @@ const executionRows = computed(() => [...executions.value]
     }
   }))
 
+// A fade at the foot of the capped list says there is more below; it goes once the end is reached
+const executionsList = useTemplateRef<HTMLElement>('executionsList')
+const moreBelow = ref(false)
+function measureExecutionsList() {
+  const el = executionsList.value
+  moreBelow.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 4
+}
+useResizeObserver(executionsList, measureExecutionsList)
+watch([executionRows, executionsList], () => nextTick(measureExecutionsList))
+
 // A new execution appears when a run starts, its figures when it ends
 onStatus((run) => {
   if (!run || run.experiment_id === experimentId.value)
@@ -301,54 +312,50 @@ watch(() => route.params.id, () => {
     <div v-else-if="experiment" class="@container flex max-w-[96rem] flex-col gap-6">
       <!-- Actions live in the top bar; Back is the breadcrumb -->
       <AppPageActions>
-        <UTooltip text="Run this setup with other models, prompts or temperatures" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="neutral"
-            icon="i-ph-arrows-split-bold"
-            size="sm"
-            :to="{ path: '/experiments/new', query: { from: experiment.id } }"
-          >
-            Vary
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip v-if="status === 'running' || status === 'queued'" :text="status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="error"
-            icon="i-ph-stop-circle-bold"
-            size="sm"
-            :loading="isCancelling"
-            @click="() => { showCancelDialog = true }"
-          >
-            Cancel run
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip v-else text="Create a new execution with the same configuration" :disabled="!canEdit">
-          <UIGuardedButton
-            variant="soft"
-            color="neutral"
-            icon="i-ph-play-bold"
-            size="sm"
-            :loading="isRerunning"
-            :disabled="!experiment"
-            @click="handleRerunExperiment"
-          >
-            Re-run
-          </UIGuardedButton>
-        </UTooltip>
-        <UTooltip :text="analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'" :disabled="!canEdit">
-          <UIGuardedButton
-            color="neutral"
-            variant="soft"
-            icon="i-ph-chart-bar-bold"
-            size="sm"
-            :disabled="!analyzeLink"
-            :to="analyzeLink"
-          >
-            Analyze
-          </UIGuardedButton>
-        </UTooltip>
+        <UIGuardedButton
+          :data-tooltip="canEdit ? 'Run this setup with other models, prompts or temperatures' : undefined"
+          variant="soft"
+          color="neutral"
+          icon="i-ph-arrows-split-bold"
+          size="sm"
+          :to="{ path: '/experiments/new', query: { from: experiment.id } }"
+        >
+          Vary
+        </UIGuardedButton>
+        <UIGuardedButton
+          v-if="status === 'running' || status === 'queued'" :data-tooltip="!canEdit ? undefined : status === 'queued' ? 'Take the run out of the queue' : 'Stop the run in progress'"
+          variant="soft"
+          color="error"
+          icon="i-ph-stop-circle-bold"
+          size="sm"
+          :loading="isCancelling"
+          @click="() => { showCancelDialog = true }"
+        >
+          Cancel run
+        </UIGuardedButton>
+        <UIGuardedButton
+          v-else :data-tooltip="canEdit ? 'Create a new execution with the same configuration' : undefined"
+          variant="soft"
+          color="neutral"
+          icon="i-ph-play-bold"
+          size="sm"
+          :loading="isRerunning"
+          :disabled="!experiment"
+          @click="handleRerunExperiment"
+        >
+          Re-run
+        </UIGuardedButton>
+        <UIGuardedButton
+          :data-tooltip="!canEdit ? undefined : analyzeLink ? (analyzableExecutions.length > 1 ? 'Compare all executions to a ground-truth column' : 'Compare this execution to a ground-truth column') : 'Available once an execution has completed'"
+          color="neutral"
+          variant="soft"
+          icon="i-ph-chart-bar-bold"
+          size="sm"
+          :disabled="!analyzeLink"
+          :to="analyzeLink"
+        >
+          Analyze
+        </UIGuardedButton>
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete experiment', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
@@ -483,49 +490,61 @@ watch(() => route.params.id, () => {
             :count="executionRows.length"
             compact
           >
-            <ul class="divide-y divide-default overflow-hidden rounded-lg border border-default">
-              <li
-                v-for="row in executionRows"
-                :key="row.execution.id"
-                class="flex items-center gap-2 py-2 pl-3 pr-2"
+            <!-- Capped so a long history doesn't push Notes off screen -->
+            <div class="relative">
+              <ul
+                ref="executionsList"
+                class="max-h-80 divide-y divide-default overflow-y-auto overscroll-contain rounded-lg border border-default"
+                @scroll.passive="measureExecutionsList"
               >
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <UIStatusBadge :status="row.execution.status" />
-                    <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
-                    <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
-                    <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                <li
+                  v-for="row in executionRows"
+                  :key="row.execution.id"
+                  class="flex items-center gap-2 py-2 pl-3 pr-2"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <UIStatusBadge :status="row.execution.status" />
+                      <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
+                      <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+                      <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                    </div>
+                    <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
+                    <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
+                    <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
+                      <UIMetaItem v-if="row.duration" icon="i-ph-clock-bold" label="Duration">
+                        {{ row.duration }}
+                      </UIMetaItem>
+                      <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
+                        <span :title="formatCount(row.execution.total_tokens)">{{ row.tokens }}</span>
+                      </UIMetaItem>
+                      <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
+                        <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
+                      </UIMetaItem>
+                    </div>
+                    <!-- Runs with the same seed ran on the same rows -->
+                    <p v-if="row.seed !== null" class="mt-1 text-xs text-muted tabular-nums">
+                      Random sample, seed {{ row.seed }}
+                    </p>
                   </div>
-                  <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
-                  <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
-                  <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
-                    <UIMetaItem v-if="row.duration" icon="i-ph-clock-bold" label="Duration">
-                      {{ row.duration }}
-                    </UIMetaItem>
-                    <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
-                      <span :title="formatCount(row.execution.total_tokens)">{{ row.tokens }}</span>
-                    </UIMetaItem>
-                    <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
-                      <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
-                    </UIMetaItem>
-                  </div>
-                  <!-- Runs with the same seed ran on the same rows -->
-                  <p v-if="row.seed !== null" class="mt-1 text-xs text-muted tabular-nums">
-                    Random sample, seed {{ row.seed }}
-                  </p>
-                </div>
-                <UTooltip v-if="row.execution.results_file_path" text="Download results">
-                  <UButton
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-ph-download-simple-bold"
-                    size="sm"
-                    :aria-label="`Download results of execution #${row.execution.id}`"
-                    @click="() => { downloadResultsFile(row.execution.id) }"
-                  />
-                </UTooltip>
-              </li>
-            </ul>
+                  <UTooltip v-if="row.execution.results_file_path" text="Download results">
+                    <UButton
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-ph-download-simple-bold"
+                      size="sm"
+                      :aria-label="`Download results of execution #${row.execution.id}`"
+                      @click="() => { downloadResultsFile(row.execution.id) }"
+                    />
+                  </UTooltip>
+                </li>
+              </ul>
+              <div
+                class="pointer-events-none absolute inset-x-px bottom-px h-12 rounded-b-lg bg-gradient-to-t from-(--ui-bg) to-transparent transition-opacity duration-150"
+                :class="moreBelow ? 'opacity-100' : 'opacity-0'"
+                aria-hidden="true"
+              />
+            </div>
           </ExperimentsSection>
         </div>
       </div>

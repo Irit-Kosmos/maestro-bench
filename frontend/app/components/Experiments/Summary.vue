@@ -73,6 +73,7 @@ const emit = defineEmits<{
       <UTooltip :text="canSubmit ? submitLabel : 'Complete the sections above first'" :kbds="canSubmit ? ['meta', 'enter'] : undefined">
         <UButton
           block
+          color="neutral"
           icon="i-ph-play-bold"
           :disabled="!canSubmit"
           :loading="submitting"

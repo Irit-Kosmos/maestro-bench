@@ -8,9 +8,12 @@ const props = withDefaults(defineProps<{
   partial?: number[]
   /** A study is being made from what was typed */
   creating?: boolean
+  /** Only offers the studies still running (and the ones already chosen), for work that is about to start */
+  activeOnly?: boolean
 }>(), {
   partial: () => [],
   creating: false,
+  activeOnly: false,
 })
 
 const emit = defineEmits<{
@@ -32,7 +35,9 @@ const listId = useId()
 const optionId = (index: number) => `${listId}-${index}`
 
 const typed = computed(() => query.value.trim().split(/\s+/).filter(Boolean).join(' '))
-const offered = computed(() => studies.value.filter(study => study.status !== 'archived'))
+const offered = computed(() => studies.value.filter(study => props.activeOnly
+  ? study.status === 'active' || props.selected.includes(study.id)
+  : study.status !== 'archived'))
 const matches = computed(() => matchStudies(offered.value, query.value))
 const canCreate = computed(() => !!typed.value && !findStudy(studies.value, typed.value))
 

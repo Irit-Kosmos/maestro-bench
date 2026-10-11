@@ -49,10 +49,10 @@ function isActive(to: string) {
 
 const itemClass = 'group flex items-center gap-2 h-8 px-2 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted'
 
-// Same key as Linear: the fastest users toggle the sidebar without the mouse.
+// ⌘B like VS Code rather than Linear's `[`, which needs AltGr on an AZERTY keyboard.
 // No animation on purpose: a keyboard toggle should feel instant.
 defineShortcuts({
-  '[': () => {
+  meta_b: () => {
     collapsed.value = !collapsed.value
   },
 })
@@ -81,7 +81,7 @@ defineShortcuts({
 
       <UTooltip
         :text="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        :kbds="['[']"
+        :kbds="['meta', 'B']"
         :content="{ side: 'right' }"
       >
         <UDashboardSidebarCollapse size="sm" :class="isCollapsed && 'mx-auto'" />
@@ -89,24 +89,20 @@ defineShortcuts({
     </template>
 
     <template #default="{ collapsed: isCollapsed }">
-      <!-- Search + create, the two actions people reach for most -->
-      <div class="flex gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
-        <UDashboardSearchButton
-          :collapsed="isCollapsed"
+      <!-- The command palette stays on ⌘K; the sidebar keeps a single primary action -->
+      <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
+        <UButton
+          to="/experiments/new"
+          icon="i-ph-note-pencil"
+          color="neutral"
+          variant="subtle"
           size="sm"
-          :class="isCollapsed ? '' : 'flex-1'"
+          :block="!isCollapsed"
+          :label="isCollapsed ? undefined : 'New experiment'"
+          :class="isCollapsed && 'mx-auto'"
+          aria-label="New experiment"
         />
-        <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
-          <UButton
-            to="/experiments/new"
-            icon="i-ph-note-pencil"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            aria-label="New experiment"
-          />
-        </UTooltip>
-      </div>
+      </UTooltip>
 
       <nav aria-label="Main" class="flex flex-col gap-4">
         <template v-for="(section, index) in sections" :key="section.label ?? index">
