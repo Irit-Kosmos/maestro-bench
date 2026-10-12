@@ -20,7 +20,7 @@ const bars = computed(() => {
 </script>
 
 <template>
-  <div v-if="values.length" class="flex h-7 w-24 shrink-0 items-stretch gap-px" aria-hidden="true">
+  <div v-if="values.length" class="flex h-8 w-24 shrink-0 items-stretch gap-0.5" aria-hidden="true">
     <UTooltip
       v-for="(bar, i) in bars"
       :key="i"

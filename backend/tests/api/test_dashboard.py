@@ -118,8 +118,8 @@ def test_empty_database(client):
     }
     assert activity["previous"]["experiments"] == 0
     assert activity["active"] == []
-    # A week in slices of six hours
-    assert len(activity["buckets"]) == 28
+    # A week in slices of twelve hours
+    assert len(activity["buckets"]) == 14
 
 
 def test_recent_experiment_carries_its_latest_execution(client, engine, world):
@@ -332,7 +332,7 @@ def test_buckets_add_up_to_the_period(client, engine, world):
 
 
 @pytest.mark.parametrize(
-    ("range_", "slices"), [("24h", 24), ("7d", 28), ("30d", 30), ("90d", 30)]
+    ("range_", "slices"), [("24h", 12), ("7d", 14), ("30d", 15), ("90d", 15)]
 )
 def test_each_period_is_cut_in_its_own_slices(client, range_, slices):
     activity = client.get("/dashboard", params={"range": range_}).json()["activity"]
@@ -350,7 +350,7 @@ def test_all_starts_at_the_first_experiment(client, engine, world):
 
     assert activity["since"] is None
     assert activity["current"]["experiments"] == 2
-    assert 1 < len(activity["buckets"]) <= 31
+    assert 1 < len(activity["buckets"]) <= 16
     assert sum(b["experiments"] for b in activity["buckets"]) == 2
 
 
