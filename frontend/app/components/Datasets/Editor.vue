@@ -243,7 +243,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
             size="sm"
             variant="none"
             aria-label="Search rows"
-            class="flex-1 min-w-40 max-w-sm"
+            class="flex-1 min-w-40 max-w-sm rounded-md focus-within:ring-2 focus-within:ring-inverted"
             @keydown.esc.prevent="onSearchEscape"
           >
             <template v-if="!query" #trailing>
@@ -253,7 +253,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
 
           <p class="text-xs text-muted tabular-nums whitespace-nowrap">
             <span class="font-medium text-highlighted">{{ countLabel }}</span>
-            {{ rows.length === 1 ? 'row' : 'rows' }} · {{ headers.length }} columns
+            {{ rows.length === 1 ? 'row' : 'rows' }} · {{ headers.length }} {{ headers.length === 1 ? 'column' : 'columns' }}
           </p>
 
           <div class="flex items-center gap-1.5 ml-auto">
@@ -271,7 +271,9 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnloa
 
             <template v-if="isDirty">
               <UTooltip :text="changeSummary">
-                <span class="text-xs text-warning tabular-nums whitespace-nowrap">{{ changeCount.toLocaleString('en-US') }} unsaved</span>
+                <span tabindex="0" class="rounded-sm text-xs text-warning tabular-nums whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                  {{ changeCount.toLocaleString('en-US') }} unsaved<span class="sr-only">: {{ changeSummary }}</span>
+                </span>
               </UTooltip>
               <UButton
                 label="Discard"

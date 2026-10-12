@@ -164,7 +164,9 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
         <div class="bg-default px-4 py-3">
           <dt class="text-xs text-muted">
             <UTooltip :text="`Agreement of all the columns together, corrected for chance, with missing ratings allowed. ${ALPHA_THRESHOLDS}`">
-              <span class="cursor-help">Krippendorff’s α</span>
+              <button type="button" class="cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                Krippendorff’s α
+              </button>
             </UTooltip>
           </dt>
           <dd class="mt-1 flex items-baseline gap-2">
@@ -173,7 +175,7 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
               <span class="text-xs text-muted">{{ alphaVerdict }}</span>
             </template>
             <UTooltip v-else :text="result.overall.alpha.undefined_reason ?? 'Undefined'">
-              <span class="text-2xl text-dimmed">—</span>
+              <span tabindex="0" class="text-2xl text-muted rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">—<span class="sr-only">{{ result.overall.alpha.undefined_reason ?? 'Undefined' }}</span></span>
             </UTooltip>
           </dd>
         </div>
@@ -212,7 +214,9 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
                 </th>
                 <th v-if="isNumeric" class="px-4 py-2 font-medium text-right">
                   <UTooltip text="A column whose mean sits apart from the others is stricter or more lenient: they disagree even when they rank rows the same way.">
-                    <span class="cursor-help">Mean</span>
+                    <button type="button" class="cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                      Mean
+                    </button>
                   </UTooltip>
                 </th>
               </tr>
@@ -225,7 +229,7 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
                 <td class="px-4 py-1.5 text-right tabular-nums">
                   {{ column.n.toLocaleString('en-US') }}
                 </td>
-                <td v-if="hasMissing" class="px-4 py-1.5 text-right tabular-nums" :class="column.n_missing ? 'text-warning' : 'text-dimmed'">
+                <td v-if="hasMissing" class="px-4 py-1.5 text-right tabular-nums" :class="column.n_missing ? 'text-warning' : 'text-muted'">
                   {{ column.n_missing.toLocaleString('en-US') }}
                 </td>
                 <td v-if="isNumeric" class="px-4 py-1.5 text-right tabular-nums">
@@ -250,7 +254,9 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
                 </th>
                 <th v-for="m in result.metrics" :key="m.key" class="px-4 py-2 font-medium text-right whitespace-nowrap">
                   <UTooltip :text="m.description">
-                    <span class="cursor-help">{{ m.label }}</span>
+                    <button type="button" class="cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                      {{ m.label }}
+                    </button>
                   </UTooltip>
                 </th>
               </tr>
@@ -268,7 +274,7 @@ const hasMissing = computed(() => result.value?.columns.some(c => c.n_missing > 
                     {{ formatPairMetric(m.key, pair.metrics[m.key]!.value) }}
                   </template>
                   <UTooltip v-else :text="pair.metrics[m.key]?.undefined_reason ?? 'Undefined'">
-                    <span class="text-dimmed">—</span>
+                    <span tabindex="0" class="text-muted rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">—<span class="sr-only">{{ pair.metrics[m.key]?.undefined_reason ?? 'Undefined' }}</span></span>
                   </UTooltip>
                 </td>
               </tr>

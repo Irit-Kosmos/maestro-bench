@@ -67,21 +67,6 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
     },
   }))
 })
-
-// File type badge color mapping
-function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning' | 'neutral' {
-  switch (fileType?.toLowerCase()) {
-    case 'csv':
-      return 'success'
-    case 'json':
-      return 'info'
-    case 'xlsx':
-    case 'xls':
-      return 'warning'
-    default:
-      return 'neutral'
-  }
-}
 </script>
 
 <template>
@@ -108,13 +93,13 @@ function getFileTypeBadgeColor(fileType: string): 'success' | 'info' | 'warning'
       <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted tabular-nums">
         <UBadge
           :label="fileInfo?.type || 'Unknown'"
-          :color="getFileTypeBadgeColor(fileInfo?.type || '')"
+          color="neutral"
           variant="soft"
           size="sm"
         />
-        <span><span class="font-medium text-highlighted">{{ (fileInfo?.rows || 0).toLocaleString('en-US') }}</span> rows</span>
+        <span><span class="font-medium text-highlighted">{{ (fileInfo?.rows || 0).toLocaleString('en-US') }}</span> {{ preview.total_rows === 1 ? 'row' : 'rows' }}</span>
         <span aria-hidden="true">·</span>
-        <span><span class="font-medium text-highlighted">{{ fileInfo?.columns || 0 }}</span> columns</span>
+        <span><span class="font-medium text-highlighted">{{ fileInfo?.columns || 0 }}</span> {{ preview.total_columns === 1 ? 'column' : 'columns' }}</span>
       </p>
 
       <section aria-labelledby="columns-title">

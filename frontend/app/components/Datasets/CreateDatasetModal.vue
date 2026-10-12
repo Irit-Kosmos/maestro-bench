@@ -71,7 +71,13 @@ function handleSubmit() {
 </script>
 
 <template>
-  <UModal v-model:open="show" :dismissible="!loading" @after:leave="resetForm">
+  <UModal
+    v-model:open="show"
+    title="New dataset"
+    description="Upload a CSV or JSON file to create a dataset."
+    :dismissible="!loading"
+    @after:leave="resetForm"
+  >
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
