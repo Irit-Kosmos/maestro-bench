@@ -60,7 +60,7 @@ defineShortcuts({
               :to="{ path: `/experiments/${execution.experiment_id}`, hash: '#executions' }"
               class="inline-flex max-w-full items-center gap-1 rounded font-medium text-highlighted outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
             >
-              <span class="truncate">{{ execution.experiment_name }}</span>
+              <span class="truncate" :title="execution.experiment_name">{{ execution.experiment_name }}</span>
               <UIcon name="i-ph-arrow-up-right-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
             </NuxtLink>
           </dd>
@@ -75,7 +75,7 @@ defineShortcuts({
                 class="inline-flex max-w-full items-center gap-1 rounded text-toned outline-none hover:text-highlighted hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
               >
                 <UIcon name="i-ph-arrows-split-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
-                <span class="truncate">{{ execution.batch_name }}</span>
+                <span class="truncate" :title="execution.batch_name ?? undefined">{{ execution.batch_name }}</span>
               </NuxtLink>
             </dd>
           </template>
@@ -83,7 +83,7 @@ defineShortcuts({
           <dt class="text-muted">
             Dataset
           </dt>
-          <dd class="min-w-0 truncate text-toned">
+          <dd class="min-w-0 truncate text-toned" :title="execution.dataset_name ?? undefined">
             {{ execution.dataset_name || '—' }}
           </dd>
 

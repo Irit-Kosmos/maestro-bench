@@ -249,7 +249,7 @@ async function handleDelete() {
           <dt class="text-xs text-muted">
             Cancelled
           </dt>
-          <dd class="mt-0.5 text-lg font-semibold text-orange-600 tabular-nums dark:text-orange-400">
+          <dd class="mt-0.5 text-lg font-semibold text-warning tabular-nums">
             {{ batch.counts.cancelled }}
           </dd>
         </div>
@@ -273,7 +273,7 @@ async function handleDelete() {
       <ExperimentsSection id="experiments" title="Experiments" description="One experiment per combination. Open one to see its configuration and executions.">
         <div class="overflow-x-auto rounded-lg border border-default">
           <table class="w-full text-sm">
-            <thead class="border-b border-default text-left text-xs text-muted">
+            <thead class="border-b border-default text-start text-xs text-muted">
               <tr>
                 <th v-if="multipleAgents" scope="col" class="px-4 py-2 font-medium">
                   Configuration
@@ -286,19 +286,19 @@ async function handleDelete() {
                 <th scope="col" class="px-4 py-2 font-medium">
                   Status
                 </th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
+                <th scope="col" class="px-4 py-2 text-end font-medium">
                   Rows
                 </th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
+                <th scope="col" class="px-4 py-2 text-end font-medium">
                   Runs
                 </th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
+                <th scope="col" class="px-4 py-2 text-end font-medium">
                   Tokens
                 </th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
+                <th scope="col" class="px-4 py-2 text-end font-medium">
                   Cost
                 </th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
+                <th scope="col" class="px-4 py-2 text-end font-medium">
                   Duration
                 </th>
               </tr>
@@ -346,20 +346,20 @@ async function handleDelete() {
                     <UIRunProgress :run="runOf(experiment.id)" />
                   </div>
                 </td>
-                <td class="px-4 py-2.5 text-right">
+                <td class="px-4 py-2.5 text-end">
                   <UIRowCount :rows="experiment.row_count" tone="quiet" />
                   <span v-if="experiment.rows_failed" class="ms-2 text-xs text-error">{{ experiment.rows_failed }} failed</span>
                 </td>
-                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                <td class="px-4 py-2.5 text-end tabular-nums text-toned">
                   {{ experiment.execution_count || '—' }}
                 </td>
-                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                <td class="px-4 py-2.5 text-end tabular-nums text-toned">
                   <span :title="formatCount(experiment.total_tokens)">{{ formatTokens(experiment.total_tokens) }}</span>
                 </td>
-                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                <td class="px-4 py-2.5 text-end tabular-nums text-toned">
                   <span :title="formatCostPrecise(experiment.total_cost_usd)">{{ formatCost(experiment.total_cost_usd) }}</span>
                 </td>
-                <td class="px-4 py-2.5 text-right tabular-nums text-toned">
+                <td class="px-4 py-2.5 text-end tabular-nums text-toned">
                   {{ formatElapsed(experiment.duration_seconds) }}
                 </td>
               </tr>

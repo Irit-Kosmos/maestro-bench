@@ -174,7 +174,7 @@ async function confirmDelete() {
     <BaseEmptyState
       v-else-if="!pending"
       title="No batches yet"
-      message="A batch runs the same setup with several models, prompt versions or temperatures at once. Open an experiment and choose “Vary…”, or add a variation when you create one."
+      message="A batch runs the same setup with several models, prompt versions or temperatures at once. Open an experiment and choose “Vary”, or add a variation when you create one."
       icon="i-ph-arrows-split-bold"
       action-label="New experiment"
       action-to="/experiments/new"

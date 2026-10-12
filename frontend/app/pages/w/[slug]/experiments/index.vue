@@ -51,6 +51,9 @@ useRefreshOnRunStatus(refresh)
 const { formatDate, formatRelativeDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
+const showCancelDialog = ref(false)
+const isCancelling = ref(false)
+const pendingCancel = ref<Experiment | null>(null)
 // Experiments waiting for the delete confirmation: one from a row menu, several from the selection
 const pendingDeleteIds = ref<number[]>([])
 const selectedIds = ref<number[]>([])
@@ -209,7 +212,7 @@ const actions = [
     icon: 'i-ph-square-bold',
     requires: 'editor' as const,
     show: (experiment: Experiment) => ['running', 'queued'].includes(runOf(experiment.id)?.status ?? experiment.status ?? ''),
-    handler: (experiment: Experiment) => handleCancelExperiment(experiment.id),
+    handler: (experiment: Experiment) => handleCancelExperiment(experiment),
   },
   {
     label: 'Delete',
@@ -226,8 +229,21 @@ async function handleViewExperiment(id: number) {
   await navigateTo(`/experiments/${id}`)
 }
 
-async function handleCancelExperiment(id: number) {
-  const result = await cancelExperiment(id)
+// Stopping a run can't be taken back: it asks first, as the experiment page does
+function handleCancelExperiment(experiment: Experiment) {
+  pendingCancel.value = experiment
+  showCancelDialog.value = true
+}
+
+const cancelQueued = computed(() => !!pendingCancel.value && (runOf(pendingCancel.value.id)?.status ?? pendingCancel.value.status) === 'queued')
+
+async function confirmCancel() {
+  showCancelDialog.value = false
+  if (!pendingCancel.value)
+    return
+  isCancelling.value = true
+  const result = await cancelExperiment(pendingCancel.value.id)
+  isCancelling.value = false
   if (!result.success) {
     fail('Couldn’t cancel the run')
     return
@@ -404,6 +420,16 @@ async function handleCreateExperiment() {
       action-to="/experiments/new"
       action-requires="editor"
       @action="handleCreateExperiment"
+    />
+
+    <BaseConfirmDialog
+      v-model:open="showCancelDialog"
+      :title="cancelQueued ? 'Take this run out of the queue?' : 'Stop this run?'"
+      :message="cancelQueued ? 'It leaves the queue without running. You can re-run it later.' : 'The run stops now. You can re-run the experiment later.'"
+      :confirm-label="cancelQueued ? 'Remove from queue' : 'Stop run'"
+      variant="warning"
+      :loading="isCancelling"
+      @confirm="confirmCancel"
     />
 
     <BaseConfirmDialog

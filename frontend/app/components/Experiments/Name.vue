@@ -16,7 +16,7 @@ const rest = computed(() => parts.value.segments.slice(1))
   <span v-if="stacked" class="flex min-h-9 min-w-0 flex-col justify-center" :title="title">
     <span class="flex min-w-0 items-baseline gap-2 leading-5">
       <span class="truncate">{{ parts.segments[0] }}</span>
-      <span v-if="hint" class="shrink-0 text-xs font-normal text-dimmed tabular-nums">{{ hint }}</span>
+      <span v-if="hint" class="shrink-0 text-xs font-normal text-muted tabular-nums">{{ hint }}</span>
       <slot name="after" />
     </span>
     <span v-if="rest.length" class="truncate text-xs font-normal leading-4 text-muted">{{ rest.join(' · ') }}</span>
