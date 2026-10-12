@@ -28,7 +28,7 @@ from schemas.studies import (
     StudyUpdate,
 )
 from schemas.tags import TagResponse
-from study_utils import check_items_exist, note_responses, people
+from study_utils import check_items_exist, clear_item_journal, note_responses, people
 from tables import (
     Analysis,
     Batch,
@@ -441,7 +441,7 @@ def delete_study(study_id: int, session: SessionDep):
     study = _get(session, study_id)
     clear_item_tags(session, "study", study.id)
     session.exec(delete(StudyItem).where(StudyItem.study_id == study.id))
-    session.exec(delete(Note).where(Note.kind == "study", Note.item_id == study.id))
+    clear_item_journal(session, "study", study.id)
     session.delete(study)
     session.commit()
 

@@ -10,7 +10,7 @@ from loading import by_id
 from references import missing_ids
 from schemas.notes import NoteResponse
 from schemas.people import PersonResponse
-from tables import Analysis, Batch, Experiment, Note, Study, StudyItem, User
+from tables import Analysis, Batch, Experiment, Note, Share, Study, StudyItem, User
 
 # The tables a study gathers, and the ones a note can be about (a study too)
 ITEM_TABLES: dict[str, type] = {
@@ -27,15 +27,21 @@ def check_items_exist(session: Session, kind: str, item_ids: Iterable[int]) -> N
         raise HTTPException(status_code=422, detail=f"Unknown {kind}s: {missing}")
 
 
+def clear_item_journal(session: Session, kind: str, item_id: int) -> None:
+    """Drop the notes and the public links of an item (a study included). Nothing is committed."""
+    session.exec(delete(Note).where(Note.kind == kind, Note.item_id == item_id))
+    session.exec(delete(Share).where(Share.kind == kind, Share.item_id == item_id))
+
+
 def clear_item_links(session: Session, kind: str, item_id: int) -> None:
-    """Drop what points to an item that is being deleted: its studies and its notes.
+    """Drop what points to an item that is being deleted: its studies, notes and public link.
 
     Nothing is committed.
     """
     session.exec(
         delete(StudyItem).where(StudyItem.kind == kind, StudyItem.item_id == item_id)
     )
-    session.exec(delete(Note).where(Note.kind == kind, Note.item_id == item_id))
+    clear_item_journal(session, kind, item_id)
 
 
 def people(

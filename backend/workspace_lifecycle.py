@@ -24,6 +24,7 @@ from tables import (
     Note,
     Prompt,
     PromptVersion,
+    Share,
     Study,
     StudyItem,
     Tag,
@@ -35,6 +36,7 @@ from tables import (
 # What a workspace owns, children before the rows they point to. The two links that
 # make a loop (a batch's base experiment, an experiment's batch) are cut first.
 DELETE_ORDER = (
+    Share,
     TagLink,
     StudyItem,
     Note,
