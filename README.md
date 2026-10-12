@@ -33,6 +33,9 @@ engine is specific to education.
   accuracy, macro F1, Cohen's κ and quadratic weighted κ for labels. Every
   metric comes with a bootstrap confidence interval and the share of rows that
   could be used.
+- **Public links** - share an experiment, a batch, an analysis or a study with
+  peers through a read-only link that needs no account (see
+  [Public links](#public-links)).
 
 ## Architecture
 
@@ -256,6 +259,7 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | `ENCRYPTION_KEY` | - | At least 32 random characters (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Encrypts the API keys that workspaces store. Without it workspaces cannot store keys and only the instance's keys are used. **Changing it makes the stored keys unreadable**: owners must set them again. Keep it apart from `SECRET_KEY`. |
 | `PROVIDERS_INSTANCE_FALLBACK` | `true` | Whether a workspace without its own key for a provider uses the instance's key. Set to `false` to make every workspace bring its own keys: its runs then fail with a clear message until an owner sets one. Providers set by URL (Ollama) are instance-wide and unaffected. |
 | `INVITATION_DAYS` | `7` | How long an invitation link can be used. |
+| `PUBLIC_SHARING_ENABLED` | `true` | Whether editors can make public read-only links (see [Public links](#public-links)). Set to `false` to turn the feature off for the whole instance: no link can be made, the buttons disappear, and the links already made stop answering. |
 | `AUTH_GITLAB_BASE_URL` | - | Your GitLab, e.g. `https://gitlab.example.org`. |
 | `AUTH_GITLAB_CLIENT_ID` / `AUTH_GITLAB_CLIENT_SECRET` | - | The GitLab application's ID and secret. |
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | - | Comma-separated email domains allowed to sign in (`example.org,example.com`). The email must be verified by GitLab. |
@@ -282,7 +286,7 @@ belong to several, with one role in each:
 | Role | Can |
 |---|---|
 | `viewer` | read everything, run read-only computations (analysis previews, formula checks) |
-| `editor` | also create, edit, delete and run experiments |
+| `editor` | also create, edit, delete and run experiments, and make or withdraw public links |
 | `owner` | also manage members, invitation links and API keys, rename, archive and delete the workspace |
 
 The interface follows the role: a viewer sees every page but is offered no way to
@@ -323,6 +327,27 @@ read the files it owns.
 Experiments run inside the API process, so the backend must be a single process
 (one uvicorn worker). When it restarts, the runs it was running are marked
 *interrupted* and the queue is emptied: run them again from the UI.
+
+### Public links
+
+An editor or owner can give anyone a **read-only link** to an experiment, a batch,
+an analysis or a study (**Share** on its page). Whoever has the link reads it in
+the app's own pages, with no account.
+
+- **What it opens**: the item and what lies strictly below it (an experiment's
+  executions, a batch's experiments, the executions an analysis compares,
+  everything a study gathers), with prompts, models, the dataset rows processed
+  and the results file. **Never**: notes, authors, tags, the rest of the
+  workspace, API keys. The reader cannot change anything.
+- **Live**: the link shows the item as it is now. There is one active link per
+  item, shared by all editors: whoever stops sharing, or makes a new link, ends
+  the old one for everybody. Deleting the item ends it too.
+- **Security**: the link is a 128-bit random token, so treat it like a document
+  link anyone can open. It appears in access logs. The public routes have **no
+  rate limiting** (an analysis link recomputes its metrics on every request): rate
+  limit `/shared/` in your reverse proxy if the instance is exposed, and have it
+  send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex` for `/s/*`.
+- **Turn it off**: `PUBLIC_SHARING_ENABLED=false`.
 
 ### Managing users and workspaces
 
@@ -371,6 +396,12 @@ it expires, unless you deactivate them.
   docker compose exec backend uv run alembic check
   ```
 
+- The pages a public link opens are the app's own pages, served again under
+  `/s/<token>/...` by a `pages:extend` hook in `frontend/nuxt.config.ts`, from the list
+  `SHARED_RESOURCES` in `frontend/app/utils/workspacePath.ts`. The dev server reads that
+  list when it starts: restart it after changing the list. On the API side, the routes a
+  link can call are the `READABLE` allowlist in `backend/api/shared.py`; a test fails if
+  one is added elsewhere.
 - The tests run on PostgreSQL, in a separate `<database>_test` database that is
   created on first use (or set `TEST_DATABASE_URL`). They never touch your data.
 
