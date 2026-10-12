@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
 const text = defineModel<string>({ required: true })
 
 const { id, disabled } = useFormField()
+const listId = useId()
 
 const field = useTemplateRef<HTMLTextAreaElement>('field')
 const backdrop = useTemplateRef<HTMLElement>('backdrop')
@@ -165,7 +166,8 @@ function select(start: number, end: number) {
     return
   el.focus({ preventScroll: true })
   el.setSelectionRange(start, end)
-  backdrop.value?.querySelector(`[data-start="${start}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  backdrop.value?.querySelector(`[data-start="${start}"]`)?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
 }
 
 defineExpose({ select })
@@ -207,6 +209,8 @@ const box = 'px-2.5 py-1.5 font-mono text-[13px] leading-relaxed whitespace-pre-
       class="absolute inset-0 size-full resize-none overflow-hidden rounded-md bg-transparent text-highlighted outline-none placeholder:text-dimmed disabled:cursor-not-allowed disabled:opacity-75"
       spellcheck="false"
       aria-autocomplete="list"
+      :aria-controls="isOpen && popup ? listId : undefined"
+      :aria-activedescendant="isOpen && popup ? `${listId}-${selected}` : undefined"
       @input="onInput"
       @keydown="onKeydown"
       @keyup="onKeyup"
@@ -216,12 +220,14 @@ const box = 'px-2.5 py-1.5 font-mono text-[13px] leading-relaxed whitespace-pre-
 
     <ul
       v-if="isOpen && popup"
+      :id="listId"
       role="listbox"
       class="absolute z-10 mt-0.5 min-w-40 max-w-72 overflow-hidden rounded-md bg-default p-1 shadow-lg ring ring-default"
       :style="{ left: `${popup.left}px`, top: `${popup.top}px` }"
     >
       <li
         v-for="(name, index) in candidates"
+        :id="`${listId}-${index}`"
         :key="name"
         role="option"
         :aria-selected="index === selected"
@@ -233,5 +239,9 @@ const box = 'px-2.5 py-1.5 font-mono text-[13px] leading-relaxed whitespace-pre-
         {{ name }}
       </li>
     </ul>
+
+    <p role="status" class="sr-only">
+      {{ isOpen ? `${candidates.length} ${candidates.length === 1 ? 'variable' : 'variables'} to insert` : '' }}
+    </p>
   </div>
 </template>

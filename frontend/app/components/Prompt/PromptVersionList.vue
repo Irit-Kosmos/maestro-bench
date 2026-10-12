@@ -74,8 +74,8 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
             >
               {{ version.version }}
             </span>
-            <span v-if="version.is_default" class="shrink-0 text-xs text-success">Default</span>
-            <span v-else-if="!version.is_active" class="shrink-0 text-xs text-dimmed">Inactive</span>
+            <span v-if="version.is_default" class="shrink-0 text-xs text-primary-700 dark:text-primary">Default</span>
+            <span v-else-if="!version.is_active" class="shrink-0 text-xs text-muted">Inactive</span>
             <BaseDiffStat
               v-if="changed(version.id)"
               :added="changed(version.id)!.added"
@@ -83,7 +83,7 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
               class="ms-auto"
             />
           </span>
-          <span class="text-xs text-dimmed" :title="formatDate(version.created_at)">
+          <span class="text-xs text-muted" :title="formatDate(version.created_at)">
             {{ formatRelativeDate(version.created_at) }}
           </span>
         </button>

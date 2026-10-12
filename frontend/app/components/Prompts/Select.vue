@@ -92,7 +92,8 @@ function onUpdate(value: unknown) {
         <UIcon
           v-if="(item as any).isDefault"
           name="i-ph-star-bold"
-          class="size-3.5 shrink-0 text-dimmed"
+          class="size-3.5 shrink-0 text-muted"
+          role="img"
           title="Default version"
           aria-label="Default version"
         />
@@ -101,7 +102,7 @@ function onUpdate(value: unknown) {
 
     <template #item-trailing="{ item }">
       <span v-if="(item as any).inactive" class="text-xs text-warning">Inactive</span>
-      <span v-if="(item as any).createdAt" class="text-xs text-dimmed tabular-nums">
+      <span v-if="(item as any).createdAt" class="text-xs text-muted tabular-nums">
         {{ formatShortDate((item as any).createdAt) }}
       </span>
     </template>

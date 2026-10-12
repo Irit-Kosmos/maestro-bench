@@ -20,7 +20,7 @@ const parsedVariables = computed(() => parseVariables(props.variables || ''))
       <li v-for="name in parsedVariables" :key="name">
         <code
           tabindex="0"
-          class="block rounded-sm px-1.5 py-0.5 font-mono text-xs text-primary outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-inverted"
+          class="block rounded-sm px-1.5 py-0.5 font-mono text-xs text-primary-700 outline-none dark:text-primary transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-inverted"
           :class="name === active ? 'bg-primary/25' : 'bg-primary/10'"
           @pointerenter="active = name"
           @pointerleave="active = null"
@@ -29,7 +29,7 @@ const parsedVariables = computed(() => parseVariables(props.variables || ''))
         >{{ name }}</code>
       </li>
     </ul>
-    <p v-else class="text-sm text-dimmed">
+    <p v-else class="text-sm text-muted">
       None
     </p>
   </section>

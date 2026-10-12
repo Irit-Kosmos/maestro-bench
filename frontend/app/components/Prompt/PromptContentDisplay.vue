@@ -25,7 +25,7 @@ const segments = computed<PlaceholderSegment[]>(() => props.type === 'code'
 function markClass(placeholder: Placeholder) {
   if (!placeholder.declared)
     return 'bg-warning/15 text-warning underline decoration-wavy underline-offset-2'
-  return placeholder.name === props.active ? 'bg-primary/25 text-primary' : 'bg-primary/10 text-primary'
+  return placeholder.name === props.active ? 'bg-primary/25 text-primary-700 dark:text-primary' : 'bg-primary/10 text-primary-700 dark:text-primary'
 }
 
 function markTitle(placeholder: Placeholder) {
@@ -45,7 +45,7 @@ function markTitle(placeholder: Placeholder) {
     <pre
       v-if="type === 'code'"
       class="whitespace-pre-wrap break-words rounded-md border border-default bg-muted/50 px-3 py-2.5 font-mono text-[13px] leading-relaxed text-highlighted"
-    ><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.placeholder" class="rounded-sm px-0.5 transition-colors duration-100" :class="markClass(segment.placeholder)" :title="markTitle(segment.placeholder)">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template></template></pre>
+    ><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.placeholder" class="rounded-sm px-0.5 transition-colors duration-100" :class="markClass(segment.placeholder)" :title="markTitle(segment.placeholder)">{{ segment.text }}<span v-if="markTitle(segment.placeholder)" class="sr-only select-none"> ({{ markTitle(segment.placeholder) }})</span></mark><template v-else>{{ segment.text }}</template></template></pre>
 
     <p v-else class="whitespace-pre-wrap text-sm leading-relaxed text-toned">
       {{ content }}
