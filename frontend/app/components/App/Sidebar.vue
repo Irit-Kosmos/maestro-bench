@@ -108,7 +108,7 @@ defineShortcuts({
         <template v-for="(section, index) in sections" :key="section.label ?? index">
           <div class="flex flex-col gap-px">
             <template v-if="section.label">
-              <p v-if="!isCollapsed" class="px-2 pb-1 text-xs font-medium text-dimmed">
+              <p v-if="!isCollapsed" class="px-2 pb-1 text-xs font-medium text-muted">
                 {{ section.label }}
               </p>
               <USeparator v-else class="px-2 pb-2" />

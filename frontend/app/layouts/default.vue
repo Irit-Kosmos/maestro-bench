@@ -8,6 +8,9 @@ const { archived, canEdit } = useCurrentWorkspace()
 
 usePrintLight()
 
+// The skip link focuses <main> by hand: the router would swallow a plain #hash jump without moving focus
+const main = useTemplateRef<HTMLElement>('main')
+
 const pageTitle = computed(() => {
   return (route.meta.title as string) || 'MAESTRO-bench'
 })
@@ -78,13 +81,23 @@ defineShortcuts({
     storage-key="maestro"
     :ui="{ base: 'print:static print:block print:overflow-visible' }"
   >
+    <!-- First thing a keyboard user reaches; off screen until focused -->
+    <a
+      href="#main-content"
+      class="fixed start-3 top-3 z-100 -translate-y-[200%] rounded-md bg-default px-3 py-1.5 text-sm font-medium text-highlighted shadow-sm ring ring-default outline-none focus:translate-y-0 focus-visible:ring-2 focus-visible:ring-inverted print:hidden"
+      @click.prevent="main?.focus()"
+    >
+      Skip to content
+    </a>
+
     <AppSidebar />
 
     <UDashboardPanel
       id="main"
       :ui="{
         root: 'print:min-h-0 print:block',
-        body: '[scrollbar-gutter:stable] p-4 sm:px-8 sm:py-6 print:block print:overflow-visible print:p-1',
+        // The body wrapper steps aside: <main> below takes its place (and its classes) so the content has a landmark
+        body: 'contents',
       }"
     >
       <template #header>
@@ -92,16 +105,23 @@ defineShortcuts({
       </template>
 
       <template #body>
-        <UAlert
-          v-if="archived"
-          class="mb-4 shrink-0"
-          color="warning"
-          variant="subtle"
-          icon="i-ph-archive-bold"
-          title="This workspace is archived"
-          description="It is read-only. An owner can reopen it in Settings."
-        />
-        <slot />
+        <main
+          id="main-content"
+          ref="main"
+          tabindex="-1"
+          class="flex flex-1 flex-col gap-4 overflow-y-auto p-4 outline-none [scrollbar-gutter:stable] sm:gap-6 sm:px-8 sm:py-6 print:block print:overflow-visible print:p-1"
+        >
+          <UAlert
+            v-if="archived"
+            class="mb-4 shrink-0"
+            color="warning"
+            variant="subtle"
+            icon="i-ph-archive-bold"
+            title="This workspace is archived"
+            description="It is read-only. An owner can reopen it in Settings."
+          />
+          <slot />
+        </main>
       </template>
     </UDashboardPanel>
 
