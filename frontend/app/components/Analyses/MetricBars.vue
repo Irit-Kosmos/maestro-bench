@@ -128,7 +128,7 @@ function tooltip(b: Bar) {
       ${line(ICONS.value, escapeHtml(props.metric.label), formatMetric(b.value))}
       ${ci}
     </div>
-    ${props.metric.lower_is_better ? `<div class="mt-2 pt-2 border-t border-default text-dimmed">Lower is better</div>` : ''}
+    ${props.metric.lower_is_better ? `<div class="mt-2 pt-2 border-t border-default text-muted">Lower is better</div>` : ''}
   </div>`
 }
 
@@ -142,45 +142,47 @@ const triggers = {
 <template>
   <div ref="root" class="viz-root">
     <div class="flex items-baseline justify-between mb-2">
-      <h4 class="text-sm font-semibold text-highlighted">
+      <h3 class="text-sm font-semibold text-highlighted">
         {{ metric.label }}
-      </h4>
+      </h3>
       <span v-if="metric.lower_is_better" class="text-xs text-muted">lower is better</span>
     </div>
-    <VisXYContainer v-if="hasValues" :data="bars" :width="chartWidth" :height="200" :padding="{ top: 8 }">
-      <VisGroupedBar
-        :x="(d: Bar) => d.x"
-        :y="[(d: Bar) => d.value ?? undefined]"
-        :group-max-width="24"
-        :rounded-corners="4"
-        :color="barColor"
-        :duration="0"
-      />
-      <VisBoxplot
-        :x="(d: Bar) => d.x"
-        :median="(d: Bar) => d.value ?? undefined"
-        :quartiles="(d: Bar) => d.value !== null ? [d.value, d.value] : undefined"
-        :whiskers="(d: Bar) => d.low !== null && d.high !== null ? [d.low, d.high] : undefined"
-        :bar-width="12"
-        :color="whiskerColor"
-        :duration="0"
-      />
-      <VisAxis
-        type="x"
-        :tick-values="bars.map(b => b.x)"
-        :tick-format="(i: number) => bars[i]?.label ?? ''"
-        tick-text-fit-mode="trim"
-        :tick-text-width="tickTextWidth"
-        :grid-line="false"
-      />
-      <VisAxis type="y" :num-ticks="4" />
-      <VisTooltip :triggers="triggers" />
-    </VisXYContainer>
+    <div v-if="hasValues" role="img" :aria-label="`${metric.label} for ${bars.length} ${bars.length === 1 ? 'execution' : 'executions'}, with confidence intervals`">
+      <VisXYContainer :data="bars" :width="chartWidth" :height="200" :padding="{ top: 8 }">
+        <VisGroupedBar
+          :x="(d: Bar) => d.x"
+          :y="[(d: Bar) => d.value ?? undefined]"
+          :group-max-width="24"
+          :rounded-corners="4"
+          :color="barColor"
+          :duration="0"
+        />
+        <VisBoxplot
+          :x="(d: Bar) => d.x"
+          :median="(d: Bar) => d.value ?? undefined"
+          :quartiles="(d: Bar) => d.value !== null ? [d.value, d.value] : undefined"
+          :whiskers="(d: Bar) => d.low !== null && d.high !== null ? [d.low, d.high] : undefined"
+          :bar-width="12"
+          :color="whiskerColor"
+          :duration="0"
+        />
+        <VisAxis
+          type="x"
+          :tick-values="bars.map(b => b.x)"
+          :tick-format="(i: number) => bars[i]?.label ?? ''"
+          tick-text-fit-mode="trim"
+          :tick-text-width="tickTextWidth"
+          :grid-line="false"
+        />
+        <VisAxis type="y" :num-ticks="4" />
+        <VisTooltip :triggers="triggers" />
+      </VisXYContainer>
+    </div>
     <p v-else class="text-sm text-muted py-8 text-center">
       Undefined for every execution
     </p>
-    <!-- On paper there is no tooltip: the values the chart would show on hover are written out -->
-    <ul v-if="hasValues" class="hidden print:block mt-1 space-y-0.5 text-xs">
+    <!-- The values the chart would show on hover, written out: on paper there is no tooltip, and a screen reader has no bars -->
+    <ul v-if="hasValues" class="sr-only print:not-sr-only mt-1 space-y-0.5 text-xs">
       <li v-for="b in bars" :key="b.x" class="flex items-baseline justify-between gap-3">
         <span class="truncate text-muted">{{ b.label }}</span>
         <span v-if="b.value !== null" class="shrink-0 tabular-nums text-highlighted" :class="rank(b)?.position === 1 && 'font-semibold'">
@@ -189,7 +191,7 @@ const triggers = {
             [{{ formatMetric(b.low) }}, {{ formatMetric(b.high) }}]
           </span>
         </span>
-        <span v-else class="shrink-0 text-dimmed">—</span>
+        <span v-else class="shrink-0 text-muted">—</span>
       </li>
     </ul>
   </div>

@@ -10,6 +10,8 @@ import os
 from contextlib import contextmanager
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlmodel import Session, SQLModel, create_engine
@@ -17,6 +19,7 @@ from sqlmodel import Session, SQLModel, create_engine
 import tables  # noqa: F401  (registers every table on SQLModel.metadata)
 import workspace_files
 from config import DATABASE_URL
+from db import get_session
 from workspace_scope import scope_session
 
 _CONNECT_ARGS = {"options": "-c timezone=utc"}
@@ -30,6 +33,24 @@ def scoped(engine, workspace_id: int = TEST_WORKSPACE_ID):
     """A session confined to a workspace, to set data up outside the app."""
     with Session(engine) as session:
         yield scope_session(session, workspace_id)
+
+
+def api_client(engine, *modules, workspace_id: int = TEST_WORKSPACE_ID) -> TestClient:
+    """A client on the routers of `modules`, with sessions confined to a workspace.
+
+    The app is at `client.app`, to override more dependencies.
+    """
+    app = FastAPI()
+    for module in modules:
+        app.include_router(module.router)
+
+    def _session():
+        with Session(engine) as session:
+            scope_session(session, workspace_id)
+            yield session
+
+    app.dependency_overrides[get_session] = _session
+    return TestClient(app)
 
 
 def _test_database_url() -> URL:

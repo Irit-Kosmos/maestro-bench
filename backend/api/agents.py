@@ -5,10 +5,9 @@ from sqlmodel import Session, col, select
 
 from db import SessionDep
 from references import missing_ids
-from schemas.agent_teams import AgentCreate, AgentResponse, AgentUpdate
+from schemas.agents import AgentCreate, AgentResponse, AgentUpdate
 from tables import (
     Agent,
-    AgentTeam,
     ExperimentAgentConfig,
     Model,
     PromptVersion,
@@ -19,9 +18,8 @@ router = APIRouter(tags=["agents"])
 
 
 def _check_references(session: Session, fields: dict) -> None:
-    """The team, prompt version and model an agent points to must be in the workspace."""
+    """The prompt version and model an agent points to must be in the workspace."""
     for field, table, label in (
-        ("team_id", AgentTeam, "Agent team"),
         ("default_prompt_version_id", PromptVersion, "Prompt version"),
         ("default_model_id", Model, "Model"),
     ):
@@ -49,7 +47,6 @@ def create_agent(
         kind=agent_data.kind,
         default_prompt_version_id=agent_data.default_prompt_version_id,
         default_model_id=agent_data.default_model_id,
-        team_id=agent_data.team_id,
     )
     session.add(agent)
     session.flush()

@@ -256,7 +256,6 @@ function applyView(animate: boolean) {
     return
   const animated = animate && motion()
   world.value.classList.toggle('is-animating', animated)
-  dots.value.classList.toggle('is-animating', animated)
   world.value.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`
   const step = 20 * view.k
   dots.value.style.backgroundPosition = `${view.x}px ${view.y}px`
@@ -289,15 +288,15 @@ function fit(animate = true) {
   return true
 }
 
-function refit() {
+function refit(animate = true) {
   userMoved = false
-  fit(true)
+  fit(animate)
 }
 
-function zoomBy(factor: number) {
+function zoomBy(factor: number, animate = true) {
   const a = area()
   const anchor = { x: (a.width - props.insetRight) / 2, y: a.height / 2 }
-  setView(zoomAt(view, view.k * factor, anchor), { animate: true, user: true })
+  setView(zoomAt(view, view.k * factor, anchor), { animate, user: true })
 }
 
 function resetZoom() {
@@ -335,6 +334,17 @@ function followBounds() {
 watch(boundsKey, followBounds, { flush: 'post' })
 watch(() => props.selected, id => id && reveal(id), { flush: 'post' })
 watch(() => props.insetRight, () => props.selected && reveal(props.selected), { flush: 'post' })
+
+// A panel beside the canvas closing takes the focus with it: it goes back to the node the panel was about.
+// Before the render, while the panel still holds the focus; a node that is gone has nothing to take it.
+watch(() => props.selected, (_, previous) => {
+  const active = document.activeElement
+  const host = root.value?.parentElement
+  if (props.selected || !previous || !active || root.value!.contains(active) || !host?.contains(active))
+    return
+  if (props.nodes.some(n => n.id === previous))
+    observed.get(previous)?.focus({ preventScroll: true })
+})
 
 // --- Pointer: pan, zoom ---
 
@@ -527,17 +537,21 @@ function onKeydown(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey)
     return
   const el = e.target as HTMLElement
+  // A field inside the canvas (the agent picker, in full screen) keeps its own keys
+  if (el.closest('input, textarea, select, [contenteditable]'))
+    return
   const onNode = el.matches('[data-graph-node]')
+  // A key held down repeats: the view follows each press at once instead of gliding behind it
   switch (e.key) {
     case '+':
     case '=':
-      zoomBy(ZOOM_STEP)
+      zoomBy(ZOOM_STEP, false)
       break
     case '-':
-      zoomBy(1 / ZOOM_STEP)
+      zoomBy(1 / ZOOM_STEP, false)
       break
     case '0':
-      refit()
+      refit(false)
       break
     case 'Escape':
       // Handled here first: an expanded canvas only closes on an Escape nobody used
@@ -558,7 +572,6 @@ function onKeydown(e: KeyboardEvent) {
       emit('select', el.dataset.id!)
       break
     case 'Delete':
-    case 'Backspace':
       if (!onNode || !props.interactive)
         return
       e.preventDefault()
@@ -693,6 +706,7 @@ defineExpose({ fit: refit, zoomBy })
         data-graph-node
         role="group"
         :aria-label="labelOf?.(node)"
+        :aria-current="node.id === selected || undefined"
         tabindex="0"
       >
         <slot name="node" :node="node" :selected="node.id === selected" :leaf="!sources.has(node.id)" />
@@ -758,7 +772,7 @@ defineExpose({ fit: refit, zoomBy })
           </GraphControl>
           <GraphControl label="Zoom in" icon="i-ph-plus-bold" kbd="+" :disabled="zoomPercent >= Math.round(GRAPH_MAX_ZOOM * 100)" @click="zoomBy(ZOOM_STEP)" />
           <span class="mx-0.5 h-4 w-px bg-[var(--ui-border)]" aria-hidden="true" />
-          <GraphControl label="Fit to view" icon="i-ph-corners-out-bold" kbd="0" @click="refit" />
+          <GraphControl label="Fit to view" icon="i-ph-corners-out-bold" kbd="0" @click="refit()" />
           <GraphControl v-if="draggable" label="Arrange nodes" icon="i-ph-tree-structure-bold" :disabled="manual.size === 0" @click="arrange" />
           <slot name="actions" />
         </div>
@@ -795,10 +809,6 @@ defineExpose({ fit: refit, zoomBy })
   transition: opacity 150ms var(--ease-out);
 }
 
-.graph-dots.is-animating {
-  transition: opacity 150ms var(--ease-out), background-position 320ms var(--ease-out), background-size 320ms var(--ease-out);
-}
-
 /* Hidden until the first fit places the graph: then it fades in, once */
 .graph-world {
   opacity: 0;
@@ -810,7 +820,7 @@ defineExpose({ fit: refit, zoomBy })
 }
 
 .graph-world.is-animating {
-  transition: transform 320ms var(--ease-out), opacity 200ms var(--ease-out);
+  transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
 }
 
 /* Edges ------------------------------------------------------------------ */
@@ -937,6 +947,7 @@ defineExpose({ fit: refit, zoomBy })
 }
 
 .graph-pill-remove {
+  position: relative;
   display: grid;
   width: 1.125rem;
   height: 1.125rem;
@@ -944,8 +955,15 @@ defineExpose({ fit: refit, zoomBy })
   border: 1px solid var(--ui-border);
   border-radius: 999px;
   background: var(--ui-bg);
-  color: var(--ui-text-dimmed);
+  color: var(--ui-text-muted);
   transition: color 120ms var(--ease-out), border-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+}
+
+/* A hit area past the 18px button, which also shrinks with the zoom */
+.graph-pill-remove::before {
+  position: absolute;
+  inset: -4px;
+  content: '';
 }
 
 /* Always there, quietly: a dependency between agents is something to see and to be able to cut */

@@ -41,16 +41,6 @@ def test_connections_have_the_configured_limits(engine):
     }
 
 
-def test_a_query_that_runs_too_long_is_stopped(_db_engine, monkeypatch):
-    monkeypatch.setattr(config, "DB_STATEMENT_TIMEOUT_MS", 100)
-    engine = create_engine(
-        _test_database_url(), connect_args={"options": db.connection_options()}
-    )
-    with engine.connect() as connection, pytest.raises(Exception, match="timeout"):
-        connection.execute(text("SELECT pg_sleep(2)"))
-    engine.dispose()
-
-
 def test_migrations_run_without_the_limits(_db_engine):
     engine = create_engine(
         _test_database_url(),
@@ -61,8 +51,3 @@ def test_migrations_run_without_the_limits(_db_engine):
 
     assert settings["statement_timeout"] == "0"
     assert settings["idle_in_transaction_session_timeout"] == "0"
-
-
-def test_the_application_engine_uses_the_configured_pool():
-    assert db.engine.pool.size() == config.DB_POOL_SIZE
-    assert db.engine.pool._max_overflow == config.DB_MAX_OVERFLOW

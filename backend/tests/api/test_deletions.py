@@ -1,15 +1,10 @@
 """What deleting an item does to the rows that still point to it."""
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session
 
 from api import agents, datasets, models, prompts
-from db import get_session
 from tables import (
     Agent,
-    AgentTeam,
     Dataset,
     Experiment,
     ExperimentAgentConfig,
@@ -17,23 +12,12 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 
 @pytest.fixture
 def client(engine):
-    app = FastAPI()
-    for module in (agents, datasets, models, prompts):
-        app.include_router(module.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, agents, datasets, models, prompts)
 
 
 @pytest.fixture
@@ -41,17 +25,15 @@ def world(engine):
     """An experiment whose single agent config uses a model and a prompt version."""
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
         model = Model(name="m-a", provider="openai")
-        s.add_all([dataset, team, prompt, model])
+        s.add_all([dataset, prompt, model])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1")
         s.add(version)
         s.flush()
         agent = Agent(
             name="Grader",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )

@@ -117,7 +117,13 @@ async function handleCreatePrompt() {
     />
 
     <!-- Create prompt Modal -->
-    <UModal v-model:open="showCreateModal" :prevent-close="isCreating" @after:leave="resetCreateForm">
+    <UModal
+      v-model:open="showCreateModal"
+      title="New prompt"
+      description="Name the prompt, then write its first version."
+      :dismissible="!isCreating"
+      @after:leave="resetCreateForm"
+    >
       <template #content>
         <UCard class="overflow-y-auto">
           <template #header>

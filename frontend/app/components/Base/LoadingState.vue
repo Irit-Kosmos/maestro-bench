@@ -20,7 +20,7 @@ const sizeClasses = {
   <div class="flex justify-center items-center gap-2 py-16" role="status">
     <UIcon
       name="i-ph-circle-notch-bold"
-      class="animate-spin text-muted"
+      class="animate-spin text-muted motion-reduce:animate-none"
       :class="sizeClasses[size]"
       aria-hidden="true"
     />

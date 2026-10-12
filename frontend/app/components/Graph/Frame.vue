@@ -6,8 +6,13 @@ import { useEventListener, usePreferredReducedMotion } from '@vueuse/core'
 // leaves a blank of its own height behind), and the frame morphs between the two: its real box grows
 // from the one on the page to the one on screen, and the graph inside keeps fitting it as it goes,
 // so nothing is stretched. Occasional, so it can afford to be seen, but it stays quick.
-withDefaults(defineProps<{ height?: string }>(), {
+withDefaults(defineProps<{
+  height?: string
+  /** Names the frame while it fills the screen */
+  label?: string
+}>(), {
   height: 'clamp(480px, 68dvh, 780px)',
+  label: 'Graph',
 })
 
 defineSlots<{
@@ -122,11 +127,14 @@ useEventListener('keydown', (e: KeyboardEvent) => {
       ref="panel"
       class="group/frame isolate overflow-hidden bg-muted"
       :class="expanded ? 'fixed inset-3 z-50 rounded-xl shadow-2xl' : 'absolute inset-0 rounded-lg'"
+      :role="expanded ? 'dialog' : undefined"
+      :aria-modal="expanded || undefined"
+      :aria-label="expanded ? label : undefined"
     >
       <slot :expanded="expanded" :settled="settled" :toggle="toggle" />
       <!-- Also where the keyboard focus of the canvas shows: a ring on the canvas itself would stay square under the radius -->
       <div
-        class="pointer-events-none absolute inset-0 z-30 rounded-[inherit] border border-default group-has-[.graph:focus-visible]/frame:border-inverted/40"
+        class="pointer-events-none absolute inset-0 z-30 rounded-[inherit] border border-default group-has-[.graph:focus-visible]/frame:ring-2 group-has-[.graph:focus-visible]/frame:ring-inverted group-has-[.graph:focus-visible]/frame:ring-inset"
         aria-hidden="true"
       />
     </div>

@@ -74,7 +74,7 @@ const next = computed(() => safeNextPath(route.query.next))
         color="warning"
         variant="subtle"
         icon="i-ph-warning-bold"
-        description="No sign-in method is configured on this instance."
+        description="No sign-in method is configured. Ask an administrator to enable one."
       />
     </div>
   </main>

@@ -137,7 +137,6 @@ def preview_aggregator(
         ids_by_name = {name: agent_id for agent_id, name in names.items()}
         aggregator = AgentConfig(
             name="Preview",
-            team_name="",
             system_prompt=None,
             user_prompt=None,
             variables=[],

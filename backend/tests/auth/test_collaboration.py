@@ -12,7 +12,6 @@ import workspace_lifecycle
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Analysis,
     Batch,
     Dataset,
@@ -446,8 +445,7 @@ def populate(engine, workspace_id: int) -> None:
         model = add(Model(name="m", provider="mistral"))
         prompt = add(Prompt(name="p"))
         version = add(PromptVersion(prompt_id=prompt.id, version="1"))
-        team = add(AgentTeam(name="t"))
-        agent = add(Agent(name="a", team_id=team.id, default_prompt_version_id=version.id, default_model_id=model.id))
+        agent = add(Agent(name="a", default_prompt_version_id=version.id, default_model_id=model.id))
         experiment = add(Experiment(name="e", dataset_id=dataset.id))
         batch = add(Batch(name="b", base_experiment_id=experiment.id))
         experiment.batch_id = batch.id

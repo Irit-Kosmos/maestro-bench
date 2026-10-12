@@ -1,10 +1,9 @@
-import type { Agent, AgentInputMapping, AgentTeam, PromptVersion } from '~/types'
+import type { Agent, AgentInputMapping, PromptVersion } from '~/types'
 import type { GraphEdge } from '~/utils/graphLayout'
 import { graphReaches } from '~/utils/graphLayout'
 
 export interface AgentFlowNodeData {
   agent: Agent
-  team?: AgentTeam
   config?: Record<string, any>
 }
 
@@ -27,7 +26,7 @@ export type InputMappingSource = 'dataset' | 'agent' | 'static'
  * State of the agent graph: which agents are on it and how they are connected
  */
 export function useAgentFlow(
-  agentTeams: Ref<AgentTeam[] | null | undefined>,
+  agents: Ref<readonly Agent[] | null | undefined>,
   agentConfigurations: Ref<Record<number, any>>,
   allPromptVersions: Ref<PromptVersion[] | null | undefined> = ref(null),
 ) {
@@ -35,25 +34,8 @@ export function useAgentFlow(
   const edges = ref<AgentFlowEdge[]>([])
   const selectedNodeId = ref<string | null>(null)
 
-  // Get all available agents grouped by team
-  const allAgentsByTeam = computed(() => {
-    const result: { team: AgentTeam, agents: Agent[] }[] = []
-    agentTeams.value?.forEach((team) => {
-      if (team.agents && team.agents.length > 0) {
-        result.push({ team, agents: [...team.agents] })
-      }
-    })
-    return result
-  })
-
-  // Get a flat list of all agents
-  const allAgents = computed(() => {
-    const agents: Agent[] = []
-    allAgentsByTeam.value.forEach(({ agents: teamAgents }) => {
-      agents.push(...teamAgents)
-    })
-    return agents
-  })
+  // All the agents of the workspace
+  const allAgents = computed(() => [...(agents.value ?? [])])
 
   // Get all agent IDs currently in the flow
   const flowAgentIds = computed(() => {
@@ -63,11 +45,6 @@ export function useAgentFlow(
   // Check if an agent is already in the flow
   function isAgentInFlow(agentId: number): boolean {
     return nodes.value.some(n => n.id === `agent-${agentId}`)
-  }
-
-  // Find a team by agent
-  function getTeamForAgent(agentId: number): AgentTeam | undefined {
-    return agentTeams.value?.find(t => t.agents?.some(a => a.id === agentId))
   }
 
   // Add an agent to the flow canvas
@@ -83,13 +60,10 @@ export function useAgentFlow(
       agentConfigurations.value[agent.id] = defaultAgentConfig(agent)
     }
 
-    const team = getTeamForAgent(agent.id)
-
     nodes.value.push({
       id: nodeId,
       data: {
         agent,
-        team,
         config: agentConfigurations.value[agent.id],
       },
     })
@@ -230,18 +204,6 @@ export function useAgentFlow(
     })
 
     return order
-  }
-
-  // Get unique team IDs from all agents in the flow
-  function getFlowTeamIds(): number[] {
-    const teamIds = new Set<number>()
-    nodes.value.forEach((node) => {
-      const agent = node.data?.agent
-      if (agent?.team_id) {
-        teamIds.add(agent.team_id)
-      }
-    })
-    return Array.from(teamIds)
   }
 
   // Remove input mappings for variables that are not in the current prompt
@@ -460,7 +422,6 @@ export function useAgentFlow(
     selectedNodeId,
 
     // Computed
-    allAgentsByTeam,
     allAgents,
     flowAgentIds,
 
@@ -469,7 +430,6 @@ export function useAgentFlow(
     addAgentToFlow,
     removeAgentFromFlow,
     computeExecutionOrder,
-    getFlowTeamIds,
     updateAgentConfig,
     syncFromConfigs,
     syncMappingEdges,

@@ -59,17 +59,17 @@ async function submit() {
 
       <ul v-if="workspaces?.length" class="flex flex-col divide-y divide-default rounded-lg border border-default overflow-hidden">
         <li v-for="workspace in workspaces" :key="workspace.slug">
-          <button
-            type="button"
+          <!-- A plain link, so it opens in a new tab too; the full page load is what switching workspace does anyway -->
+          <a
+            :href="inWorkspace(workspace.slug, '/')"
             class="flex w-full items-center gap-3 h-11 px-4 text-start outline-none hover:bg-elevated focus-visible:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
-            @click="open(workspace.slug)"
           >
             <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ workspace.name }}</span>
             <UBadge v-if="workspace.archived" color="neutral" variant="subtle" size="sm">
               Archived
             </UBadge>
             <span class="shrink-0 text-xs text-muted">{{ roleLabels[workspace.role] }}</span>
-          </button>
+          </a>
         </li>
       </ul>
 

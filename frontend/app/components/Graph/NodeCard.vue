@@ -76,7 +76,7 @@ defineSlots<{
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--ui-text-dimmed);
+  color: var(--ui-text-muted);
   transition: color 150ms var(--ease-out);
 }
 

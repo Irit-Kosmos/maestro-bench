@@ -30,7 +30,7 @@ async function join() {
     await open(accepted.slug)
   }
   catch (e) {
-    joinError.value = (apiErrorMessage(e) ?? 'The invitation could not be accepted')
+    joinError.value = apiErrorMessage(e) ?? 'The invitation could not be accepted. Try again, or ask for a new link.'
     joining.value = false
   }
 }

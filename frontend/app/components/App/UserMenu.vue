@@ -45,7 +45,8 @@ const items = computed<DropdownMenuItem[][]>(() => [
       :class="collapsed ? 'justify-center' : 'min-w-0 flex-1 justify-start'"
       class="active:scale-100!"
     >
-      <UAvatar :src="user.avatar_url ?? undefined" :alt="user.display_name" size="2xs" />
+      <!-- Hidden from screen readers: the name beside it (or the button's label) already says who this is. `alt` stays, it feeds the initials -->
+      <UAvatar :src="user.avatar_url ?? undefined" :alt="user.display_name" size="2xs" aria-hidden="true" />
       <span v-if="!collapsed" class="flex-1 min-w-0 truncate text-start">{{ user.display_name }}</span>
     </UButton>
   </UDropdownMenu>

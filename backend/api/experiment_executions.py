@@ -17,7 +17,6 @@ from schemas.experiment_executions import (
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Experiment,
     ExperimentExecution,
@@ -39,20 +38,17 @@ def _snapshot_responses(
     if not execution_ids:
         return responses
     rows = session.exec(
-        select(AgentExecutionSnapshot, AgentTeam.name)
-        .join(Agent, col(Agent.id) == col(AgentExecutionSnapshot.agent_id), isouter=True)
-        .join(AgentTeam, col(AgentTeam.id) == col(Agent.team_id), isouter=True)
+        select(AgentExecutionSnapshot)
         .where(col(AgentExecutionSnapshot.execution_id).in_(execution_ids))
         .order_by(col(AgentExecutionSnapshot.id))
     ).all()
-    for s, team_name in rows:
+    for s in rows:
         responses[s.execution_id].append(
             AgentExecutionSnapshotResponse(
                 id=int(s.id) if s.id is not None else 0,
                 agent_id=s.agent_id,
                 kind=s.kind,
                 agent_name_snapshot=s.agent_name_snapshot,
-                agent_team_name_snapshot=team_name,
                 model_name_snapshot=s.model_name_snapshot,
                 model_provider_snapshot=s.model_provider_snapshot,
                 prompt_name_snapshot=s.prompt_name_snapshot,

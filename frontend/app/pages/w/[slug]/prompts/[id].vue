@@ -26,6 +26,8 @@ useSeoMeta({
 // Versions: newest first. Which one is the default is shown on its row, not by its position.
 const versions = ref<PromptVersion[]>([])
 const versionsLoading = ref(true)
+// A failed load must not read as "no versions yet"
+const versionsError = ref(false)
 
 const sortedVersions = computed(() =>
   [...versions.value].sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime()),
@@ -33,13 +35,17 @@ const sortedVersions = computed(() =>
 
 async function loadVersions() {
   versionsLoading.value = true
+  versionsError.value = false
   try {
     const result = await getPromptVersions(promptId)
     if (result.success)
       versions.value = (result.data as PromptVersion[]) || []
+    else
+      versionsError.value = true
   }
   catch {
     console.error('Error loading versions')
+    versionsError.value = true
   }
   finally {
     versionsLoading.value = false
@@ -378,6 +384,12 @@ onBeforeRouteLeave((to) => {
 
     <template v-if="prompt">
       <div v-if="versionsLoading && versions.length === 0" :class="frame" class="animate-pulse bg-muted/40" />
+
+      <BaseErrorState
+        v-else-if="versionsError && versions.length === 0 && mode !== 'create'"
+        title="Couldn’t load the versions"
+        @retry="loadVersions"
+      />
 
       <BaseEmptyState
         v-else-if="versions.length === 0 && mode !== 'create'"

@@ -67,7 +67,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
         <h2 class="truncate text-sm font-medium text-highlighted">
           {{ version.version }}
         </h2>
-        <UBadge v-if="version.is_default" label="Default" color="success" variant="subtle" size="sm" />
+        <UBadge v-if="version.is_default" label="Default" color="primary" variant="subtle" size="sm" />
         <UBadge v-if="!version.is_active" label="Inactive" color="neutral" variant="subtle" size="sm" />
         <span class="hidden truncate text-xs text-muted sm:block">
           Created {{ formatDate(version.created_at) }}

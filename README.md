@@ -18,8 +18,8 @@ engine is specific to education.
   templates and declared variables (`{{ variable }}` or `<variable></variable>`).
 - **Models** - any provider supported by [LiteLLM](https://docs.litellm.ai/docs/providers)
   (OpenAI, Anthropic, Mistral, Groq, Together, DeepSeek out of the box).
-- **Agents and teams** - an agent is a prompt version + a default model, grouped
-  into teams.
+- **Agents** - an agent is a prompt version + a default model, or an aggregator
+  that combines other agents' outputs. Tag them to group them.
 - **Experiments** - a visual flow editor to chain agents, map dataset columns and
   previous agent outputs to prompt variables, and pick a sampling strategy
   (all rows, random sample, row range).
@@ -129,7 +129,7 @@ pnpm dev
 ### 3. Seed sample data (optional)
 
 The database starts empty. The seed script creates a few Mistral models, three
-example prompts (two graders and a "meta-tutor"), two agent teams and the
+example prompts (two graders and a "meta-tutor"), three agents and the
 sample datasets shipped in `backend/scripts/sample_datasets/`, copied into the
 workspace's `datasets/` folder.
 
@@ -162,8 +162,8 @@ page lists (a dataset on Datasets, a prompt on Prompts...), an experiment elsewh
    key or server URL configured.
 2. **Prompts** - create a prompt and at least one version. Declare the variables
    the templates use so they can be mapped later.
-3. **Agents** - agents with a default prompt version and model. They are grouped
-   in teams; the first agent goes in a "Default" team created for it.
+3. **Agents** - agents with a default prompt version and model. Tag them to
+   find them again.
 4. **Datasets** - upload a CSV (UTF-8) or JSON file (a list of objects) with
    **New dataset**; it needs a header row and at least one row, and is limited
    to `MAX_UPLOAD_MB`. The file is stored in the workspace's own folder under a

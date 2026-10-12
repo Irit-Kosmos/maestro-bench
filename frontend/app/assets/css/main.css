@@ -54,6 +54,17 @@ html:root.dark {
   --ui-border: #262626;
 }
 
+/*
+ * Status hues as text on a light surface: Nuxt UI uses the 500 shade, which measures 2.2:1 (success),
+ * 1.9:1 (warning) and 3.8:1 (error) on white. The 700 shades clear 4.5:1 for the small text and
+ * tinted alerts that carry them. Dark keeps the 400 shades, which already pass on the dark surfaces.
+ */
+html:root:not(.dark) {
+  --ui-success: var(--ui-color-success-700);
+  --ui-warning: var(--ui-color-warning-700);
+  --ui-error: var(--ui-color-error-700);
+}
+
 /* Paint the canvas so overscroll never shows a different surface */
 html {
   background-color: var(--ui-bg);
@@ -204,7 +215,8 @@ html:root {
   --vis-boxplot-median-stroke-width: 0;
   --vis-boxplot-whisker-stroke-color: var(--ui-text-highlighted);
   --vis-boxplot-whisker-stroke-width: 1.5px;
-  --vis-scatter-fill-opacity: 0.45;
+  /* Marks need 3:1 against the surface: 0.45 left the points at 1.8:1 on white */
+  --vis-scatter-fill-opacity: 0.8;
   --vis-heatmap-label-color: var(--ui-text-toned);
   --vis-heatmap-cell-fill-color: var(--viz-empty-cell);
 

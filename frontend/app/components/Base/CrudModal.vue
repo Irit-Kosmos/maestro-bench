@@ -52,16 +52,17 @@ function handleCancel() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" @after:leave="emit('afterLeave')">
+  <UModal v-model:open="isOpen" :title="modalTitle" @after:leave="emit('afterLeave')">
     <template #content>
       <!-- A real form: Enter submits, and the button waits for a valid one -->
       <form @submit.prevent="handleSubmit">
         <UCard class="w-full">
           <template #header>
             <div class="flex items-center justify-between">
-              <h3 class="text-base font-semibold text-highlighted">
+              <!-- Not a heading: the modal's own (visually hidden) title already names the dialog -->
+              <p class="text-base font-semibold text-highlighted">
                 {{ modalTitle }}
-              </h3>
+              </p>
               <UButton
                 type="button"
                 variant="ghost"

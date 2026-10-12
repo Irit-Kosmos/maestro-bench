@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Seed script for development/testing.
-Creates prompts, models, agent teams, agents, and the sample datasets.
+Creates prompts, models, agents, and the sample datasets.
 
 It only adds what is missing (matched by name) and never deletes or edits
 anything, so it is safe to run on a database that already holds your data, and
@@ -28,7 +28,6 @@ import workspace_files
 from db import engine, init_db
 from tables import (
     Agent,
-    AgentTeam,
     Dataset,
     Model,
     Prompt,
@@ -250,50 +249,33 @@ Your response must be in the same language as the query!""",
 
 
         # ------------------------------------------------------------------
-        # 3. Agent Teams
-        # ------------------------------------------------------------------
-        print("Creating agent teams...")
-        corrector_team = _get_or_create(
-            session,
-            AgentTeam,
-            {"name": "Corrector"},
-            description="Agent team focused on evaluating and correcting learner responses",
-        )
-        metatutor_team = _get_or_create(
-            session,
-            AgentTeam,
-            {"name": "Metatutor"},
-            description="Agent team providing actionable insights and advice for teachers",
-        )
-
-        # ------------------------------------------------------------------
-        # 4. Agents
+        # 3. Agents
         # ------------------------------------------------------------------
         print("Creating agents...")
         _get_or_create(
             session,
             Agent,
-            {"name": "Language", "team_id": corrector_team.id},
+            {"name": "Language"},
             description="Evaluates learner answers based on clarity, grammar, and terminology",
             default_prompt_version_id=language_version.id,
         )
         _get_or_create(
             session,
             Agent,
-            {"name": "Content", "team_id": corrector_team.id},
+            {"name": "Content"},
             description="Evaluates how well learner answers cover key factual and conceptual points",
             default_prompt_version_id=content_version.id,
         )
         _get_or_create(
             session,
             Agent,
-            {"name": "Metatutor", "team_id": metatutor_team.id},
+            {"name": "Metatutor"},
             description="Provides actionable insights and advice for teachers",
             default_prompt_version_id=metatutor_version.id,
         )
 
         # ------------------------------------------------------------------
-        # 5. Sample datasets (files are copied into the workspace's datasets folder)
+        # 4. Sample datasets (files are copied into the workspace's datasets folder)
         # ------------------------------------------------------------------
         print("Creating datasets...")
         for file_name in ("mohler_dataset.csv", "diff_gt_2_mohler_dataset.csv"):

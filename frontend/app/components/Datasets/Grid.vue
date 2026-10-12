@@ -19,6 +19,7 @@ const EDITOR_MAX_HEIGHT = 240
 
 const { headers, columnWidths, displayedRows, selected, isReadOnly, version } = props.editor
 
+const gridId = useId()
 const scrollEl = ref<HTMLElement | null>(null)
 
 const active = ref({ row: 0, col: 0 })
@@ -77,12 +78,22 @@ function textAt(row: EditorRow, header: string): string {
   return cellText(valueAt(row, header))
 }
 
+const isNewRow = (row: EditorRow) => row.original === null
+
+// A tint plus an edge on the start side: a change must not rest on colour alone
 function cellClass(row: EditorRow, header: string, index: number, col: number) {
   return [
     active.value.row === index && active.value.col === col && 'ring-1 ring-inset ring-inverted',
-    row.original === null || props.editor.isCellChanged(row, header) ? 'bg-warning/10' : '',
+    isNewRow(row) || props.editor.isCellChanged(row, header) ? 'bg-warning/10 before:absolute before:inset-y-0 before:start-0 before:w-0.5 before:bg-warning' : '',
   ]
 }
+
+const cellId = (index: number, col: number) => `${gridId}-${index}-${col}`
+
+// The focus stays on the grid: the cell it points at is the one virtualised in view, if any
+const activeCellId = computed(() => virtualRows.value.some(item => item.index === active.value.row)
+  ? cellId(active.value.row, active.value.col)
+  : undefined)
 
 function focusGrid() {
   scrollEl.value?.focus({ preventScroll: true })
@@ -274,8 +285,9 @@ defineExpose({
     role="grid"
     tabindex="0"
     aria-label="Dataset rows"
-    :aria-rowcount="displayedRows.length"
-    :aria-colcount="headers.length"
+    :aria-rowcount="displayedRows.length + 1"
+    :aria-colcount="headers.length + 1"
+    :aria-activedescendant="activeCellId"
     class="h-full overflow-auto outline-none"
     @keydown="onKeydown"
   >
@@ -283,10 +295,11 @@ defineExpose({
       <!-- Header -->
       <div
         role="row"
+        aria-rowindex="1"
         class="sticky top-0 z-20 grid border-b border-default bg-muted"
         :style="{ gridTemplateColumns: gridTemplate, height: `${HEADER_HEIGHT}px` }"
       >
-        <div role="columnheader" class="sticky left-0 z-10 flex items-center pl-3 bg-inherit">
+        <div role="columnheader" aria-colindex="1" class="sticky left-0 z-10 flex items-center pl-3 bg-inherit">
           <UCheckbox
             :model-value="selectAllState"
             size="sm"
@@ -296,9 +309,10 @@ defineExpose({
           />
         </div>
         <div
-          v-for="header in headers"
+          v-for="(header, col) in headers"
           :key="header"
           role="columnheader"
+          :aria-colindex="col + 2"
           class="flex items-center px-3 text-xs font-medium font-mono text-muted truncate"
           :title="header"
         >
@@ -312,23 +326,24 @@ defineExpose({
           <div
             v-if="displayedRows[item.index]"
             role="row"
-            :aria-rowindex="item.index + 1"
+            :aria-rowindex="item.index + 2"
             :aria-selected="selected.has(displayedRows[item.index]!.key)"
             class="group absolute top-0 left-0 grid w-full border-b border-default/60 hover:bg-elevated"
             :class="selected.has(displayedRows[item.index]!.key) ? 'bg-[color-mix(in_oklab,var(--ui-primary)_8%,var(--ui-bg))]' : 'bg-default'"
             :style="{ height: `${ROW_HEIGHT}px`, transform: `translateY(${item.start}px)`, gridTemplateColumns: gridTemplate }"
           >
-            <div role="rowheader" class="sticky left-0 z-10 flex items-center gap-1 pl-3 pr-1 bg-inherit">
+            <div role="rowheader" aria-colindex="1" class="sticky left-0 z-10 flex items-center gap-1 pl-3 pr-1 bg-inherit">
               <div class="flex items-center w-7 shrink-0">
                 <span
-                  class="text-xs text-dimmed tabular-nums group-hover:hidden"
+                  class="text-xs text-muted tabular-nums group-hover:hidden pointer-coarse:hidden"
                   :class="{ hidden: selected.has(displayedRows[item.index]!.key) }"
                 >{{ item.index + 1 }}</span>
+                <span v-if="isNewRow(displayedRows[item.index]!)" class="sr-only">New row</span>
                 <UCheckbox
                   :model-value="selected.has(displayedRows[item.index]!.key)"
                   size="sm"
                   :aria-label="`Select row ${item.index + 1}`"
-                  class="group-hover:flex"
+                  class="group-hover:flex pointer-coarse:flex"
                   :class="selected.has(displayedRows[item.index]!.key) ? 'flex' : 'hidden'"
                   @update:model-value="editor.toggleSelected(displayedRows[item.index]!)"
                 />
@@ -339,7 +354,7 @@ defineExpose({
                   color="neutral"
                   variant="ghost"
                   size="xs"
-                  class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                  class="opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100"
                   :aria-label="`Open row ${item.index + 1}`"
                   @click="emit('openRow', item.index)"
                 />
@@ -348,22 +363,25 @@ defineExpose({
 
             <div
               v-for="(header, col) in headers"
+              :id="cellId(item.index, col)"
               :key="header"
               role="gridcell"
-              class="flex items-center px-3 text-sm text-toned min-w-0"
+              :aria-colindex="col + 2"
+              class="relative flex items-center px-3 text-sm text-toned min-w-0"
               :class="cellClass(displayedRows[item.index]!, header, item.index, col)"
               @click="activate(item.index, col)"
               @dblclick="startEdit(item.index, col)"
             >
               <span
                 v-if="valueAt(displayedRows[item.index]!, header) === null"
-                class="text-dimmed"
+                class="text-muted"
               >null</span>
               <span
                 v-else
                 class="truncate"
                 :title="textAt(displayedRows[item.index]!, header).length > 40 ? textAt(displayedRows[item.index]!, header) : undefined"
               >{{ textAt(displayedRows[item.index]!, header) }}</span>
+              <span v-if="!isNewRow(displayedRows[item.index]!) && editor.isCellChanged(displayedRows[item.index]!, header)" class="sr-only">Edited</span>
             </div>
           </div>
         </template>

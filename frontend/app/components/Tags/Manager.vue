@@ -85,7 +85,7 @@ const deleteMessage = computed(() => {
           type="button"
           :disabled="!canEdit"
           :aria-label="`Change the colour of ${tag.name}`"
-          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none transition-colors duration-150 enabled:hover:bg-elevated focus-visible:bg-elevated data-[state=open]:bg-elevated disabled:cursor-default"
+          class="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm outline-none transition-colors duration-150 enabled:hover:bg-elevated focus-visible:bg-elevated focus-visible:ring-2 focus-visible:ring-inverted data-[state=open]:bg-elevated disabled:cursor-default"
         >
           <span class="size-2.5 rounded-full" :class="tagDot(tag.color)" aria-hidden="true" />
         </button>
@@ -114,7 +114,7 @@ const deleteMessage = computed(() => {
         autocomplete="off"
         maxlength="40"
         :readonly="!canEdit"
-        class="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 text-sm text-highlighted outline-none transition-colors duration-150 read-only:cursor-default not-read-only:hover:border-default not-read-only:focus:border-accented"
+        class="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1.5 text-sm text-highlighted outline-none transition-colors duration-150 read-only:cursor-default not-read-only:hover:border-default not-read-only:focus:border-accented focus-visible:ring-2 focus-visible:ring-inverted"
         @change="rename(tag, $event)"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
         @keydown.esc="($event.target as HTMLInputElement).value = tag.name"
@@ -140,7 +140,7 @@ const deleteMessage = computed(() => {
     v-model:open="showDeleteDialog"
     title="Delete tag?"
     :message="deleteMessage"
-    confirm-label="Delete"
+    confirm-label="Delete tag"
     variant="error"
     :loading="deleting"
     @confirm="confirmDelete"

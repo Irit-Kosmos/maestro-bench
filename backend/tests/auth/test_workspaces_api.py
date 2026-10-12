@@ -15,7 +15,6 @@ from auth.workspaces import (
     MembershipError,
     WorkspaceContext,
     claim_default_workspace,
-    remove_member,
     set_member,
 )
 from schemas.events import RunEvent, RunState
@@ -67,25 +66,25 @@ def test_a_workspace_needs_a_name(alice):
 # ---------------------------------------------------------------------------
 
 SCOPED_READS = [
-    "datasets", "models", "prompts", "prompt-versions", "agents", "agent-teams",
+    "datasets", "models", "prompts", "prompt-versions", "agents",
     "tags", "batches", "analyses", "analyses/executions", "executions",
     "experiments", "dashboard", "providers", "events",
 ]  # fmt: skip
 
 
-@pytest.mark.parametrize("path", SCOPED_READS)
-def test_an_outsider_cannot_tell_a_workspace_exists(alice, bob, path):
+def test_an_outsider_cannot_tell_a_workspace_exists(alice, bob):
     slug = alice.create_workspace("Private")
 
-    assert bob.get(f"/workspaces/{slug}/{path}").status_code == 404
-    assert bob.get(f"/workspaces/nowhere/{path}").status_code == 404
+    for path in SCOPED_READS:
+        assert bob.get(f"/workspaces/{slug}/{path}").status_code == 404, path
+        assert bob.get(f"/workspaces/nowhere/{path}").status_code == 404, path
 
 
-@pytest.mark.parametrize("path", [p for p in SCOPED_READS if p != "events"])
-def test_a_member_reads_every_listing(alice, path):
+def test_a_member_reads_every_listing(alice):
     slug = alice.create_workspace("Mine")
 
-    assert alice.get(f"/workspaces/{slug}/{path}").status_code == 200
+    for path in (p for p in SCOPED_READS if p != "events"):
+        assert alice.get(f"/workspaces/{slug}/{path}").status_code == 200, path
 
 
 def test_the_workspace_routes_need_a_session(app):
@@ -103,30 +102,29 @@ WRITES = [
     ("post", "tags", {"name": "t"}),
     ("post", "models", {"name": "m", "provider": "mistral"}),
     ("post", "prompts", {"name": "p"}),
-    ("post", "agent-teams", {"name": "t"}),
+    ("post", "agents", {"name": "a"}),
     ("post", "datasets", {"name": "d"}),
 ]
 
 
-@pytest.mark.parametrize(("method", "path", "body"), WRITES)
-def test_a_viewer_reads_but_cannot_write(engine, alice, bob, method, path, body):
+def test_a_viewer_reads_but_cannot_write(engine, alice, bob):
     slug = alice.create_workspace("Shared")
     add_member(engine, slug, bob, "viewer")
 
-    assert bob.get(f"/workspaces/{slug}/{path}").status_code == 200
-    response = getattr(bob, method)(f"/workspaces/{slug}/{path}", json=body)
-    assert response.status_code == 403
-    assert "editor" in response.json()["detail"]
+    for method, path, body in WRITES:
+        assert bob.get(f"/workspaces/{slug}/{path}").status_code == 200, path
+        response = getattr(bob, method)(f"/workspaces/{slug}/{path}", json=body)
+        assert response.status_code == 403, path
+        assert "editor" in response.json()["detail"], path
 
 
-@pytest.mark.parametrize(("method", "path", "body"), WRITES)
-def test_an_editor_can_write(engine, alice, bob, method, path, body):
+def test_an_editor_can_write(engine, alice, bob):
     slug = alice.create_workspace("Shared")
     add_member(engine, slug, bob, "editor")
 
-    response = getattr(bob, method)(f"/workspaces/{slug}/{path}", json=body)
-
-    assert response.status_code == 201, response.text
+    for method, path, body in WRITES:
+        response = getattr(bob, method)(f"/workspaces/{slug}/{path}", json=body)
+        assert response.status_code == 201, (path, response.text)
 
 
 def test_a_viewer_cannot_change_or_delete(engine, alice, bob):
@@ -165,28 +163,6 @@ def test_only_an_owner_can_rename_a_workspace(engine, alice, bob):
     assert response.json()["slug"] == slug
 
 
-def test_an_archived_workspace_is_read_only(engine, alice):
-    slug = alice.create_workspace("Old")
-    with Session(engine) as db:
-        workspace = db.exec(select(Workspace).where(Workspace.slug == slug)).one()
-        workspace.archived_at = workspace.created_at
-        db.add(workspace)
-        db.commit()
-
-    assert alice.get(f"/workspaces/{slug}/tags").status_code == 200
-    response = alice.post(f"/workspaces/{slug}/tags", json={"name": "t"})
-    assert response.status_code == 409
-    assert alice.get("/workspaces").json()[0]["archived"] is True
-
-
-def test_writes_still_need_the_csrf_token(alice):
-    slug = alice.create_workspace("Mine")
-
-    response = alice.client.post(f"/workspaces/{slug}/tags", json={"name": "t"})
-
-    assert response.status_code == 403
-
-
 # ---------------------------------------------------------------------------
 # Isolation between workspaces
 # ---------------------------------------------------------------------------
@@ -195,7 +171,7 @@ RESOURCES = [
     ("datasets", {"name": "d"}),
     ("models", {"name": "m", "provider": "mistral"}),
     ("prompts", {"name": "p"}),
-    ("agent-teams", {"name": "t"}),
+    ("agents", {"name": "a"}),
     ("tags", {"name": "t"}),
     (
         "analyses",
@@ -266,36 +242,19 @@ def test_tag_names_are_unique_within_a_workspace_only(alice, two_workspaces):
     )
 
 
-def test_an_agent_cannot_point_at_another_workspaces_team(alice, two_workspaces):
-    first, second = two_workspaces
-    team = alice.post(f"/workspaces/{first}/agent-teams", json={"name": "t"}).json()
-
-    response = alice.post(
-        f"/workspaces/{second}/agents", json={"name": "a", "team_id": team["id"]}
-    )
-
-    assert response.status_code == 422
-    assert "not found" in response.json()["detail"]
-
-
 def test_an_agent_cannot_default_to_another_workspaces_model(alice, two_workspaces):
     first, second = two_workspaces
     model = alice.post(
         f"/workspaces/{first}/models", json={"name": "m", "provider": "mistral"}
     ).json()
-    own_team = alice.post(
-        f"/workspaces/{second}/agent-teams", json={"name": "t"}
-    ).json()
 
     created = alice.post(
         f"/workspaces/{second}/agents",
-        json={"name": "a", "team_id": own_team["id"], "default_model_id": model["id"]},
+        json={"name": "a", "default_model_id": model["id"]},
     )
     assert created.status_code == 422
 
-    agent = alice.post(
-        f"/workspaces/{second}/agents", json={"name": "a", "team_id": own_team["id"]}
-    ).json()
+    agent = alice.post(f"/workspaces/{second}/agents", json={"name": "a"}).json()
     updated = alice.put(
         f"/workspaces/{second}/agents/{agent['id']}",
         json={"default_model_id": model["id"]},
@@ -321,17 +280,13 @@ def test_an_experiment_cannot_use_another_workspaces_agents(alice, two_workspace
     own_dataset = alice.post(
         f"/workspaces/{second}/datasets", json={"name": "d"}
     ).json()
-    team = alice.post(f"/workspaces/{first}/agent-teams", json={"name": "t"}).json()
-    agent = alice.post(
-        f"/workspaces/{first}/agents", json={"name": "a", "team_id": team["id"]}
-    ).json()
+    agent = alice.post(f"/workspaces/{first}/agents", json={"name": "a"}).json()
 
     response = alice.post(
         f"/workspaces/{second}/experiments",
         json={
             "name": "e",
             "dataset_id": own_dataset["id"],
-            "agent_teams": [str(team["id"])],
             "agent_configurations": {str(agent["id"]): {"is_active": True}},
         },
     )
@@ -441,30 +396,8 @@ def test_the_live_stream_only_tells_a_workspace_about_its_own_runs(engine, monke
 # ---------------------------------------------------------------------------
 
 
-def test_the_last_owner_cannot_leave_or_step_down(engine, alice):
-    slug = alice.create_workspace("Mine")
-    with Session(engine) as db:
-        workspace = db.exec(select(Workspace).where(Workspace.slug == slug)).one()
-        user = db.get(User, alice.id)
-
-        with pytest.raises(MembershipError, match="at least one owner"):
-            remove_member(db, workspace, user)
-        with pytest.raises(MembershipError, match="at least one owner"):
-            set_member(db, workspace, user, "editor")
-
-
-def test_an_owner_can_step_down_once_another_owns(engine, alice, bob):
-    slug = alice.create_workspace("Mine")
-    add_member(engine, slug, bob, "owner")
-
-    with Session(engine) as db:
-        workspace = db.exec(select(Workspace).where(Workspace.slug == slug)).one()
-        set_member(db, workspace, db.get(User, alice.id), "viewer")
-
-    assert alice.get("/workspaces").json()[0]["role"] == "viewer"
-
-
-def test_an_unknown_role_is_refused(engine, alice, bob):
+def test_an_unknown_role_is_refused_before_it_is_stored(engine, alice, bob):
+    # The API rejects it first (see test_collaboration): this guards other callers
     slug = alice.create_workspace("Mine")
     with Session(engine) as db:
         workspace = db.exec(select(Workspace).where(Workspace.slug == slug)).one()

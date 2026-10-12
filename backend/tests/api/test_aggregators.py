@@ -1,12 +1,9 @@
 import json
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from api import aggregators, experiments
-from db import get_session
 from experiment_utils import (
     build_agent_configs_from_snapshot,
     create_execution_snapshot,
@@ -14,7 +11,6 @@ from experiment_utils import (
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Dataset,
     Experiment,
     ExperimentExecution,
@@ -22,8 +18,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 FORMULAS = [
     {"name": "score", "formula": "w1 * langue + w2 * contenu"},
@@ -35,53 +30,38 @@ FORMULAS = [
 def client(engine, monkeypatch):
     # Creating an experiment starts it: not here
     monkeypatch.setattr(experiments.async_jobs, "start_experiment", lambda *_: "started")
-    app = FastAPI()
-    app.include_router(aggregators.router)
-    app.include_router(experiments.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, aggregators, experiments)
 
 
 @pytest.fixture
 def setup(engine):
-    """A team with two LLM judges and an aggregator, and a dataset."""
+    """Two LLM judges and an aggregator, and a dataset."""
     with scoped(engine) as s:
-        team = AgentTeam(name="Graders")
         dataset = Dataset(name="answers", file_path="answers.csv")
         model = Model(name="gpt", provider="openai")
         prompt = Prompt(name="Judge")
-        s.add_all([team, dataset, model, prompt])
+        s.add_all([dataset, model, prompt])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1", user_prompt="{{ a }}")
         s.add(version)
         s.flush()
         langue = Agent(
             name="Langue",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )
         contenu = Agent(
             name="Contenu",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )
         final = Agent(
             name="Final",
-            team_id=team.id,
             kind="aggregator",
         )
         s.add_all([langue, contenu, final])
         s.commit()
         return {
-            "team": team.id,
             "dataset": dataset.id,
             "langue": langue.id,
             "contenu": contenu.id,
@@ -114,7 +94,6 @@ def experiment_body(ids, final_config):
     return {
         "name": "Run",
         "dataset_id": ids["dataset"],
-        "agent_teams": [str(ids["team"])],
         "agent_configurations": {
             str(ids["langue"]): {"execution_order": 1},
             str(ids["contenu"]): {"execution_order": 2},

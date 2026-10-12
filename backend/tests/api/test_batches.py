@@ -3,16 +3,12 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import select
 
 import async_jobs
 from api import batches, experiments
-from db import get_session
 from tables import (
     Agent,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -22,8 +18,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 REAL_START_EXPERIMENT = async_jobs.start_experiment
 
@@ -45,17 +40,7 @@ def jobs(monkeypatch):
 
 @pytest.fixture
 def client(engine, jobs):
-    app = FastAPI()
-    app.include_router(batches.router)
-    app.include_router(experiments.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, batches, experiments)
 
 
 @pytest.fixture
@@ -63,9 +48,8 @@ def world(engine):
     """A dataset, an agent with two prompt versions and three models."""
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
-        s.add_all([dataset, team, prompt])
+        s.add_all([dataset, prompt])
         s.flush()
         v1 = PromptVersion(
             prompt_id=prompt.id, version="1", variables='["answer"]'
@@ -83,7 +67,6 @@ def world(engine):
         s.flush()
         agent = Agent(
             name="Grader",
-            team_id=team.id,
             default_prompt_version_id=v1.id,
             default_model_id=models[0].id,
         )
@@ -91,7 +74,6 @@ def world(engine):
         s.commit()
         return {
             "dataset": dataset.id,
-            "team": team.id,
             "agent": agent.id,
             "v1": v1.id,
             "v2": v2.id,
@@ -114,7 +96,6 @@ def payload(world, variations, **config_overrides):
         "name": "Compare",
         "config": {
             "dataset_id": world["dataset"],
-            "agent_teams": [str(world["team"])],
             "agent_configurations": {str(world["agent"]): agent_config},
             "sampling_type": "all",
         },
@@ -655,7 +636,6 @@ class TestCreateWithSeed:
             json={
                 "name": "Solo",
                 "dataset_id": world["dataset"],
-                "agent_teams": [str(world["team"])],
                 "agent_configurations": {
                     str(world["agent"]): {
                         "is_active": True,

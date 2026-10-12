@@ -31,6 +31,8 @@ const { fetchDatasetInfo } = useDatasetInfo()
 const datasetInfo = ref<DatasetInfo | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
+// The sampling inputs point to the line under them, which holds the hint or what is wrong
+const feedbackId = useId()
 
 // Computed
 const samplingTypeOptions = [
@@ -113,6 +115,8 @@ const hint = computed(() => {
 })
 
 // Methods
+const LOAD_ERROR = 'Unable to load dataset information. Check your connection and try again.'
+
 async function loadDatasetInfo() {
   if (!props.datasetId)
     return
@@ -126,11 +130,11 @@ async function loadDatasetInfo() {
       datasetInfo.value = result.data as DatasetInfo
     }
     else {
-      error.value = 'Failed to load dataset information'
+      error.value = LOAD_ERROR
     }
   }
   catch (e) {
-    error.value = 'Error loading dataset information'
+    error.value = LOAD_ERROR
     console.error('Error loading dataset info:', e)
   }
   finally {
@@ -186,7 +190,13 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
     </div>
 
     <!-- Error State -->
-    <UAlert v-else-if="error" color="error" variant="soft" :title="error" />
+    <UAlert
+      v-else-if="error"
+      color="error"
+      variant="soft"
+      :title="error"
+      :actions="[{ label: 'Try again', color: 'neutral', variant: 'outline', size: 'xs', onClick: loadDatasetInfo }]"
+    />
 
     <!-- Configuration -->
     <div v-else-if="datasetInfo" class="space-y-2">
@@ -215,6 +225,8 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             aria-label="Sample size"
             :color="sampleSizeError ? 'error' : undefined"
             :highlight="!!sampleSizeError"
+            :aria-invalid="!!sampleSizeError"
+            :aria-describedby="feedbackId"
             @update:model-value="updateSamplingSize"
           />
           <span class="text-sm text-muted tabular-nums">of {{ formatNumber(maxRows) }} rows</span>
@@ -229,6 +241,8 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             aria-label="Sample seed"
             :color="seedError ? 'error' : undefined"
             :highlight="!!seedError"
+            :aria-invalid="!!seedError"
+            :aria-describedby="feedbackId"
             @update:model-value="updateSamplingSeed"
           />
         </div>
@@ -246,6 +260,8 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             aria-label="Start row"
             :color="rangeError ? 'error' : undefined"
             :highlight="!!rangeError"
+            :aria-invalid="!!rangeError"
+            :aria-describedby="feedbackId"
             @update:model-value="updateSamplingStartRow"
           />
           <span class="text-sm text-muted">to</span>
@@ -260,12 +276,14 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
             aria-label="End row"
             :color="rangeError ? 'error' : undefined"
             :highlight="!!rangeError"
+            :aria-invalid="!!rangeError"
+            :aria-describedby="feedbackId"
             @update:model-value="updateSamplingEndRow"
           />
         </div>
 
         <!-- Dataset facts -->
-        <p class="ml-auto flex items-center gap-1.5 text-xs text-muted tabular-nums">
+        <p class="ms-auto flex items-center gap-1.5 text-xs text-muted tabular-nums">
           <span>{{ formatNumber(maxRows) }} rows</span>
           <span aria-hidden="true">·</span>
           <span>{{ datasetInfo.total_columns }} columns</span>
@@ -274,9 +292,10 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
       </div>
 
       <p
+        :id="feedbackId"
         class="text-xs tabular-nums"
         :class="samplingError ? 'text-error' : 'text-muted'"
-        :role="samplingError ? 'alert' : undefined"
+        role="status"
       >
         {{ samplingError || hint }}
       </p>

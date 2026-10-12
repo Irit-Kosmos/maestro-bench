@@ -2,23 +2,17 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session
 
 from api import experiment_executions
-from db import get_session
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
     ExperimentExecution,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 
 def now() -> datetime:
@@ -27,16 +21,7 @@ def now() -> datetime:
 
 @pytest.fixture
 def client(engine):
-    app = FastAPI()
-    app.include_router(experiment_executions.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, experiment_executions)
 
 
 def add_experiment(engine, name="Run", **fields) -> int:
@@ -52,10 +37,7 @@ def add_experiment(engine, name="Run", **fields) -> int:
 
 def add_agent(engine, name="Grader") -> int:
     with scoped(engine) as s:
-        team = AgentTeam(name="Graders")
-        s.add(team)
-        s.flush()
-        agent = Agent(name=name, team_id=team.id)
+        agent = Agent(name=name)
         s.add(agent)
         s.commit()
         return agent.id

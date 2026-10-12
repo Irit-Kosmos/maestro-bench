@@ -214,7 +214,7 @@ function outputLabel(output: Record<string, unknown>) {
         <ul class="mt-2 divide-y divide-default rounded-lg border border-default text-xs">
           <li v-for="row in preview.rows" :key="row.row_index ?? undefined" class="flex flex-col gap-0.5 px-3 py-2">
             <span class="flex items-baseline gap-2">
-              <span class="shrink-0 text-dimmed tabular-nums">#{{ row.row_index }}</span>
+              <span class="shrink-0 text-muted tabular-nums">#{{ row.row_index }}</span>
               <span v-if="row.output" class="font-mono text-highlighted">{{ outputLabel(row.output) }}</span>
               <span v-else class="text-error">{{ row.error }}</span>
             </span>

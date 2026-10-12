@@ -21,16 +21,17 @@ function markClass(variable: string) {
     return isActive ? 'bg-warning/30 text-warning' : 'bg-warning/15 text-warning'
   if (kind === 'stand-in')
     return isActive ? 'bg-elevated text-highlighted italic underline decoration-dashed underline-offset-2' : 'bg-muted text-toned italic underline decoration-dashed underline-offset-2'
-  return isActive ? 'bg-primary/25 text-primary' : 'bg-primary/10 text-primary'
+  return isActive ? 'bg-primary/25 text-primary-700 dark:text-primary' : 'bg-primary/10 text-primary-700 dark:text-primary'
 }
 
-function markTitle(variable: string) {
+// What a mark means beyond its colour, for the title and for screen readers
+function markNote(variable: string) {
   const kind = props.values[variable]?.kind
   if (kind === 'missing')
     return `${variable} has no value in this row: the model receives “None”`
   if (kind === 'stand-in')
     return `${variable} is only known when the agent runs`
-  return variable
+  return undefined
 }
 </script>
 
@@ -39,6 +40,6 @@ function markTitle(variable: string) {
     <h3 class="mb-1.5 flex h-6 items-center text-xs font-medium text-muted">
       {{ label }}
     </h3>
-    <pre class="whitespace-pre-wrap break-words rounded-md border border-default bg-muted/50 px-3 py-2.5 font-mono text-[13px] leading-relaxed text-highlighted"><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.variable" class="rounded-sm px-0.5 transition-colors duration-100" :class="markClass(segment.variable)" :title="markTitle(segment.variable)">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template></template></pre>
+    <pre class="whitespace-pre-wrap break-words rounded-md border border-default bg-muted/50 px-3 py-2.5 font-mono text-[13px] leading-relaxed text-highlighted"><template v-for="(segment, index) in segments" :key="index"><mark v-if="segment.variable" class="rounded-sm px-0.5 transition-colors duration-100" :class="markClass(segment.variable)" :title="markNote(segment.variable) ?? segment.variable">{{ segment.text }}<span v-if="markNote(segment.variable)" class="sr-only select-none"> ({{ markNote(segment.variable) }})</span></mark><template v-else>{{ segment.text }}</template></template></pre>
   </section>
 </template>

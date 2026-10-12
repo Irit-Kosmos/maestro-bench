@@ -58,7 +58,7 @@ function onAction() {
     <p v-if="text" class="mt-1 max-w-sm text-sm text-muted text-pretty">
       {{ text }}
     </p>
-    <p v-if="denial" class="mt-2 max-w-sm text-xs text-dimmed text-pretty">
+    <p v-if="denial" class="mt-2 max-w-sm text-xs text-muted text-pretty">
       {{ denial }}.
     </p>
     <div v-if="$slots.default || (actionLabel && allowed)" class="mt-5 flex items-center gap-2">

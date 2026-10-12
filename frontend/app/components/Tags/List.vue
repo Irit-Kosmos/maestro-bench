@@ -37,6 +37,7 @@ const editable = computed(() => canEdit.value && !!props.kind && props.id !== un
       :key="tag.id"
       :tag="tag"
       :selectable="selectable"
+      :shrinkable="!wrap"
       :class="selectable ? 'relative z-1' : undefined"
       @select="emit('select', tag)"
     />
@@ -56,7 +57,7 @@ const editable = computed(() => canEdit.value && !!props.kind && props.id !== un
         type="button"
         aria-label="Add a tag"
         title="Add a tag"
-        class="relative z-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-dashed border-accented text-muted opacity-0 outline-none transition-[opacity,background-color,color] duration-150 group-hover/tags:opacity-100 hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:opacity-100 data-[state=open]:bg-elevated data-[state=open]:text-default data-[state=open]:opacity-100"
+        class="relative z-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-dashed border-accented text-muted opacity-0 outline-none transition-[opacity,background-color,color] duration-150 group-hover/tags:opacity-100 pointer-coarse:opacity-100 hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-inverted data-[state=open]:bg-elevated data-[state=open]:text-default data-[state=open]:opacity-100"
       >
         <UIcon name="i-ph-plus-bold" class="size-3" aria-hidden="true" />
       </button>

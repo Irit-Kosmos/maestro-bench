@@ -13,7 +13,6 @@ import async_jobs
 import config
 import credentials
 from api import (
-    agent_teams,
     agents,
     aggregators,
     analyses,
@@ -96,7 +95,6 @@ app.include_router(invitations_api.router)
 WORKSPACE_ROUTERS = [
     datasets,
     experiments,
-    agent_teams,
     agents,
     aggregators,
     experiment_executions,

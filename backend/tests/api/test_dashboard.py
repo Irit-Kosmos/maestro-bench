@@ -1,16 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session
 
 from api import dashboard
-from db import get_session
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -20,8 +15,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 
 def now() -> datetime:
@@ -30,32 +24,22 @@ def now() -> datetime:
 
 @pytest.fixture
 def client(engine):
-    app = FastAPI()
-    app.include_router(dashboard.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, dashboard)
 
 
 @pytest.fixture
 def world(engine):
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
-        s.add_all([dataset, team, prompt])
+        s.add_all([dataset, prompt])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1")
         models = [Model(name=n, provider="openai") for n in ("m-a", "m-b")]
         s.add_all([version, *models])
         s.flush()
-        agent = Agent(name="Grader", team_id=team.id)
-        other_agent = Agent(name="Reviewer", team_id=team.id)
+        agent = Agent(name="Grader")
+        other_agent = Agent(name="Reviewer")
         s.add_all([agent, other_agent])
         s.commit()
         return {
@@ -118,8 +102,8 @@ def test_empty_database(client):
     }
     assert activity["previous"]["experiments"] == 0
     assert activity["active"] == []
-    # A week in slices of six hours
-    assert len(activity["buckets"]) == 28
+    # A week in slices of twelve hours
+    assert len(activity["buckets"]) == 14
 
 
 def test_recent_experiment_carries_its_latest_execution(client, engine, world):
@@ -332,7 +316,7 @@ def test_buckets_add_up_to_the_period(client, engine, world):
 
 
 @pytest.mark.parametrize(
-    ("range_", "slices"), [("24h", 24), ("7d", 28), ("30d", 30), ("90d", 30)]
+    ("range_", "slices"), [("24h", 12), ("7d", 14), ("30d", 15), ("90d", 15)]
 )
 def test_each_period_is_cut_in_its_own_slices(client, range_, slices):
     activity = client.get("/dashboard", params={"range": range_}).json()["activity"]
@@ -350,7 +334,7 @@ def test_all_starts_at_the_first_experiment(client, engine, world):
 
     assert activity["since"] is None
     assert activity["current"]["experiments"] == 2
-    assert 1 < len(activity["buckets"]) <= 31
+    assert 1 < len(activity["buckets"]) <= 16
     assert sum(b["experiments"] for b in activity["buckets"]) == 2
 
 

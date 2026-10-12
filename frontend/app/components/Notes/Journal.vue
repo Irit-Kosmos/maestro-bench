@@ -58,15 +58,15 @@ function onKeydown(event: KeyboardEvent) {
 
 <template>
   <div class="flex flex-col gap-3">
-    <div v-if="writable" class="rounded-lg border border-default bg-default focus-within:border-accented" @keydown="onKeydown">
+    <div v-if="writable" class="rounded-lg border border-default bg-default focus-within:ring-2 focus-within:ring-inverted" @keydown="onKeydown">
       <div class="min-h-20 px-3 pt-2">
         <NotesEditor v-model="draft" placeholder="Write a note… type / for blocks" />
       </div>
       <div class="flex items-center justify-between gap-2 px-3 pb-2">
-        <span class="text-xs text-dimmed">
+        <span class="text-xs text-muted">
           <BaseKbd value="meta" /> <BaseKbd value="enter" /> to add
         </span>
-        <UButton size="sm" :loading="adding" :disabled="!filled" @click="add">
+        <UButton color="neutral" size="sm" :loading="adding" :disabled="!filled" @click="add">
           Add note
         </UButton>
       </div>

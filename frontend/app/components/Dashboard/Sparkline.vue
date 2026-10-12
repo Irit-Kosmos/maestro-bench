@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // One bar per slice of the period, tallest where the figure peaks. The card carries the figure
 // itself: the bars are there to be hovered, each naming its slice at once (no delay, the first
-// tooltip of a sweep included). The color is the text's.
+// tooltip of a sweep included). The color is the text's. Assistive tech gets every slice in one label.
 const props = defineProps<{
   values: readonly number[]
   /** What each bar stands for, in the same order as `values` */
   labels?: readonly string[]
 }>()
+
+const summary = computed(() => props.labels?.filter(Boolean).join(', '))
 
 const bars = computed(() => {
   const peak = Math.max(...props.values, 0)
@@ -20,7 +22,7 @@ const bars = computed(() => {
 </script>
 
 <template>
-  <div v-if="values.length" class="flex h-7 w-24 shrink-0 items-stretch gap-px" aria-hidden="true">
+  <div v-if="values.length" class="flex h-8 w-24 shrink-0 items-stretch gap-0.5" :role="summary ? 'img' : undefined" :aria-label="summary || undefined" :aria-hidden="summary ? undefined : true">
     <UTooltip
       v-for="(bar, i) in bars"
       :key="i"

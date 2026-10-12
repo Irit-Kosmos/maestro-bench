@@ -4,14 +4,23 @@ import pytest
 from sqlalchemy import text
 from sqlmodel import Session, col, delete, func, select
 
-from tables import Agent, AgentTeam, Dataset, Experiment, Model, Tag, TagLink
+from tables import (
+    Agent,
+    Dataset,
+    Experiment,
+    Model,
+    Prompt,
+    PromptVersion,
+    Tag,
+    TagLink,
+)
 from tests.conftest import scoped
 from workspace_scope import scope_session
 
 
 @pytest.fixture
 def two_workspaces(engine):
-    """Workspace 1 (the test one) and a second one, each with a model and a team."""
+    """Workspace 1 (the test one) and a second one, each with a model, an agent and a prompt with a version."""
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -23,12 +32,13 @@ def two_workspaces(engine):
     for workspace_id in (1, 2):
         with scoped(engine, workspace_id) as s:
             model = Model(name=f"model-{workspace_id}", provider="mistral")
-            team = AgentTeam(name=f"team-{workspace_id}")
-            s.add_all([model, team])
+            prompt = Prompt(name=f"prompt-{workspace_id}")
+            s.add_all([model, prompt])
             s.flush()
-            s.add(Agent(name=f"agent-{workspace_id}", team_id=team.id))
+            s.add(Agent(name=f"agent-{workspace_id}", default_model_id=model.id))
+            s.add(PromptVersion(prompt_id=prompt.id, version=f"v-{workspace_id}"))
             s.commit()
-            ids[workspace_id] = {"model": model.id, "team": team.id}
+            ids[workspace_id] = {"model": model.id, "prompt": prompt.id}
     return ids
 
 
@@ -41,7 +51,7 @@ def test_rows_are_stamped_with_the_session_workspace(engine, two_workspaces):
 def test_a_query_only_returns_the_workspace_rows(engine, two_workspaces):
     with scoped(engine, 1) as s:
         assert [m.name for m in s.exec(select(Model)).all()] == ["model-1"]
-        assert [t.name for t in s.exec(select(AgentTeam)).all()] == ["team-1"]
+        assert [p.name for p in s.exec(select(Prompt)).all()] == ["prompt-1"]
 
 
 def test_get_does_not_find_another_workspace_row(engine, two_workspaces):
@@ -61,17 +71,17 @@ def test_a_filter_cannot_lift_the_scope(engine, two_workspaces):
 def test_joins_stay_in_the_workspace(engine, two_workspaces):
     with scoped(engine, 1) as s:
         rows = s.exec(
-            select(Agent.name, AgentTeam.name).join(
-                AgentTeam, col(AgentTeam.id) == col(Agent.team_id)
+            select(Agent.name, Model.name).join(
+                Model, col(Model.id) == col(Agent.default_model_id)
             )
         ).all()
-        assert rows == [("agent-1", "team-1")]
+        assert rows == [("agent-1", "model-1")]
 
 
 def test_relationships_stay_in_the_workspace(engine, two_workspaces):
     with scoped(engine, 1) as s:
-        team = s.exec(select(AgentTeam)).one()
-        assert [a.name for a in team.agents] == ["agent-1"]
+        prompt = s.exec(select(Prompt)).one()
+        assert [v.version for v in prompt.versions] == ["v-1"]
 
 
 def test_aggregates_stay_in_the_workspace(engine, two_workspaces):
@@ -79,7 +89,7 @@ def test_aggregates_stay_in_the_workspace(engine, two_workspaces):
         assert s.exec(select(func.count()).select_from(Model)).one() == 1
         assert s.exec(select(func.count(col(Model.id)))).one() == 1
         assert s.exec(select(func.min(Model.created_at))).one() is not None
-        assert s.exec(select(func.count(func.distinct(col(Agent.team_id))))).one() == 1
+        assert s.exec(select(func.count(func.distinct(col(Agent.default_model_id))))).one() == 1
 
 
 def test_a_bulk_delete_only_reaches_the_workspace(engine, two_workspaces):

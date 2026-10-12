@@ -24,6 +24,8 @@ const title = computed(() => distinct.value.map(model => `${model.name} · ${pro
       <UIProviderIcon v-for="key in providers" :key="key" :provider="key" class="size-3.5" />
     </span>
     <span class="truncate">{{ distinct[0]!.name }}</span>
-    <span class="shrink-0 text-dimmed tabular-nums">+{{ distinct.length - 1 }}</span>
+    <span class="shrink-0 text-muted tabular-nums">+{{ distinct.length - 1 }}</span>
+    <!-- The title only reaches the pointer: the other models are also text -->
+    <span class="sr-only">({{ distinct.slice(1).map(model => model.name).join(', ') }})</span>
   </span>
 </template>

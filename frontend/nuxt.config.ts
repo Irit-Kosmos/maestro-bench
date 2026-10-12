@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'MAESTRO-bench',
+      htmlAttrs: { lang: 'en' },
     },
   },
   devtools: { enabled: true },

@@ -164,7 +164,7 @@ async function confirmDelete() {
       />
       <AnalysesResults v-else-if="result" :result="result" :config="analysis.config" :name="analysis.name" />
 
-      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this comparison. Notes show up in the activity of every study that holds it.">
+      <ExperimentsSection id="notes" class="print:hidden" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this comparison. Notes show up in the activity of every study that holds it.">
         <NotesJournal kind="analysis" :item-id="analysis.id" />
       </ExperimentsSection>
     </div>

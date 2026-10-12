@@ -58,7 +58,12 @@ async function submit() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :dismissible="!saving">
+  <UModal
+    v-model:open="open"
+    title="Edit dataset"
+    description="Change the name and description of this dataset."
+    :dismissible="!saving"
+  >
     <template #content>
       <UCard>
         <template #header>

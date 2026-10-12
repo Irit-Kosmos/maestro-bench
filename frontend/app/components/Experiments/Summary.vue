@@ -10,7 +10,7 @@ interface Row {
   attention?: boolean
 }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   rows: Row[]
   canSubmit: boolean
   submitting: boolean
@@ -28,6 +28,19 @@ const emit = defineEmits<{
   submit: []
   cancel: []
 }>()
+
+const hintId = useId()
+
+// The button stays focusable while the form is incomplete, and then does what ⌘↵ does: it takes you to what is missing
+function submit() {
+  if (props.canSubmit) {
+    emit('submit')
+    return
+  }
+  const missing = props.rows.find(row => !row.done)
+  if (missing)
+    emit('jump', missing.id)
+}
 </script>
 
 <template>
@@ -70,19 +83,23 @@ const emit = defineEmits<{
     </ul>
 
     <div class="flex flex-col gap-2 p-4">
-      <UTooltip :text="canSubmit ? submitLabel : 'Complete the sections above first'" :kbds="canSubmit ? ['meta', 'enter'] : undefined">
+      <UTooltip :text="submitLabel" :kbds="['meta', 'enter']">
         <UButton
           block
           color="neutral"
           icon="i-ph-play-bold"
-          :disabled="!canSubmit"
+          :aria-disabled="!canSubmit"
+          :aria-describedby="canSubmit ? undefined : hintId"
           :loading="submitting"
           aria-keyshortcuts="Meta+Enter Control+Enter"
-          @click="emit('submit')"
+          @click="submit"
         >
           {{ submitLabel }}
         </UButton>
       </UTooltip>
+      <p v-if="!canSubmit" :id="hintId" class="text-center text-xs text-muted text-pretty">
+        Complete the sections above first. The button takes you to the first one that’s missing.
+      </p>
       <UButton block color="neutral" variant="ghost" @click="emit('cancel')">
         Cancel
       </UButton>

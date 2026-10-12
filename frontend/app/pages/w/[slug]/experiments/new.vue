@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import type { AgentTeam, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
+import type { Agent, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
 
 definePageMeta({ requiresRole: 'editor' })
 
 // Fetch data directly in the page
-const { data: agentTeams, refresh: refreshAgentTeams } = await useMyLazyFetch<AgentTeam[]>('/agent-teams')
+const { data: agents, refresh: refreshAgents } = await useMyLazyFetch<Agent[]>('/agents')
 const { data: models } = await useMyLazyFetch<Model[]>('/models')
 const { data: allPromptVersions } = await useMyLazyFetch<PromptVersion[]>('/prompt-versions')
 const { data: datasets, refresh: refreshDatasets } = await useMyLazyFetch<Dataset[]>('/datasets')
 
 // Composables
 const { preview: datasetPreview, loadPreview } = useDatasetPreview()
-const experimentForm = useExperimentForm(agentTeams, allPromptVersions)
+const experimentForm = useExperimentForm(agents, allPromptVersions)
 const submission = useExperimentSubmission()
 const promptDetails = usePromptDetailsModal(allPromptVersions)
 
@@ -70,8 +70,8 @@ const variationsValid = computed(() =>
 const showConfirmBatch = ref(false)
 
 const sourceCopied = ref(false)
-watch([sourceExperiment, agentTeams], ([source, teams]) => {
-  if (sourceCopied.value || !source || !teams)
+watch([sourceExperiment, agents], ([source, list]) => {
+  if (sourceCopied.value || !source || !list)
     return
   sourceCopied.value = true
 
@@ -127,7 +127,7 @@ useSeoMeta({
 
 // Same derivation as the agents section, to name the agents in run order
 const pipeline = useAgentPipeline({
-  agentTeams,
+  agents,
   configurations: agentConfigurations,
   promptVersions: allPromptVersions,
   datasetHeaders,
@@ -249,10 +249,7 @@ async function submit() {
     // Run order, as shown in the list or wired in the graph
     const executionOrder = agentConfigRef.value?.getExecutionOrder() ?? new Map<number, number>()
 
-    const experimentData = prepareExperimentData({
-      agentTeams: agentTeams.value || [],
-      executionOrder,
-    })
+    const experimentData = prepareExperimentData({ executionOrder })
 
     if (batchMode.value) {
       const { name, description, ...config } = experimentData
@@ -347,12 +344,12 @@ defineShortcuts({
           <ExperimentsStepsAgentConfiguration
             ref="agentConfigRef"
             v-model:agent-configurations="agentConfigurations"
-            :agent-teams="agentTeams"
+            :agents="agents"
             :models="models"
             :all-prompt-versions="allPromptVersions"
             :dataset-headers="datasetHeaders"
             :extra-variables="addedVariables"
-            :refresh-agents="refreshAgentTeams"
+            :refresh-agents="refreshAgents"
             @open-prompt-details="openPromptDetails"
           />
 

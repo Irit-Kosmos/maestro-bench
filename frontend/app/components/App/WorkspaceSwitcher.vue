@@ -32,7 +32,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       variant="ghost"
       size="sm"
       class="min-w-0 flex-1 justify-start gap-2 px-1 h-8 select-none active:scale-100!"
-      :aria-label="`Workspace: ${current?.name ?? ''}`"
+      :aria-label="`${current?.name ?? 'MAESTRO-bench'}, switch workspace`"
     >
       <img
         src="/MAESTRO-bench.png"

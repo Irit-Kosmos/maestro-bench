@@ -9,7 +9,6 @@ LEGACY = {
             "maestro_response": {
                 "results": [
                     {
-                        "agent_team_name": "Corrector",
                         "agent_name": "Corrector",
                         "result": {"score": 4, "reasoning": "ok"},
                         "error": None,

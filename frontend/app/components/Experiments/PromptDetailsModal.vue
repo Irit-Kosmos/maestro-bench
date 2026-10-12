@@ -1,51 +1,122 @@
 <script setup lang="ts">
-interface Props {
-  isOpen: boolean
-  promptVersionDetails: any
-}
+import type { PromptVersion } from '~/types'
 
-interface Emits {
-  'update:isOpen': [value: boolean]
-}
+// A prompt version, read-only: where it comes from, its variables, and the text as written.
+// Pointing at a variable picks it out in the text, the same way the mappings do in the agent panel.
+const props = defineProps<{
+  promptVersionDetails: PromptVersion | null
+}>()
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const open = defineModel<boolean>('isOpen', { default: false })
 
-const isOpen = computed({
-  get: () => props.isOpen,
-  set: (value: boolean) => emit('update:isOpen', value),
+const { formatDate } = useUIHelpers()
+
+const name = computed(() => props.promptVersionDetails?.prompt?.name ?? 'Prompt')
+// "1.2" reads as a version once it has a "v"; "v2" or "beta" already do
+const version = computed(() => {
+  const label = props.promptVersionDetails?.version ?? ''
+  return /^\d/.test(label) ? `v${label}` : label
 })
+const variables = computed(() => parseVariables(props.promptVersionDetails?.variables || ''))
+const isEmpty = computed(() => !props.promptVersionDetails?.system_prompt && !props.promptVersionDetails?.user_prompt)
+
+// Variable under the pointer, picked out in the text
+const active = ref<string | null>(null)
+watch(open, () => active.value = null)
 </script>
 
 <template>
   <UModal
-    v-model:open="isOpen" :ui="{ content: 'lg:min-w-1/2' }"
+    v-model:open="open"
+    :title="`${name} ${version}`"
+    description="Prompt version details"
+    :ui="{ content: 'sm:max-w-2xl' }"
   >
     <template #content>
-      <UCard class="overflow-auto max-h-[80vh]">
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-semibold leading-6 text-highlighted">
-              Prompt Details: {{ promptVersionDetails?.prompt?.name }} v{{ promptVersionDetails?.version }}
-            </h3>
-            <UButton color="neutral" variant="ghost" icon="i-ph-x-bold" class="-my-1" @click="() => { isOpen = false }" />
+      <div v-if="promptVersionDetails" class="flex max-h-[min(80vh,46rem)] min-h-0 flex-col">
+        <header class="flex shrink-0 items-start justify-between gap-3 border-b border-default py-2.5 ps-4 pe-2.5">
+          <div class="min-w-0">
+            <h2 class="flex items-baseline gap-2 text-sm font-medium text-highlighted">
+              <span class="truncate">{{ name }}</span>
+              <span class="shrink-0 font-mono text-xs font-normal text-muted">{{ version }}</span>
+            </h2>
+            <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
+              <template v-if="promptVersionDetails.is_default">
+                <span class="inline-flex items-center gap-1 text-default">
+                  <UIcon name="i-ph-star-fill" class="size-3 text-warning" aria-hidden="true" />
+                  Default
+                </span>
+                <span aria-hidden="true">·</span>
+              </template>
+              <template v-if="!promptVersionDetails.is_active">
+                <span>Inactive</span>
+                <span aria-hidden="true">·</span>
+              </template>
+              <span>Created {{ formatDate(promptVersionDetails.created_at) }}</span>
+            </p>
           </div>
-        </template>
 
-        <PromptVersionDetails
-          v-if="promptVersionDetails"
-          :prompt-version="promptVersionDetails"
-          header-size="sm"
-        />
-
-        <template #footer>
-          <div class="flex justify-end">
-            <UButton color="neutral" variant="solid" @click="() => { isOpen = false }">
-              Close
-            </UButton>
+          <div class="flex shrink-0 items-center gap-0.5">
+            <UButton
+              :to="`/prompts/${promptVersionDetails.prompt_id}?v=${promptVersionDetails.id}`"
+              target="_blank"
+              icon="i-ph-arrow-up-right-bold"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="Open in Prompts"
+            />
+            <UButton
+              icon="i-ph-x-bold"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              square
+              aria-label="Close"
+              @click="() => { open = false }"
+            />
           </div>
-        </template>
-      </UCard>
+        </header>
+
+        <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+          <p v-if="promptVersionDetails.prompt?.description" class="text-sm text-toned text-pretty">
+            {{ promptVersionDetails.prompt.description }}
+          </p>
+
+          <PromptContentDisplay
+            v-if="promptVersionDetails.system_prompt"
+            label="System prompt"
+            :content="promptVersionDetails.system_prompt"
+            :variables="variables"
+            :active="active"
+          />
+          <PromptContentDisplay
+            v-if="promptVersionDetails.user_prompt"
+            label="User prompt"
+            :content="promptVersionDetails.user_prompt"
+            :variables="variables"
+            :active="active"
+          />
+
+          <p v-if="isEmpty" class="text-sm text-muted">
+            This version has no prompt text yet.
+          </p>
+
+          <PromptVariablesDisplay
+            v-if="variables.length"
+            v-model:active="active"
+            :variables="promptVersionDetails.variables"
+          />
+
+          <PromptContentDisplay
+            v-if="promptVersionDetails.notes"
+            label="Notes"
+            :content="promptVersionDetails.notes"
+            type="text"
+          />
+        </div>
+      </div>
     </template>
   </UModal>
 </template>

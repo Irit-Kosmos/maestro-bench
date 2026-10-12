@@ -90,13 +90,13 @@ function summary(group: ModelGroup) {
 
 <template>
   <div class="@container">
-    <!-- Column labels: the rows carry the same information for assistive tech -->
+    <!-- Column labels for the eye: assistive tech gets the name of each value from the row itself -->
     <div class="h-8 border-b border-default bg-muted/60" :class="[layout.grid]" aria-hidden="true">
       <span :class="head">Model</span>
       <span :class="[head, layout.provider]">Provider</span>
-      <span class="text-right" :class="[head, layout.context]">Context</span>
-      <span class="text-right" :class="[head, layout.temperature]">Temp.</span>
-      <span class="text-right" :class="[head]">Active</span>
+      <span class="text-end" :class="[head, layout.context]">Context</span>
+      <span class="text-end" :class="[head, layout.temperature]">Temp.</span>
+      <span class="text-end" :class="[head]">Active</span>
       <span />
     </div>
 
@@ -164,9 +164,10 @@ function summary(group: ModelGroup) {
                 <button
                   v-if="canEdit"
                   type="button"
-                  class="min-w-0 max-w-[65%] shrink-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
+                  class="min-w-0 max-w-[65%] shrink-0 truncate text-start text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   :class="model.is_active ? 'text-highlighted' : 'text-muted'"
                   :aria-label="`Edit ${model.name}`"
+                  :title="model.name"
                   @click="emit('edit', model)"
                 >
                   {{ model.name }}
@@ -175,6 +176,7 @@ function summary(group: ModelGroup) {
                   v-else
                   class="min-w-0 max-w-[65%] shrink-0 truncate text-sm font-medium"
                   :class="model.is_active ? 'text-highlighted' : 'text-muted'"
+                  :title="model.name"
                 >
                   {{ model.name }}
                 </span>
@@ -193,14 +195,14 @@ function summary(group: ModelGroup) {
               </span>
 
               <span
-                class="text-right text-xs tabular-nums text-toned"
+                class="text-end text-xs tabular-nums text-toned"
                 :class="layout.context"
                 :title="model.max_tokens ? `Context window: ${model.max_tokens.toLocaleString('en-US')} tokens` : undefined"
               >
-                {{ model.max_tokens ? formatTokens(model.max_tokens) : '—' }}
+                <span class="sr-only">Context window </span>{{ model.max_tokens ? formatTokens(model.max_tokens) : '—' }}
               </span>
-              <span class="text-right text-xs tabular-nums text-toned" :class="layout.temperature">
-                {{ model.default_temperature ?? '—' }}
+              <span class="text-end text-xs tabular-nums text-toned" :class="layout.temperature">
+                <span class="sr-only">Temperature </span>{{ model.default_temperature ?? '—' }}
               </span>
 
               <span class="relative z-1 flex justify-end">

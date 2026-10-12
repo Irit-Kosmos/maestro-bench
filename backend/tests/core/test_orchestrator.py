@@ -25,7 +25,6 @@ def llm(monkeypatch):
 def judge(agent_id: int, name: str, order: int, **fields) -> AgentConfig:
     return AgentConfig(
         name=name,
-        team_name="Team",
         system_prompt=None,
         user_prompt=fields.pop("user_prompt", "Grade {{ answer }}"),
         variables=[],
@@ -40,7 +39,6 @@ def judge(agent_id: int, name: str, order: int, **fields) -> AgentConfig:
 def aggregator(agent_id: int, order: int, formulas, mappings) -> AgentConfig:
     return AgentConfig(
         name="Final",
-        team_name="Team",
         system_prompt=None,
         user_prompt=None,
         variables=[],

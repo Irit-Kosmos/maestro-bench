@@ -55,6 +55,7 @@ const countLabel = computed(() => {
       icon="i-ph-magnifying-glass-bold"
       size="sm"
       variant="none"
+      :ui="{ base: 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted' }"
       :aria-label="`Filter ${plural ?? 'rows'}`"
       class="min-w-32 flex-1 sm:max-w-56"
       @keydown.esc="search = ''"

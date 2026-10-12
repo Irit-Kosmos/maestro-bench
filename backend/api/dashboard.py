@@ -44,13 +44,13 @@ PERIODS = {
     "90d": timedelta(days=90),
 }
 BUCKET_SIZES = {
-    "24h": timedelta(hours=1),
-    "7d": timedelta(hours=6),
-    "30d": timedelta(days=1),
-    "90d": timedelta(days=3),
+    "24h": timedelta(hours=2),
+    "7d": timedelta(hours=12),
+    "30d": timedelta(days=2),
+    "90d": timedelta(days=6),
 }
 # "all" has no fixed length: it is cut in about this many slices
-BUCKET_TARGET = 30
+BUCKET_TARGET = 15
 # ...and it is compared with what it was this long ago
 GROWTH_WINDOW = timedelta(days=30)
 

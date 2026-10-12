@@ -49,7 +49,7 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
                 aria-hidden="true"
               />
               {{ field.label }}
-              <span v-if="!moved(field)" class="font-normal text-dimmed">· Unchanged</span>
+              <span v-if="!moved(field)" class="font-normal text-muted">· Unchanged</span>
             </button>
           </h3>
           <BaseDiffStat :added="field.diff.added" :removed="field.diff.removed" />
@@ -79,7 +79,7 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
               aria-hidden="true"
             />
             Variables
-            <span v-if="!variablesMoved" class="font-normal text-dimmed">· Unchanged</span>
+            <span v-if="!variablesMoved" class="font-normal text-muted">· Unchanged</span>
           </button>
         </h3>
       </div>

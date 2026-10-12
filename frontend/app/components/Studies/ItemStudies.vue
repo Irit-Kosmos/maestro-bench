@@ -31,10 +31,10 @@ const mine = computed(() => {
     <StudiesBulkMenu v-if="canEdit" :kind="kind" :ids="[id]" @changed="refreshMemberships">
       <button
         type="button"
-        class="inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border border-dashed border-accented px-2 text-xs text-muted outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default data-[state=open]:bg-elevated data-[state=open]:text-default"
+        class="inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border border-dashed border-accented px-2 text-xs text-muted outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:ring-2 focus-visible:ring-inverted data-[state=open]:bg-elevated data-[state=open]:text-default"
       >
         <UIcon name="i-ph-plus-bold" class="size-3" aria-hidden="true" />
-        {{ mine.length ? 'Study' : 'Add to a study' }}
+        {{ mine.length ? 'Add to another study' : 'Add to a study' }}
       </button>
     </StudiesBulkMenu>
   </div>

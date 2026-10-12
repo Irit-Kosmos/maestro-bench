@@ -13,10 +13,6 @@ const aggregator = computed(() => snapshot.value.kind === 'aggregator')
 const variables = computed(() => aggregator.value
   ? formulaVariables(formulas.value)
   : parsePromptVariables(snapshot.value.final_variables))
-const team = computed(() => {
-  const name = snapshot.value.agent_team_name_snapshot
-  return name && name !== snapshot.value.agent_name_snapshot ? name : undefined
-})
 </script>
 
 <template>
@@ -25,7 +21,6 @@ const team = computed(() => {
     :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
     :accent="aggregator"
     :title="snapshot.agent_name_snapshot"
-    :subtitle="team"
     :selected="selected"
   >
     <template v-if="aggregator">

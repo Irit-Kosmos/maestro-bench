@@ -147,7 +147,7 @@ const prompts = computed(() => [
           <UCollapsible class="group/prompt">
             <button
               type="button"
-              class="flex w-full cursor-pointer items-center gap-2 py-2 pr-12 pl-3 text-left text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
+              class="flex w-full cursor-pointer items-center gap-2 py-2 ps-3 pe-12 text-start text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
             >
               <UIcon name="i-ph-caret-right-bold" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-data-[state=open]/prompt:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
               {{ prompt.label }}
@@ -156,7 +156,7 @@ const prompts = computed(() => [
               <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-3 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
             </template>
           </UCollapsible>
-          <UICopyButton :text="prompt.content!" :label="prompt.label.toLowerCase()" class="absolute top-1.5 right-2" />
+          <UICopyButton :text="prompt.content!" :label="prompt.label.toLowerCase()" class="absolute end-2 top-1.5" />
         </div>
       </div>
     </section>

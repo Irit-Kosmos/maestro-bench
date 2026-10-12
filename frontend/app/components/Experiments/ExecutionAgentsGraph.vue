@@ -62,6 +62,10 @@ const edges = computed<GraphEdge[]>(() => [...dependencies.value].flatMap(([snap
 const selectedId = ref<string | null>(null)
 const selected = computed(() => ordered.value.find(a => `agent-${a.id}` === selectedId.value) ?? null)
 
+// Opening the panel moves the focus to its heading, where a keyboard user starts reading
+const heading = ref<HTMLElement>()
+watch(heading, el => el?.focus({ preventScroll: true }), { flush: 'post' })
+
 // w-96: the panel lies over the graph, which keeps clear of it
 const PANEL_WIDTH = 384
 </script>
@@ -69,7 +73,7 @@ const PANEL_WIDTH = 384
 <template>
   <!-- The panel overlays the graph rather than sitting beside it: the graph keeps its size, so
        nothing is left blank or redrawn while the panel slides in or out -->
-  <GraphFrame>
+  <GraphFrame label="Agents of this execution">
     <template #default="{ expanded, toggle }">
       <div class="relative size-full">
         <GraphCanvas
@@ -107,12 +111,9 @@ const PANEL_WIDTH = 384
           <div v-if="selected" class="absolute inset-y-0 right-0 z-10 flex w-96 max-w-full flex-col border-l border-default bg-default shadow-lg">
             <header class="flex items-start justify-between gap-2 border-b border-default p-4">
               <div class="min-w-0">
-                <h4 class="truncate text-sm font-semibold text-highlighted">
+                <h4 ref="heading" tabindex="-1" class="truncate text-sm font-semibold text-highlighted outline-none">
                   {{ selected.agent_name_snapshot }}
                 </h4>
-                <p v-if="selected.agent_team_name_snapshot && selected.agent_team_name_snapshot !== selected.agent_name_snapshot" class="mt-0.5 truncate text-xs text-muted">
-                  {{ selected.agent_team_name_snapshot }}
-                </p>
               </div>
               <UButton variant="ghost" size="sm" icon="i-ph-x-bold" color="neutral" aria-label="Close panel" @click="() => { selectedId = null }" />
             </header>

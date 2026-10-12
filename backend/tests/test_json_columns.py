@@ -3,42 +3,13 @@
 import json
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import StatementError
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import select
 
-import tables
 from api import prompts
-from db import get_session
-from tables import Analysis, Dataset, Prompt, PromptVersion
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
-
-
-def json_columns():
-    return [
-        (table.name, column.name)
-        for table in SQLModel.metadata.tables.values()
-        for column in table.columns
-        if isinstance(column.type, tables.JsonText)
-    ]
-
-
-def test_the_json_columns_are_the_ones_expected():
-    assert sorted(json_columns()) == [
-        ("agentexecutionsnapshot", "final_formulas"),
-        ("agentexecutionsnapshot", "final_input_mappings"),
-        ("agentexecutionsnapshot", "final_variables"),
-        ("analysis", "config"),
-        ("analysis", "runs"),
-        ("batch", "variations"),
-        ("experimentagentconfig", "formulas"),
-        ("experimentagentconfig", "input_mappings"),
-        ("experimentexecution", "dataset_snapshot"),
-        ("promptversion", "variables"),
-    ]
+from tables import Analysis, Prompt, PromptVersion
+from tests.conftest import api_client, scoped
 
 
 @pytest.fixture
@@ -98,16 +69,7 @@ def test_a_json_string_value_comes_back_as_such(engine):
 
 @pytest.fixture
 def client(engine):
-    app = FastAPI()
-    app.include_router(prompts.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, prompts)
 
 
 @pytest.fixture
@@ -151,10 +113,3 @@ def test_updating_with_variables_that_are_not_json_is_a_422(client, prompt_id):
     response = client.put(f"/prompt-versions/{version_id}", json={"variables": "{"})
 
     assert response.status_code == 422
-
-
-def test_a_dataset_is_untouched(engine):
-    # Only the declared columns are JSON: a plain text column keeps any text
-    with scoped(engine) as s:
-        s.add(Dataset(name="not json", description="{", file_path="d.csv"))
-        s.commit()

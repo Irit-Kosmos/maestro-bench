@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import type { AgentKind, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/types'
+import type { AgentKind, CreateAgentForm, Model, PromptVersion } from '~/types'
 
 interface Props {
   open?: boolean
-  availableTeams?: readonly AgentTeam[]
   availablePromptVersions?: readonly PromptVersion[]
   availableModels?: readonly Model[]
   /** Kind selected when the modal opens */
   initialKind?: AgentKind
   /** Hides the kind switch: the modal only creates `initialKind` agents */
   lockKind?: boolean
-  /** Team selected when the modal opens; the first team otherwise */
-  initialTeamId?: number
   /** Name filled in when the modal opens */
   initialName?: string
   /** The request is under way: the dialog stays open, and keeps the form if it fails */
@@ -25,12 +22,10 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   open: false,
-  availableTeams: () => [],
   availablePromptVersions: () => [],
   availableModels: () => [],
   initialKind: 'llm',
   lockKind: false,
-  initialTeamId: undefined,
   initialName: '',
   loading: false,
 })
@@ -48,7 +43,6 @@ const formData = ref<CreateAgentForm & { tag_ids: number[] }>({
   kind: 'llm',
   default_prompt_version_id: null,
   default_model_id: null,
-  team_id: 0,
   tag_ids: [],
 })
 
@@ -56,14 +50,11 @@ const aggregator = computed(() => formData.value.kind === 'aggregator')
 
 const kindItems: { label: string, value: AgentKind, icon: string, hint: string }[] = [
   { label: 'LLM agent', value: 'llm', icon: 'i-ph-ghost-bold', hint: 'Calls a model with a prompt' },
-  { label: 'Aggregator', value: 'aggregator', icon: 'i-ph-function-bold', hint: 'Combines other agents\' outputs with formulas' },
+  { label: 'Aggregator', value: 'aggregator', icon: 'i-ph-function-bold', hint: 'Combines other agents’ outputs with formulas' },
 ]
 
 // Computed
-const formValid = computed(() => {
-  // No team yet: the agent goes in a "Default" one
-  return !!formData.value.name.trim() && (formData.value.team_id > 0 || !props.availableTeams?.length)
-})
+const formValid = computed(() => !!formData.value.name.trim())
 
 // Methods
 function resetForm() {
@@ -74,7 +65,6 @@ function resetForm() {
     default_prompt_version_id: null,
     default_model_id: null,
     tag_ids: [],
-    team_id: props.initialTeamId || props.availableTeams?.[0]?.id || 0,
   }
 }
 
@@ -95,7 +85,7 @@ function handleSubmit() {
   emit('submit', data)
 }
 
-// Initialize form when component mounts, and on each opening (the initial kind or team may have changed)
+// Initialize form when component mounts, and on each opening (the initial kind may have changed)
 onMounted(() => {
   resetForm()
 })
@@ -106,7 +96,13 @@ watch(() => props.open, (open) => {
 </script>
 
 <template>
-  <UModal v-model:open="show" :dismissible="!loading" @after:leave="resetForm">
+  <UModal
+    v-model:open="show"
+    :title="aggregator ? 'New aggregator' : 'New agent'"
+    :description="aggregator ? 'Combine the outputs of other agents with formulas.' : 'Name the agent and choose its default prompt and model.'"
+    :dismissible="!loading"
+    @after:leave="resetForm"
+  >
     <template #content>
       <UCard class="overflow-y-auto">
         <template #header>
@@ -151,18 +147,6 @@ watch(() => props.open, (open) => {
                 :rows="2"
               />
             </UFormField>
-
-            <UFormField v-if="availableTeams?.length" label="Team" required>
-              <USelect
-                v-model="formData.team_id"
-                :items="availableTeams.map(team => ({ label: team.name, value: team.id }))"
-                class="w-full"
-                placeholder="Select a team"
-              />
-            </UFormField>
-            <p v-else class="text-sm text-muted">
-              It goes in a “Default” team, created for you. Teams only group agents; you can add others later.
-            </p>
 
             <UFormField label="Tags">
               <TagsInput v-model="formData.tag_ids" />

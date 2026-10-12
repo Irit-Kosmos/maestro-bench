@@ -81,7 +81,7 @@ const bestScores = computed(() => {
   return best
 })
 
-// Hovering (or focusing) the trophy dims every bar but the best of each chart
+// The trophy toggle dims every bar but the best of each chart
 const highlightBest = ref(false)
 
 function isBest(m: MetricInfo, value: number | null | undefined) {
@@ -150,9 +150,9 @@ function exportCsv() {
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="font-semibold">
+            <h2 class="font-semibold">
               Metrics
-            </h3>
+            </h2>
             <p class="text-sm text-muted">
               Value and {{ confidencePct }}% bootstrap CI ({{ config.n_boot }} resamples) · best execution in bold
             </p>
@@ -186,7 +186,9 @@ function exportCsv() {
                 class="px-1 pb-2 pl-4 font-medium whitespace-nowrap text-right"
               >
                 <UTooltip :text="m.description">
-                  <span class="cursor-help">{{ m.label }}</span>
+                  <button type="button" class="cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                    {{ m.label }}
+                  </button>
                 </UTooltip>
               </th>
             </tr>
@@ -207,7 +209,7 @@ function exportCsv() {
                   </span>
                   <NuxtLink
                     :to="`/experiments/${run.experiment_id}`"
-                    class="whitespace-nowrap hover:text-primary"
+                    class="whitespace-nowrap underline underline-offset-2 hover:text-primary"
                   >
                     #{{ run.execution_id }} · {{ run.agent_name }}
                   </NuxtLink>
@@ -215,7 +217,7 @@ function exportCsv() {
               </td>
               <td class="px-1 py-1.5 pr-4 whitespace-nowrap">
                 <div class="flex items-center gap-1.5">
-                  <span v-if="run.coverage === null" class="text-dimmed">—</span>
+                  <span v-if="run.coverage === null" class="text-muted">—</span>
                   <span v-else class="tabular-nums text-highlighted">
                     {{ run.n_valid }}<span class="text-muted">/{{ run.n_total }}</span>
                   </span>
@@ -226,7 +228,10 @@ function exportCsv() {
                     v-if="isSmallSample(run.n_valid)"
                     :text="`Small sample: metrics from ${formatRows(run.n_valid)} aren’t reliable (under ${SMALL_SAMPLE_ROWS})`"
                   >
-                    <UIcon name="i-ph-warning-bold" class="size-3.5 text-warning" />
+                    <span tabindex="0" class="inline-flex rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+                      <UIcon name="i-ph-warning-bold" class="size-3.5 text-warning" role="img" aria-label="Small sample" />
+                      <span class="sr-only">Metrics from {{ formatRows(run.n_valid) }} aren’t reliable (under {{ SMALL_SAMPLE_ROWS }})</span>
+                    </span>
                   </UTooltip>
                 </div>
                 <UPopover v-if="run.excluded_rows.length" :content="{ align: 'start' }">
@@ -234,9 +239,8 @@ function exportCsv() {
                     type="button"
                     class="flex items-center gap-1 text-xs hover:underline underline-offset-2 cursor-pointer"
                     :class="run.warnings.length ? 'text-warning' : 'text-muted'"
-                    :aria-label="`Excluded rows for ${run.label}`"
                   >
-                    {{ exclusionSummary(run) }}
+                    {{ exclusionSummary(run) }}<span class="sr-only">, excluded rows for {{ run.label }}</span>
                   </button>
                   <template #content>
                     <div class="p-3 text-sm space-y-2 max-w-xs">
@@ -278,7 +282,7 @@ function exportCsv() {
                   </div>
                 </template>
                 <UTooltip v-else :text="run.metrics[m.key]?.undefined_reason ?? 'Undefined'">
-                  <span class="text-dimmed">—</span>
+                  <span tabindex="0" class="text-muted rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inverted">—<span class="sr-only">{{ run.metrics[m.key]?.undefined_reason ?? 'Undefined' }}</span></span>
                 </UTooltip>
               </td>
             </tr>
@@ -291,26 +295,24 @@ function exportCsv() {
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="font-semibold">
+            <h2 class="font-semibold">
               Comparison
-            </h3>
+            </h2>
             <p class="text-sm text-muted">
               Bars show the value, whiskers the {{ confidencePct }}% confidence interval
             </p>
           </div>
           <UTooltip v-if="okRuns.length > 1" text="Highlight the best execution of each chart" :content="{ align: 'end' }">
-            <span
-              tabindex="0"
-              class="inline-flex items-center gap-1.5 text-xs cursor-help select-none transition-colors print:hidden"
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-sm text-xs select-none outline-none transition-colors hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted print:hidden"
               :class="highlightBest ? 'text-highlighted' : 'text-muted'"
-              @mouseenter="highlightBest = true"
-              @mouseleave="highlightBest = false"
-              @focus="highlightBest = true"
-              @blur="highlightBest = false"
+              :aria-pressed="highlightBest"
+              @click="highlightBest = !highlightBest"
             >
               <UIcon name="i-ph-trophy-bold" class="size-3.5" />
-              <span class="underline decoration-dotted underline-offset-4">Hover to see the best</span>
-            </span>
+              Highlight best
+            </button>
           </UTooltip>
         </div>
       </template>
@@ -329,9 +331,9 @@ function exportCsv() {
 
     <UCard v-if="okRuns.length">
       <template #header>
-        <h3 class="font-semibold">
+        <h2 class="font-semibold">
           {{ config.value_type === 'numeric' ? 'Predicted vs ground truth' : 'Confusion matrices' }}
-        </h3>
+        </h2>
         <p class="text-sm text-muted">
           <template v-if="config.value_type === 'numeric'">
             Dashed line is y = x; click a point to see its row, or the rows stacked on it
@@ -343,9 +345,9 @@ function exportCsv() {
       </template>
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
         <div v-for="run in okRuns" :key="`${run.execution_id}-${run.agent_name}`" class="print:break-inside-avoid">
-          <h4 class="text-sm font-semibold text-highlighted mb-2 truncate">
+          <h3 class="text-sm font-semibold text-highlighted mb-2 truncate" :title="run.label">
             {{ run.label }}
-          </h4>
+          </h3>
           <template v-if="run.n_valid === 0">
             <p class="text-sm text-muted py-8 text-center">
               No usable rows

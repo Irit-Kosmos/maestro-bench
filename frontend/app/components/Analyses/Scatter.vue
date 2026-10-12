@@ -95,7 +95,7 @@ function pointTooltip(d: Point) {
     ${d.count > 1 ? `<div class="mt-2 pt-2 border-t border-default text-muted tabular-nums">${rowsList(d.rows)}</div>` : ''}
     ${d.rows.length === 0
       ? ''
-      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-dimmed">${ICONS.click}${d.rows.length > 1 ? 'Click to browse the rows' : 'Click to open the row'}</div>`}
+      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-muted">${ICONS.click}${d.rows.length > 1 ? 'Click to browse the rows' : 'Click to open the row'}</div>`}
   </div>`
 }
 
@@ -117,40 +117,77 @@ const events = {
 }
 
 const isSelected = (d: Point) => props.selectedRow != null && d.rows.includes(props.selectedRow)
+
+// The plot itself is a picture: this says what it shows, and the list under it makes each point reachable
+const summary = computed(() => {
+  const total = points.value.reduce((sum, p) => sum + p.count, 0)
+  const exact = points.value.reduce((sum, p) => p.pred === p.truth ? sum + p.count : sum, 0)
+  return `Predicted against ground truth for ${props.run.label}: ${total} ${total === 1 ? 'row' : 'rows'}, ${exact} predicted exactly`
+})
+
+// The list is built only once opened: a continuous score can leave hundreds of points
+const listOpen = ref(false)
 </script>
 
 <template>
   <div class="viz-root">
-    <!-- Keyed on the width: a redraw at the new size keeps the old x scale, a fresh chart doesn't -->
-    <VisXYContainer
-      :key="chartWidth ?? 'auto'"
-      :width="chartWidth"
-      :height="260"
-      :duration="chartWidth ? 0 : undefined"
-      :x-domain="domain"
-      :y-domain="domain"
-    >
-      <VisLine
-        :data="diagonal"
-        :x="(d: { x: number }) => d.x"
-        :y="(d: { y: number }) => d.y"
-        color="var(--viz-reference)"
-        :line-width="1"
-        :line-dash-array="[4, 4]"
-      />
-      <VisScatter
-        :data="points"
-        :x="(d: Point) => d.x"
-        :y="(d: Point) => d.y"
-        :size="(d: Point) => isSelected(d) ? 12 : 8"
-        color="var(--viz-series-1)"
-        :stroke-color="(d: Point) => isSelected(d) ? 'var(--ui-text-highlighted)' : undefined"
-        :stroke-width="(d: Point) => isSelected(d) ? 2 : 0"
-        :events="events"
-      />
-      <VisAxis type="x" label="Ground truth" :num-ticks="6" />
-      <VisAxis type="y" label="Predicted" :num-ticks="6" />
-      <VisTooltip :triggers="triggers" />
-    </VisXYContainer>
+    <div role="img" :aria-label="summary">
+      <!-- Keyed on the width: a redraw at the new size keeps the old x scale, a fresh chart doesn't -->
+      <VisXYContainer
+        :key="chartWidth ?? 'auto'"
+        :width="chartWidth"
+        :height="260"
+        :duration="chartWidth ? 0 : undefined"
+        :x-domain="domain"
+        :y-domain="domain"
+      >
+        <VisLine
+          :data="diagonal"
+          :x="(d: { x: number }) => d.x"
+          :y="(d: { y: number }) => d.y"
+          color="var(--viz-reference)"
+          :line-width="1"
+          :line-dash-array="[4, 4]"
+        />
+        <VisScatter
+          :data="points"
+          :x="(d: Point) => d.x"
+          :y="(d: Point) => d.y"
+          :size="(d: Point) => isSelected(d) ? 12 : 8"
+          color="var(--viz-series-1)"
+          :stroke-color="(d: Point) => isSelected(d) ? 'var(--ui-text-highlighted)' : 'var(--viz-series-1)'"
+          :stroke-width="(d: Point) => isSelected(d) ? 2 : 1"
+          :events="events"
+          :duration="0"
+        />
+        <VisAxis type="x" label="Ground truth" :num-ticks="6" />
+        <VisAxis type="y" label="Predicted" :num-ticks="6" />
+        <VisTooltip :triggers="triggers" />
+      </VisXYContainer>
+    </div>
+
+    <details v-if="points.length" class="mt-1 text-xs print:hidden" @toggle="listOpen = ($event.target as HTMLDetailsElement).open">
+      <summary class="w-fit cursor-pointer rounded-sm text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted">
+        List the points
+      </summary>
+      <ul v-if="listOpen" class="mt-1 max-h-40 divide-y divide-default overflow-y-auto rounded-md border border-default">
+        <li v-for="p in points" :key="`${p.truth}|${p.pred}`">
+          <button
+            v-if="p.rows.length"
+            type="button"
+            class="flex w-full items-center justify-between gap-3 px-2 py-1 text-start outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
+            :aria-current="isSelected(p) || undefined"
+            @click="emit('select', p.rows)"
+          >
+            <span class="text-highlighted">{{ p.count > 1 ? `${p.count} rows` : `Row ${p.rows[0]}` }}</span>
+            <span class="text-muted tabular-nums">Truth {{ fmt(p.truth) }} · predicted {{ fmt(p.pred) }}</span>
+          </button>
+          <p v-else class="flex items-center justify-between gap-3 px-2 py-1">
+            <span class="text-highlighted">{{ p.count }} {{ p.count === 1 ? 'row' : 'rows' }}</span>
+            <span class="text-muted tabular-nums">Truth {{ fmt(p.truth) }} · predicted {{ fmt(p.pred) }}</span>
+          </p>
+        </li>
+      </ul>
+    </details>
   </div>
 </template>

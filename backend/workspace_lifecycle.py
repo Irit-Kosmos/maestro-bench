@@ -12,7 +12,6 @@ from auth import invitations
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Analysis,
     Batch,
     Dataset,
@@ -49,7 +48,6 @@ DELETE_ORDER = (
     Batch,
     Dataset,
     Agent,
-    AgentTeam,
     Model,
     PromptVersion,
     Prompt,

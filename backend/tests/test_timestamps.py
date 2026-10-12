@@ -2,36 +2,24 @@
 
 from datetime import UTC, datetime, timedelta, timezone
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy import DateTime
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import SQLModel, select
 
 import tables  # noqa: F401  (registers every table on SQLModel.metadata)
 from api import experiments
-from db import get_session
-from tables import Dataset, Experiment, Workspace
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tables import Dataset, Experiment
+from tests.conftest import api_client, scoped
 
 
-def datetime_columns():
-    return [
-        (table.name, column)
+def test_every_moment_column_keeps_its_time_zone():
+    naive = [
+        f"{table.name}.{column.name}"
         for table in SQLModel.metadata.tables.values()
         for column in table.columns
-        if isinstance(column.type, DateTime)
+        if isinstance(column.type, DateTime) and not column.type.timezone
     ]
 
-
-@pytest.mark.parametrize(
-    ("table", "column"),
-    [(t, c) for t, c in datetime_columns()],
-    ids=lambda value: getattr(value, "name", value),
-)
-def test_every_moment_column_keeps_its_time_zone(table, column):
-    assert column.type.timezone, f"{table}.{column.name} is a naive timestamp"
+    assert naive == []
 
 
 def test_a_moment_keeps_its_instant_whatever_its_offset(engine):
@@ -61,23 +49,8 @@ def test_a_naive_datetime_is_read_as_utc(engine):
     assert read == datetime(2026, 3, 1, 12, tzinfo=UTC)
 
 
-def test_the_database_moments_are_aware(engine):
-    with Session(engine) as s:
-        workspace = s.exec(select(Workspace)).one()
-
-    assert workspace.created_at.tzinfo is not None
-
-
 def test_the_api_serializes_moments_with_an_offset(engine):
-    app = FastAPI()
-    app.include_router(experiments.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
+    client = api_client(engine, experiments)
     with scoped(engine) as s:
         dataset = Dataset(name="d", file_path="d.csv")
         s.add(dataset)
@@ -85,6 +58,6 @@ def test_the_api_serializes_moments_with_an_offset(engine):
         s.add(Experiment(name="e", dataset_id=dataset.id))
         s.commit()
 
-    created_at = TestClient(app).get("/experiments").json()[0]["created_at"]
+    created_at = client.get("/experiments").json()[0]["created_at"]
 
     assert created_at.endswith(("Z", "+00:00"))

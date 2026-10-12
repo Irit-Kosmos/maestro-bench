@@ -134,9 +134,9 @@ function outputText(output: unknown): string {
         />
 
         <section class="flex flex-col gap-3">
-          <h4 class="text-sm font-semibold text-highlighted">
+          <h3 class="text-sm font-semibold text-highlighted">
             Dataset row
-          </h4>
+          </h3>
           <div v-for="(value, key) in row.input_data" :key="key">
             <label
               :for="`analysis-row-${key}`"
@@ -166,9 +166,9 @@ function outputText(output: unknown): string {
         </section>
 
         <section class="flex flex-col gap-3">
-          <h4 class="text-sm font-semibold text-highlighted">
+          <h3 class="text-sm font-semibold text-highlighted">
             Agent outputs
-          </h4>
+          </h3>
           <div v-for="(agent, i) in row.agents" :key="`${agent.name}-${i}`">
             <label
               :for="`analysis-agent-${i}`"

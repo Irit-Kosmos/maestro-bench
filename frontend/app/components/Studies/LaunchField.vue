@@ -46,11 +46,11 @@ async function create(name: string) {
         class="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-default ps-2 pe-1 text-sm text-toned"
       >
         <StudiesStatusIcon :status="study.status" />
-        <span class="truncate">{{ study.name }}</span>
+        <span class="truncate" :title="study.name">{{ study.name }}</span>
         <button
           type="button"
           :aria-label="`Remove from ${study.name}`"
-          class="flex size-5 cursor-pointer items-center justify-center rounded text-dimmed outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default"
+          class="flex size-5 cursor-pointer items-center justify-center rounded text-muted outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:ring-2 focus-visible:ring-inverted"
           @click="toggle(study)"
         >
           <UIcon name="i-ph-x-bold" class="size-3" aria-hidden="true" />
@@ -60,10 +60,10 @@ async function create(name: string) {
       <UPopover v-model:open="open" :content="{ align: 'start', sideOffset: 6, collisionPadding: 16 }" :ui="{ content: 'overflow-hidden' }">
         <button
           type="button"
-          class="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-accented px-2 text-sm text-muted outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default data-[state=open]:bg-elevated data-[state=open]:text-default"
+          class="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-accented px-2 text-sm text-muted outline-none transition-colors hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:ring-2 focus-visible:ring-inverted data-[state=open]:bg-elevated data-[state=open]:text-default"
         >
           <UIcon name="i-ph-plus-bold" class="size-3.5" aria-hidden="true" />
-          {{ chosen.length ? 'Study' : 'Add to a study' }}
+          {{ chosen.length ? 'Add to another study' : 'Add to a study' }}
         </button>
 
         <template #content>

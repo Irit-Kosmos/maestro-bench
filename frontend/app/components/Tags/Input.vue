@@ -47,7 +47,7 @@ const CONTENT = { align: 'start', sideOffset: 6, collisionPadding: 16 } as const
     <UPopover v-if="canEdit" :content="CONTENT" :ui="{ content: 'overflow-hidden' }">
       <button
         type="button"
-        class="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-accented px-2.5 text-sm text-muted outline-none transition-colors duration-150 hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default data-[state=open]:bg-elevated data-[state=open]:text-default"
+        class="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-accented px-2.5 text-sm text-muted outline-none transition-colors duration-150 hover:bg-elevated hover:text-default focus-visible:bg-elevated focus-visible:text-default focus-visible:ring-2 focus-visible:ring-inverted data-[state=open]:bg-elevated data-[state=open]:text-default"
         :aria-label="chosen.length ? 'Add a tag' : undefined"
       >
         <UIcon name="i-ph-plus-bold" class="size-3.5" aria-hidden="true" />

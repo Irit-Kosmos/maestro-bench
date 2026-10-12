@@ -14,7 +14,6 @@ from experiment_utils import add_experiment
 from schemas.experiments import ExperimentCreate
 from tables import (
     Agent,
-    AgentTeam,
     Dataset,
     Experiment,
     ExperimentExecution,
@@ -35,10 +34,9 @@ def experiment_id(engine, datasets_dir, monkeypatch):
     )
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
         model = Model(name="m", provider="ollama")
-        s.add_all([dataset, team, prompt, model])
+        s.add_all([dataset, prompt, model])
         s.flush()
         version = PromptVersion(
             prompt_id=prompt.id, version="1", user_prompt="{{ answer }}"
@@ -47,7 +45,6 @@ def experiment_id(engine, datasets_dir, monkeypatch):
         s.flush()
         agent = Agent(
             name="Grader",
-            team_id=team.id,
             default_prompt_version_id=version.id,
             default_model_id=model.id,
         )
@@ -58,7 +55,6 @@ def experiment_id(engine, datasets_dir, monkeypatch):
             ExperimentCreate(
                 name="Run",
                 dataset_id=dataset.id,
-                agent_teams=[str(team.id)],
                 agent_configurations={
                     str(agent.id): {
                         "is_active": True,

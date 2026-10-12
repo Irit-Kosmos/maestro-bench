@@ -19,13 +19,17 @@ const emit = defineEmits<{
   reset: []
   openPromptDetails: [promptVersionId: number]
 }>()
+
+// Opening the panel moves the focus to it: its heading is where a keyboard user starts reading
+const heading = ref<HTMLElement>()
+onMounted(() => heading.value?.focus({ preventScroll: true }))
 </script>
 
 <template>
-  <div class="flex h-full w-80 shrink-0 flex-col border-l border-default bg-default">
+  <div class="flex h-full w-80 max-w-full shrink-0 flex-col border-l border-default bg-default">
     <header class="flex items-start justify-between gap-2 border-b border-default px-3 py-2.5">
       <div class="min-w-0">
-        <h4 class="truncate text-sm font-semibold text-highlighted">
+        <h4 ref="heading" tabindex="-1" class="truncate text-sm font-semibold text-highlighted outline-none">
           {{ agent?.name || 'Configure agent' }}
         </h4>
         <p v-if="agent?.description" class="mt-0.5 text-xs text-muted line-clamp-2">

@@ -1,31 +1,20 @@
 <script setup lang="ts">
-// The earlier executions of an experiment (or of a batch's experiments), as a stack of dots next to its status.
+// The earlier executions of an experiment (or of a batch's experiments), as a row of small status icons next to its status.
 // Nothing while there is no earlier execution.
 const props = withDefaults(defineProps<{
   /** Status of the executions before the latest one, from the newest to the oldest */
   earlier?: readonly string[] | null
-  /** Dots shown before the rest is counted */
+  /** Icons shown before the rest is counted */
   max?: number
 }>(), {
   max: 4,
 })
 
-const COLORS: Record<string, string> = {
-  completed: 'bg-success',
-  running: 'bg-warning',
-  partial: 'bg-warning',
-  failed: 'bg-error',
-  cancelled: 'bg-orange-600 dark:bg-orange-400',
-  interrupted: 'bg-orange-600 dark:bg-orange-400',
-}
-
-const FALLBACK = 'bg-neutral-400 dark:bg-neutral-500'
-
 const runs = computed(() => props.earlier ?? [])
 
-const dots = computed(() => runs.value.slice(0, props.max))
+const shown = computed(() => runs.value.slice(0, props.max))
 
-const hidden = computed(() => runs.value.length - dots.value.length)
+const hidden = computed(() => runs.value.length - shown.value.length)
 
 const summary = computed(() => {
   const counts = new Map<string, number>()
@@ -37,16 +26,16 @@ const summary = computed(() => {
 
 <template>
   <UTooltip v-if="runs.length" :text="summary">
-    <span class="inline-flex items-center text-xs text-muted tabular-nums">
-      <span class="flex items-center -space-x-1" aria-hidden="true">
-        <span
-          v-for="(run, index) in dots"
-          :key="index"
-          class="size-2.5 rounded-full ring-2 ring-(--ui-bg) dark:ring-default"
-          :class="COLORS[run] ?? FALLBACK"
-        />
+    <!-- Focusable so the summary opens from the keyboard; raised above a row's stretched link so the pointer reaches it -->
+    <span
+      tabindex="0"
+      class="relative z-1 inline-flex items-center rounded-sm text-xs text-muted tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-inverted"
+    >
+      <!-- Shapes, not just colors, tell the runs apart; the summary says it in words. The icons' own titles stay out of the way -->
+      <span class="pointer-events-none flex items-center gap-0.5" aria-hidden="true">
+        <UIStatusIcon v-for="(run, index) in shown" :key="index" :status="run" size="size-3" />
       </span>
-      <span v-if="hidden" class="ml-1" aria-hidden="true">+{{ hidden }}</span>
+      <span v-if="hidden" class="ms-1" aria-hidden="true">+{{ hidden }}</span>
       <span class="sr-only">{{ summary }}</span>
     </span>
   </UTooltip>

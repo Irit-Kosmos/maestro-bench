@@ -47,7 +47,7 @@ const labelClass = 'text-xs leading-6 text-muted'
 
 <template>
   <aside aria-label="Properties" class="flex flex-col gap-4 text-sm">
-    <h2 class="text-xs font-medium text-dimmed">
+    <h2 class="text-xs font-medium text-muted">
       Properties
     </h2>
 

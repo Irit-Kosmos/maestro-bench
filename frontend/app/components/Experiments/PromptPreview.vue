@@ -67,7 +67,7 @@ async function render() {
 
 watchDebounced([view, values, () => props.version?.system_prompt, () => props.version?.user_prompt], render, { debounce: 200, immediate: true })
 
-const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inverted disabled:pointer-events-none disabled:opacity-50'
+const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inverted aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
 </script>
 
 <template>
@@ -97,17 +97,20 @@ const segmentClass = 'h-6 rounded-sm px-2.5 text-xs font-medium outline-none foc
             type="button"
             :class="[segmentClass, view === 'rendered' ? 'bg-default text-highlighted shadow-xs' : 'text-muted hover:text-highlighted']"
             :aria-pressed="view === 'rendered'"
-            :disabled="rows.length === 0"
-            :title="rows.length === 0 ? 'Choose a dataset to preview the prompt with one of its rows' : undefined"
-            @click="view = 'rendered'"
+            :aria-disabled="rows.length === 0"
+            :aria-describedby="rows.length === 0 ? `${ids}-hint` : undefined"
+            @click="rows.length > 0 && (view = 'rendered')"
           >
             Preview
           </button>
         </div>
       </div>
     </div>
-    <p class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
-      {{ view === 'template' ? 'Point at a variable above to find it in the prompt.' : 'What the model receives for this row.' }}
+    <p :id="`${ids}-hint`" class="mt-0.5 text-muted" :class="compact ? 'text-xs' : 'text-sm'">
+      {{ view === 'template' ? 'Hover or focus a variable above to find it in the prompt.' : 'What the model receives for this row.' }}
+      <template v-if="rows.length === 0">
+        Choose a dataset to preview the prompt with one of its rows.
+      </template>
     </p>
 
     <div class="space-y-4 overflow-y-auto" :class="compact ? 'mt-2 max-h-64' : 'mt-3 max-h-80'">

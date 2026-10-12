@@ -12,12 +12,15 @@ import { TableKit } from '@tiptap/extension-table'
 const props = withDefaults(defineProps<{
   editable?: boolean
   placeholder?: string
+  /** Accessible name of the writing area: a placeholder is only a hint, and vanishes on input */
+  label?: string
   autofocus?: boolean | 'end'
   /** Smaller type and tighter blocks, for a note shown among other things (a timeline) */
   compact?: boolean
 }>(), {
   editable: true,
   placeholder: undefined,
+  label: undefined,
   autofocus: false,
   compact: false,
 })
@@ -133,6 +136,7 @@ const UI = computed(() => ({
     :placeholder="editable ? placeholder : undefined"
     :autofocus="autofocus"
     :extensions="extensions"
+    :editor-props="editable ? { attributes: { 'aria-label': label ?? placeholder ?? 'Text' } } : undefined"
     :handlers="handlers"
     :image="false"
     :mention="false"

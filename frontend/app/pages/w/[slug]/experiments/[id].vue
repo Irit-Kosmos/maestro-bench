@@ -398,7 +398,7 @@ watch(() => route.params.id, () => {
           title="Agents"
           icon="i-ph-ghost-bold"
           :count="latestExecution?.agent_executions.length ?? 0"
-          :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent\'s output is the result.' : undefined"
+          :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent’s output is the result.' : undefined"
         >
           <template v-if="canShowGraph" #actions>
             <UTabs
@@ -500,7 +500,7 @@ watch(() => route.params.id, () => {
                 <li
                   v-for="row in executionRows"
                   :key="row.execution.id"
-                  class="flex items-center gap-2 py-2 pl-3 pr-2"
+                  class="flex items-center gap-2 py-2 ps-3 pe-2"
                 >
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">

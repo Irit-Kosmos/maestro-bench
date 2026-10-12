@@ -60,7 +60,7 @@ const ringOffset = computed(() => RING * (1 - doneCount.value / steps.value.leng
           :to="step.to"
           :aria-current="step === current ? 'step' : undefined"
           class="flex h-8 items-center gap-2 rounded-md px-2 outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
-          :class="step.done ? 'text-highlighted' : step === current ? 'text-highlighted' : 'text-dimmed'"
+          :class="step.done ? 'text-highlighted' : step === current ? 'text-highlighted' : 'text-muted'"
         >
           <UIcon
             :name="step.done ? 'i-ph-check-circle-fill' : step === current ? 'i-ph-circle-dashed-bold' : 'i-ph-circle-bold'"
