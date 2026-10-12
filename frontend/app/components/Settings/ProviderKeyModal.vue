@@ -18,6 +18,7 @@ const error = ref<string | null>(null)
 const saving = ref(false)
 
 const replacing = computed(() => props.provider?.source === 'workspace')
+const title = computed(() => `${replacing.value ? 'Replace' : 'Set'} the ${props.provider ? providerLabel(props.provider.provider) : ''} key`)
 
 async function save() {
   if (!props.provider || !apiKey.value.trim() || saving.value)
@@ -31,7 +32,7 @@ async function save() {
     open.value = false
   }
   catch (e) {
-    error.value = (apiErrorMessage(e) ?? 'The key could not be saved')
+    error.value = (apiErrorMessage(e) ?? 'The key could not be saved. Check the key and try again.')
   }
   finally {
     saving.value = false
@@ -46,12 +47,12 @@ function reset() {
 </script>
 
 <template>
-  <UModal v-model:open="open" @after:leave="reset">
+  <UModal v-model:open="open" :title="title" description="Paste an API key to store for this workspace." @after:leave="reset">
     <template #content>
       <UCard>
         <template #header>
           <h2 class="text-lg font-semibold text-highlighted">
-            {{ replacing ? 'Replace' : 'Set' }} the {{ provider ? providerLabel(provider.provider) : '' }} key
+            {{ title }}
           </h2>
         </template>
 

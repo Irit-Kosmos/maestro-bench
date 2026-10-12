@@ -56,6 +56,12 @@ async function removeKey() {
   }
 }
 
+// The visible button text with the provider appended: the same word is repeated on every row
+function keyActionLabel(p: ProviderStatus): string {
+  const name = providerLabel(p.provider)
+  return p.source === 'workspace' ? `Replace ${name} key` : `Set key for ${name}`
+}
+
 function statusText(p: ProviderStatus): string {
   if (p.source === 'workspace')
     return `Workspace key ····${p.key_hint ?? ''}`
@@ -106,7 +112,7 @@ async function recheck() {
       </div>
 
       <ul v-else-if="providers?.length" class="divide-y divide-default">
-        <li v-for="p in sortedProviders" :key="p.provider" class="flex items-center gap-3 h-11 px-4">
+        <li v-for="p in sortedProviders" :key="p.provider" class="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-11 px-4 py-2 sm:h-11 sm:flex-nowrap sm:py-0">
           <UIcon
             :name="p.configured ? 'i-ph-check-circle-bold' : 'i-ph-circle-dashed-bold'"
             class="size-3.5 shrink-0"
@@ -114,32 +120,36 @@ async function recheck() {
             aria-hidden="true"
           />
           <UIProviderIcon :provider="p.provider" />
-          <span class="w-28 shrink-0 truncate text-sm font-medium text-highlighted">{{ providerLabel(p.provider) }}</span>
+          <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted sm:w-28 sm:flex-none">{{ providerLabel(p.provider) }}</span>
           <code class="hidden sm:block min-w-0 truncate text-xs text-muted font-mono">{{ p.env_var }}</code>
-          <span class="ms-auto shrink-0 text-xs" :class="p.configured ? 'text-toned' : 'text-muted'">
-            {{ statusText(p) }}
-          </span>
-          <template v-if="canManageKeys && p.kind === 'key'">
-            <UButton
-              v-if="p.can_store_key"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              @click="editKey(p)"
-            >
-              {{ p.source === 'workspace' ? 'Replace' : 'Set key' }}
-            </UButton>
-            <UTooltip v-if="p.source === 'workspace'" text="Remove the workspace key">
+          <!-- Below sm the status and the buttons take a line of their own -->
+          <div class="flex items-center gap-3 max-sm:w-full max-sm:justify-end sm:ms-auto">
+            <span class="shrink-0 text-xs max-sm:me-auto" :class="p.configured ? 'text-toned' : 'text-muted'">
+              {{ statusText(p) }}
+            </span>
+            <template v-if="canManageKeys && p.kind === 'key'">
               <UButton
-                icon="i-ph-trash-bold"
+                v-if="p.can_store_key"
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                :aria-label="`Remove the ${providerLabel(p.provider)} key`"
-                @click="() => { keyToRemove = p }"
-              />
-            </UTooltip>
-          </template>
+                :aria-label="keyActionLabel(p)"
+                @click="editKey(p)"
+              >
+                {{ p.source === 'workspace' ? 'Replace' : 'Set key' }}
+              </UButton>
+              <UTooltip v-if="p.source === 'workspace'" text="Remove the workspace key">
+                <UButton
+                  icon="i-ph-trash-bold"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :aria-label="`Remove the ${providerLabel(p.provider)} key`"
+                  @click="() => { keyToRemove = p }"
+                />
+              </UTooltip>
+            </template>
+          </div>
         </li>
       </ul>
 
@@ -168,7 +178,7 @@ async function recheck() {
 
         <!-- Operating the instance: of no use to anyone who only works in the workspace -->
         <details v-if="canManageKeys" class="group">
-          <summary class="cursor-pointer select-none text-muted outline-none hover:text-toned focus-visible:text-toned">
+          <summary class="cursor-pointer select-none rounded-sm text-muted outline-none hover:text-toned focus-visible:text-toned focus-visible:ring-2 focus-visible:ring-inverted">
             Self-hosting notes
           </summary>
           <div class="mt-2 flex flex-col gap-2">
@@ -208,7 +218,7 @@ async function recheck() {
           <dt class="text-sm text-muted">
             API
           </dt>
-          <dd class="ms-auto min-w-0 truncate text-xs text-toned font-mono">
+          <dd class="ms-auto min-w-0 truncate text-xs text-toned font-mono" :title="backendUrl">
             {{ backendUrl }}
           </dd>
         </div>

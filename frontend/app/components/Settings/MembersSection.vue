@@ -91,7 +91,7 @@ async function addMember() {
     ok('Member added')
   }
   catch (error) {
-    addError.value = (apiErrorMessage(error) ?? 'The member could not be added')
+    addError.value = (apiErrorMessage(error) ?? 'The member could not be added. Check the email and try again.')
   }
   finally {
     adding.value = false
@@ -120,13 +120,24 @@ async function createInvitation() {
   }
 }
 
-async function revoke(invitation: WorkspaceInvitation) {
+const invitationToRevoke = ref<WorkspaceInvitation | null>(null)
+const revoking = ref(false)
+
+async function revoke() {
+  const invitation = invitationToRevoke.value
+  if (!invitation)
+    return
+  revoking.value = true
   try {
     await invitationsApi.revoke(invitation.id)
     ok('Invitation revoked')
   }
   catch (error) {
     failed(error, 'Couldn’t revoke the invitation')
+  }
+  finally {
+    revoking.value = false
+    invitationToRevoke.value = null
   }
   await refreshInvitations()
 }
@@ -141,14 +152,14 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
     </template>
 
     <ul class="divide-y divide-default">
-      <li v-for="member in members ?? []" :key="member.user_id" class="flex items-center gap-3 min-h-12 px-4 py-2">
+      <li v-for="member in members ?? []" :key="member.user_id" class="flex flex-wrap items-center gap-x-3 gap-y-2 min-h-12 px-4 py-2">
         <UAvatar :src="member.avatar_url ?? undefined" :alt="member.display_name" size="xs" />
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-medium text-highlighted">
+        <div class="min-w-32 flex-1">
+          <p class="truncate text-sm font-medium text-highlighted" :title="member.display_name">
             {{ member.display_name }}
             <span v-if="member.user_id === user?.id" class="ms-1 text-xs font-normal text-muted">you</span>
           </p>
-          <p v-if="member.email" class="truncate text-xs text-muted">
+          <p v-if="member.email" class="truncate text-xs text-muted" :title="member.email">
             {{ member.email }}
           </p>
         </div>
@@ -227,7 +238,14 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
           <li v-for="invitation in invitations" :key="invitation.id" class="flex items-center gap-3 h-9 px-3 text-xs">
             <span class="capitalize text-toned">{{ invitation.role }}</span>
             <span class="text-muted">expires {{ expires(invitation) }}</span>
-            <UButton class="ms-auto" size="xs" color="neutral" variant="ghost" @click="revoke(invitation)">
+            <UButton
+              class="ms-auto"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              :aria-label="`Revoke ${invitation.role} link`"
+              @click="() => { invitationToRevoke = invitation }"
+            >
               Revoke
             </UButton>
           </li>
@@ -249,6 +267,17 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
       :loading="removing"
       @update:open="(value: boolean) => { if (!value) memberToRemove = null }"
       @confirm="removeMember"
+    />
+
+    <BaseConfirmDialog
+      :open="!!invitationToRevoke"
+      title="Revoke this link?"
+      message="Anyone holding it can no longer join."
+      confirm-label="Revoke link"
+      variant="error"
+      :loading="revoking"
+      @update:open="(value: boolean) => { if (!value) invitationToRevoke = null }"
+      @confirm="revoke"
     />
   </BaseSection>
 </template>

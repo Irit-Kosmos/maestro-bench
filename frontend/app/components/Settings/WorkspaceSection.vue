@@ -95,8 +95,8 @@ async function remove() {
 <template>
   <BaseSection v-if="workspace" title="Workspace">
     <div class="flex flex-col divide-y divide-default">
-      <form class="flex items-center gap-3 px-4 py-3" @submit.prevent="rename">
-        <label for="workspace-name" class="w-28 shrink-0 text-sm text-muted">Name</label>
+      <form class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3" @submit.prevent="rename">
+        <label for="workspace-name" class="w-full text-sm text-muted sm:w-28 sm:shrink-0">Name</label>
         <UInput id="workspace-name" v-model="name" size="sm" class="min-w-0 flex-1" :disabled="!isOwner" maxlength="80" />
         <UButton
           v-if="isOwner"
@@ -113,7 +113,7 @@ async function remove() {
 
       <div class="flex items-center gap-3 px-4 py-3">
         <span class="w-28 shrink-0 text-sm text-muted">Identifier</span>
-        <code class="min-w-0 truncate text-xs text-toned font-mono">{{ workspace.slug }}</code>
+        <code class="min-w-0 truncate text-xs text-toned font-mono" :title="workspace.slug">{{ workspace.slug }}</code>
       </div>
 
       <div v-if="isOwnerOfArchived" class="flex flex-col gap-3 px-4 py-3">
@@ -157,7 +157,12 @@ async function remove() {
       @confirm="archive"
     />
 
-    <UModal v-model:open="showDelete" @after:leave="confirmation = ''">
+    <UModal
+      v-model:open="showDelete"
+      :title="`Delete “${workspace.name}”`"
+      description="Type the workspace identifier to confirm the deletion."
+      @after:leave="confirmation = ''"
+    >
       <template #content>
         <UCard>
           <template #header>
