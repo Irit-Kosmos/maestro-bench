@@ -106,7 +106,7 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         <BaseEmptyState
           v-else
           title="No experiments yet"
-          message="Run an agent team over a dataset to see results here."
+          message="Run agents over a dataset to see results here."
           icon="i-ph-flask-bold"
           action-label="New experiment"
           action-to="/experiments/new"

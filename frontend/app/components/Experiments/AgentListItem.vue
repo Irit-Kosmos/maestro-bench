@@ -51,9 +51,6 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         <h3 class="truncate text-sm font-semibold text-highlighted">
           {{ item.agent.name }}
         </h3>
-        <p v-if="item.team" class="text-xs text-muted">
-          {{ item.team.name }}
-        </p>
         <p v-if="item.agent.description" class="mt-1 text-sm text-muted text-pretty line-clamp-2" :title="item.agent.description">
           {{ item.agent.description }}
         </p>
@@ -120,7 +117,6 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         <span class="min-w-0 flex-1">
           <span class="flex items-baseline gap-2 min-w-0">
             <span class="truncate text-sm font-medium text-highlighted">{{ item.agent.name }}</span>
-            <span v-if="item.team" class="hidden shrink-0 text-xs text-muted sm:inline">{{ item.team.name }}</span>
           </span>
           <span class="mt-0.5 block truncate text-xs text-muted">
             <template v-if="!enabled">Skipped in this run</template>
@@ -185,7 +181,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
       type="button"
       :data-drag-handle="item.agent.id"
       :aria-label="`Reorder ${item.agent.name}: drag, or use the up and down arrow keys`"
-      class="absolute start-1 top-0 flex h-14 w-6 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover/row:opacity-100 active:cursor-grabbing"
+      class="absolute start-1 top-0 flex h-14 w-6 cursor-grab items-center justify-center rounded text-muted opacity-0 outline-none transition-opacity duration-150 hover:text-toned pointer-coarse:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover/row:opacity-100 active:cursor-grabbing"
       @keydown.up.prevent="emit('move', -1)"
       @keydown.down.prevent="emit('move', 1)"
     >

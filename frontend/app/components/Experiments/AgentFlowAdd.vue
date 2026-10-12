@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam } from '~/types'
+import type { Agent } from '~/types'
 
 // The "+" under a node nothing reads from yet: pick an agent and it is added right after, already connected
 const props = defineProps<{ nodeId: string }>()
 
-const available = inject<Ref<{ team: AgentTeam, agents: Agent[] }[]>>('agentFlowAvailable', ref([]))
+const available = inject<Ref<Agent[]>>('agentFlowAvailable', ref([]))
 const addAfter = inject<(nodeId: string, agent: Agent) => void>('agentFlowAddAfter', () => {})
 
 const armConnect = inject<((e: PointerEvent, nodeId: string) => void) | undefined>('graphArmConnect', undefined)
@@ -56,7 +56,7 @@ const items = computed(() => agentMenuItems(available.value, agent => addAfter(p
   border: 1px dashed var(--ui-border-accented);
   border-radius: 999px;
   background: var(--ui-bg);
-  color: var(--ui-text-dimmed);
+  color: var(--ui-text-muted);
   transition: border-color 150ms var(--ease-out), color 150ms var(--ease-out), background-color 150ms var(--ease-out), scale 120ms var(--ease-out);
 }
 

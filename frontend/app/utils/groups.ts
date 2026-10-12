@@ -19,7 +19,7 @@ export interface GroupLevel<T> {
   value: (item: T) => FilterValue | null | undefined
   /** How a value reads in the section header. Defaults to the value as text. */
   present?: (value: FilterValue) => Pick<FilterOption, 'label' | 'icon' | 'iconClass' | 'dot'>
-  /** Muted text after the section name, e.g. what a team is for */
+  /** Muted text after the section name, e.g. what a section is for */
   hint?: (value: FilterValue) => string | null | undefined
   /** Where the section's name leads to, which makes it a reference to that thing */
   link?: (value: FilterValue) => string | null | undefined

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/types'
+import type { Agent, CreateAgentForm, Model, PromptVersion } from '~/types'
 
 // The one field to add an agent to an experiment, in the list and in the graph: typing filters the agents
 // left, and a name nothing matches can be created from it
@@ -7,14 +7,12 @@ import type { Agent, AgentTeam, CreateAgentForm, Model, PromptVersion } from '~/
 defineOptions({ inheritAttrs: false })
 
 const props = defineProps<{
-  agentTeams?: readonly AgentTeam[] | null
+  agents?: readonly Agent[] | null
   models?: readonly Model[]
   promptVersions?: readonly PromptVersion[]
   /** Agents already in the experiment: they are not offered again */
   addedIds: ReadonlySet<number>
-  /** Team an aggregator is created in: the one of the agents it will most likely read */
-  aggregatorTeamId?: number
-  /** Reloads the agent teams, so an agent created here can be added */
+  /** Reloads the agents, so an agent created here can be added */
   refreshAgents?: () => Promise<void>
 }>()
 
@@ -33,7 +31,7 @@ const search = ref('')
 // The menu is only a way to add: it never keeps a selection
 const picked = ref<number | string>()
 
-const allAgents = computed(() => (props.agentTeams ?? []).flatMap(team => team.agents ?? []))
+const allAgents = computed(() => props.agents ?? [])
 const hasAgents = computed(() => allAgents.value.length > 0)
 
 function defaultSummary(agent: Agent) {
@@ -51,25 +49,15 @@ const menuItems = computed<any[]>(() => {
   const name = search.value.trim()
   const term = name.toLowerCase()
 
-  const groups = (props.agentTeams ?? [])
-    .map(team => ({
-      team,
-      agents: (team.agents ?? []).filter(agent => !props.addedIds.has(agent.id)
-        && (!term || `${agent.name} ${agent.description ?? ''}`.toLowerCase().includes(term))),
-    }))
-    .filter(group => group.agents.length > 0)
-
-  // A team label only helps when there is more than one team to tell apart
-  const labelled = groups.length > 1
-  const entries: any[] = groups.flatMap(({ team, agents }) => [
-    ...(labelled ? [{ type: 'label' as const, label: team.name }] : []),
-    ...agents.map(agent => ({
+  const entries: any[] = allAgents.value
+    .filter(agent => !props.addedIds.has(agent.id)
+      && (!term || `${agent.name} ${agent.description ?? ''}`.toLowerCase().includes(term)))
+    .map(agent => ({
       label: agent.name,
       hint: agent.description || defaultSummary(agent),
       value: agent.id,
       icon: agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold',
-    })),
-  ])
+    }))
 
   const taken = allAgents.value.some(agent => agent.name.trim().toLowerCase() === term)
   if (canEdit.value && name && !taken) {
@@ -130,7 +118,7 @@ async function onCreate(data: CreateAgentForm) {
     open-on-focus
     open-on-click
     icon="i-ph-plus-bold"
-    :disabled="!agentTeams"
+    :disabled="!agents"
     placeholder="Add or create an agent"
     class="w-full sm:w-72"
     v-bind="$attrs"
@@ -151,12 +139,10 @@ async function onCreate(data: CreateAgentForm) {
 
   <AgentsCreateAgentModal
     v-model:open="showCreate"
-    :available-teams="agentTeams ?? []"
     :available-prompt-versions="promptVersions"
     :available-models="models"
     :initial-kind="createKind"
     lock-kind
-    :initial-team-id="createKind === 'aggregator' ? aggregatorTeamId : undefined"
     :initial-name="createName"
     :loading="creating"
     @submit="onCreate"

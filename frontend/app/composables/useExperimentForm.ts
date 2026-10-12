@@ -1,4 +1,4 @@
-import type { AgentConfiguration, AgentInputMapping, AgentTeam, CreateExperimentForm, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, AgentInputMapping, CreateExperimentForm, PromptVersion } from '~/types'
 
 interface ExperimentDetails {
   name: string
@@ -17,14 +17,13 @@ interface SamplingConfig {
  * Composable for managing experiment form state and validation
  */
 export function useExperimentForm(
-  agentTeams?: Ref<AgentTeam[] | null | undefined>,
+  agents?: Ref<readonly Agent[] | null | undefined>,
   allPromptVersions?: Ref<PromptVersion[] | null | undefined>,
 ) {
   // Form state
   const formData = ref<CreateExperimentForm>({
     name: '',
     dataset_id: undefined,
-    agent_teams: [],
   })
 
   const experimentDetails = ref<ExperimentDetails>({
@@ -81,7 +80,7 @@ export function useExperimentForm(
   }
 
   function isAggregator(agentId: number): boolean {
-    return !!agentTeams?.value?.some(team => team.agents?.some(a => a.id === agentId && a.kind === 'aggregator'))
+    return !!agents?.value?.some(a => a.id === agentId && a.kind === 'aggregator')
   }
 
   // The backend silently skips an agent without a prompt version or a model, so an experiment
@@ -119,25 +118,9 @@ export function useExperimentForm(
 
   // Prepare experiment data for submission
   const prepareExperimentData = (options?: {
-    agentTeams?: any[]
     executionOrder?: Map<number, number>
   }) => {
     const agent_configs = getActiveAgentConfigurations()
-
-    // Derive team IDs from agents in the flow
-    let agent_teams = formData.value.agent_teams
-    if (options?.agentTeams) {
-      const activeAgentIds = Object.keys(agent_configs).map(Number)
-      const teamIds = new Set<number>()
-      options.agentTeams.forEach((team) => {
-        team.agents?.forEach((agent: any) => {
-          if (activeAgentIds.includes(agent.id)) {
-            teamIds.add(team.id)
-          }
-        })
-      })
-      agent_teams = Array.from(teamIds).map(String)
-    }
 
     // Add execution_order to each agent config
     if (options?.executionOrder) {
@@ -157,7 +140,6 @@ export function useExperimentForm(
       name: experimentDetails.value.name.trim(),
       description: experimentDetails.value.description.trim() || undefined,
       dataset_id: formData.value.dataset_id!,
-      agent_teams,
       agent_configurations: agent_configs,
       sampling_type: samplingConfig.value.sampling_type,
       sampling_size: samplingConfig.value.sampling_size,

@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { Agent, AgentConfiguration, AgentTeam, Model, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, Model, PromptVersion } from '~/types'
 
 // Agents of the experiment. The backend runs them one after another and returns the last one's output,
 // so the default view is an ordered list. The graph is kept for those who prefer to wire agents visually.
 const props = defineProps<{
-  agentTeams?: AgentTeam[] | null
+  agents?: Agent[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   datasetHeaders?: readonly string[]
   /** Variables of the prompt variations, per agent: they keep their mappings */
   extraVariables?: Record<number, readonly string[]>
-  /** Reloads the agent teams, so an agent created here can be added */
+  /** Reloads the agents, so an agent created here can be added */
   refreshAgents?: () => Promise<void>
 }>()
 
@@ -27,7 +27,7 @@ const promptVersions = computed(() => props.allPromptVersions ?? [])
 const datasetHeaders = computed(() => props.datasetHeaders ?? [])
 
 const pipeline = useAgentPipeline({
-  agentTeams: computed(() => props.agentTeams),
+  agents: computed(() => props.agents),
   configurations,
   promptVersions,
   datasetHeaders,
@@ -77,7 +77,7 @@ function showView(next: 'list' | 'graph') {
 
 const { canEdit } = useCurrentWorkspace()
 
-const hasAgents = computed(() => (props.agentTeams ?? []).some(team => (team.agents?.length ?? 0) > 0))
+const hasAgents = computed(() => (props.agents?.length ?? 0) > 0)
 
 const openIds = ref(new Set<number>())
 
@@ -91,8 +91,8 @@ function setOpen(id: number, value: boolean) {
 }
 
 function addAgent(agent: Agent) {
-  // An agent created a moment ago comes from the reloaded teams
-  const known = pipeline.catalog.value.get(agent.id)?.agent ?? agent
+  // An agent created a moment ago comes from the reloaded agents
+  const known = pipeline.catalog.value.get(agent.id) ?? agent
   if (view.value === 'graph' && flowViewRef.value) {
     flowViewRef.value.addAgent(known)
     return
@@ -102,15 +102,11 @@ function addAgent(agent: Agent) {
   openIds.value = new Set([known.id])
 }
 
-// The team of the agents an aggregator will most likely read
-const aggregatorTeamId = computed(() => items.value.at(-1)?.agent.team_id)
-
 const pickerProps = computed(() => ({
-  agentTeams: props.agentTeams,
+  agents: props.agents,
   models: models.value,
   promptVersions: promptVersions.value,
   addedIds: pipeline.addedIds.value,
-  aggregatorTeamId: aggregatorTeamId.value,
   refreshAgents: props.refreshAgents,
 }))
 
@@ -181,7 +177,7 @@ function onGraphUpdate(agentId: number, field: string) {
 const description = 'What runs on each row. Chain several: they run in order, and the last output is the result.'
 
 const emptyText = computed(() => {
-  if (!props.agentTeams)
+  if (!props.agents)
     return 'Loading agents…'
   if (!hasAgents.value)
     return canEdit.value ? 'No agents yet. Type a name above to create one.' : 'No agents in this workspace yet.'
@@ -306,7 +302,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
       <ExperimentsAgentFlowView
         v-else
         ref="flowViewRef"
-        :agent-teams="agentTeams"
+        :agents="agents"
         :models="models"
         :all-prompt-versions="promptVersions"
         :agent-configurations="configurations"

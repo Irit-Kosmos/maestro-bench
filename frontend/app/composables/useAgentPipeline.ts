@@ -1,8 +1,7 @@
-import type { Agent, AgentConfiguration, AgentInputMapping, AgentTeam, PromptVersion } from '~/types'
+import type { Agent, AgentConfiguration, AgentInputMapping, PromptVersion } from '~/types'
 
 export interface PipelineItem {
   agent: Agent
-  team?: AgentTeam
   config: AgentConfiguration
   /** 1-based position in the run order */
   position: number
@@ -39,28 +38,26 @@ export function defaultAgentConfig(agent: Agent): AgentConfiguration {
  * config's `execution_order`) and keeps mappings consistent with that order.
  */
 export function useAgentPipeline(options: {
-  agentTeams: Ref<readonly AgentTeam[] | null | undefined>
+  agents: Ref<readonly Agent[] | null | undefined>
   configurations: Ref<Record<number, AgentConfiguration>>
   promptVersions: Ref<readonly PromptVersion[] | null | undefined>
   datasetHeaders: Ref<readonly string[]>
   /** Variables an agent has to map besides its prompt's: the ones a prompt variation adds */
   extraVariables?: Ref<Record<number, readonly string[]>>
 }) {
-  const { agentTeams, configurations, promptVersions, datasetHeaders } = options
+  const { agents, configurations, promptVersions, datasetHeaders } = options
   const extraVariables = options.extraVariables ?? ref<Record<number, readonly string[]>>({})
 
   const catalog = computed(() => {
-    const byId = new Map<number, { agent: Agent, team: AgentTeam }>()
-    agentTeams.value?.forEach(team => team.agents?.forEach(agent => byId.set(agent.id, { agent, team })))
-    return byId
+    return new Map<number, Agent>((agents.value ?? []).map(agent => [agent.id, agent]))
   })
 
   const items = computed<PipelineItem[]>(() => {
     const found: Omit<PipelineItem, 'position'>[] = []
     for (const [key, config] of Object.entries(configurations.value)) {
-      const entry = catalog.value.get(Number(key))
-      if (entry && config)
-        found.push({ agent: entry.agent, team: entry.team, config })
+      const agent = catalog.value.get(Number(key))
+      if (agent && config)
+        found.push({ agent, config })
     }
     found.sort((a, b) =>
       (a.config.execution_order ?? Number.POSITIVE_INFINITY) - (b.config.execution_order ?? Number.POSITIVE_INFINITY)
@@ -71,7 +68,7 @@ export function useAgentPipeline(options: {
   const addedIds = computed(() => new Set(items.value.map(item => item.agent.id)))
 
   function isAggregator(agentId: number) {
-    return catalog.value.get(agentId)?.agent.kind === 'aggregator'
+    return catalog.value.get(agentId)?.kind === 'aggregator'
   }
 
   function variablesOf(agentId: number): string[] {
@@ -212,11 +209,11 @@ export function useAgentPipeline(options: {
   }
 
   function reset(agentId: number) {
-    const entry = catalog.value.get(agentId)
+    const agent = catalog.value.get(agentId)
     const config = configurations.value[agentId]
-    if (!entry || !config)
+    if (!agent || !config)
       return
-    configurations.value[agentId] = { ...defaultAgentConfig(entry.agent), execution_order: config.execution_order }
+    configurations.value[agentId] = { ...defaultAgentConfig(agent), execution_order: config.execution_order }
     autoMap(agentId)
   }
 

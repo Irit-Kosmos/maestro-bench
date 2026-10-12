@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam, Model, PromptVersion } from '~/types'
+import type { Agent, Model, PromptVersion } from '~/types'
 import { useAgentFlow } from '~/composables/useAgentFlow'
 
 interface Props {
-  agentTeams?: AgentTeam[] | null
+  agents?: Agent[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   agentConfigurations: Record<number, any>
@@ -29,7 +29,7 @@ provide('agentFlowPromptVersions', computed(() => props.allPromptVersions || [])
 
 // Initialize agent flow state
 const flow = useAgentFlow(
-  computed(() => props.agentTeams || []),
+  computed(() => props.agents || []),
   toRef(props, 'agentConfigurations'),
   computed(() => props.allPromptVersions || []),
 )
@@ -38,7 +38,7 @@ const {
   nodes,
   edges,
   selectedNodeId,
-  allAgentsByTeam,
+  allAgents,
   flowAgentIds,
   addAgentToFlow,
   removeAgentFromFlow,
@@ -69,10 +69,8 @@ watch(() => props.agentConfigurations, () => {
 watch(() => nodes.value.length, () => syncMappingEdges())
 
 // Agents not on the graph yet, for the "+" under a node
-const availableByTeam = computed(() => allAgentsByTeam.value
-  .map(({ team, agents }) => ({ team, agents: agents.filter(a => !flowAgentIds.value.includes(a.id)) }))
-  .filter(({ agents }) => agents.length > 0))
-provide('agentFlowAvailable', availableByTeam)
+const available = computed(() => allAgents.value.filter(a => !flowAgentIds.value.includes(a.id)))
+provide('agentFlowAvailable', available)
 
 const canvasEdges = computed(() => edges.value.map((edge) => {
   const name = (id: string) => nodes.value.find(n => n.id === id)?.data.agent.name
@@ -178,13 +176,12 @@ const upstreamAgents = computed<Agent[]>(() => {
 defineExpose({
   computeExecutionOrder,
   addAgent: (agent: Agent) => handleAddAgent(agent),
-  getFlowTeamIds: flow.getFlowTeamIds,
   getFlowAgentIds: () => flowAgentIds.value,
 })
 </script>
 
 <template>
-  <GraphFrame height="clamp(520px, 72dvh, 820px)">
+  <GraphFrame height="clamp(520px, 72dvh, 820px)" label="Agent graph">
     <template #default="{ expanded, settled, toggle }">
       <div class="relative size-full">
         <GraphCanvas
@@ -226,8 +223,8 @@ defineExpose({
               <p class="mb-1 text-sm font-medium text-muted">
                 Build your agent flow
               </p>
-              <p class="text-xs text-dimmed">
-                Add agents above, then drag from the dot under one to another to make it run after.
+              <p class="text-xs text-muted">
+                Add agents above, then use the “+” under an agent to pick the one that runs after it. You can also drag from that “+” to another agent.
               </p>
             </div>
           </template>
@@ -242,7 +239,7 @@ defineExpose({
           leave-from-class="opacity-100 translate-x-0"
           leave-to-class="opacity-0 translate-x-full"
         >
-          <div v-if="selectedAgent" class="absolute inset-y-0 right-0 z-20 shadow-lg">
+          <div v-if="selectedAgent" class="absolute inset-y-0 right-0 z-20 max-w-full shadow-lg">
             <ExperimentsAgentConfigPanel
               :agent="selectedAgent"
               :config="selectedConfig"

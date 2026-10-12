@@ -414,7 +414,7 @@ async function handleCreateExperiment() {
     <BaseEmptyState
       v-else-if="!pending"
       title="No experiments yet"
-      message="An experiment runs an agent team over a dataset, so you can compare outputs and analyze them."
+      message="An experiment runs agents over a dataset, so you can compare outputs and analyze them."
       icon="i-ph-flask-bold"
       action-label="New experiment"
       action-to="/experiments/new"

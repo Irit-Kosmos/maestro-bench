@@ -183,7 +183,6 @@ export interface AgentExecutionSnapshot {
   /** Aggregator snapshots have empty model and prompt fields */
   kind?: AgentKind
   agent_name_snapshot: string
-  agent_team_name_snapshot?: string
   model_name_snapshot: string
   model_provider_snapshot: string
   prompt_name_snapshot: string
@@ -287,7 +286,6 @@ export interface Agent {
   kind?: AgentKind
   default_prompt_version_id: number | null
   default_model_id: number | null
-  team_id: number
   created_at: string
   default_prompt_version?: PromptVersion
   default_model?: Model
@@ -295,19 +293,10 @@ export interface Agent {
   tags?: Tag[]
 }
 
-export interface AgentTeam {
-  id: number
-  name: string
-  description: string | null
-  created_at: string
-  agents: readonly Agent[]
-}
-
 export interface CreateExperimentForm {
   name: string
   description?: string
   dataset_id: number | null | undefined
-  agent_teams: string[]
   agent_configurations?: Record<number, {
     prompt_version_id?: number
     model_id?: number
@@ -331,19 +320,12 @@ export interface CreateDatasetForm {
   file: File
 }
 
-export interface CreateAgentTeamForm {
-  name: string
-  description: string
-  agent_ids?: number[]
-}
-
 export interface CreateAgentForm {
   name: string
   description: string
   kind?: AgentKind
   default_prompt_version_id?: number | null
   default_model_id?: number | null
-  team_id: number
   tag_ids?: number[]
 }
 

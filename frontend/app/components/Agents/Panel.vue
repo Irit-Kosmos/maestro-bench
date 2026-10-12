@@ -1,19 +1,17 @@
 <script setup lang="ts">
-import type { Agent, AgentTeam, Model, PromptVersion } from '~/types'
+import type { Agent, Model, PromptVersion } from '~/types'
 
 // One agent in a slideover, edited in place and saved with one button, so the list stays a table to scan.
 // - j / k move through the agents the table shows; they wait while there are unsaved edits
-// - Edits are dropped when the panel closes
+// - Closing the panel with unsaved edits asks first: they are dropped with it
 const props = withDefaults(defineProps<{
   agent: Agent | null
   /** Position among the agents currently shown */
   index: number
   total: number
-  teams?: readonly AgentTeam[]
   promptVersions?: readonly PromptVersion[]
   models?: readonly Model[]
 }>(), {
-  teams: () => [],
   promptVersions: () => [],
   models: () => [],
 })
@@ -35,7 +33,6 @@ const { canEdit } = useCurrentWorkspace()
 interface AgentForm {
   name: string
   description: string
-  team_id: number
   default_prompt_version_id: number | null
   default_model_id: number | null
   tag_ids: number[]
@@ -45,7 +42,6 @@ function snapshot(agent: Agent | null): AgentForm {
   return {
     name: agent?.name ?? '',
     description: agent?.description ?? '',
-    team_id: agent?.team_id ?? 0,
     default_prompt_version_id: agent?.default_prompt_version_id ?? null,
     default_model_id: agent?.default_model_id ?? null,
     tag_ids: (agent?.tags ?? []).map(tag => tag.id),
@@ -121,7 +117,20 @@ async function save() {
 }
 
 const aggregator = computed(() => props.agent?.kind === 'aggregator')
-const teamItems = computed(() => props.teams.map(team => ({ label: team.name, value: team.id })))
+
+// Esc, a click outside and the close button all land here
+const confirmDiscard = ref(false)
+function onOpenChange(value: boolean) {
+  if (!value && dirty.value && canEdit.value)
+    confirmDiscard.value = true
+  else
+    open.value = value
+}
+
+function discardAndClose() {
+  confirmDiscard.value = false
+  open.value = false
+}
 
 // Typing in a field is left alone: these only fire outside inputs
 defineShortcuts({
@@ -132,10 +141,11 @@ defineShortcuts({
 
 <template>
   <USlideover
-    v-model:open="open"
+    :open="open"
     :title="agent?.name ?? 'Agent'"
     :description="agent ? `${index + 1} of ${total.toLocaleString('en-US')}` : undefined"
     :ui="{ content: 'max-w-md' }"
+    @update:open="onOpenChange"
   >
     <template #body>
       <form
@@ -173,17 +183,13 @@ defineShortcuts({
           />
         </UFormField>
 
-        <UFormField label="Team">
-          <USelect v-model="form.team_id" :items="teamItems" class="w-full" :disabled="!canEdit" />
-        </UFormField>
-
         <UFormField label="Tags">
           <TagsInput v-model="form.tag_ids" />
         </UFormField>
 
         <p v-if="aggregator" class="flex items-start gap-2 rounded-lg border border-default bg-elevated/30 px-3 py-2.5 text-sm text-muted text-pretty">
           <UIcon name="i-ph-function-bold" class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          An aggregator combines other agents' outputs with formulas, set in each experiment. It has no prompt or model.
+          An aggregator combines other agents’ outputs with formulas, set in each experiment. It has no prompt or model.
         </p>
 
         <template v-else>
@@ -276,4 +282,14 @@ defineShortcuts({
       </div>
     </template>
   </USlideover>
+
+  <BaseConfirmDialog
+    v-model:open="confirmDiscard"
+    title="Discard changes?"
+    message="Your unsaved edits to this agent are lost when the panel closes."
+    confirm-label="Discard changes"
+    cancel-label="Keep editing"
+    variant="warning"
+    @confirm="discardAndClose"
+  />
 </template>

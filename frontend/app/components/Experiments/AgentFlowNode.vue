@@ -58,7 +58,6 @@ const model = computed(() => {
     :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
     :accent="aggregator"
     :title="data.agent.name"
-    :subtitle="data.team?.name"
     :selected="selected"
     :muted="!isActive"
   >
