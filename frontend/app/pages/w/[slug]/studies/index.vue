@@ -60,7 +60,8 @@ const columns = [
   {
     key: 'counts',
     label: 'Items',
-    width: 240,
+    width: 160,
+    // What the search reads; the cell below shows the icons
     formatter: (_: unknown, row: Study) => describeCounts(row.counts),
   },
   { key: 'execution_count', label: 'Executions', width: 104, class: figureClass, formatter: (count: number) => count ? String(count) : '—' },
@@ -199,6 +200,10 @@ async function confirmDelete() {
             @changed="refresh"
             @select="tag => { filterState = filterByTag(filterState, tag.name) }"
           />
+        </template>
+
+        <template #counts-cell="{ row }">
+          <StudiesCounts :counts="row.original.counts" />
         </template>
 
         <template #updated_at-cell="{ row }">
