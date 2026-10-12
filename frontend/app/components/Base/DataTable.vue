@@ -285,6 +285,20 @@ function renderValue(col: Column, value: any, row: any) {
   return col.formatter ? col.formatter(value, row) : value
 }
 
+// What names a row for assistive tech: its first column, when that reads as text
+function rowName(row: any) {
+  const column = visibleColumns.value[0]
+  const value = column ? renderValue(column, row[column.key], row) : undefined
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
+}
+
+// A fixed layout clips what does not fit, so the full value goes in a title
+function withTitle(value: any) {
+  return fixedLayout.value && (typeof value === 'string' || typeof value === 'number')
+    ? h('span', { title: String(value) }, String(value))
+    : value
+}
+
 function menuItems(row: any): DropdownMenuItem[] {
   return allowedActions.value
     .filter(action => action.show ? action.show(row) : true)
@@ -367,7 +381,7 @@ function renderGroup(group: GroupRowInfo) {
       'onClick': () => toggleSection(group.id),
     }, [
       h(UIcon, { 'name': 'i-ph-caret-right-bold', 'class': ['size-3 text-muted transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none', !group.collapsed && 'rotate-90'], 'aria-hidden': 'true' }),
-      h('span', { class: 'sr-only' }, `${group.collapsed ? 'Expand' : 'Collapse'} ${group.label}`),
+      h('span', { class: 'sr-only' }, group.label),
     ]),
     group.dot ? h('span', { 'class': ['size-2 shrink-0 rounded-full', group.dot], 'aria-hidden': 'true' }) : null,
     group.icon ? h(UIcon, { 'name': group.icon, 'class': ['size-4 shrink-0', group.iconClass ?? 'text-muted'], 'aria-hidden': 'true' }) : null,
@@ -381,7 +395,7 @@ function renderGroup(group: GroupRowInfo) {
             h('span', { class: [part.class, 'tabular-nums'] }, part.label),
           ]))
         : null,
-      group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-dimmed' }, group.hint) : null,
+      group.hint ? h('span', { class: 'min-w-0 truncate text-xs font-normal text-muted', title: group.hint }, group.hint) : null,
     ]),
   ])
 }
@@ -400,15 +414,16 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       const value = renderValue(col, row.getValue(col.key), row.original)
       const trail = leads(index) ? trailOf(row.original) : []
       if (index !== 0 || !(props.rowTo || props.rowOpen))
-        return withRails(trail, value)
+        return withRails(trail, withTitle(value))
 
       // Stretched link: the ::after covers the row, so the whole row is one target
       const hint = props.rowHint?.(row.original)
       const linkClass = 'flex items-baseline gap-2 min-w-0 font-medium text-highlighted outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted'
-      const wrap = (children: VNodeChild, className = '') => props.rowTo
-        ? h(NuxtLink, { to: props.rowTo(row.original), class: [linkClass, className] }, () => children)
+      // The title sits on the link: its ::after covers the row, so the text under it is never the one hovered
+      const wrap = (children: VNodeChild, className = '', title?: string) => props.rowTo
+        ? h(NuxtLink, { to: props.rowTo(row.original), title, class: [linkClass, className] }, () => children)
         // Native button, which the table's own row click leaves alone
-        : h('button', { type: 'button', class: [linkClass, 'w-full text-left', className], onClick: () => props.rowOpen?.(row.original) }, [children])
+        : h('button', { type: 'button', title, class: [linkClass, 'w-full text-left', className], onClick: () => props.rowOpen?.(row.original) }, [children])
 
       let wrapped = false
       const rendered = col.render?.(row.original, hint, {
@@ -419,9 +434,10 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
         },
       }) ?? [
         h('span', { class: 'truncate' }, value),
-        hint ? h('span', { class: 'shrink-0 text-xs font-normal text-dimmed tabular-nums' }, hint) : null,
+        hint ? h('span', { class: 'shrink-0 text-xs font-normal text-muted tabular-nums' }, hint) : null,
       ]
-      return withRails(trail, wrapped ? rendered : wrap(rendered))
+      const title = typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
+      return withRails(trail, wrapped ? rendered : wrap(rendered, '', title))
     },
     meta: {
       class: {
@@ -455,7 +471,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
         : withRails(trailOf(row.original), h(UCheckbox, {
             'modelValue': row.getIsSelected(),
             'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
-            'aria-label': 'Select row',
+            'aria-label': rowName(row.original) ? `Select ${rowName(row.original)}` : 'Select row',
             // Above the row's stretched link, so ticking doesn't open the row
             'class': 'relative z-1',
           })),
@@ -489,7 +505,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
             'variant': 'ghost',
             'size': 'sm',
             'class': 'relative z-1',
-            'aria-label': 'Row actions',
+            'aria-label': rowName(row.original) ? `Row actions for ${rowName(row.original)}` : 'Row actions',
           }))
       },
       meta: {

@@ -124,8 +124,8 @@ onBeforeUnmount(close)
 
   <Teleport to="body">
     <Transition
-      enter-active-class="animate-[scale-in_100ms_ease-out]"
-      leave-active-class="animate-[scale-out_100ms_ease-in]"
+      enter-active-class="animate-[scale-in_100ms_ease-out] motion-reduce:animate-none"
+      leave-active-class="animate-[scale-out_100ms_ease-out] motion-reduce:animate-none"
     >
       <div
         v-if="open"

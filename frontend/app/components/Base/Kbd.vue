@@ -10,12 +10,22 @@ const ICONS: Record<string, string> = {
   '→': 'i-ph-arrow-right-bold',
 }
 
+// The key's name, for screen readers: the icon says nothing to them
+const NAMES: Record<string, string> = {
+  'enter': 'Enter',
+  '↑': 'Up arrow',
+  '↓': 'Down arrow',
+  '←': 'Left arrow',
+  '→': 'Right arrow',
+}
+
 const icon = computed(() => ICONS[props.value])
 </script>
 
 <template>
   <UKbd v-if="icon" size="sm" class="align-middle">
-    <UIcon :name="icon" class="size-2.5" />
+    <UIcon :name="icon" class="size-2.5" aria-hidden="true" />
+    <span class="sr-only">{{ NAMES[value] }}</span>
   </UKbd>
   <UKbd v-else :value="value" size="sm" class="align-middle" />
 </template>

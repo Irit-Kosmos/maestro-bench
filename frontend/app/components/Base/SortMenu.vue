@@ -47,7 +47,7 @@ function setDirection(next: SortDirection) {
       size="xs"
       :icon="direction === 'asc' ? 'i-ph-sort-ascending-bold' : direction === 'desc' ? 'i-ph-sort-descending-bold' : 'i-ph-arrows-down-up-bold'"
       :label="active ? `Sort: ${active.label}` : 'Sort'"
-      :aria-label="active ? `Sorted by ${active.label}, ${direction === 'asc' ? 'ascending' : 'descending'}` : 'Sort'"
+      :aria-label="active ? `Sort: ${active.label}, ${direction === 'asc' ? 'ascending' : 'descending'}` : 'Sort'"
     />
     <template #content>
       <div class="flex w-52 flex-col">
@@ -59,7 +59,7 @@ function setDirection(next: SortDirection) {
             type="button"
             :disabled="!active"
             :aria-pressed="direction === item.value"
-            class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-xs outline-none transition-colors duration-150 ease-out focus-visible:bg-elevated disabled:pointer-events-none disabled:opacity-40"
+            class="flex h-7 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-xs outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted disabled:pointer-events-none disabled:opacity-40"
             :class="direction === item.value ? 'bg-elevated font-medium text-highlighted' : 'text-muted hover:bg-elevated/60 hover:text-highlighted'"
             @click="setDirection(item.value)"
           >

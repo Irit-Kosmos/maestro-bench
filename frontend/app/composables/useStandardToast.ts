@@ -26,7 +26,8 @@ export function useStandardToast() {
   }
 
   function fail(title: string, description?: string) {
-    toast.add({ title, description, color: 'error', icon: 'i-ph-warning-circle-bold' })
+    // Stays until closed: an error that fades after five seconds may never be read
+    toast.add({ title, description, color: 'error', icon: 'i-ph-warning-circle-bold', duration: 0 })
   }
 
   // Create, update and delete share their wording across the lists and detail pages

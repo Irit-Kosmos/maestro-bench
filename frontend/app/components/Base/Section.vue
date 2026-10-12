@@ -31,6 +31,7 @@ const titleId = useId()
           size="xs"
           trailing-icon="i-ph-arrow-right-bold"
           class="-me-1.5"
+          :aria-label="`View all ${title.toLowerCase()}`"
         >
           View all
         </UButton>

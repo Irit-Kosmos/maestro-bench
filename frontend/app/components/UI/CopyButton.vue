@@ -1,13 +1,14 @@
 <script setup lang="ts">
-// Copies text, and says so: the copy icon swaps for a check with a scale + blur crossfade,
-// so the two read as one icon changing state rather than two icons overlapping.
+// Copies text, and says so: the copy icon swaps for a check (or a cross when the browser refuses) with a scale + blur
+// crossfade, so they read as one icon changing state rather than icons overlapping.
 const props = defineProps<{
   text: string
   /** What is being copied, for the accessible name */
   label: string
 }>()
 
-const copied = ref(false)
+const state = ref<'idle' | 'copied' | 'failed'>('idle')
+const { fail } = useStandardToast()
 let timer: ReturnType<typeof setTimeout> | undefined
 
 async function copy() {
@@ -15,30 +16,38 @@ async function copy() {
     await navigator.clipboard.writeText(props.text)
   }
   catch {
+    show('failed')
+    fail('Couldn’t copy', 'Select the text and copy it manually.')
     return
   }
-  copied.value = true
-  clearTimeout(timer)
-  timer = setTimeout(() => copied.value = false, 1500)
+  show('copied')
 }
+
+function show(next: 'copied' | 'failed') {
+  state.value = next
+  clearTimeout(timer)
+  timer = setTimeout(() => state.value = 'idle', 1500)
+}
+
+const TEXTS = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' }
 
 onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
-  <UTooltip :text="copied ? 'Copied' : 'Copy'" :delay-duration="400">
+  <UTooltip :text="TEXTS[state]" :delay-duration="400">
     <UButton
       color="neutral"
       variant="ghost"
       size="xs"
       square
-      :aria-label="copied ? 'Copied' : `Copy ${label}`"
-      :ui="{ base: 'not-disabled:not-aria-disabled:active:scale-95' }"
+      :aria-label="state === 'idle' ? `Copy ${label}` : TEXTS[state]"
       @click="copy"
     >
       <span class="relative block size-4" aria-hidden="true">
-        <UIcon name="i-ph-copy-bold" class="copy-icon absolute inset-0 size-4" :data-hidden="copied || undefined" />
-        <UIcon name="i-ph-check-bold" class="copy-icon absolute inset-0 size-4 text-success" :data-hidden="!copied || undefined" />
+        <UIcon name="i-ph-copy-bold" class="copy-icon absolute inset-0 size-4" :data-hidden="state !== 'idle' || undefined" />
+        <UIcon name="i-ph-check-bold" class="copy-icon absolute inset-0 size-4 text-success" :data-hidden="state !== 'copied' || undefined" />
+        <UIcon name="i-ph-x-bold" class="copy-icon absolute inset-0 size-4 text-error" :data-hidden="state !== 'failed' || undefined" />
       </span>
     </UButton>
   </UTooltip>

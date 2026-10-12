@@ -44,17 +44,17 @@ const isSelected = (option: FilterOption) => props.selected.includes(option.valu
       type="text"
       :placeholder="searchPlaceholder"
       :aria-label="searchPlaceholder"
-      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed"
+      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
     >
     <div class="relative flex min-h-0 flex-1 flex-col">
-      <div ref="list" role="group" class="flex max-h-64 min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-1" @scroll.passive="measure">
+      <div ref="list" :role="multiple ? 'group' : 'radiogroup'" class="flex max-h-64 min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-1" @scroll.passive="measure">
         <button
           v-for="option in visibleOptions"
           :key="String(option.value)"
           type="button"
-          :role="multiple ? 'menuitemcheckbox' : 'menuitemradio'"
+          :role="multiple ? 'checkbox' : 'radio'"
           :aria-checked="isSelected(option)"
-          class="flex h-7 w-full shrink-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-left text-xs text-default outline-none hover:bg-elevated focus-visible:bg-elevated"
+          class="flex h-7 w-full shrink-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-start text-xs text-default outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
           @click="emit('toggle', option.value)"
         >
           <span
@@ -80,7 +80,7 @@ const isSelected = (option: FilterOption) => props.selected.includes(option.valu
           <UIcon v-if="option.icon" :name="option.icon" class="size-3.5 shrink-0" :class="option.iconClass" aria-hidden="true" />
           <span v-else-if="option.dot" class="size-2 shrink-0 rounded-full" :class="option.dot" aria-hidden="true" />
           <span class="flex-1 truncate">{{ option.label }}</span>
-          <span v-if="option.count !== undefined" class="text-xs text-dimmed tabular-nums">{{ option.count }}</span>
+          <span v-if="option.count !== undefined" class="text-xs text-muted tabular-nums">{{ option.count }}</span>
         </button>
         <span v-if="!visibleOptions.length" class="px-1.5 py-2 text-xs text-muted">No match</span>
       </div>
