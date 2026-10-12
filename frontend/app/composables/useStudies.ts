@@ -18,7 +18,8 @@ export function useStudies() {
   const { $api } = useNuxtApp()
 
   const requested = useState('studies-requested', () => false)
-  const immediate = !requested.value
+  // Behind a public link the list of the workspace's studies is not there to read
+  const immediate = !requested.value && !useShare().isShared.value
   requested.value = true
 
   const { data, pending, error, refresh } = useMyLazyFetch<Study[]>('/studies', {

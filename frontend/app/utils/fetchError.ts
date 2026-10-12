@@ -1,4 +1,4 @@
-export type FetchErrorKind = 'error' | 'not-found' | 'forbidden'
+export type FetchErrorKind = 'error' | 'not-found' | 'forbidden' | 'gone'
 
 /** What a failed request means for the person looking at the page */
 export function fetchErrorKind(error: unknown): FetchErrorKind {
@@ -8,5 +8,8 @@ export function fetchErrorKind(error: unknown): FetchErrorKind {
     return 'not-found'
   if (code === 403)
     return 'forbidden'
+  // A public link its author withdrew
+  if (code === 410)
+    return 'gone'
   return 'error'
 }

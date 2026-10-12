@@ -1,12 +1,19 @@
 <script setup lang="ts">
 // A link inside a meta line: same colors as before, with an arrow that slides in on hover/focus
+// Behind a public link a link only works for what the link reaches: the pages that know theirs say so
+// with `in-share`, the others read as text
 defineProps<{
   to: string
+  inShare?: boolean
 }>()
+
+const { isShared } = useShare()
 </script>
 
 <template>
+  <span v-if="isShared && !inShare" class="min-w-0 truncate text-toned"><slot /></span>
   <NuxtLink
+    v-else
     :to="to"
     class="group/link inline-flex min-w-0 items-center gap-1 rounded text-toned outline-none transition-colors hover:text-highlighted focus-visible:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
   >

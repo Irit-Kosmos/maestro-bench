@@ -1,11 +1,23 @@
 /**
  * Who you are, then where you are.
  *
- * Every page needs a signed-in user, except the login page. Everything else lives in
+ * Every page needs a signed-in user, except the login page and the pages behind a public link
+ * (`/s/<token>/...`). Everything else lives in
  * a workspace (`/w/<slug>/...`): a path without one (`/experiments/3`, the way the
  * rest of the app links to pages) is sent to the workspace you were in.
  */
 export default defineNuxtRouteMiddleware(async (to, from) => {
+  // Behind a public link nobody signs in: the pages are the app's, read-only, in a layout of their own
+  const token = shareOfPath(to.path)
+  if (token) {
+    setPageLayout('shared')
+    return
+  }
+  // A page of the link that names another page the way the rest of the app does (`/experiments/3`)
+  const fromToken = shareOfPath(from.path)
+  if (fromToken && isSharedPagePath(to.path))
+    return navigateTo(inShare(fromToken, to.fullPath))
+
   const { user, fetchMe } = useAuth()
 
   if (!user.value) {

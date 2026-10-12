@@ -12,6 +12,10 @@ export const useLiveRuns = createSharedComposable(() => {
   const runs = reactive(new Map<number, RunState>())
   const statusChanged = createEventHook<RunState | undefined>()
 
+  // Behind a public link there is no workspace to listen to: a page shows its state as it was loaded
+  if (useShare().isShared.value)
+    return { runOf: (_experimentId: number) => undefined, onStatus: statusChanged.on }
+
   const { eventSource, status } = useEventSource(`${useRuntimeConfig().public.BACK_URL}/workspaces/${useWorkspace().slug.value}/events`, [], { autoReconnect: true, withCredentials: true })
 
   for (const name of ['snapshot', 'progress', 'status'] as const) {

@@ -8,6 +8,8 @@ const props = defineProps<{
   name?: string
 }>()
 
+const { isShared } = useShare()
+
 const okRuns = computed(() => props.result.runs.filter(r => r.status === 'ok'))
 const failedRuns = computed(() => props.result.runs.filter(r => r.status !== 'ok'))
 const confidencePct = computed(() => Math.round(props.config.confidence * 100))
@@ -207,7 +209,12 @@ function exportCsv() {
                   <span v-if="splitLabel(run.label).detail" class="break-all">
                     {{ splitLabel(run.label).detail }}
                   </span>
+                  <!-- Behind a public link the experiment of a run is not part of what the link reaches -->
+                  <span v-if="isShared" class="whitespace-nowrap">
+                    #{{ run.execution_id }} · {{ run.agent_name }}
+                  </span>
                   <NuxtLink
+                    v-else
                     :to="`/experiments/${run.experiment_id}`"
                     class="whitespace-nowrap underline underline-offset-2 hover:text-primary"
                   >
