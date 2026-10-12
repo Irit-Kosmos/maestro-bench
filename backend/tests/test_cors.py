@@ -23,13 +23,13 @@ def preflight(client, method: str, headers: str, origin: str = ORIGIN):
     )
 
 
-@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "PATCH", "DELETE"])
-def test_the_interface_may_use_its_methods(client, method):
-    response = preflight(client, method, "Content-Type, X-CSRF-Token")
+def test_the_interface_may_use_its_methods(client):
+    for method in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+        response = preflight(client, method, "Content-Type, X-CSRF-Token")
 
-    assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == ORIGIN
-    assert response.headers["access-control-allow-credentials"] == "true"
+        assert response.status_code == 200, method
+        assert response.headers["access-control-allow-origin"] == ORIGIN
+        assert response.headers["access-control-allow-credentials"] == "true"
 
 
 def test_a_header_the_interface_never_sends_is_refused(client):
