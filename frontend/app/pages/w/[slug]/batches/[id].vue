@@ -8,11 +8,13 @@ const { ok, fail } = useStandardToast()
 const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
 const { formatDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
+const { isShared } = useShare()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
 
 // Model values only carry an id and a name: the catalogue says whose they are
-const { data: models } = await useMyLazyFetch<Model[]>('/models')
+// (behind a public link the catalogue is not there: models show without their provider)
+const { data: models } = await useMyLazyFetch<Model[]>('/models', { immediate: !isShared.value })
 const modelsById = computed(() => new Map((models.value ?? []).map(m => [m.id, m])))
 
 useBreadcrumbLabel(() => batch.value?.name)
@@ -188,6 +190,7 @@ async function handleDelete() {
         >
           Analyze
         </UIGuardedButton>
+        <SharesButton v-if="batch" kind="batch" :item-id="batch.id" />
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete batch', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
@@ -225,7 +228,7 @@ async function handleDelete() {
         <p v-if="batch.description" class="mt-2 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ batch.description }}
         </p>
-        <StudiesItemStudies :id="batch.id" kind="batch" class="mt-2.5" />
+        <StudiesItemStudies v-if="!isShared" :id="batch.id" kind="batch" class="mt-2.5" />
       </div>
 
       <dl class="flex flex-wrap gap-x-10 gap-y-4">
@@ -368,7 +371,7 @@ async function handleDelete() {
         </div>
       </ExperimentsSection>
 
-      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this batch. Notes show up in the activity of every study that holds it.">
+      <ExperimentsSection v-if="!isShared" id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this batch. Notes show up in the activity of every study that holds it.">
         <NotesJournal kind="batch" :item-id="batch.id" />
       </ExperimentsSection>
     </div>

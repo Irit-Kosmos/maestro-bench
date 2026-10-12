@@ -10,6 +10,7 @@ const studyId = computed(() => Number.parseInt(route.params.id as string))
 const { ok, fail } = useStandardToast()
 const { refreshStudies, updateStudy, deleteStudy } = useStudies()
 const { canEdit } = useCurrentWorkspace()
+const { isShared } = useShare()
 const { formatDate } = useUIHelpers()
 
 const { data: study, pending, error, refresh } = await useMyLazyFetch<StudyDetail>(() => `/studies/${studyId.value}`)
@@ -30,8 +31,11 @@ async function reload() {
 
 // --- Tabs: kept in the address, so a link opens on the right one ---
 
-const TABS = ['overview', 'items', 'activity'] as const
-type Tab = typeof TABS[number]
+const ALL_TABS = ['overview', 'items', 'activity'] as const
+type Tab = typeof ALL_TABS[number]
+
+// Behind a public link there is no activity: it is made of notes and of who did what
+const TABS: readonly Tab[] = isShared.value ? ALL_TABS.filter(name => name !== 'activity') : ALL_TABS
 
 const tab = computed<Tab>({
   get: () => TABS.find(name => name === route.query.tab) ?? 'overview',
@@ -50,7 +54,7 @@ const tabs = computed(() => [
   { label: 'Overview', value: 'overview', icon: 'i-ph-notebook-bold' },
   { label: 'Items', value: 'items', icon: 'i-ph-stack-bold' },
   { label: 'Activity', value: 'activity', icon: 'i-ph-pulse-bold' },
-])
+].filter(item => TABS.includes(item.value as Tab)))
 
 // --- Properties panel: ⌘I, like Linear; remembered per browser ---
 
@@ -166,6 +170,7 @@ const stats = computed(() => study.value
           aria-label="Toggle the properties panel"
           @click="() => { showProperties = !showProperties }"
         />
+        <SharesButton v-if="study" kind="study" :item-id="study.id" />
         <UDropdownMenu v-if="canEdit" :items="menu" :content="{ align: 'end' }">
           <UButton icon="i-ph-dots-three-bold" color="neutral" variant="ghost" size="sm" aria-label="More actions" />
         </UDropdownMenu>
@@ -255,7 +260,7 @@ const stats = computed(() => study.value
 
             <StudiesDescription :study="study" @changed="reload" />
 
-            <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide as results come in.">
+            <ExperimentsSection v-if="!isShared" id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide as results come in.">
               <NotesJournal kind="study" :item-id="study.id" :readonly="archived" @changed="refreshTimeline" />
             </ExperimentsSection>
           </div>

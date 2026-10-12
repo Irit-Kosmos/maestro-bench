@@ -7,6 +7,7 @@ const analysisId = computed(() => Number.parseInt(route.params.id as string))
 
 const { fetchResults, updateAnalysis, deleteAnalysis } = useAnalyses()
 const { canEdit } = useCurrentWorkspace()
+const { isShared } = useShare()
 const { showUpdateSuccess, showUpdateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const { data: analysis, pending, error, refresh: refreshAnalysis } = await useMyLazyFetch<Analysis>(
@@ -125,6 +126,7 @@ async function confirmDelete() {
         <UIGuardedButton variant="soft" color="neutral" icon="i-ph-pencil-simple-bold" size="sm" @click="openEditor">
           Edit
         </UIGuardedButton>
+        <SharesButton v-if="analysis" kind="analysis" :item-id="analysis.id" />
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete analysis', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
@@ -151,7 +153,7 @@ async function confirmDelete() {
         <div v-if="analysis.tags.length" class="mt-2 flex flex-wrap gap-1">
           <TagsChip v-for="tag in analysis.tags" :key="tag.id" :tag="tag" />
         </div>
-        <StudiesItemStudies :id="analysis.id" kind="analysis" class="mt-2.5" />
+        <StudiesItemStudies v-if="!isShared" :id="analysis.id" kind="analysis" class="mt-2.5" />
       </div>
 
       <BaseErrorState v-if="computeError" :message="computeError" />
@@ -164,7 +166,7 @@ async function confirmDelete() {
       />
       <AnalysesResults v-else-if="result" :result="result" :config="analysis.config" :name="analysis.name" />
 
-      <ExperimentsSection id="notes" class="print:hidden" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this comparison. Notes show up in the activity of every study that holds it.">
+      <ExperimentsSection v-if="!isShared" id="notes" class="print:hidden" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this comparison. Notes show up in the activity of every study that holds it.">
         <NotesJournal kind="analysis" :item-id="analysis.id" />
       </ExperimentsSection>
     </div>
