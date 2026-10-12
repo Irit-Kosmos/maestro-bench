@@ -92,8 +92,8 @@ function onKeydown(event: KeyboardEvent) {
         size="2xs"
       />
       <span class="truncate font-medium text-highlighted">{{ note.author?.display_name ?? 'Former member' }}</span>
-      <span class=":title=&quot;formatDate(note.created_at)&quot;">{{ formatRelativeDate(note.created_at) }}</span>
-      <span v-if="edited" class="text-dimmed" :title="`Edited ${formatDate(note.updated_at)}`">· edited</span>
+      <span :title="formatDate(note.created_at)">{{ formatRelativeDate(note.created_at) }}</span>
+      <span v-if="edited" class="text-muted" :title="`Edited ${formatDate(note.updated_at)}`">· edited</span>
       <template v-if="item">
         <span class="text-dimmed" aria-hidden="true">·</span>
         <NuxtLink
@@ -112,15 +112,17 @@ function onKeydown(event: KeyboardEvent) {
           variant="ghost"
           size="xs"
           aria-label="Note actions"
-          class="ms-auto opacity-0 transition-opacity group-hover/note:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+          class="ms-auto opacity-0 transition-opacity group-hover/note:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
         />
       </UDropdownMenu>
     </header>
 
     <div v-if="editing" class="mt-2" @keydown="onKeydown">
-      <NotesEditor v-model="draft" autofocus="end" placeholder="Write a note…" />
+      <div class="rounded-md border border-default px-2 py-1 focus-within:ring-2 focus-within:ring-inverted">
+        <NotesEditor v-model="draft" autofocus="end" placeholder="Write a note…" />
+      </div>
       <div class="mt-2 flex items-center justify-end gap-2">
-        <span class="me-auto text-xs text-dimmed">
+        <span class="me-auto text-xs text-muted">
           <BaseKbd value="meta" /> <BaseKbd value="enter" /> to save · <BaseKbd value="esc" /> to cancel
         </span>
         <UButton color="neutral" variant="ghost" size="sm" :disabled="saving" @click="() => { editing = false }">
