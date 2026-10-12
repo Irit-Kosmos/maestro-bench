@@ -74,7 +74,7 @@ watch(open, () => active.value = null)
               size="sm"
               square
               aria-label="Close"
-              @click="open = false"
+              @click="() => { open = false }"
             />
           </div>
         </header>
