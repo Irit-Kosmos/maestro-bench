@@ -47,6 +47,8 @@ class MeOut(BaseModel):
     user: UserOut
     csrf_token: str
     can_create_workspace: bool
+    # Whether items can be shared through a public link on this instance
+    public_sharing: bool
 
 
 def _safe_next(value: str | None) -> str:
@@ -77,6 +79,7 @@ def me(user: Annotated[CurrentUser, Depends(require_user)]):
         user=UserOut(**{k: v for k, v in vars(user).items() if k != "session_id"}),
         csrf_token=csrf_token(user.session_id),
         can_create_workspace=can_create_workspace(user),
+        public_sharing=config.PUBLIC_SHARING_ENABLED,
     )
 
 

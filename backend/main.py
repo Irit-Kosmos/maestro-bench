@@ -27,6 +27,8 @@ from api import (
     prompts,
     providers,
     setup,
+    shared,
+    shares,
     studies,
     tags,
 )
@@ -109,6 +111,7 @@ WORKSPACE_ROUTERS = [
     dashboard,
     events,
     setup,
+    shares,
 ]
 for module in WORKSPACE_ROUTERS:
     app.include_router(
@@ -116,6 +119,11 @@ for module in WORKSPACE_ROUTERS:
         prefix="/workspaces/{slug}",
         dependencies=[Depends(scope_to_workspace)],
     )
+
+
+# What a public link opens: no sign-in, and nothing of the workspace but what the link reaches
+app.include_router(shared.router)
+app.middleware("http")(shared.public_headers)
 
 
 @app.get("/health")
