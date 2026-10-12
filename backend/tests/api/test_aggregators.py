@@ -1,12 +1,9 @@
 import json
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from api import aggregators, experiments
-from db import get_session
 from experiment_utils import (
     build_agent_configs_from_snapshot,
     create_execution_snapshot,
@@ -21,8 +18,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 FORMULAS = [
     {"name": "score", "formula": "w1 * langue + w2 * contenu"},
@@ -34,17 +30,7 @@ FORMULAS = [
 def client(engine, monkeypatch):
     # Creating an experiment starts it: not here
     monkeypatch.setattr(experiments.async_jobs, "start_experiment", lambda *_: "started")
-    app = FastAPI()
-    app.include_router(aggregators.router)
-    app.include_router(experiments.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, aggregators, experiments)
 
 
 @pytest.fixture

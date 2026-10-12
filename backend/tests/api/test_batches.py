@@ -3,13 +3,10 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import select
 
 import async_jobs
 from api import batches, experiments
-from db import get_session
 from tables import (
     Agent,
     Batch,
@@ -21,8 +18,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 REAL_START_EXPERIMENT = async_jobs.start_experiment
 
@@ -44,17 +40,7 @@ def jobs(monkeypatch):
 
 @pytest.fixture
 def client(engine, jobs):
-    app = FastAPI()
-    app.include_router(batches.router)
-    app.include_router(experiments.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, batches, experiments)
 
 
 @pytest.fixture

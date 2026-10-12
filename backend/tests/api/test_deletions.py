@@ -1,12 +1,8 @@
 """What deleting an item does to the rows that still point to it."""
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import Session
 
 from api import agents, datasets, models, prompts
-from db import get_session
 from tables import (
     Agent,
     Dataset,
@@ -16,23 +12,12 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from tests.conftest import TEST_WORKSPACE_ID, scoped
-from workspace_scope import scope_session
+from tests.conftest import api_client, scoped
 
 
 @pytest.fixture
 def client(engine):
-    app = FastAPI()
-    for module in (agents, datasets, models, prompts):
-        app.include_router(module.router)
-
-    def _session():
-        with Session(engine) as session:
-            scope_session(session, TEST_WORKSPACE_ID)
-            yield session
-
-    app.dependency_overrides[get_session] = _session
-    return TestClient(app)
+    return api_client(engine, agents, datasets, models, prompts)
 
 
 @pytest.fixture
