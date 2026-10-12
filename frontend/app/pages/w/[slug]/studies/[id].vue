@@ -225,6 +225,7 @@ const stats = computed(() => study.value
         :items="tabs"
         :content="false"
         variant="link"
+        color="neutral"
         size="sm"
         :ui="{ root: 'gap-0', list: 'gap-5 p-0', trigger: 'px-0' }"
       />

@@ -66,7 +66,7 @@ function onKeydown(event: KeyboardEvent) {
         <span class="text-xs text-muted">
           <BaseKbd value="meta" /> <BaseKbd value="enter" /> to add
         </span>
-        <UButton size="sm" :loading="adding" :disabled="!filled" @click="add">
+        <UButton color="neutral" size="sm" :loading="adding" :disabled="!filled" @click="add">
           Add note
         </UButton>
       </div>

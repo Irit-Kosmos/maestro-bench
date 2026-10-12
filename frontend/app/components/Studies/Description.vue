@@ -64,7 +64,7 @@ function onKeydown(event: KeyboardEvent) {
         <UButton color="neutral" variant="ghost" size="sm" :disabled="saving" @click="() => { editing = false }">
           Cancel
         </UButton>
-        <UButton size="sm" :loading="saving" @click="save">
+        <UButton color="neutral" size="sm" :loading="saving" @click="save">
           Save
         </UButton>
       </div>
