@@ -120,19 +120,19 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
             <li v-for="batch in recentBatches" :key="batch.id">
               <DashboardListRow :to="`/batches/${batch.id}`">
                 <UIStatusIcon :status="batch.status" />
-                <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ batch.name }}</span>
+                <span class="min-w-0 truncate text-sm font-medium text-highlighted" :title="batch.name">{{ batch.name }}</span>
                 <span class="shrink-0 text-xs text-muted tabular-nums">#{{ batch.id }}</span>
                 <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
                   {{ batch.counts.completed ?? 0 }} / {{ batch.experiments.length }} done
                 </span>
-                <span class="w-14 shrink-0 text-right text-xs text-muted" :title="formatDate(batch.created_at)">
+                <span class="w-14 shrink-0 text-end text-xs text-muted" :title="formatDate(batch.created_at)">
                   {{ formatRelativeDate(batch.created_at) }}
                 </span>
               </DashboardListRow>
             </li>
           </ul>
           <p v-else class="px-4 py-6 text-sm text-muted">
-            {{ batches ? 'No batches yet. Vary models, prompts or temperatures from any experiment.' : batchesError ? 'Couldn’t load the batches.' : 'Loading…' }}
+            {{ batches ? 'No batches yet. Vary models, prompts or temperatures from any experiment.' : batchesError ? 'Couldn’t load the batches. Use Refresh to try again.' : 'Loading…' }}
           </p>
         </BaseSection>
 
@@ -141,19 +141,19 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
             <li v-for="analysis in recentAnalyses" :key="analysis.id">
               <DashboardListRow :to="`/analyses/${analysis.id}`">
                 <UIcon name="i-ph-chart-bar-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
-                <span class="min-w-0 truncate text-sm font-medium text-highlighted">{{ analysis.name }}</span>
+                <span class="min-w-0 truncate text-sm font-medium text-highlighted" :title="analysis.name">{{ analysis.name }}</span>
                 <span class="shrink-0 text-xs text-muted tabular-nums">#{{ analysis.id }}</span>
                 <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
                   {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
                 </span>
-                <span class="w-14 shrink-0 text-right text-xs text-muted" :title="formatDate(analysis.updated_at)">
+                <span class="w-14 shrink-0 text-end text-xs text-muted" :title="formatDate(analysis.updated_at)">
                   {{ formatRelativeDate(analysis.updated_at) }}
                 </span>
               </DashboardListRow>
             </li>
           </ul>
           <p v-else class="px-4 py-6 text-sm text-muted">
-            {{ analyses ? 'No analyses yet. Compare executions to a ground truth.' : analysesError ? 'Couldn’t load the analyses.' : 'Loading…' }}
+            {{ analyses ? 'No analyses yet. Compare executions to a ground truth.' : analysesError ? 'Couldn’t load the analyses. Use Refresh to try again.' : 'Loading…' }}
           </p>
         </BaseSection>
       </div>

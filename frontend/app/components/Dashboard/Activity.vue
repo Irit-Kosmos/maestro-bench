@@ -72,7 +72,7 @@ const cards = computed<Card[]>(() => {
       hint: `${current.completed.toLocaleString('en-US')} completed · ${current.failed.toLocaleString('en-US')} failed`,
       bars: buckets.map(b => b.experiments),
       barLabel: b => `${slice(b)} · ${plural(b.experiments, 'experiment', 'experiments')}`,
-      barClass: 'text-dimmed',
+      barClass: 'text-muted',
     },
     {
       key: 'tokens',
@@ -83,7 +83,7 @@ const cards = computed<Card[]>(() => {
       hint: perExperiment(current.total_tokens, current, formatTokens),
       bars: buckets.map(b => b.total_tokens),
       barLabel: b => `${slice(b)} · ${formatTokens(b.total_tokens)} tokens`,
-      barClass: 'text-dimmed',
+      barClass: 'text-muted',
     },
     {
       key: 'spend',
@@ -94,7 +94,7 @@ const cards = computed<Card[]>(() => {
       hint: perExperiment(current.total_cost_usd, current, formatCost),
       bars: buckets.map(b => b.total_cost_usd),
       barLabel: b => `${slice(b)} · ${formatCost(b.total_cost_usd)}`,
-      barClass: 'text-dimmed',
+      barClass: 'text-muted',
     },
     {
       key: 'failures',
@@ -115,7 +115,7 @@ const cards = computed<Card[]>(() => {
         : undefined,
       bars: buckets.map(b => b.rows_failed),
       barLabel: b => `${slice(b)} · ${plural(b.rows_failed, 'failed row', 'failed rows')}`,
-      barClass: current.rows_failed ? 'text-error' : 'text-dimmed',
+      barClass: current.rows_failed ? 'text-error' : 'text-muted',
     },
   ]
 })
@@ -164,7 +164,7 @@ function changeClass(card: Card) {
     </div>
 
     <div
-      class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-lg border border-default bg-(--ui-border) overflow-hidden motion-safe:transition-opacity"
+      class="grid grid-cols-1 min-[26rem]:grid-cols-2 lg:grid-cols-4 gap-px rounded-lg border border-default bg-(--ui-border) overflow-hidden motion-safe:transition-opacity"
       :class="{ 'opacity-60': refreshing }"
       :aria-busy="loading || refreshing"
     >
@@ -185,10 +185,14 @@ function changeClass(card: Card) {
               :text="`${againstLabel}: ${card.before}`"
               :delay-duration="150"
             >
-              <span class="inline-flex items-center gap-0.5 text-xs tabular-nums" :class="changeClass(card)">
+              <span
+                tabindex="0"
+                class="inline-flex items-center gap-0.5 rounded-sm text-xs tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-inverted"
+                :class="changeClass(card)"
+              >
                 <UIcon :name="changeIcon(card.change)" class="size-3" aria-hidden="true" />
                 {{ changeText(card.change) }}
-                <span class="sr-only">vs {{ against }}</span>
+                <span class="sr-only">vs {{ against }}: {{ card.before }}</span>
               </span>
             </UTooltip>
           </div>
@@ -207,10 +211,10 @@ function changeClass(card: Card) {
             :to="card.hintTo"
             class="-mx-1 flex items-center gap-1 truncate rounded px-1 text-xs text-error tabular-nums outline-none hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
           >
-            <span class="truncate">{{ card.hint }}</span>
+            <span class="truncate" :title="card.hint">{{ card.hint }}</span>
             <UIcon name="i-ph-arrow-right-bold" class="size-3 shrink-0" aria-hidden="true" />
           </NuxtLink>
-          <span v-else class="truncate text-xs text-muted tabular-nums">{{ card.hint }}</span>
+          <span v-else class="truncate text-xs text-muted tabular-nums" :title="card.hint">{{ card.hint }}</span>
         </div>
       </template>
     </div>

@@ -19,7 +19,7 @@ const show = {
   duration: 'hidden @4xl:block',
   tokens: 'hidden @6xl:block',
 }
-const head = 'text-xs text-dimmed truncate'
+const head = 'text-xs text-muted truncate'
 </script>
 
 <template>
@@ -72,7 +72,7 @@ const head = 'text-xs text-dimmed truncate'
                 :to="`/batches/${exp.batch_id}`"
                 :title="`Batch: ${exp.batch_name}`"
                 :aria-label="`Open batch ${exp.batch_name}`"
-                class="relative z-1 shrink-0 self-center rounded text-dimmed outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
+                class="relative z-1 shrink-0 self-center rounded text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
               >
                 <UIcon name="i-ph-arrows-split-bold" class="size-3.5 block" aria-hidden="true" />
               </NuxtLink>
@@ -83,7 +83,13 @@ const head = 'text-xs text-dimmed truncate'
             <ModelsStack :models="exp.models" />
           </div>
 
-          <span class="truncate text-xs text-muted" :class="[show.dataset]" :title="exp.dataset_name ?? undefined">
+          <!-- Above the row link so the full name shows on hover, and it opens the experiment like the rest of the row -->
+          <span
+            class="relative z-1 cursor-pointer truncate text-xs text-muted"
+            :class="[show.dataset]"
+            :title="exp.dataset_name ?? undefined"
+            @click="navigateTo(`/experiments/${exp.id}`)"
+          >
             {{ exp.dataset_name ?? '—' }}
           </span>
 
