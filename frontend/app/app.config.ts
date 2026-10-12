@@ -73,8 +73,9 @@ export default defineAppConfig({
     },
     button: {
       slots: {
-        // Press feedback: a subtle scale confirms the click landed
-        base: 'transition-[color,background-color,box-shadow,transform] duration-150 ease-out not-disabled:not-aria-disabled:active:scale-[0.97] motion-reduce:active:scale-100',
+        // Press feedback: a subtle scale confirms the click landed. Tailwind v4 sets the `scale`
+        // property (not `transform`), so that is the one to transition or the press snaps
+        base: 'transition-[color,background-color,box-shadow,scale] duration-150 ease-out not-disabled:not-aria-disabled:active:scale-[0.97] motion-reduce:active:scale-100',
       },
       compoundVariants: [
         {
