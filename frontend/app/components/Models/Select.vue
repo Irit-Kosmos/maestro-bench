@@ -91,7 +91,7 @@ function onUpdate(value: unknown) {
 
     <template #item-trailing="{ item }">
       <span v-if="(item as any).inactive" class="text-xs text-warning">Inactive</span>
-      <span v-else-if="(item as any).context" class="text-xs text-dimmed tabular-nums" title="Context window">{{ (item as any).context }}</span>
+      <span v-else-if="(item as any).context" class="text-xs text-muted tabular-nums" title="Context window">{{ (item as any).context }}</span>
     </template>
   </USelectMenu>
 </template>
