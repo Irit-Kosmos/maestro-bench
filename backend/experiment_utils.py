@@ -9,7 +9,7 @@ import secrets
 from datetime import UTC, datetime
 
 import pandas as pd
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 import credentials
 import workspace_files
@@ -21,7 +21,6 @@ from schemas.experiments import ExperimentCreate
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -120,81 +119,82 @@ def add_experiment(
     # Create individual agent configurations for explicitly configured active agents
     default_execution_order = 1
     configs: list[tuple[Agent, ExperimentAgentConfig]] = []
-    if exp_data.agent_teams and exp_data.agent_configurations:
-        for team_id_str in exp_data.agent_teams:
-            team_id = int(team_id_str)
-            agents = session.exec(select(Agent).where(Agent.team_id == team_id)).all()
+    if exp_data.agent_configurations:
+        agents = session.exec(
+            select(Agent)
+            .where(col(Agent.id).in_([_as_int(a) for a in exp_data.agent_configurations]))
+            .order_by(col(Agent.id))
+        ).all()
+        for agent in agents:
+            agent_config = exp_data.agent_configurations.get(str(agent.id))
+            if not agent_config:
+                continue
+            if agent_overrides and agent.id in agent_overrides:
+                agent_config = {**agent_config, **agent_overrides[agent.id]}
 
-            for agent in agents:
-                agent_config = exp_data.agent_configurations.get(str(agent.id))
-                if not agent_config:
-                    continue
-                if agent_overrides and agent.id in agent_overrides:
-                    agent_config = {**agent_config, **agent_overrides[agent.id]}
+            if not agent_config.get("is_active", True):
+                logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
+                continue
 
-                if not agent_config.get("is_active", True):
-                    logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
-                    continue
+            # Use frontend-provided execution_order if available, otherwise auto-increment
+            execution_order = agent_config.get(
+                "execution_order", default_execution_order
+            )
+            if "execution_order" not in agent_config:
+                default_execution_order += 1
 
-                # Use frontend-provided execution_order if available, otherwise auto-increment
-                execution_order = agent_config.get(
-                    "execution_order", default_execution_order
-                )
-                if "execution_order" not in agent_config:
-                    default_execution_order += 1
+            # Persist per-agent input mappings if provided
+            input_mappings = agent_config.get("input_mappings")
+            input_mappings_json = (
+                json.dumps(input_mappings) if input_mappings else None
+            )
 
-                # Persist per-agent input mappings if provided
-                input_mappings = agent_config.get("input_mappings")
-                input_mappings_json = (
-                    json.dumps(input_mappings) if input_mappings else None
-                )
-
-                if agent.kind == AGGREGATOR:
-                    formulas = agent_config.get("formulas") or []
-                    config = ExperimentAgentConfig(
-                        experiment_id=experiment_id,
-                        agent_id=int(agent.id) if agent.id is not None else 0,
-                        execution_order=execution_order,
-                        is_active=True,
-                        input_mappings=input_mappings_json,
-                        formulas=json.dumps(formulas),
-                    )
-                    session.add(config)
-                    configs.append((agent, config))
-                    continue
-
-                prompt_version_id = (
-                    agent_config.get("prompt_version_id")
-                    or agent.default_prompt_version_id
-                )
-                if not prompt_version_id:
-                    logger.warning(
-                        "Agent %s (%s) has no prompt version, skipping",
-                        agent.id,
-                        agent.name,
-                    )
-                    continue
-
-                model_id = agent_config.get("model_id") or agent.default_model_id
-                if not model_id:
-                    logger.warning(
-                        "Agent %s (%s) has no model, skipping", agent.id, agent.name
-                    )
-                    continue
-
+            if agent.kind == AGGREGATOR:
+                formulas = agent_config.get("formulas") or []
                 config = ExperimentAgentConfig(
                     experiment_id=experiment_id,
                     agent_id=int(agent.id) if agent.id is not None else 0,
-                    prompt_version_id=prompt_version_id,
-                    model_id=model_id,
-                    temperature=agent_config.get("temperature"),
-                    max_tokens=agent_config.get("max_tokens"),
                     execution_order=execution_order,
                     is_active=True,
                     input_mappings=input_mappings_json,
+                    formulas=json.dumps(formulas),
                 )
                 session.add(config)
                 configs.append((agent, config))
+                continue
+
+            prompt_version_id = (
+                agent_config.get("prompt_version_id")
+                or agent.default_prompt_version_id
+            )
+            if not prompt_version_id:
+                logger.warning(
+                    "Agent %s (%s) has no prompt version, skipping",
+                    agent.id,
+                    agent.name,
+                )
+                continue
+
+            model_id = agent_config.get("model_id") or agent.default_model_id
+            if not model_id:
+                logger.warning(
+                    "Agent %s (%s) has no model, skipping", agent.id, agent.name
+                )
+                continue
+
+            config = ExperimentAgentConfig(
+                experiment_id=experiment_id,
+                agent_id=int(agent.id) if agent.id is not None else 0,
+                prompt_version_id=prompt_version_id,
+                model_id=model_id,
+                temperature=agent_config.get("temperature"),
+                max_tokens=agent_config.get("max_tokens"),
+                execution_order=execution_order,
+                is_active=True,
+                input_mappings=input_mappings_json,
+            )
+            session.add(config)
+            configs.append((agent, config))
 
     _check_aggregators(configs)
     _check_mapped_agents(session, configs)
@@ -214,7 +214,6 @@ def _check_references(
     ]
     for label, table, ids in (
         ("Dataset", Dataset, [exp_data.dataset_id]),
-        ("Agent team", AgentTeam, [_as_int(t) for t in exp_data.agent_teams or []]),
         ("Agent", Agent, [_as_int(a) for a in exp_data.agent_configurations or {}]),
         (
             "Prompt version",
@@ -471,10 +470,6 @@ def build_agent_configs_from_snapshot(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        team_name = "Unknown"
-        if snapshot.agent and snapshot.agent.team:
-            team_name = snapshot.agent.team.name
-
         # Parse input mappings
         input_mappings = []
         if snapshot.final_input_mappings:
@@ -488,7 +483,6 @@ def build_agent_configs_from_snapshot(
         agents.append(
             AgentConfig(
                 name=snapshot.agent_name_snapshot,
-                team_name=team_name,
                 system_prompt=snapshot.final_system_prompt,
                 user_prompt=snapshot.final_user_prompt,
                 variables=variables,

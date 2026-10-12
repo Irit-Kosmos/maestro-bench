@@ -32,7 +32,6 @@ class AgentExecutionSnapshotResponse(BaseModel):
     # "aggregator" snapshots have empty model and prompt fields, and formulas
     kind: str = "llm"
     agent_name_snapshot: str
-    agent_team_name_snapshot: str | None
     model_name_snapshot: str
     model_provider_snapshot: str
     prompt_name_snapshot: str

@@ -12,7 +12,6 @@ from api import batches, experiments
 from db import get_session
 from tables import (
     Agent,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -63,9 +62,8 @@ def world(engine):
     """A dataset, an agent with two prompt versions and three models."""
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
-        s.add_all([dataset, team, prompt])
+        s.add_all([dataset, prompt])
         s.flush()
         v1 = PromptVersion(
             prompt_id=prompt.id, version="1", variables='["answer"]'
@@ -83,7 +81,6 @@ def world(engine):
         s.flush()
         agent = Agent(
             name="Grader",
-            team_id=team.id,
             default_prompt_version_id=v1.id,
             default_model_id=models[0].id,
         )
@@ -91,7 +88,6 @@ def world(engine):
         s.commit()
         return {
             "dataset": dataset.id,
-            "team": team.id,
             "agent": agent.id,
             "v1": v1.id,
             "v2": v2.id,
@@ -114,7 +110,6 @@ def payload(world, variations, **config_overrides):
         "name": "Compare",
         "config": {
             "dataset_id": world["dataset"],
-            "agent_teams": [str(world["team"])],
             "agent_configurations": {str(world["agent"]): agent_config},
             "sampling_type": "all",
         },
@@ -655,7 +650,6 @@ class TestCreateWithSeed:
             json={
                 "name": "Solo",
                 "dataset_id": world["dataset"],
-                "agent_teams": [str(world["team"])],
                 "agent_configurations": {
                     str(world["agent"]): {
                         "is_active": True,

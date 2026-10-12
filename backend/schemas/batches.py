@@ -28,7 +28,6 @@ class BatchBaseConfig(BaseModel):
     """What every experiment of the batch shares (the same as an experiment's)."""
 
     dataset_id: int
-    agent_teams: list[str] = []
     agent_configurations: dict = {}
 
     sampling_type: SamplingType | None = None

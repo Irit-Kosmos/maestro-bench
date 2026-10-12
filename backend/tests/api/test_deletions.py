@@ -9,7 +9,6 @@ from api import agents, datasets, models, prompts
 from db import get_session
 from tables import (
     Agent,
-    AgentTeam,
     Dataset,
     Experiment,
     ExperimentAgentConfig,
@@ -41,17 +40,15 @@ def world(engine):
     """An experiment whose single agent config uses a model and a prompt version."""
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
         model = Model(name="m-a", provider="openai")
-        s.add_all([dataset, team, prompt, model])
+        s.add_all([dataset, prompt, model])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1")
         s.add(version)
         s.flush()
         agent = Agent(
             name="Grader",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )

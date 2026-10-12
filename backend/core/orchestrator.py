@@ -32,7 +32,6 @@ class AgentConfig:
     """Configuration for a single agent in the pipeline."""
 
     name: str
-    team_name: str
     system_prompt: str | None
     user_prompt: str | None
     variables: list[str]  # variable names this agent expects

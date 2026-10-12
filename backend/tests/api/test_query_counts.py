@@ -15,7 +15,6 @@ from sqlalchemy import event
 from sqlmodel import Session
 
 from api import (
-    agent_teams,
     agents,
     aggregators,
     analyses,
@@ -32,7 +31,6 @@ from db import get_session
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Analysis,
     Batch,
     Dataset,
@@ -56,7 +54,6 @@ from workspace_scope import scope_session
 def client(engine):
     app = FastAPI()
     for module in (
-        agent_teams,
         agents,
         aggregators,
         analyses,
@@ -108,35 +105,33 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
     """
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
-        s.add_all([dataset, team, prompt])
+        s.add_all([dataset, prompt])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1")
         models = [Model(name=n, provider="openai") for n in ("m-a", "m-b")]
         tag = Tag(name=f"tag {uuid.uuid4().hex}")
         s.add_all([version, *models, tag])
         s.flush()
-        team_agents = [
+        pipeline_agents = [
             Agent(
                 name=f"Agent {i}",
-                team_id=team.id,
                 default_model_id=models[0].id,
                 default_prompt_version_id=version.id,
             )
             for i in range(agents)
         ]
-        s.add_all(team_agents)
+        s.add_all(pipeline_agents)
         s.flush()
         s.add_all(
             [
                 TagLink(tag_id=tag.id, kind="agent", item_id=a.id)
-                for a in team_agents
+                for a in pipeline_agents
             ]
             + [TagLink(tag_id=tag.id, kind="prompt", item_id=prompt.id)]
         )
 
-        first: dict = {"agent": team_agents[0].id, "executions": []}
+        first: dict = {"agent": pipeline_agents[0].id, "executions": []}
         batch = None
         made_batches: list[Batch] = []
         made_experiments: list[Experiment] = []
@@ -147,7 +142,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                     variations=json.dumps(
                         [
                             {
-                                "agent_id": team_agents[0].id,
+                                "agent_id": pipeline_agents[0].id,
                                 "field": "model_id",
                                 "values": [m.id for m in models],
                             }
@@ -163,7 +158,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                 dataset_id=dataset.id,
                 batch_id=batch.id,
                 variant=serialize_point(
-                    {team_agents[0].id: {"model_id": models[i % 2].id}}
+                    {pipeline_agents[0].id: {"model_id": models[i % 2].id}}
                 ),
                 status="completed",
             )
@@ -180,7 +175,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                         prompt_version_id=version.id,
                         execution_order=n,
                     )
-                    for n, a in enumerate(team_agents, start=1)
+                    for n, a in enumerate(pipeline_agents, start=1)
                 ]
             )
             for _ in range(2):
@@ -208,7 +203,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                             prompt_version_id=version.id,
                             execution_order=n,
                         )
-                        for n, a in enumerate(team_agents, start=1)
+                        for n, a in enumerate(pipeline_agents, start=1)
                     ]
                 )
         analysis = Analysis(
@@ -255,7 +250,6 @@ ENDPOINTS = [
     "/executions/{execution}",
     "/executions/{execution}/trace",
     "/agents",
-    "/agent-teams",
     "/analyses",
     "/analyses/executions",
     "/studies",

@@ -14,7 +14,6 @@ from experiment_utils import (
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Dataset,
     Experiment,
     ExperimentExecution,
@@ -50,38 +49,33 @@ def client(engine, monkeypatch):
 
 @pytest.fixture
 def setup(engine):
-    """A team with two LLM judges and an aggregator, and a dataset."""
+    """Two LLM judges and an aggregator, and a dataset."""
     with scoped(engine) as s:
-        team = AgentTeam(name="Graders")
         dataset = Dataset(name="answers", file_path="answers.csv")
         model = Model(name="gpt", provider="openai")
         prompt = Prompt(name="Judge")
-        s.add_all([team, dataset, model, prompt])
+        s.add_all([dataset, model, prompt])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1", user_prompt="{{ a }}")
         s.add(version)
         s.flush()
         langue = Agent(
             name="Langue",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )
         contenu = Agent(
             name="Contenu",
-            team_id=team.id,
             default_model_id=model.id,
             default_prompt_version_id=version.id,
         )
         final = Agent(
             name="Final",
-            team_id=team.id,
             kind="aggregator",
         )
         s.add_all([langue, contenu, final])
         s.commit()
         return {
-            "team": team.id,
             "dataset": dataset.id,
             "langue": langue.id,
             "contenu": contenu.id,
@@ -114,7 +108,6 @@ def experiment_body(ids, final_config):
     return {
         "name": "Run",
         "dataset_id": ids["dataset"],
-        "agent_teams": [str(ids["team"])],
         "agent_configurations": {
             str(ids["langue"]): {"execution_order": 1},
             str(ids["contenu"]): {"execution_order": 2},

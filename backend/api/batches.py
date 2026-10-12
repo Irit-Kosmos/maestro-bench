@@ -160,7 +160,6 @@ def _validate_batch(
         )
 
     configs = data.config.agent_configurations
-    team_ids = {int(t) for t in data.config.agent_teams}
     varied: dict[int, dict[str, list]] = {}
     for variation in variations:
         varied.setdefault(variation["agent_id"], {})[variation["field"]] = variation[
@@ -174,7 +173,7 @@ def _validate_batch(
         if not config or not config.get("is_active", True):
             continue
         agent = session.get(Agent, int(agent_id_str))
-        if not agent or agent.team_id not in team_ids:
+        if not agent:
             continue
         active_agents += 1
         if agent.kind == AGGREGATOR:
@@ -197,12 +196,7 @@ def _validate_batch(
     for agent_id, axes in varied.items():
         agent = session.get(Agent, agent_id)
         config = configs.get(str(agent_id))
-        if (
-            not agent
-            or not config
-            or not config.get("is_active", True)
-            or agent.team_id not in team_ids
-        ):
+        if not agent or not config or not config.get("is_active", True):
             fail(f"Agent {agent_id} is not an active agent of the batch")
         assert agent is not None
 
@@ -474,7 +468,6 @@ def create_batch(
         name=batch.name,
         description=data.description,
         dataset_id=data.config.dataset_id,
-        agent_teams=data.config.agent_teams,
         agent_configurations=data.config.agent_configurations,
         sampling_type=data.config.sampling_type,
         sampling_size=data.config.sampling_size,

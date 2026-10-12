@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from schemas.agent_teams import FormulaOutput
+from schemas.agents import FormulaOutput
 
 
 class FormulaCheckRequest(BaseModel):

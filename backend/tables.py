@@ -156,20 +156,6 @@ class PromptVersion(WorkspaceOwned, table=True):
     prompt: Prompt | None = Relationship(back_populates="versions")
 
 
-class AgentTeam(Authored, table=True):
-    """A team of agents that work together"""
-
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    description: str | None = None
-    created_at: datetime = now_field()
-
-    # Relationships
-    agents: list["Agent"] = Relationship(
-        back_populates="team", sa_relationship_kwargs={"lazy": "select"}
-    )
-
-
 class Agent(WorkspaceOwned, table=True):
     """Individual agent that can be configured with prompts/models at experiment time"""
 
@@ -188,7 +174,6 @@ class Agent(WorkspaceOwned, table=True):
         default=None, foreign_key="model.id", ondelete="SET NULL", index=True
     )
 
-    team_id: int = Field(foreign_key="agentteam.id", index=True)
     created_at: datetime = now_field()
 
     __table_args__ = (
@@ -196,7 +181,6 @@ class Agent(WorkspaceOwned, table=True):
     )
 
     # Relationships
-    team: AgentTeam | None = Relationship(back_populates="agents")
     default_prompt_version: PromptVersion | None = Relationship()
     default_model: Model | None = Relationship()
 
@@ -242,7 +226,7 @@ class Batch(Authored, table=True):
 
 
 class Experiment(Authored, table=True):
-    """An experiment configuration using a dataset and agent teams"""
+    """An experiment configuration using a dataset and a pipeline of agents"""
 
     id: int | None = Field(default=None, primary_key=True)
     name: str

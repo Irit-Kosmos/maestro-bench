@@ -245,7 +245,7 @@ def test_an_agent_without_access_fails_before_calling_the_provider(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "call_llm", must_not_be_called)
     agent = AgentConfig(
-        name="a", team_name="t", system_prompt=None, user_prompt="hi", variables=[],
+        name="a", system_prompt=None, user_prompt="hi", variables=[],
         model="m", provider="mistral", access_error="no key here",
     )
 
@@ -265,7 +265,7 @@ def test_a_provider_error_never_carries_the_workspace_key(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "call_llm", refuses)
     agent = AgentConfig(
-        name="a", team_name="t", system_prompt=None, user_prompt="hi", variables=[],
+        name="a", system_prompt=None, user_prompt="hi", variables=[],
         model="m", provider="mistral", api_key=SECRET,
     )
 

@@ -11,7 +11,6 @@ from db import get_session
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -52,10 +51,7 @@ def add_experiment(engine, name="Run", **fields) -> int:
 
 def add_agent(engine, name="Grader") -> int:
     with scoped(engine) as s:
-        team = AgentTeam(name="Graders")
-        s.add(team)
-        s.flush()
-        agent = Agent(name=name, team_id=team.id)
+        agent = Agent(name=name)
         s.add(agent)
         s.commit()
         return agent.id

@@ -47,7 +47,6 @@ class ExperimentCreate(BaseModel):
     name: str
     description: str | None = None
     dataset_id: int
-    agent_teams: list[str] | None = []
     agent_configurations: dict | None = {}
 
     # Dataset sampling configuration

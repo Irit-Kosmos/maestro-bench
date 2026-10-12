@@ -67,7 +67,7 @@ def test_a_workspace_needs_a_name(alice):
 # ---------------------------------------------------------------------------
 
 SCOPED_READS = [
-    "datasets", "models", "prompts", "prompt-versions", "agents", "agent-teams",
+    "datasets", "models", "prompts", "prompt-versions", "agents",
     "tags", "batches", "analyses", "analyses/executions", "executions",
     "experiments", "dashboard", "providers", "events",
 ]  # fmt: skip
@@ -103,7 +103,7 @@ WRITES = [
     ("post", "tags", {"name": "t"}),
     ("post", "models", {"name": "m", "provider": "mistral"}),
     ("post", "prompts", {"name": "p"}),
-    ("post", "agent-teams", {"name": "t"}),
+    ("post", "agents", {"name": "a"}),
     ("post", "datasets", {"name": "d"}),
 ]
 
@@ -195,7 +195,7 @@ RESOURCES = [
     ("datasets", {"name": "d"}),
     ("models", {"name": "m", "provider": "mistral"}),
     ("prompts", {"name": "p"}),
-    ("agent-teams", {"name": "t"}),
+    ("agents", {"name": "a"}),
     ("tags", {"name": "t"}),
     (
         "analyses",
@@ -266,36 +266,19 @@ def test_tag_names_are_unique_within_a_workspace_only(alice, two_workspaces):
     )
 
 
-def test_an_agent_cannot_point_at_another_workspaces_team(alice, two_workspaces):
-    first, second = two_workspaces
-    team = alice.post(f"/workspaces/{first}/agent-teams", json={"name": "t"}).json()
-
-    response = alice.post(
-        f"/workspaces/{second}/agents", json={"name": "a", "team_id": team["id"]}
-    )
-
-    assert response.status_code == 422
-    assert "not found" in response.json()["detail"]
-
-
 def test_an_agent_cannot_default_to_another_workspaces_model(alice, two_workspaces):
     first, second = two_workspaces
     model = alice.post(
         f"/workspaces/{first}/models", json={"name": "m", "provider": "mistral"}
     ).json()
-    own_team = alice.post(
-        f"/workspaces/{second}/agent-teams", json={"name": "t"}
-    ).json()
 
     created = alice.post(
         f"/workspaces/{second}/agents",
-        json={"name": "a", "team_id": own_team["id"], "default_model_id": model["id"]},
+        json={"name": "a", "default_model_id": model["id"]},
     )
     assert created.status_code == 422
 
-    agent = alice.post(
-        f"/workspaces/{second}/agents", json={"name": "a", "team_id": own_team["id"]}
-    ).json()
+    agent = alice.post(f"/workspaces/{second}/agents", json={"name": "a"}).json()
     updated = alice.put(
         f"/workspaces/{second}/agents/{agent['id']}",
         json={"default_model_id": model["id"]},
@@ -321,17 +304,13 @@ def test_an_experiment_cannot_use_another_workspaces_agents(alice, two_workspace
     own_dataset = alice.post(
         f"/workspaces/{second}/datasets", json={"name": "d"}
     ).json()
-    team = alice.post(f"/workspaces/{first}/agent-teams", json={"name": "t"}).json()
-    agent = alice.post(
-        f"/workspaces/{first}/agents", json={"name": "a", "team_id": team["id"]}
-    ).json()
+    agent = alice.post(f"/workspaces/{first}/agents", json={"name": "a"}).json()
 
     response = alice.post(
         f"/workspaces/{second}/experiments",
         json={
             "name": "e",
             "dataset_id": own_dataset["id"],
-            "agent_teams": [str(team["id"])],
             "agent_configurations": {str(agent["id"]): {"is_active": True}},
         },
     )

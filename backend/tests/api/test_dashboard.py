@@ -10,7 +10,6 @@ from db import get_session
 from tables import (
     Agent,
     AgentExecutionSnapshot,
-    AgentTeam,
     Batch,
     Dataset,
     Experiment,
@@ -46,16 +45,15 @@ def client(engine):
 def world(engine):
     with scoped(engine) as s:
         dataset = Dataset(name="answers", file_path="answers.csv")
-        team = AgentTeam(name="Graders")
         prompt = Prompt(name="Grader")
-        s.add_all([dataset, team, prompt])
+        s.add_all([dataset, prompt])
         s.flush()
         version = PromptVersion(prompt_id=prompt.id, version="1")
         models = [Model(name=n, provider="openai") for n in ("m-a", "m-b")]
         s.add_all([version, *models])
         s.flush()
-        agent = Agent(name="Grader", team_id=team.id)
-        other_agent = Agent(name="Reviewer", team_id=team.id)
+        agent = Agent(name="Grader")
+        other_agent = Agent(name="Reviewer")
         s.add_all([agent, other_agent])
         s.commit()
         return {

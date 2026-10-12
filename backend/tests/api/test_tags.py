@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from api import agent_teams, agents, analyses, prompts, tags
+from api import agents, analyses, prompts, tags
 from db import get_session
 from tables import Dataset, Experiment, ExperimentExecution, TagLink
 from tests.conftest import TEST_WORKSPACE_ID, scoped
@@ -15,7 +15,7 @@ from workspace_scope import scope_session
 @pytest.fixture
 def client(engine):
     app = FastAPI()
-    for module in (tags, prompts, analyses, agents, agent_teams):
+    for module in (tags, prompts, analyses, agents):
         app.include_router(module.router)
 
     def _session():
@@ -258,10 +258,7 @@ def test_assign_refuses_unknown_items_and_tags_without_changing_anything(client)
 
 
 def make_agent(client, **fields):
-    team = client.post("/agent-teams", json={"name": "Graders"}).json()
-    response = client.post(
-        "/agents", json={"name": "A", "team_id": team["id"], **fields}
-    )
+    response = client.post("/agents", json={"name": "A", **fields})
     assert response.status_code == 201, response.text
     return response.json()
 
