@@ -170,7 +170,7 @@ function renewLink() {
             New link
           </UButton>
         </template>
-        <UButton v-else-if="!loading && !archived" icon="i-ph-link-bold" :loading="busy" @click="createLink">
+        <UButton v-else-if="!loading && !archived" color="neutral" icon="i-ph-link-bold" :loading="busy" @click="createLink">
           Create link
         </UButton>
         <UButton color="neutral" variant="outline" :disabled="busy" @click="() => { open = false }">

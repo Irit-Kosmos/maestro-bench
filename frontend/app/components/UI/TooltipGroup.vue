@@ -9,7 +9,7 @@ provide(tooltipGroupKey, true)
 // Same timings as the app-wide UTooltip provider (app.vue)
 const OPEN_DELAY = 500
 const SKIP_DELAY = 300
-// Leaving one control for the next crosses the gap between them: the tooltip waits that long before closing
+// Leaving one control for the next, or for the tooltip itself, crosses a gap: it waits that long before closing
 const CLOSE_GRACE = 100
 const OFFSET = 6
 const MARGIN = 8
@@ -85,8 +85,13 @@ function hide() {
 
 function onPointerOver(e: PointerEvent) {
   const el = triggerOf(e.target)
-  if (el && el !== trigger.value)
+  if (!el)
+    return
+  if (el !== trigger.value)
     show(el)
+  // Back on the control within the grace delay: it stays open instead of closing and coming back
+  else
+    clearTimeout(closeTimer)
 }
 
 function onPointerOut(e: PointerEvent) {
@@ -105,6 +110,11 @@ useEventListener('keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape' && open.value)
     close()
 })
+
+// The tooltip counts as part of its control, so the pointer can go down onto the text without it closing
+function onTooltipEnter() {
+  clearTimeout(closeTimer)
+}
 
 onBeforeUnmount(close)
 </script>
@@ -125,16 +135,18 @@ onBeforeUnmount(close)
   <Teleport to="body">
     <Transition
       enter-active-class="animate-[scale-in_100ms_ease-out] motion-reduce:animate-none"
-      leave-active-class="animate-[scale-out_100ms_ease-out] motion-reduce:animate-none"
+      leave-active-class="pointer-events-none animate-[scale-out_100ms_ease-out_forwards] motion-reduce:animate-none"
     >
       <div
         v-if="open"
         :id="id"
         ref="tooltip"
         role="tooltip"
-        class="pointer-events-none fixed top-0 left-0 z-[100] flex h-6 origin-top items-center gap-1 rounded-sm bg-default px-2.5 py-1 text-xs whitespace-nowrap text-highlighted shadow-sm ring ring-default select-none"
+        class="fixed top-0 left-0 z-[100] flex h-6 origin-top items-center gap-1 rounded-sm before:absolute before:inset-x-0 before:-top-2 before:h-2 after:absolute after:inset-x-0 after:-bottom-2 after:h-2 bg-default px-2.5 py-1 text-xs whitespace-nowrap text-highlighted shadow-sm ring ring-default select-none"
         :class="sliding && 'transition-[translate] duration-150 ease-out motion-reduce:transition-none'"
         :style="{ translate: `${position.x}px ${position.y}px` }"
+        @pointerenter="onTooltipEnter"
+        @pointerleave="hide"
       >
         <span class="truncate">{{ text }}</span>
         <span v-if="kbds.length" class="hidden shrink-0 items-center gap-0.5 lg:inline-flex">
