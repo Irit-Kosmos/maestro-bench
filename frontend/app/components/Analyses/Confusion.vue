@@ -42,9 +42,10 @@ const maxCount = computed(() => Math.max(1, ...cells.value.map(c => c.count)))
 
 // Sequential blue ramp, from few rows to many. A square-root scale keeps small
 // counts visible next to a dominant diagonal cell. "More" has to stand out from
-// the surface: darker on a light page, lighter on a dark one.
-const light = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b']
-const dark = ['#17407a', '#1f5aa6', '#2f78d0', '#5496e6', '#82b3f0', '#b3d1f7', '#dbe9fc']
+// the surface: darker on a light page, lighter on a dark one. Even the first step
+// keeps 3:1 against the surface, so a cell with a few rows is not mistaken for an empty one.
+const light = ['#4e94e8', '#3a7fd6', '#2a6bc0', '#1f5aa6', '#184f95', '#11417c', '#0d366b']
+const dark = ['#2463b3', '#2f78d0', '#5496e6', '#82b3f0', '#a7c8f5', '#c7dcf9', '#dbe9fc']
 const colorMode = useColorMode()
 const ramp = computed(() => colorMode.value === 'dark' ? dark : light)
 
@@ -109,9 +110,21 @@ function cellTooltip(d: Cell | { datum: Cell }) {
     ${cell.rows.length > 1 ? `<div class="mt-2 pt-2 border-t border-default text-muted tabular-nums">${rowsList(cell.rows)}</div>` : ''}
     ${cell.rows.length === 0
       ? ''
-      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-dimmed">${ICONS.click}${cell.rows.length > 1 ? 'Click to browse the rows' : 'Click to open the row'}</div>`}
+      : `<div class="inline-flex items-center gap-1.5 mt-2 pt-2 w-full border-t border-default text-muted">${ICONS.click}${cell.rows.length > 1 ? 'Click to browse the rows' : 'Click to open the row'}</div>`}
   </div>`
 }
+
+// The matrix as text: what screen readers and the sheet get, since the cell counts live in the tooltip
+const summary = computed(() => {
+  const total = cells.value.reduce((sum, c) => sum + c.count, 0)
+  const correct = cells.value.reduce((sum, c) => c.truth === c.pred ? sum + c.count : sum, 0)
+  return `Confusion matrix of ${size.value} labels, ground truth by prediction: ${correct} of ${total} ${total === 1 ? 'row' : 'rows'} on the diagonal`
+})
+
+const filledCells = computed(() => cells.value.filter(c => c.count > 0))
+
+// The list is built only once opened
+const listOpen = ref(false)
 
 const triggers = {
   [Heatmap.selectors.cell]: cellTooltip,
@@ -133,22 +146,73 @@ const events = {
 </script>
 
 <template>
-  <div class="viz-root">
+  <div class="viz-root [--vis-heatmap-cell-stroke-color:var(--viz-reference)] [--vis-heatmap-cell-stroke-width:1px]">
+    <!-- Empty cells keep an outline: a fill alone would not tell them from the page -->
     <div class="text-xs text-muted mb-1">
       Rows: ground truth · Columns: predicted
     </div>
-    <VisSingleContainer :key="chartWidth ?? 'auto'" :data="cells" :width="chartWidth" :duration="chartWidth ? 0 : undefined" :height="Math.min(320, 36 * size + 40)">
-      <VisHeatmap
-        :value="(d: Cell) => d.count || undefined"
-        :color="cellColor"
-        layout="row"
-        :num-rows="size"
-        :num-columns="size"
-        :row-label="(i: number) => labels[i]"
-        :column-label="(i: number) => labels[i]"
-        :events="events"
-      />
-      <VisTooltip :triggers="triggers" />
-    </VisSingleContainer>
+    <div role="img" :aria-label="summary">
+      <VisSingleContainer :key="chartWidth ?? 'auto'" :data="cells" :width="chartWidth" :duration="chartWidth ? 0 : undefined" :height="Math.min(320, 36 * size + 40)">
+        <VisHeatmap
+          :value="(d: Cell) => d.count || undefined"
+          :color="cellColor"
+          layout="row"
+          :num-rows="size"
+          :num-columns="size"
+          :row-label="(i: number) => labels[i]"
+          :column-label="(i: number) => labels[i]"
+          :events="events"
+          :duration="0"
+        />
+        <VisTooltip :triggers="triggers" />
+      </VisSingleContainer>
+    </div>
+
+    <!-- On paper there is no tooltip and the shades are not enough: the counts are written out -->
+    <table class="hidden print:table mt-1 w-full text-xs tabular-nums">
+      <thead>
+        <tr class="text-muted">
+          <th scope="col" class="py-0.5 pe-2 text-start font-normal">
+            <span class="sr-only">Ground truth</span>
+          </th>
+          <th v-for="label in labels" :key="label" scope="col" class="max-w-20 truncate px-1 py-0.5 text-end font-normal">
+            {{ label }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(row, i) in matrix" :key="labels[i]" class="border-t border-muted">
+          <th scope="row" class="max-w-20 truncate py-0.5 pe-2 text-start font-normal text-muted">
+            {{ labels[i] }}
+          </th>
+          <td v-for="(count, j) in row" :key="labels[j]" class="px-1 py-0.5 text-end" :class="i === j ? 'font-semibold text-highlighted' : 'text-toned'">
+            {{ count || '·' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <details v-if="filledCells.length" class="mt-1 text-xs print:hidden" @toggle="listOpen = ($event.target as HTMLDetailsElement).open">
+      <summary class="w-fit cursor-pointer rounded-sm text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted">
+        List the cells
+      </summary>
+      <ul v-if="listOpen" class="mt-1 max-h-40 divide-y divide-default overflow-y-auto rounded-md border border-default">
+        <li v-for="cell in filledCells" :key="`${cell.truth}|${cell.pred}`">
+          <button
+            v-if="cell.rows.length"
+            type="button"
+            class="flex w-full items-center justify-between gap-3 px-2 py-1 text-start outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
+            @click="emit('select', cell.rows)"
+          >
+            <span class="min-w-0 truncate text-highlighted">Truth {{ cell.truth }} · predicted {{ cell.pred }}</span>
+            <span class="shrink-0 text-muted tabular-nums">{{ cell.count }} {{ cell.count === 1 ? 'row' : 'rows' }}</span>
+          </button>
+          <p v-else class="flex items-center justify-between gap-3 px-2 py-1">
+            <span class="min-w-0 truncate text-highlighted">Truth {{ cell.truth }} · predicted {{ cell.pred }}</span>
+            <span class="shrink-0 text-muted tabular-nums">{{ cell.count }} {{ cell.count === 1 ? 'row' : 'rows' }}</span>
+          </p>
+        </li>
+      </ul>
+    </details>
   </div>
 </template>

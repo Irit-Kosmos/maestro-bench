@@ -11,6 +11,7 @@ const { data: metrics } = await useMyLazyFetch<MetricInfo[]>('/analyses/metrics'
 
 // Columns and output paths per execution, read from its results file
 const fields = ref<Record<number, ExecutionFields>>({})
+const fieldsError = ref(false)
 
 async function loadFields(executionId: number) {
   if (fields.value[executionId])
@@ -20,7 +21,14 @@ async function loadFields(executionId: number) {
   }
   catch (error) {
     console.error('Error fetching execution fields:', error)
+    fieldsError.value = true
   }
+}
+
+async function loadAllFields(ids: number[]) {
+  fieldsError.value = false
+  await Promise.all(ids.map(loadFields))
+  applyDefaults()
 }
 
 const columns = computed(() => {
@@ -41,10 +49,7 @@ const pathSuggestions = computed(() => {
 
 watch(
   () => form.value.runs.map(r => r.execution_id),
-  async (ids) => {
-    await Promise.all(ids.map(loadFields))
-    applyDefaults()
-  },
+  loadAllFields,
   { immediate: true },
 )
 
@@ -246,7 +251,7 @@ const confidenceItems = [
         aria-label="Name"
         placeholder="Analysis name"
         autocomplete="off"
-        class="w-full bg-transparent text-xl font-semibold text-highlighted outline-none placeholder:text-dimmed"
+        class="w-full rounded-sm bg-transparent text-xl font-semibold text-highlighted outline-none placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-inverted"
       >
       <input
         :value="form.description ?? ''"
@@ -254,7 +259,7 @@ const confidenceItems = [
         aria-label="Description"
         placeholder="Add a description…"
         autocomplete="off"
-        class="w-full bg-transparent text-sm text-toned outline-none placeholder:text-dimmed"
+        class="w-full rounded-sm bg-transparent text-sm text-toned outline-none placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-inverted"
         @input="form.description = ($event.target as HTMLInputElement).value || null"
       >
       <TagsInput v-model="form.tag_ids" class="pt-1.5" />
@@ -280,7 +285,7 @@ const confidenceItems = [
           :search-input="{ placeholder: 'Search executions…' }"
           :content="{ align: 'end' }"
           :trailing-icon="false"
-          :ui="{ content: 'min-w-[28rem]' }"
+          :ui="{ content: 'min-w-[min(28rem,calc(100vw-2rem))]' }"
           variant="ghost"
           color="neutral"
           size="sm"
@@ -300,13 +305,13 @@ const confidenceItems = [
         <li
           v-for="(run, index) in form.runs"
           :key="runKey(run)"
-          class="group flex items-start gap-2 px-2 py-2.5"
+          class="group flex flex-wrap items-start gap-2 px-2 py-2.5 sm:flex-nowrap"
         >
           <button
             type="button"
             :data-drag-handle="runKey(run)"
             aria-label="Reorder: drag, or use the up and down arrow keys"
-            class="mt-0.5 flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-dimmed opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover:opacity-100 active:cursor-grabbing"
+            class="mt-0.5 flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-muted opacity-0 outline-none transition-opacity duration-150 hover:text-toned focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover:opacity-100 pointer-coarse:opacity-100 active:cursor-grabbing"
             @keydown.up.prevent="moveRun(run, -1)"
             @keydown.down.prevent="moveRun(run, 1)"
           >
@@ -320,7 +325,7 @@ const confidenceItems = [
             #{{ run.execution_id }}
           </span>
 
-          <div class="min-w-0 flex-1 space-y-1">
+          <div class="min-w-32 flex-1 space-y-1">
             <input
               v-if="renaming === index"
               v-focus
@@ -370,10 +375,10 @@ const confidenceItems = [
             color="neutral"
             size="xs"
             aria-label="Agent whose output holds the prediction"
-            class="w-52 shrink-0"
+            class="order-last w-full sm:order-none sm:w-52 sm:shrink-0"
           />
 
-          <div class="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
+          <div class="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
             <UTooltip text="Rename in this comparison">
               <UButton
                 icon="i-ph-pencil-simple-bold"
@@ -400,7 +405,7 @@ const confidenceItems = [
               variant="ghost"
               color="neutral"
               size="xs"
-              aria-label="Remove"
+              :aria-label="`Remove execution #${run.execution_id}${agentsOf(run.execution_id).length > 1 ? ` (${run.agent_name})` : ''}`"
               @click="removeRun(index)"
             />
           </div>
@@ -415,6 +420,16 @@ const confidenceItems = [
       <h2 id="analysis-comparison" class="text-sm font-medium text-highlighted">
         Comparison
       </h2>
+
+      <UAlert
+        v-if="fieldsError"
+        color="error"
+        variant="subtle"
+        icon="i-ph-warning-circle-bold"
+        title="Couldn’t read the columns of an execution"
+        description="Without them the ground truth can’t be chosen. Try again."
+        :actions="[{ label: 'Try again', color: 'error', variant: 'outline', onClick: () => { loadAllFields(form.runs.map(r => r.execution_id)) } }]"
+      />
 
       <div class="divide-y divide-default rounded-lg border border-default">
         <AnalysesField label="Ground truth" hint="Dataset column with the expected value" required>
