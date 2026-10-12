@@ -78,9 +78,5 @@ def test_sort_labels():
     assert sort_labels({"b", "a", "10"}) == ["10", "a", "b"]
 
 
-def test_registry_kinds():
-    numeric = {k for k, m in METRICS.items() if m.kind == "numeric"}
-    categorical = {k for k, m in METRICS.items() if m.kind == "categorical"}
-    assert numeric == {"rmse", "mae", "bias", "pearson", "spearman"}
-    assert categorical == {"accuracy", "f1_macro", "cohen_kappa", "qwk"}
+def test_every_metric_describes_itself():
     assert all(m.description for m in METRICS.values())

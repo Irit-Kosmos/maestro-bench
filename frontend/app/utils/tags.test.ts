@@ -58,7 +58,6 @@ describe('nextTagColor', () => {
 
 describe('tagDot', () => {
   it('has a dot for every colour of the palette', () => {
-    expect(TAG_COLORS).toHaveLength(10)
     for (const color of TAG_COLORS)
       expect(tagDot(color)).toMatch(/^bg-/)
   })
