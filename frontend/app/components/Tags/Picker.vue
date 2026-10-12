@@ -43,22 +43,42 @@ const color = computed(() => pickedColor.value ?? nextTagColor(tags.value))
 
 type Row = { kind: 'tag', tag: Tag } | { kind: 'create' }
 
+const isSelected = (tag: Tag) => props.selected.includes(tag.id)
+const isPartial = (tag: Tag) => !isSelected(tag) && props.partial.includes(tag.id)
+const isPinned = (tag: Tag) => isSelected(tag) || isPartial(tag)
+
+// The tags the target already has come first, in their own group, then the others (each keeps the order of the matches)
+const ordered = computed(() => [
+  ...matches.value.filter(isPinned),
+  ...matches.value.filter(tag => !isPinned(tag)),
+])
+const pinnedCount = computed(() => matches.value.filter(isPinned).length)
+
 // What the arrow keys walk through: the matches, then the offer to create what was typed
 const rows = computed<Row[]>(() => [
-  ...matches.value.map((tag): Row => ({ kind: 'tag', tag })),
+  ...ordered.value.map((tag): Row => ({ kind: 'tag', tag })),
   ...(canCreate.value ? [{ kind: 'create' } as const] : []),
 ])
+
+// The line between the two groups, drawn before the first tag that isn't pinned
+const separatorBefore = (index: number) => pinnedCount.value > 0 && index === pinnedCount.value && index < ordered.value.length
 
 watch(query, () => {
   active.value = 0
 })
 
-const isSelected = (tag: Tag) => props.selected.includes(tag.id)
-const isPartial = (tag: Tag) => !isSelected(tag) && props.partial.includes(tag.id)
-
 function toggle(tag: Tag) {
+  const searching = !!query.value
   emit('toggle', tag)
   query.value = ''
+  // The tag changes group: the highlight goes with it
+  if (!searching) {
+    nextTick(() => {
+      const index = rows.value.findIndex(row => row.kind === 'tag' && row.tag.id === tag.id)
+      if (index >= 0)
+        active.value = index
+    })
+  }
 }
 
 async function create() {
@@ -140,7 +160,7 @@ function onKeydown(event: KeyboardEvent) {
       aria-label="Search or create a tag"
       autocomplete="off"
       maxlength="40"
-      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed"
+      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
       @keydown="onKeydown"
     >
 
@@ -152,39 +172,40 @@ function onKeydown(event: KeyboardEvent) {
       aria-multiselectable="true"
       class="flex max-h-56 min-h-0 flex-col overflow-y-auto p-1"
     >
-      <div
-        v-for="(row, index) in rows"
-        :id="optionId(index)"
-        :key="row.kind === 'tag' ? row.tag.id : 'create'"
-        role="option"
-        :aria-selected="row.kind === 'tag' ? isSelected(row.tag) : false"
-        :data-active="index === active"
-        class="flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-xs text-default"
-        :class="index === active ? 'bg-elevated' : undefined"
-        @mousedown.prevent
-        @pointermove="active = index"
-        @click="activate(row)"
-      >
-        <template v-if="row.kind === 'tag'">
-          <span
-            class="flex size-3.5 shrink-0 items-center justify-center rounded-xs border"
-            :class="isSelected(row.tag) || isPartial(row.tag) ? 'border-inverted bg-inverted text-inverted' : 'border-accented'"
-            aria-hidden="true"
-          >
-            <UIcon v-if="isSelected(row.tag)" name="i-ph-check-bold" class="size-2.5" />
-            <UIcon v-else-if="isPartial(row.tag)" name="i-ph-minus-bold" class="size-2.5" />
-          </span>
-          <span class="size-2 shrink-0 rounded-full" :class="tagDot(row.tag.color)" aria-hidden="true" />
-          <span class="flex-1 truncate">{{ row.tag.name }}</span>
-          <span v-if="isPartial(row.tag)" class="sr-only">(on some of the selected rows)</span>
-        </template>
-        <template v-else>
-          <UIcon name="i-ph-plus-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
-          <span class="size-2 shrink-0 rounded-full" :class="tagDot(color)" aria-hidden="true" />
-          <span class="flex-1 truncate">Create “{{ typed }}”</span>
-          <BaseKbd value="enter" />
-        </template>
-      </div>
+      <template v-for="(row, index) in rows" :key="row.kind === 'tag' ? row.tag.id : 'create'">
+        <div v-if="separatorBefore(index)" role="separator" class="mx-1.5 my-1 h-px shrink-0 bg-(--ui-border)" />
+        <div
+          :id="optionId(index)"
+          role="option"
+          :aria-selected="row.kind === 'tag' ? isSelected(row.tag) : false"
+          :data-active="index === active"
+          class="flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-xs text-default"
+          :class="index === active ? 'bg-elevated' : undefined"
+          @mousedown.prevent
+          @pointermove="active = index"
+          @click="activate(row)"
+        >
+          <template v-if="row.kind === 'tag'">
+            <span
+              class="flex size-3.5 shrink-0 items-center justify-center rounded-xs border"
+              :class="isSelected(row.tag) || isPartial(row.tag) ? 'border-inverted bg-inverted text-inverted' : 'border-accented'"
+              aria-hidden="true"
+            >
+              <UIcon v-if="isSelected(row.tag)" name="i-ph-check-bold" class="size-2.5" />
+              <UIcon v-else-if="isPartial(row.tag)" name="i-ph-minus-bold" class="size-2.5" />
+            </span>
+            <span class="size-2 shrink-0 rounded-full" :class="tagDot(row.tag.color)" aria-hidden="true" />
+            <span class="flex-1 truncate">{{ row.tag.name }}</span>
+            <span v-if="isPartial(row.tag)" class="sr-only">(on some of the selected rows)</span>
+          </template>
+          <template v-else>
+            <UIcon name="i-ph-plus-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
+            <span class="size-2 shrink-0 rounded-full" :class="tagDot(color)" aria-hidden="true" />
+            <span class="flex-1 truncate">Create “{{ typed }}”</span>
+            <BaseKbd value="enter" />
+          </template>
+        </div>
+      </template>
       <span v-if="!rows.length" class="px-1.5 py-2 text-xs text-muted">No tags yet. Type a name to create one.</span>
     </div>
 
