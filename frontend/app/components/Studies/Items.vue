@@ -95,30 +95,30 @@ async function remove(items: StudyItem[]) {
   try {
     for (const item of items)
       await removeItem(props.study.id, item.kind, item.item_id)
-    ok(items.length === 1 ? 'Taken out of the study' : `${items.length} items taken out of the study`, { description: 'They were not deleted.' })
+    ok(items.length === 1 ? 'Removed from the study' : `${items.length} items removed from the study`, { description: 'They were not deleted.' })
   }
   catch (error) {
-    fail('Couldn’t take it out of the study', apiErrorMessage(error))
+    fail('Couldn’t remove it from the study', apiErrorMessage(error))
   }
   finally {
     emit('changed')
   }
 }
 
-const actions = [
+const actions = computed(() => [
   {
     label: 'Open',
     icon: 'i-ph-arrow-up-right-bold',
     handler: (row: Row) => navigateTo(itemPath(row.kind, row.item_id)),
   },
   {
-    label: 'Take out of the study',
+    label: `Remove from ${props.study.name}`,
     icon: 'i-ph-minus-circle-bold',
     requires: 'editor' as const,
     show: () => props.study.status !== 'archived',
     handler: (row: Row) => remove([row]),
   },
-]
+])
 
 const selected = ref<(string | number)[]>([])
 const selectedRows = computed(() => rows.value.filter(row => selected.value.includes(row.id)))
@@ -148,7 +148,7 @@ const selectedRows = computed(() => rows.value.filter(row => selected.value.incl
         size="sm"
         @click="remove(selectedRows).then(() => { selected = [] })"
       >
-        Take out
+        Remove from {{ study.name }}
       </UButton>
     </template>
 

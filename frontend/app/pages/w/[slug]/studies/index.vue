@@ -4,6 +4,7 @@ import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { GroupSpec } from '~/utils/groups'
 import type { SortSpec } from '~/utils/sorts'
 import { h, resolveComponent } from 'vue'
+import { apiErrorMessage } from '~/composables/useAnalyses'
 import { byOrder } from '~/utils/filters'
 import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort, textSort } from '~/utils/sortSpecs'
@@ -142,8 +143,8 @@ async function confirmDelete() {
     showDeleteDialog.value = false
     studyToDelete.value = null
   }
-  catch {
-    showDeleteError('Study')
+  catch (error) {
+    showDeleteError('Study', apiErrorMessage(error))
   }
   finally {
     isDeleting.value = false
@@ -230,7 +231,7 @@ async function confirmDelete() {
       v-model:open="showDeleteDialog"
       title="Delete study?"
       message="Its notes are deleted with it. The experiments, batches and analyses it gathers are kept."
-      confirm-label="Delete"
+      confirm-label="Delete study"
       variant="error"
       :loading="isDeleting"
       @confirm="confirmDelete"

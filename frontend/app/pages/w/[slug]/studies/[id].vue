@@ -229,10 +229,10 @@ const stats = computed(() => study.value
         :ui="{ root: 'gap-0', list: 'gap-5 p-0', trigger: 'px-0' }"
       />
 
-      <!-- The panel stays in the grid and its column closes to nothing: the page glides, and what is hidden is out of reach -->
+      <!-- The panel stays in the grid and its column closes to nothing, at once: animating the columns would reflow the page on a keyboard shortcut. Only the panel itself fades, and what is hidden is out of reach -->
       <div
-        class="grid gap-y-6 transition-[grid-template-columns,column-gap] ease-(--ease-out) motion-reduce:transition-none lg:grid-cols-[minmax(0,1fr)_var(--properties-width)]"
-        :class="showProperties ? 'duration-200 [--properties-width:16rem] lg:gap-x-10' : 'duration-150 [--properties-width:0rem] lg:gap-x-0'"
+        class="grid gap-y-6 lg:grid-cols-[minmax(0,1fr)_var(--properties-width)]"
+        :class="showProperties ? '[--properties-width:16rem] lg:gap-x-10' : '[--properties-width:0rem] lg:gap-x-0'"
       >
         <div class="min-w-0">
           <div v-show="tab === 'overview'" class="flex flex-col gap-8">
@@ -283,7 +283,7 @@ const stats = computed(() => study.value
       v-model:open="showDeleteDialog"
       title="Delete study?"
       message="Its notes are deleted with it. The experiments, batches and analyses it gathers are kept."
-      confirm-label="Delete"
+      confirm-label="Delete study"
       variant="error"
       :loading="isDeleting"
       @confirm="handleDelete"

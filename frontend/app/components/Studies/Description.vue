@@ -54,11 +54,11 @@ function onKeydown(event: KeyboardEvent) {
 <template>
   <section>
     <div v-if="editing" @keydown="onKeydown">
-      <div class="rounded-lg border border-default bg-default px-3 py-2 focus-within:border-accented">
-        <NotesEditor v-model="draft" autofocus="end" placeholder="What is this study about? Type / for blocks" />
+      <div class="rounded-lg border border-default bg-default px-3 py-2 focus-within:ring-2 focus-within:ring-inverted">
+        <NotesEditor v-model="draft" label="Study description" autofocus="end" placeholder="What is this study about? Type / for blocks" />
       </div>
       <div class="mt-2 flex items-center justify-end gap-2">
-        <span class="me-auto text-xs text-dimmed">
+        <span class="me-auto text-xs text-muted">
           <BaseKbd value="meta" /> <BaseKbd value="enter" /> to save · <BaseKbd value="esc" /> to cancel
         </span>
         <UButton color="neutral" variant="ghost" size="sm" :disabled="saving" @click="() => { editing = false }">
@@ -79,7 +79,7 @@ function onKeydown(event: KeyboardEvent) {
         variant="ghost"
         size="xs"
         aria-label="Edit the description"
-        class="absolute -top-1 right-0 opacity-0 transition-opacity group-hover/description:opacity-100 focus-visible:opacity-100"
+        class="absolute -top-1 end-0 opacity-0 transition-opacity group-hover/description:opacity-100 pointer-coarse:opacity-100 focus-visible:opacity-100"
         @click="startEditing"
       />
     </div>
@@ -87,7 +87,7 @@ function onKeydown(event: KeyboardEvent) {
     <button
       v-else-if="writable"
       type="button"
-      class="cursor-text rounded text-sm text-dimmed outline-none hover:text-muted focus-visible:ring-2 focus-visible:ring-inverted"
+      class="cursor-text rounded text-sm text-muted outline-none hover:text-toned focus-visible:ring-2 focus-visible:ring-inverted"
       @click="startEditing"
     >
       Add a description…

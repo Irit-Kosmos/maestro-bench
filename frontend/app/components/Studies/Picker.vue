@@ -112,7 +112,7 @@ function onKeydown(event: KeyboardEvent) {
       aria-label="Search or create a study"
       autocomplete="off"
       maxlength="200"
-      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed"
+      class="h-8 w-full shrink-0 border-0 border-b border-default bg-transparent px-2.5 text-xs text-highlighted outline-none placeholder:text-dimmed focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
       @keydown="onKeydown"
     >
 
