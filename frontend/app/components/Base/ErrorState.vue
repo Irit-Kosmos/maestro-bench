@@ -40,6 +40,11 @@ const COPY: Record<FetchErrorKind, { title: string, message: string, icon: strin
     message: 'Your role in this workspace doesn’t allow this.',
     icon: 'i-ph-lock-simple-bold',
   },
+  'gone': {
+    title: 'This link is no longer active',
+    message: 'Its author stopped sharing it. Ask them for a new link.',
+    icon: 'i-ph-link-break-bold',
+  },
 }
 
 const copy = computed(() => ({
@@ -50,6 +55,9 @@ const copy = computed(() => ({
 
 // Trying again only helps when the request itself failed
 const canRetry = computed(() => props.kind === 'error')
+
+// Behind a public link there is no app to go back to
+const { isShared } = useShare()
 
 // A parent that handles `retry` reloads its own data; otherwise reload the app
 const hasRetryHandler = !!getCurrentInstance()?.vnode.props?.onRetry
@@ -77,7 +85,7 @@ function retry() {
       <UButton v-if="canRetry" color="neutral" variant="outline" size="sm" icon="i-ph-arrow-clockwise-bold" @click="retry">
         Try again
       </UButton>
-      <UButton :to="actionTo" color="neutral" variant="ghost" size="sm">
+      <UButton v-if="!isShared" :to="actionTo" color="neutral" variant="ghost" size="sm">
         {{ actionLabel }}
       </UButton>
     </div>

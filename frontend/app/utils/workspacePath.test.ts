@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inWorkspace, isWorkspaceApiPath, stripWorkspace, unscopedRoutePath, workspaceOfPath } from './workspacePath'
+import { inShare, inWorkspace, isSharedPagePath, isWorkspaceApiPath, scopeApiPath, sharedRoutePath, shareOfPath, stripWorkspace, unscopedRoutePath, workspaceOfPath } from './workspacePath'
 
 describe('stripWorkspace', () => {
   it('keeps the part inside the workspace', () => {
@@ -77,5 +77,75 @@ describe('isWorkspaceApiPath', () => {
 
   it('leaves full URLs alone', () => {
     expect(isWorkspaceApiPath('https://example.org/x')).toBe(false)
+  })
+})
+
+describe('shareOfPath', () => {
+  it('reads the token', () => {
+    expect(shareOfPath('/s/k7Xq2mPz/experiments/3')).toBe('k7Xq2mPz')
+    expect(shareOfPath('/s/k7Xq2mPz')).toBe('k7Xq2mPz')
+    expect(shareOfPath('/s/a-b_c?x=1')).toBe('a-b_c')
+  })
+
+  it('finds none elsewhere', () => {
+    expect(shareOfPath('/s')).toBeNull()
+    expect(shareOfPath('/w/team/experiments/3')).toBeNull()
+    expect(shareOfPath('/settings/x')).toBeNull()
+  })
+})
+
+describe('inShare', () => {
+  it('prefixes a path', () => {
+    expect(inShare('abc', '/experiments/3')).toBe('/s/abc/experiments/3')
+    expect(inShare('abc', '/')).toBe('/s/abc')
+  })
+})
+
+describe('isSharedPagePath', () => {
+  it('knows the pages a link opens', () => {
+    expect(isSharedPagePath('/experiments/3')).toBe(true)
+    expect(isSharedPagePath('/experiments/3?x=1')).toBe(true)
+    expect(isSharedPagePath('/batches/3')).toBe(true)
+    expect(isSharedPagePath('/analyses/3')).toBe(true)
+    expect(isSharedPagePath('/studies/3?tab=items')).toBe(true)
+  })
+
+  it('leaves everything else to the app', () => {
+    expect(isSharedPagePath('/experiments')).toBe(false)
+    expect(isSharedPagePath('/experiments/new')).toBe(false)
+    expect(isSharedPagePath('/analyses/new')).toBe(false)
+    expect(isSharedPagePath('/datasets/3')).toBe(false)
+    expect(isSharedPagePath('/models')).toBe(false)
+    expect(isSharedPagePath('/')).toBe(false)
+    expect(isSharedPagePath('/login')).toBe(false)
+  })
+})
+
+describe('sharedRoutePath', () => {
+  it('moves a page of a workspace behind a link', () => {
+    expect(sharedRoutePath('/w/:slug()/experiments/:id()')).toBe('/s/:token()/experiments/:id()')
+    expect(sharedRoutePath('/w/:slug()/studies/:id()')).toBe('/s/:token()/studies/:id()')
+  })
+
+  it('leaves out the pages a link does not open', () => {
+    expect(sharedRoutePath('/w/:slug()/experiments/new')).toBeNull()
+    expect(sharedRoutePath('/w/:slug()/experiments')).toBeNull()
+    expect(sharedRoutePath('/w/:slug()/models')).toBeNull()
+    expect(sharedRoutePath('/experiments/:id()')).toBeNull()
+  })
+})
+
+describe('scopeApiPath', () => {
+  it('sends a workspace page to its workspace', () => {
+    expect(scopeApiPath('/experiments/3', '/w/team/experiments/3')).toBe('/workspaces/team/experiments/3')
+  })
+
+  it('sends a shared page to its link', () => {
+    expect(scopeApiPath('/experiments/3', '/s/abc/experiments/3')).toBe('/shared/abc/experiments/3')
+    expect(scopeApiPath('/', '/s/abc')).toBe('/shared/abc')
+  })
+
+  it('has nowhere to send a request of a page that is neither', () => {
+    expect(scopeApiPath('/experiments/3', '/login')).toBeNull()
   })
 })

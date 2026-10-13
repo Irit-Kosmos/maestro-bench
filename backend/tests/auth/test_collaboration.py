@@ -24,6 +24,7 @@ from tables import (
     Note,
     Prompt,
     PromptVersion,
+    Share,
     Study,
     StudyItem,
     Tag,
@@ -469,6 +470,7 @@ def populate(engine, workspace_id: int) -> None:
         study = add(Study(name="s"))
         add(StudyItem(study_id=study.id, kind="experiment", item_id=experiment.id))
         add(Note(kind="study", item_id=study.id, body="n"))
+        add(Share(kind="study", item_id=study.id, token=f"token-{workspace_id}"))
         add(WorkspaceCredential(provider="mistral", ciphertext="x", last4="1234"))
         db.commit()
 

@@ -77,6 +77,10 @@ PROVIDERS_INSTANCE_FALLBACK = (
 FRONTEND_URL = os.getenv("FRONTEND_URL") or (CORS_ORIGINS[0] if CORS_ORIGINS else "")
 PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", f"http://localhost:{API_PORT}").rstrip("/")
 
+# Whether editors can create public read-only links to an experiment, a batch, an
+# analysis or a study. Off, the links already made stop answering too.
+PUBLIC_SHARING_ENABLED = os.getenv("PUBLIC_SHARING_ENABLED", "true").lower() == "true"
+
 # How long an invitation link can be used
 INVITATION_DAYS = int(os.getenv("INVITATION_DAYS", "7"))
 

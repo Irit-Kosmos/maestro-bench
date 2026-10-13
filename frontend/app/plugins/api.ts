@@ -13,14 +13,19 @@ export default defineNuxtPlugin({
       // The session cookie is HttpOnly and belongs to the API's origin
       credentials: 'include',
       onRequest(context) {
-        // What the app holds lives in the workspace of the URL: callers say `/experiments`
+        // What the app holds lives in the workspace of the URL, or behind the public link of the page:
+        // callers say `/experiments`
         const { request, options } = context
+        const pagePath = router.currentRoute.value.path
         if (typeof request === 'string' && isWorkspaceApiPath(request)) {
-          const slug = workspaceOfPath(router.currentRoute.value.path)
-          if (!slug)
+          const scoped = scopeApiPath(request, pagePath)
+          if (!scoped)
             throw new Error(`No workspace selected for ${request}`)
-          context.request = `/workspaces/${slug}${request}`
+          context.request = scoped
         }
+        // A public link is read without an account: the session of whoever opens it is none of its business
+        if (shareOfPath(pagePath))
+          options.credentials = 'omit'
 
         if (SAFE_METHODS.includes((options.method ?? 'GET').toUpperCase()) || !csrfToken.value)
           return
@@ -36,7 +41,7 @@ export default defineNuxtPlugin({
       },
       onResponseError({ response }) {
         // The session ended (expired, signed out elsewhere, user deactivated): sign in again
-        if (response.status !== 401)
+        if (response.status !== 401 || shareOfPath(router.currentRoute.value.path))
           return
         forget()
         nuxtApp.runWithContext(() => {

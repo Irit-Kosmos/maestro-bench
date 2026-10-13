@@ -611,6 +611,18 @@ export interface Workspace {
 
 export type WorkspaceRole = Workspace['role']
 
+/** What a public link can point to */
+export type ShareKind = 'experiment' | 'batch' | 'analysis' | 'study'
+
+/** The public read-only link of an item: whoever has the token can read the item */
+export interface Share {
+  id: number
+  kind: ShareKind
+  item_id: number
+  token: string
+  created_at: string
+}
+
 export interface WorkspaceMember {
   user_id: number
   display_name: string

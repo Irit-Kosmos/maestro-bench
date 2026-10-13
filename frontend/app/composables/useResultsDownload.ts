@@ -1,7 +1,7 @@
 export function useResultsDownload() {
   const { fail } = useStandardToast()
   const runtimeConfig = useRuntimeConfig()
-  const { slug } = useWorkspace()
+  const route = useRoute()
 
   /**
    * Download results for a specific execution
@@ -9,8 +9,9 @@ export function useResultsDownload() {
   async function downloadResults(executionId: number) {
     try {
       // Create a direct fetch to the download endpoint
-      const response = await fetch(`${runtimeConfig.public.BACK_URL}/workspaces/${slug.value}/executions/${executionId}/results`, {
-        credentials: 'include',
+      const response = await fetch(`${runtimeConfig.public.BACK_URL}${scopeApiPath(`/executions/${executionId}/results`, route.path)}`, {
+        // A public link is read without an account
+        credentials: shareOfPath(route.path) ? 'omit' : 'include',
         headers: {
           Accept: 'application/json',
         },

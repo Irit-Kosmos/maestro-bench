@@ -4,6 +4,7 @@ interface Me {
   user: AuthUser
   csrf_token: string
   can_create_workspace: boolean
+  public_sharing: boolean
 }
 
 /**
@@ -14,6 +15,8 @@ export function useAuth() {
   const user = useState<AuthUser | null>('auth-user', () => null)
   const csrfToken = useState<string | null>('auth-csrf-token', () => null)
   const canCreateWorkspace = useState('auth-can-create-workspace', () => false)
+  // Whether this instance lets items be shared through a public link
+  const publicSharing = useState('auth-public-sharing', () => false)
   const backUrl = useRuntimeConfig().public.BACK_URL as string
 
   /** Ask the backend; null when nobody is signed in. Any other failure is left to the caller. */
@@ -23,6 +26,7 @@ export function useAuth() {
       user.value = me.user
       csrfToken.value = me.csrf_token
       canCreateWorkspace.value = me.can_create_workspace
+      publicSharing.value = me.public_sharing
     }
     catch (error: any) {
       if (error?.response?.status !== 401)
@@ -52,5 +56,5 @@ export function useAuth() {
     }
   }
 
-  return { user, csrfToken, canCreateWorkspace, fetchMe, forget, loginUrl, logout }
+  return { user, csrfToken, canCreateWorkspace, publicSharing, fetchMe, forget, loginUrl, logout }
 }

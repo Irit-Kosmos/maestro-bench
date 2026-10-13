@@ -15,6 +15,7 @@ const { formatDate, formatRelativeDate } = useUIHelpers()
 const { downloadResults: downloadResultsFile } = useResultsDownload()
 const { runOf, onStatus } = useLiveRuns()
 const { canEdit } = useCurrentWorkspace()
+const { isShared } = useShare()
 
 // State
 const experiment = ref<Experiment | null>(null)
@@ -356,6 +357,7 @@ watch(() => route.params.id, () => {
         >
           Analyze
         </UIGuardedButton>
+        <SharesButton v-if="experiment" kind="experiment" :item-id="experiment.id" />
         <UDropdownMenu
           v-if="canEdit"
           :items="[{ label: 'Delete experiment', icon: 'i-ph-trash-bold', color: 'error', onSelect: () => { showDeleteDialog = true } }]"
@@ -379,8 +381,9 @@ watch(() => route.params.id, () => {
           <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(experiment.created_at) }}
           </UIMetaItem>
-          <UIMetaItem v-if="experiment.batch_id" icon="i-ph-arrows-split-bold" label="Batch">
-            <UIMetaLink :to="`/batches/${experiment.batch_id}`">
+          <!-- Behind a public link the batch is named only when the link reaches it -->
+          <UIMetaItem v-if="experiment.batch_id && (!isShared || experiment.batch_name)" icon="i-ph-arrows-split-bold" label="Batch">
+            <UIMetaLink :to="`/batches/${experiment.batch_id}`" in-share>
               {{ experiment.batch_name }}
             </UIMetaLink>
           </UIMetaItem>
@@ -388,7 +391,7 @@ watch(() => route.params.id, () => {
         <p v-if="experiment.description" class="mt-1.5 max-w-prose whitespace-pre-wrap text-sm text-toned text-pretty">
           {{ experiment.description }}
         </p>
-        <StudiesItemStudies :id="experiment.id" kind="experiment" class="mt-2.5" />
+        <StudiesItemStudies v-if="!isShared" :id="experiment.id" kind="experiment" class="mt-2.5" />
       </header>
 
       <!-- What is run (agents) takes the wide column; what it runs on and what came out stack beside it -->
@@ -549,7 +552,7 @@ watch(() => route.params.id, () => {
         </div>
       </div>
 
-      <ExperimentsSection id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this run. Notes show up in the activity of every study that holds it.">
+      <ExperimentsSection v-if="!isShared" id="notes" title="Notes" icon="i-ph-notepad-bold" description="What you notice and decide about this run. Notes show up in the activity of every study that holds it.">
         <NotesJournal kind="experiment" :item-id="experiment.id" />
       </ExperimentsSection>
     </div>

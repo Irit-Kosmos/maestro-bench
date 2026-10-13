@@ -31,6 +31,8 @@ STUDY_STATUSES = ("active", "concluded", "archived")
 # What a study can gather, and what a note can be attached to (a study too)
 STUDY_ITEM_KINDS = ("experiment", "batch", "analysis")
 NOTE_KINDS = (*STUDY_ITEM_KINDS, "study")
+# What a public link can point to
+SHARE_KINDS = NOTE_KINDS
 # From the least to the most powerful
 ROLES = ("viewer", "editor", "owner")
 
@@ -539,6 +541,40 @@ class Note(Authored, table=True):
         CheckConstraint(_one_of("kind", NOTE_KINDS), name="ck_note_kind"),
         # The journal of an item, in order
         Index("ix_note_kind_item_created", "kind", "item_id", "created_at"),
+    )
+
+
+class Share(WorkspaceOwned, table=True):
+    """A public read-only link to an item: whoever holds the token sees the item.
+
+    The token is kept as it is, not hashed: the author can see the link again.
+    A revoked link stays, so that its page can say it is no longer active; the link
+    of a deleted item goes with it. Like notes, it points to its item by kind and id.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str  # "experiment" | "batch" | "analysis" | "study"
+    item_id: int
+    token: str = Field(unique=True, index=True)
+    created_at: datetime = now_field()
+    created_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    revoked_at: datetime | None = moment_field()
+    revoked_by: int | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+
+    __table_args__ = (
+        CheckConstraint(_one_of("kind", SHARE_KINDS), name="ck_share_kind"),
+        # One active link per item
+        Index(
+            "uq_share_active_item",
+            "kind",
+            "item_id",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
     )
 
 

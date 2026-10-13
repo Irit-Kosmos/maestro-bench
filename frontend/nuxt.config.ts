@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { unscopedRoutePath } from './app/utils/workspacePath'
+import { sharedRoutePath, unscopedRoutePath } from './app/utils/workspacePath'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -66,6 +66,13 @@ export default defineNuxtConfig({
         return path ? [{ path, file }] : []
       })
       pages.push(...unscoped)
+
+      // The pages a public link opens are the app's own, served again behind the link (`/s/<token>/...`)
+      const shared = pages.flatMap((page) => {
+        const path = sharedRoutePath(page.path)
+        return path && page.file ? [{ path, file: page.file }] : []
+      })
+      pages.push(...shared)
     },
   },
 })

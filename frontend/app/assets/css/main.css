@@ -107,6 +107,15 @@ html {
 }
 
 /*
+ * Nuxt UI's exit animations (tooltips, popovers, menus, selects) end on their last keyframe and then drop back to
+ * the resting style until the element is unmounted: it fades out, flashes back for a frame, then goes. Holding the
+ * last keyframe removes the flash. Unlayered, so it wins over the utility's `animation` shorthand.
+ */
+[data-state="closed"]:is([class*="animate-[scale-out"], [class*="animate-[fade-out"]) {
+  animation-fill-mode: forwards;
+}
+
+/*
  * Entrance for content that swaps in place (e.g. stepper steps), so it doesn't teleport.
  * Occasional, so it can afford 200ms; reduced motion keeps the fade and drops the movement.
  */

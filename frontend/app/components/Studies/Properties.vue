@@ -13,6 +13,8 @@ const emit = defineEmits<{
 
 const { updateStudy } = useStudies()
 const { canEdit } = useCurrentWorkspace()
+// Behind a public link there are no tags and no author to show
+const { isShared } = useShare()
 const { formatDate } = useUIHelpers()
 const { fail } = useStandardToast()
 
@@ -65,7 +67,7 @@ const labelClass = 'text-xs leading-6 text-muted'
       </span>
     </div>
 
-    <div :class="rowClass">
+    <div v-if="!isShared" :class="rowClass">
       <span :class="labelClass">Tags</span>
       <TagsList :id="study.id" class="min-h-6" :tags="study.tags" :max="20" wrap :kind="canEdit ? 'study' : undefined" @changed="emit('changed')" />
     </div>
@@ -75,7 +77,7 @@ const labelClass = 'text-xs leading-6 text-muted'
       <span class="text-toned">{{ describeCounts(study.counts) }}</span>
     </div>
 
-    <div :class="rowClass">
+    <div v-if="!isShared" :class="rowClass">
       <span :class="labelClass">Created by</span>
       <span class="inline-flex h-6 min-w-0 items-center gap-1.5 text-toned">
         <UAvatar :src="study.author?.avatar_url ?? undefined" :alt="study.author?.display_name ?? 'Former member'" size="2xs" />
