@@ -175,9 +175,9 @@ defineShortcuts({
         <AppSetupChecklist v-if="!isCollapsed" class="mb-1" />
 
         <!-- Account and settings live in the workspace menu up top; down here, the utilities only -->
-        <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center justify-end'">
-          <AppThemeToggle :collapsed="isCollapsed" />
+        <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center justify-between'">
           <AppHelpMenu :collapsed="isCollapsed" />
+          <AppThemeToggle :collapsed="isCollapsed" />
         </div>
       </div>
     </template>

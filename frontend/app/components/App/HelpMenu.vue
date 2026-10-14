@@ -17,7 +17,15 @@ const items = computed<DropdownMenuItem[]>(() => [
     },
   },
   ...(sourceUrl
-    ? [{ label: 'Source code', icon: 'i-ph-code', to: sourceUrl, target: '_blank', slot: 'external' as const }]
+    ? [{
+        label: 'Source code',
+        icon: 'i-ph-code',
+        to: sourceUrl,
+        target: '_blank',
+        slot: 'external' as const,
+        // Items align to the top (items-start), so a trailing icon shorter than the label line sits high
+        ui: { itemTrailing: 'self-center' },
+      }]
     : []),
 ])
 </script>
