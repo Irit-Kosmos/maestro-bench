@@ -130,6 +130,9 @@ async function revoke() {
   revoking.value = true
   try {
     await invitationsApi.revoke(invitation.id)
+    // The link shown once is dead now: don't keep offering it.
+    if (created.value?.invitation.id === invitation.id)
+      created.value = null
     ok('Invitation revoked')
   }
   catch (error) {
