@@ -63,7 +63,7 @@ const roleText: Record<string, string> = {
         variant="subtle"
         icon="i-ph-link-break-bold"
         title="This link doesn’t work"
-        description="It may have been used, revoked or expired. Ask for a new one."
+        description="It may have been revoked or have expired. Ask for a new one."
       />
 
       <template v-else-if="offer">
