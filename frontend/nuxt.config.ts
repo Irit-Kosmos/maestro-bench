@@ -58,6 +58,8 @@ export default defineNuxtConfig({
     public: {
       // Override with NUXT_PUBLIC_BACK_URL
       BACK_URL: 'http://localhost:8000',
+      // The "Source code" link of the help menu; override with NUXT_PUBLIC_SOURCE_URL, empty hides it
+      SOURCE_URL: 'https://gitlab.irit.fr/talent/TALENT/around-elaastic/around-konsolidation/maestro-bench',
     },
   },
 

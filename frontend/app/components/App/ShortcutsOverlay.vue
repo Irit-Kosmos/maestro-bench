@@ -14,6 +14,7 @@ const shortcuts = [
     { keys: ['G', 'A'], label: 'Go to Agents' },
     { keys: ['G', 'Y'], label: 'Go to Studies' },
     { keys: ['G', 'S'], label: 'Go to Settings' },
+    { keys: ['O', 'W'], label: 'Switch workspace' },
   ] },
   { section: 'Actions', items: [
     { keys: ['meta', 'K'], label: 'Open command palette' },

@@ -274,6 +274,7 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | Variable | Default | Description |
 |---|---|---|
 | `NUXT_PUBLIC_BACK_URL` | `http://localhost:8000` | Backend URL as seen from the browser. |
+| `NUXT_PUBLIC_SOURCE_URL` | the IRIT GitLab repository | Where the "Source code" entry of the help menu (the `?` at the bottom of the sidebar) leads. Empty hides the entry. |
 
 ### Workspaces
 

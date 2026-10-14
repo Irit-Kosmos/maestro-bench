@@ -146,7 +146,8 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
 </script>
 
 <template>
-  <BaseSection title="Members">
+  <!-- id: the target of "Invite and manage members" in the workspace menu -->
+  <BaseSection id="members" title="Members" class="scroll-mt-6">
     <template #meta>
       <span v-if="members?.length" class="text-xs text-muted tabular-nums">{{ members.length }}</span>
     </template>

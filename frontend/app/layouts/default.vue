@@ -57,6 +57,10 @@ defineShortcuts({
   'g-s': () => {
     router.push('/settings')
   },
+  // Linear's "open workspaces"
+  'o-w': () => {
+    router.push('/w')
+  },
   // Instant on purpose: a keyboard action should never wait on an animation
   't': toggleTheme,
   // Create from anywhere: what the page lists, or an experiment on the pages that list nothing creatable

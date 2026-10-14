@@ -19,6 +19,15 @@ const { data: providers, pending, error: providersError, refresh } = await useMy
 const { data: health, error: healthError } = await useMyLazyFetch<{ status: string, version: string }>('/health')
 const backendUrl = useRuntimeConfig().public.BACK_URL as string
 
+// The page scrolls inside <main>, out of the router's reach: jump to `#members` (and co.) by hand
+const route = useRoute()
+watch(() => route.hash, async (hash) => {
+  if (!hash)
+    return
+  await nextTick()
+  document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+}, { immediate: true, flush: 'post' })
+
 // Same order as everywhere else: by the name people read, not the backend's dict order
 const sortedProviders = computed(() => (providers.value ?? []).toSorted((a, b) => compareProviders(a.provider, b.provider)))
 
