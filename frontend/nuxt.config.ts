@@ -7,6 +7,14 @@ export default defineNuxtConfig({
     head: {
       title: 'MAESTRO-bench',
       htmlAttrs: { lang: 'en' },
+      link: [
+        { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      ],
+      meta: [
+        { name: 'theme-color', content: '#000000' },
+      ],
     },
   },
   devtools: { enabled: true },
@@ -50,6 +58,8 @@ export default defineNuxtConfig({
     public: {
       // Override with NUXT_PUBLIC_BACK_URL
       BACK_URL: 'http://localhost:8000',
+      // The "Source code" link of the help menu; override with NUXT_PUBLIC_SOURCE_URL, empty hides it
+      SOURCE_URL: 'https://gitlab.irit.fr/talent/TALENT/around-elaastic/around-konsolidation/maestro-bench',
     },
   },
 

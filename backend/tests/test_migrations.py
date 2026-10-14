@@ -155,3 +155,26 @@ def test_the_migration_names_the_column_that_holds_invalid_json(migrated_connect
 
     with pytest.raises(RuntimeError, match=r"analysis\.config: 1 row"):
         command.upgrade(config, "head")
+
+
+def test_a_link_used_before_links_became_reusable_stays_closed(migrated_connection):
+    config = _config(migrated_connection)
+    command.upgrade(config, "0011")
+    migrated_connection.commit()
+    for token_hash, used_at in (("used", "now()"), ("open", "NULL")):
+        migrated_connection.execute(
+            text(
+                "INSERT INTO invitation (workspace_id, token_hash, role, created_at, "
+                f"expires_at, used_at) VALUES ((SELECT id FROM workspace WHERE slug = 'default'), "
+                f"'{token_hash}', 'editor', now(), now() + interval '1 day', {used_at})"
+            )
+        )
+    migrated_connection.commit()
+
+    command.upgrade(config, "head")
+    migrated_connection.commit()
+
+    rows = migrated_connection.execute(
+        text("SELECT token_hash, uses, revoked_at IS NOT NULL FROM invitation")
+    ).all()
+    assert sorted(rows) == [("open", 0, False), ("used", 1, True)]

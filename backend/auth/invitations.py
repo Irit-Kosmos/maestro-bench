@@ -1,24 +1,26 @@
-"""Invitation links: one person joins a workspace with a role, once, before it expires."""
+"""Invitation links: whoever opens one joins a workspace with a role, until it expires
+or is revoked."""
 
 import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import update
+from sqlalchemy import or_, update
 from sqlmodel import Session, select
 
-import config
 from auth.workspaces import MembershipError, set_member
 from tables import Invitation, Membership, User, Workspace
 
 # An invitation never makes an owner: that is a decision for an owner to take later
 INVITABLE_ROLES = ("viewer", "editor")
+# How long a link can be used, in days; None keeps it open until it is revoked
+LIFETIMES = (1, 7, 30, None)
 
 
 class InvitationError(ValueError):
-    """The link cannot be used. It never says why: a wrong, used, revoked or expired
-    link look the same to whoever holds it."""
+    """The link cannot be used. It never says why: a wrong, revoked or expired link
+    look the same to whoever holds it."""
 
 
 @dataclass(frozen=True)
@@ -36,23 +38,29 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _is_past(moment: datetime) -> bool:
-    return moment <= _now()
+def _is_past(moment: datetime | None) -> bool:
+    return moment is not None and moment <= _now()
+
+
+def _not_expired():
+    return or_(Invitation.expires_at.is_(None), Invitation.expires_at > _now())
 
 
 def create_invitation(
-    db: Session, workspace: Workspace, role: str, user_id: int
+    db: Session, workspace: Workspace, role: str, user_id: int, days: int | None
 ) -> tuple[Invitation, str]:
     """Make an invitation; the token is returned once and only its hash is kept."""
     if role not in INVITABLE_ROLES:
         raise InvitationError(f"An invitation gives one of: {', '.join(INVITABLE_ROLES)}")
+    if days not in LIFETIMES:
+        raise InvitationError("An invitation lasts 1, 7 or 30 days, or until it is revoked")
     token = secrets.token_urlsafe(32)
     invitation = Invitation(
         workspace_id=workspace.id,
         token_hash=_hash(token),
         role=role,
         created_by=user_id,
-        expires_at=_now() + timedelta(days=config.INVITATION_DAYS),
+        expires_at=_now() + timedelta(days=days) if days is not None else None,
     )
     db.add(invitation)
     db.commit()
@@ -66,9 +74,8 @@ def pending(db: Session, workspace_id: int) -> list[Invitation]:
             select(Invitation)
             .where(
                 Invitation.workspace_id == workspace_id,
-                Invitation.used_at.is_(None),
                 Invitation.revoked_at.is_(None),
-                Invitation.expires_at > _now(),
+                _not_expired(),
             )
             .order_by(Invitation.created_at.desc())
         ).all()
@@ -81,8 +88,8 @@ def revoke(db: Session, workspace_id: int, invitation_id: int) -> bool:
         .where(
             Invitation.id == invitation_id,
             Invitation.workspace_id == workspace_id,
-            Invitation.used_at.is_(None),
             Invitation.revoked_at.is_(None),
+            _not_expired(),
         )
         .values(revoked_at=_now())
     )
@@ -95,7 +102,6 @@ def revoke_all(db: Session, workspace_id: int) -> None:
         update(Invitation)
         .where(
             Invitation.workspace_id == workspace_id,
-            Invitation.used_at.is_(None),
             Invitation.revoked_at.is_(None),
         )
         .values(revoked_at=_now())
@@ -109,7 +115,6 @@ def _usable(db: Session, token: str) -> Invitation:
     ).first()
     if (
         invitation is None
-        or invitation.used_at is not None
         or invitation.revoked_at is not None
         or _is_past(invitation.expires_at)
     ):
@@ -125,10 +130,8 @@ def preview(db: Session, token: str) -> tuple[Invitation, Workspace, User | None
 
 
 def accept(db: Session, token: str, user: User) -> Accepted:
-    """Join the workspace of an invitation, using the invitation up.
-
-    Someone who already belongs to it keeps their role and the invitation stays valid.
-    """
+    """Join the workspace of an invitation. Someone who already belongs to it keeps
+    their role, and is not counted as a use of the link."""
     invitation = _usable(db, token)
     workspace = db.get(Workspace, invitation.workspace_id)
     if workspace.archived_at is not None:
@@ -138,13 +141,14 @@ def accept(db: Session, token: str, user: User) -> Accepted:
     if membership is not None:
         return Accepted(workspace, membership.role, joined=False)
 
-    # Several people opening the same link at once: only one update can win
-    claimed = db.execute(
+    # Counted in the database, so that people opening the link at once all count; and
+    # only while it is still open, in case it was revoked in the meantime
+    counted = db.execute(
         update(Invitation)
-        .where(Invitation.id == invitation.id, Invitation.used_at.is_(None))
-        .values(used_at=_now(), used_by=user.id)
+        .where(Invitation.id == invitation.id, Invitation.revoked_at.is_(None), _not_expired())
+        .values(uses=Invitation.uses + 1)
     )
-    if claimed.rowcount == 0:
+    if counted.rowcount == 0:
         db.rollback()
         raise InvitationError("This invitation is invalid or has expired")
     try:

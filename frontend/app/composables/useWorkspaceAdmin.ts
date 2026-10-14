@@ -35,8 +35,9 @@ export function useWorkspaceAdmin() {
 
   const invitations = {
     list: () => $api<WorkspaceInvitation[]>(`${base()}/invitations`),
-    create: (role: WorkspaceRole) =>
-      $api<CreatedInvitation>(`${base()}/invitations`, { method: 'POST', body: { role } }),
+    /** `days` null: the link works until it is revoked */
+    create: (role: WorkspaceRole, days: number | null) =>
+      $api<CreatedInvitation>(`${base()}/invitations`, { method: 'POST', body: { role, days } }),
     revoke: (id: number) => $api(`${base()}/invitations/${id}`, { method: 'DELETE' }),
     /** The link to give to the invited person */
     link: (token: string) => `${window.location.origin}/join/${token}`,

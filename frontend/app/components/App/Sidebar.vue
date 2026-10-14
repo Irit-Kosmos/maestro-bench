@@ -77,7 +77,7 @@ defineShortcuts({
     }"
   >
     <template #header="{ collapsed: isCollapsed }">
-      <AppWorkspaceSwitcher v-if="!isCollapsed" />
+      <AppWorkspaceMenu v-if="!isCollapsed" />
 
       <UTooltip
         :text="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
@@ -89,6 +89,9 @@ defineShortcuts({
     </template>
 
     <template #default="{ collapsed: isCollapsed }">
+      <!-- The header only has room for the collapse button: the workspace menu moves down here -->
+      <AppWorkspaceMenu v-if="isCollapsed" collapsed />
+
       <!-- The command palette stays on ⌘K; the sidebar keeps a single primary action -->
       <UTooltip v-if="canEdit" text="New experiment" :kbds="['C']" :content="{ side: 'right' }">
         <UButton
@@ -171,22 +174,9 @@ defineShortcuts({
       <div class="flex w-full flex-col gap-1" :class="isCollapsed && 'items-center'">
         <AppSetupChecklist v-if="!isCollapsed" class="mb-1" />
 
-        <!-- The account leads; the shortcuts live in its menu (and under ?) -->
-        <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center'">
-          <AppUserMenu :collapsed="isCollapsed" />
-
-          <UTooltip text="Settings" :kbds="['G', 'S']" :content="{ side: isCollapsed ? 'right' : 'top' }">
-            <UButton
-              to="/settings"
-              icon="i-ph-gear"
-              color="neutral"
-              :variant="isActive('/settings') ? 'soft' : 'ghost'"
-              size="sm"
-              aria-label="Settings"
-              :aria-current="isActive('/settings') ? 'page' : undefined"
-            />
-          </UTooltip>
-
+        <!-- Account and settings live in the workspace menu up top; down here, the utilities only -->
+        <div class="flex w-full gap-1" :class="isCollapsed ? 'flex-col items-center' : 'items-center justify-between'">
+          <AppHelpMenu :collapsed="isCollapsed" />
           <AppThemeToggle :collapsed="isCollapsed" />
         </div>
       </div>

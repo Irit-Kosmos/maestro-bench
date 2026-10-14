@@ -313,13 +313,16 @@ def remove_workspace_member(
 
 class InvitationCreate(BaseModel):
     role: str
+    # 1, 7 or 30; null keeps the link open until it is revoked
+    days: int | None = 7
 
 
 class InvitationOut(BaseModel):
     id: int
     role: str
     created_at: datetime
-    expires_at: datetime
+    expires_at: datetime | None
+    uses: int
 
 
 class InvitationCreated(InvitationOut):
@@ -333,6 +336,7 @@ def _invitation_out(invitation: Invitation) -> InvitationOut:
         role=invitation.role,
         created_at=invitation.created_at,
         expires_at=invitation.expires_at,
+        uses=invitation.uses,
     )
 
 
@@ -354,11 +358,11 @@ def create_invitation(
     context: Annotated[WorkspaceContext, Depends(workspace_context)],
     engine: Annotated[Engine, Depends(get_engine)],
 ):
-    """Make a single-use link that gives `role` (viewer or editor) to whoever opens it."""
+    """Make a link that gives `role` (viewer or editor) to whoever opens it, for `days`."""
     with Session(engine) as db:
         try:
             invitation, token = invitations.create_invitation(
-                db, _workspace(db, context), data.role, context.user_id
+                db, _workspace(db, context), data.role, context.user_id, data.days
             )
         except invitations.InvitationError as e:
             raise HTTPException(422, str(e)) from e

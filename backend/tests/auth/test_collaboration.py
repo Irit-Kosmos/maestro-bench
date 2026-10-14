@@ -256,15 +256,16 @@ def test_an_invitation_adds_whoever_opens_it_with_the_role(alice, team, engine, 
     assert roles(alice, team)["Dave"] == "editor"
 
 
-def test_an_invitation_works_once(alice, team, engine, app):
+def test_an_invitation_lets_several_people_join_and_counts_them(alice, team, engine, app):
     dave, erin = Person(engine, "dave"), Person(engine, "erin")
     token = invite(alice, team)
 
     assert dave.post("/invitations/accept", json={"token": token}).status_code == 200
+    assert erin.post("/invitations/accept", json={"token": token}).status_code == 200
 
-    assert erin.post("/invitations/accept", json={"token": token}).status_code == 404
-    assert erin.post("/invitations/preview", json={"token": token}).status_code == 404
-    assert "Erin" not in roles(alice, team)
+    assert roles(alice, team)["Erin"] == "editor"
+    (item,) = alice.get(f"/workspaces/{team}/invitations").json()
+    assert item["uses"] == 2
 
 
 def test_only_a_hash_of_the_token_is_kept(alice, team, engine):
@@ -276,15 +277,18 @@ def test_only_a_hash_of_the_token_is_kept(alice, team, engine):
     assert token not in str(stored.model_dump())
 
 
-def test_the_list_never_shows_tokens_and_hides_used_ones(alice, team, engine, app):
-    dave = Person(engine, "dave")
-    used, open_ = invite(alice, team), invite(alice, team, "viewer")
-    dave.post("/invitations/accept", json={"token": used})
+def test_the_list_never_shows_tokens_and_hides_revoked_ones(alice, team, engine, app):
+    revoked, open_ = invite(alice, team), invite(alice, team, "viewer")
+    with Session(engine) as db:
+        stored = db.exec(select(Invitation).where(Invitation.role == "editor")).one()
+        stored.revoked_at = datetime.now(UTC)
+        db.add(stored)
+        db.commit()
 
     listed = alice.get(f"/workspaces/{team}/invitations")
 
     assert [i["role"] for i in listed.json()] == ["viewer"]
-    assert open_ not in listed.text
+    assert open_ not in listed.text and revoked not in listed.text
 
 
 def test_a_revoked_invitation_stops_working(alice, team, engine, app):
@@ -311,25 +315,47 @@ def test_an_invitation_expires(alice, team, engine, app):
     assert alice.get(f"/workspaces/{team}/invitations").json() == []
 
 
-def test_the_lifetime_of_a_link_is_configurable(alice, team, monkeypatch):
-    monkeypatch.setattr(config, "INVITATION_DAYS", 1)
+@pytest.mark.parametrize("days", [None, 1, 7, 30])
+def test_a_link_lasts_the_days_chosen_or_until_it_is_revoked(alice, team, days):
+    response = alice.post(
+        f"/workspaces/{team}/invitations", json={"role": "viewer", "days": days}
+    ).json()
 
-    response = alice.post(f"/workspaces/{team}/invitations", json={"role": "viewer"}).json()
+    if days is None:
+        assert response["expires_at"] is None
+    else:
+        created = datetime.fromisoformat(response["created_at"])
+        expires = datetime.fromisoformat(response["expires_at"])
+        assert abs(expires - created - timedelta(days=days)) < timedelta(seconds=5)
 
-    created = datetime.fromisoformat(response["created_at"])
-    expires = datetime.fromisoformat(response["expires_at"])
-    assert abs(expires - created - timedelta(days=1)) < timedelta(seconds=5)
+
+def test_a_link_lasts_one_of_the_offered_lifetimes(alice, team):
+    response = alice.post(f"/workspaces/{team}/invitations", json={"role": "viewer", "days": 3})
+
+    assert response.status_code == 422
 
 
-def test_a_member_who_opens_a_link_keeps_their_role_and_the_link_stays_valid(alice, bob, team, engine, app):
+def test_a_link_that_never_expires_works_until_it_is_revoked(alice, team, engine, app):
     dave = Person(engine, "dave")
+    token = alice.post(
+        f"/workspaces/{team}/invitations", json={"role": "viewer", "days": None}
+    ).json()["token"]
+    (item,) = alice.get(f"/workspaces/{team}/invitations").json()
+
+    alice.delete(f"/workspaces/{team}/invitations/{item['id']}")
+
+    assert dave.post("/invitations/accept", json={"token": token}).status_code == 404
+
+
+def test_a_member_who_opens_a_link_keeps_their_role_and_is_not_counted(alice, bob, team):
     token = invite(alice, team, "viewer")
 
     again = bob.post("/invitations/accept", json={"token": token})
 
     assert again.json()["joined"] is False
     assert again.json()["role"] == "editor"
-    assert dave.post("/invitations/accept", json={"token": token}).status_code == 200
+    (item,) = alice.get(f"/workspaces/{team}/invitations").json()
+    assert item["uses"] == 0
 
 
 def test_an_invitation_never_makes_an_owner(alice, team):

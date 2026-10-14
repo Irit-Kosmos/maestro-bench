@@ -11,7 +11,14 @@ const props = defineProps<{
 const { isShared } = useShare()
 
 const okRuns = computed(() => props.result.runs.filter(r => r.status === 'ok'))
-const failedRuns = computed(() => props.result.runs.filter(r => r.status !== 'ok'))
+// Runs whose execution was deleted are grouped in one notice, the others keep their error
+const missingRuns = computed(() => props.result.runs.filter(r => r.status === 'missing'))
+const failedRuns = computed(() => props.result.runs.filter(r => r.status !== 'ok' && r.status !== 'missing'))
+
+// A custom label says more than the id; the default one is just "Execution <id>"
+function missingName(run: AnalysisRunResult) {
+  return run.label === `Execution ${run.execution_id}` ? `#${run.execution_id}` : run.label
+}
 const confidencePct = computed(() => Math.round(props.config.confidence * 100))
 
 // One shared domain for the predicted-vs-actual plots
@@ -139,14 +146,35 @@ function exportCsv() {
       description="Metrics are computed independently per execution; differences may come from the data, not the model."
     />
     <UAlert
-      v-for="run in failedRuns"
-      :key="`failed-${run.execution_id}`"
+      v-if="missingRuns.length"
+      color="error"
+      variant="subtle"
+      icon="i-ph-link-break-bold"
+      :title="`${missingRuns.length} ${missingRuns.length > 1 ? 'executions no longer exist' : 'execution no longer exists'}`"
+    >
+      <template #description>
+        {{ okRuns.length ? 'Left out of the results below' : 'Nothing left to compare' }}, their experiment was probably deleted:
+        <span class="font-mono text-xs">{{ missingRuns.map(missingName).join(', ') }}</span>
+      </template>
+    </UAlert>
+    <UAlert
+      v-if="failedRuns.length"
       color="error"
       variant="subtle"
       icon="i-ph-x-circle-bold"
-      :title="`${run.label}: ${run.status === 'missing' ? 'execution not found' : 'results unavailable'}`"
-      :description="run.error ?? undefined"
-    />
+      :title="failedRuns.length > 1 ? `${failedRuns.length} executions have no results` : `${failedRuns[0]!.label}: results unavailable`"
+    >
+      <template v-if="failedRuns.length > 1" #description>
+        <ul class="space-y-0.5">
+          <li v-for="run in failedRuns" :key="`failed-${run.execution_id}-${run.agent_name}`">
+            <span class="font-medium">{{ run.label }}</span><span v-if="run.error"> · {{ run.error }}</span>
+          </li>
+        </ul>
+      </template>
+      <template v-else-if="failedRuns[0]!.error" #description>
+        {{ failedRuns[0]!.error }}
+      </template>
+    </UAlert>
 
     <UCard v-if="okRuns.length" :ui="{ body: 'p-3 sm:p-3' }">
       <template #header>

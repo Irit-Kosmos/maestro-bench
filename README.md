@@ -1,16 +1,14 @@
+<img src="frontend/public/icon-512.png" alt="MAESTRO-bench logo" width="72">
+
 # MAESTRO-bench
 
-**MAESTRO Experiment Bench** - a small, self-hosted platform to run and trace
+**MAESTRO-Bench** - a small, self-hosted platform to run and trace
 experiments with pipelines of LLM agents over tabular datasets.
 
 You describe *agents* (a prompt + a model), assemble them into an ordered
 pipeline, point the pipeline at a CSV/JSON dataset, and MAESTRO-bench runs every
 row through the pipeline while recording an immutable snapshot of the exact
-prompts, models, parameters and outputs used. The typical use case is
-evaluating LLM-based graders or tutors on learner answers, but nothing in the
-engine is specific to education.
-
-![MAESTRO-bench](frontend/public/MAESTRO-bench.png)
+prompts, models, parameters and outputs used.
 
 ## Features
 
@@ -258,7 +256,6 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | `SECRET_KEY` | - (required) | At least 32 characters. Signs the OAuth state and derives the CSRF tokens. Changing it only interrupts the sign-ins in progress. |
 | `ENCRYPTION_KEY` | - | At least 32 random characters (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Encrypts the API keys that workspaces store. Without it workspaces cannot store keys and only the instance's keys are used. **Changing it makes the stored keys unreadable**: owners must set them again. Keep it apart from `SECRET_KEY`. |
 | `PROVIDERS_INSTANCE_FALLBACK` | `true` | Whether a workspace without its own key for a provider uses the instance's key. Set to `false` to make every workspace bring its own keys: its runs then fail with a clear message until an owner sets one. Providers set by URL (Ollama) are instance-wide and unaffected. |
-| `INVITATION_DAYS` | `7` | How long an invitation link can be used. |
 | `PUBLIC_SHARING_ENABLED` | `true` | Whether editors can make public read-only links (see [Public links](#public-links)). Set to `false` to turn the feature off for the whole instance: no link can be made, the buttons disappear, and the links already made stop answering. |
 | `AUTH_GITLAB_BASE_URL` | - | Your GitLab, e.g. `https://gitlab.example.org`. |
 | `AUTH_GITLAB_CLIENT_ID` / `AUTH_GITLAB_CLIENT_SECRET` | - | The GitLab application's ID and secret. |
@@ -276,6 +273,7 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | Variable | Default | Description |
 |---|---|---|
 | `NUXT_PUBLIC_BACK_URL` | `http://localhost:8000` | Backend URL as seen from the browser. |
+| `NUXT_PUBLIC_SOURCE_URL` | the IRIT GitLab repository | Where the "Source code" entry of the help menu (the `?` at the bottom of the sidebar) leads. Empty hides the entry. |
 
 ### Workspaces
 
@@ -304,10 +302,11 @@ Owners manage the workspace in **Settings**:
 
 - **Members** - change a role, remove someone, or add a person who has already
   signed in once, by email. Anyone can leave a workspace; the last owner cannot.
-- **Invitation links** - a link gives the *viewer* or *editor* role to the first
-  person who opens it (they sign in first, with an account the allowlists admit).
-  It works once, expires after `INVITATION_DAYS`, and can be revoked. The link is
-  shown only when it is created; only a hash of it is kept.
+- **Invitation links** - a link gives the *viewer* or *editor* role to anyone
+  who opens it (they sign in first, with an account the allowlists admit). It
+  works for 1, 7 or 30 days, or until it is revoked, and counts the people who
+  joined through it. The link is shown only when it is created; only a hash of
+  it is kept.
 - **LLM provider keys** - a workspace can store its own API key for a provider.
   Runs use it instead of the instance's key, which remains the fallback. Keys
   are encrypted with `ENCRYPTION_KEY`; only their last four characters are shown

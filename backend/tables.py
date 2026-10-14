@@ -665,7 +665,7 @@ class Membership(SQLModel, table=True):
 
 
 class Invitation(SQLModel, table=True):
-    """A link that lets one person join a workspace with a given role"""
+    """A link that lets anyone who opens it join a workspace with a given role"""
 
     id: int | None = Field(default=None, primary_key=True)
     workspace_id: int = Field(
@@ -677,11 +677,8 @@ class Invitation(SQLModel, table=True):
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
     created_at: datetime = now_field()
-    expires_at: datetime = required_moment_field()
-    used_at: datetime | None = moment_field()
-    used_by: int | None = Field(
-        default=None, foreign_key="user.id", ondelete="SET NULL"
-    )
+    expires_at: datetime | None = moment_field()  # None: until it is revoked
+    uses: int = 0  # people who joined through it
     revoked_at: datetime | None = moment_field()
 
     __table_args__ = (

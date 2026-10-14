@@ -18,6 +18,14 @@ const ROLE_ITEMS: { label: string, value: WorkspaceRole }[] = [
   { label: 'Viewer', value: 'viewer' },
 ]
 const INVITE_ROLE_ITEMS = ROLE_ITEMS.filter(item => item.value !== 'owner')
+// A select item cannot hold null: 'never' stands for a link that works until it is revoked
+type InviteLifetime = '1' | '7' | '30' | 'never'
+const INVITE_LIFETIME_ITEMS: { label: string, value: InviteLifetime }[] = [
+  { label: '1 day', value: '1' },
+  { label: '7 days', value: '7' },
+  { label: '30 days', value: '30' },
+  { label: 'No expiry', value: 'never' },
+]
 
 const { data: members, refresh } = await useAsyncData('workspace-members', () => api.list(), { lazy: true })
 const { data: invitations, refresh: refreshInvitations } = await useAsyncData(
@@ -101,6 +109,7 @@ async function addMember() {
 // --- Invitations -------------------------------------------------------------
 
 const inviteRole = ref<WorkspaceRole>('editor')
+const inviteLifetime = ref<InviteLifetime>('7')
 const creating = ref(false)
 const created = ref<{ invitation: CreatedInvitation, link: string } | null>(null)
 const { copy, copied } = useClipboard({ copiedDuring: 1500 })
@@ -108,7 +117,8 @@ const { copy, copied } = useClipboard({ copiedDuring: 1500 })
 async function createInvitation() {
   creating.value = true
   try {
-    const invitation = await invitationsApi.create(inviteRole.value)
+    const days = inviteLifetime.value === 'never' ? null : Number(inviteLifetime.value)
+    const invitation = await invitationsApi.create(inviteRole.value, days)
     created.value = { invitation, link: invitationsApi.link(invitation.token) }
     await refreshInvitations()
   }
@@ -130,6 +140,9 @@ async function revoke() {
   revoking.value = true
   try {
     await invitationsApi.revoke(invitation.id)
+    // The link shown once is dead now: don't keep offering it.
+    if (created.value?.invitation.id === invitation.id)
+      created.value = null
     ok('Invitation revoked')
   }
   catch (error) {
@@ -142,11 +155,14 @@ async function revoke() {
   await refreshInvitations()
 }
 
-const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.expires_at)
+function expiry(invitation: WorkspaceInvitation) {
+  return invitation.expires_at ? `expires ${formatShortDate(invitation.expires_at)}` : 'no expiry'
+}
 </script>
 
 <template>
-  <BaseSection title="Members">
+  <!-- id: the target of "Invite and manage members" in the workspace menu -->
+  <BaseSection id="members" title="Members" class="scroll-mt-6">
     <template #meta>
       <span v-if="members?.length" class="text-xs text-muted tabular-nums">{{ members.length }}</span>
     </template>
@@ -217,6 +233,7 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
             Invitation links
           </h3>
           <USelect v-model="inviteRole" :items="INVITE_ROLE_ITEMS" size="sm" class="w-28" aria-label="Role given by the link" />
+          <USelect v-model="inviteLifetime" :items="INVITE_LIFETIME_ITEMS" size="sm" class="w-28" aria-label="How long the link works" />
           <UButton size="sm" color="neutral" variant="soft" icon="i-ph-link-bold" :loading="creating" @click="createInvitation">
             New link
           </UButton>
@@ -224,7 +241,7 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
 
         <div v-if="created" class="flex flex-col gap-1.5 rounded-md border border-default bg-elevated/50 p-3">
           <p class="text-xs text-toned">
-            Give this link to the person. It gives the {{ created.invitation.role }} role, works once, and is shown only now.
+            Anyone who opens this link joins as {{ created.invitation.role }}{{ created.invitation.expires_at ? ` until ${formatShortDate(created.invitation.expires_at)}` : ' until you revoke it' }}. Copy it now: it won’t be shown again.
           </p>
           <div class="flex items-center gap-2">
             <UInput :model-value="created.link" readonly size="sm" class="min-w-0 flex-1 font-mono" aria-label="Invitation link" @focus="($event.target as HTMLInputElement).select()" />
@@ -237,7 +254,8 @@ const expires = (invitation: WorkspaceInvitation) => formatShortDate(invitation.
         <ul v-if="invitations?.length" class="divide-y divide-default rounded-md border border-default">
           <li v-for="invitation in invitations" :key="invitation.id" class="flex items-center gap-3 h-9 px-3 text-xs">
             <span class="capitalize text-toned">{{ invitation.role }}</span>
-            <span class="text-muted">expires {{ expires(invitation) }}</span>
+            <span class="text-muted">{{ expiry(invitation) }}</span>
+            <span class="text-muted tabular-nums">{{ invitation.uses }} joined</span>
             <UButton
               class="ms-auto"
               size="xs"

@@ -336,7 +336,7 @@ watch(() => props.selected, id => id && reveal(id), { flush: 'post' })
 watch(() => props.insetRight, () => props.selected && reveal(props.selected), { flush: 'post' })
 
 // A panel beside the canvas closing takes the focus with it: it goes back to the node the panel was about.
-// Before the render, while the panel still holds the focus; a node that is gone has nothing to take it.
+// Before the render, while the panel still holds the focus; a node that is gone leaves it to the canvas.
 watch(() => props.selected, (_, previous) => {
   const active = document.activeElement
   const host = root.value?.parentElement
@@ -344,6 +344,8 @@ watch(() => props.selected, (_, previous) => {
     return
   if (props.nodes.some(n => n.id === previous))
     observed.get(previous)?.focus({ preventScroll: true })
+  else
+    root.value!.focus({ preventScroll: true })
 })
 
 // --- Pointer: pan, zoom ---
@@ -572,11 +574,17 @@ function onKeydown(e: KeyboardEvent) {
       emit('select', el.dataset.id!)
       break
     case 'Delete':
-      if (!onNode || !props.interactive)
+    case 'Backspace': {
+      // The focused node, or else the selected one (a click selects a node without always focusing it)
+      const id = onNode ? el.dataset.id! : props.selected
+      if (!id || !props.interactive)
         return
       e.preventDefault()
-      emit('remove', el.dataset.id!)
+      emit('remove', id)
+      // The removed node took the focus with it: the canvas keeps it, for the next key
+      root.value!.focus({ preventScroll: true })
       break
+    }
   }
 }
 

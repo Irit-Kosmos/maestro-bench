@@ -292,40 +292,31 @@ defineShortcuts({
 <template>
   <BasePageContent>
     <div class="mx-auto max-w-6xl pb-6">
-      <div class="mb-8">
-        <h1 class="text-xl font-semibold text-highlighted">
-          {{ batchMode ? 'New batch' : 'New experiment' }}
-        </h1>
-        <p class="text-sm text-muted mt-0.5">
-          <template v-if="sourceExperiment">
-            Copied from
+      <!-- The name and description are edited in place, as the page's title: no form section for them -->
+      <header id="details" class="mb-8 scroll-mt-6">
+        <p class="mb-2 text-sm text-muted">
+          {{ batchMode ? 'New batch' : 'New experiment' }}<template v-if="sourceExperiment">
+            · copied from
             <NuxtLink :to="`/experiments/${sourceExperiment.id}`" class="text-toned underline-offset-2 hover:underline">
               {{ sourceExperiment.name }}
-            </NuxtLink>.
-            Add a variation to run it with other models, prompts or temperatures.
-          </template>
-          <template v-else>
-            Name it, pick a dataset, then choose the agents to run.
+            </NuxtLink>
           </template>
         </p>
-      </div>
+        <ExperimentsStepsExperimentDetails
+          :experiment-details="experimentDetails"
+          :batch="batchMode"
+          @update:name="(value) => experimentDetails.name = value"
+          @update:description="(value) => experimentDetails.description = value"
+        />
+        <StudiesLaunchField v-model="studyIds" bare class="mt-3" />
+      </header>
 
       <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
         <div class="flex min-w-0 flex-col gap-8">
-          <ExperimentsSection id="details" title="Details">
-            <ExperimentsStepsExperimentDetails
-              :experiment-details="experimentDetails"
-              :batch="batchMode"
-              @update:name="(value) => experimentDetails.name = value"
-              @update:description="(value) => experimentDetails.description = value"
-            />
-            <StudiesLaunchField v-model="studyIds" class="mt-4" />
-          </ExperimentsSection>
-
           <ExperimentsSection
             id="dataset"
             title="Dataset"
-            description="Each row is one input for the agents. Open a preview to check the columns."
+            description="Each row is one input for the agents."
           >
             <ExperimentsStepsDataset
               :selected-dataset="selectedDataset"

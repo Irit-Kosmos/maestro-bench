@@ -636,7 +636,10 @@ export interface WorkspaceInvitation {
   id: number
   role: WorkspaceRole
   created_at: string
-  expires_at: string
+  /** null: the link works until it is revoked */
+  expires_at: string | null
+  /** People who joined through the link */
+  uses: number
 }
 
 /** Returned once, when the invitation is made: the token is not kept anywhere */

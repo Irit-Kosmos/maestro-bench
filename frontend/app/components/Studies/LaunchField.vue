@@ -2,6 +2,11 @@
 import type { Study } from '~/types'
 import { apiErrorMessage } from '~/composables/useAnalyses'
 
+defineProps<{
+  /** Without its label, under a title edited in place: the button says what it is */
+  bare?: boolean
+}>()
+
 // The studies a new experiment or batch is put in once it starts. Nothing is saved here: the page does it
 // when it launches, so leaving the form leaves the studies as they were (except one made from this field).
 const model = defineModel<number[]>({ default: () => [] })
@@ -38,7 +43,7 @@ async function create(name: string) {
 </script>
 
 <template>
-  <UFormField label="Studies" hint="Optional">
+  <UFormField :label="bare ? undefined : 'Studies'" :hint="bare ? undefined : 'Optional'">
     <div class="flex flex-wrap items-center gap-1.5">
       <span
         v-for="study in chosen"

@@ -44,7 +44,7 @@ const highlighted = ref<string | null>(null)
 
 <template>
   <div class="@container flex flex-col" :class="compact ? 'gap-4' : 'gap-5'">
-    <div class="grid" :class="compact ? 'grid-cols-2 gap-3' : 'gap-4 @md:grid-cols-2'">
+    <div class="grid" :class="compact ? 'grid-cols-2 gap-3' : 'gap-4 @md:grid-cols-2 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]'">
       <UFormField label="Prompt version" required :size="compact ? 'sm' : undefined" :class="compact && 'col-span-2'">
         <template v-if="config?.prompt_version_id" #hint>
           <UButton
@@ -75,7 +75,7 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Temperature" hint="Optional" :size="compact ? 'sm' : undefined">
+      <UFormField label="Temperature" :size="compact ? 'sm' : undefined">
         <UInput
           :model-value="config?.temperature?.toString() ?? ''"
           type="number"
@@ -89,7 +89,7 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Max tokens" hint="Optional" :size="compact ? 'sm' : undefined">
+      <UFormField label="Max tokens" :size="compact ? 'sm' : undefined">
         <UInput
           :model-value="config?.max_tokens?.toString() ?? ''"
           type="number"

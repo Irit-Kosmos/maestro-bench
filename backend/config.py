@@ -81,9 +81,6 @@ PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", f"http://localhost:{API_PORT}").rst
 # analysis or a study. Off, the links already made stop answering too.
 PUBLIC_SHARING_ENABLED = os.getenv("PUBLIC_SHARING_ENABLED", "true").lower() == "true"
 
-# How long an invitation link can be used
-INVITATION_DAYS = int(os.getenv("INVITATION_DAYS", "7"))
-
 SESSION_COOKIE_NAME = "maestro_session"
 SESSION_IDLE_DAYS = int(os.getenv("SESSION_IDLE_DAYS", "7"))
 SESSION_MAX_DAYS = int(os.getenv("SESSION_MAX_DAYS", "30"))
