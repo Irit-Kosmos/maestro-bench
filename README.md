@@ -1,16 +1,14 @@
+<img src="frontend/public/icon-512.png" alt="MAESTRO-bench logo" width="72">
+
 # MAESTRO-bench
 
-**MAESTRO Experiment Bench** - a small, self-hosted platform to run and trace
+**MAESTRO-Bench** - a small, self-hosted platform to run and trace
 experiments with pipelines of LLM agents over tabular datasets.
 
 You describe *agents* (a prompt + a model), assemble them into an ordered
 pipeline, point the pipeline at a CSV/JSON dataset, and MAESTRO-bench runs every
 row through the pipeline while recording an immutable snapshot of the exact
-prompts, models, parameters and outputs used. The typical use case is
-evaluating LLM-based graders or tutors on learner answers, but nothing in the
-engine is specific to education.
-
-![MAESTRO-bench](frontend/public/MAESTRO-bench.png)
+prompts, models, parameters and outputs used.
 
 ## Features
 

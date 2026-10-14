@@ -38,7 +38,7 @@ async function submit() {
   <main class="min-h-dvh flex items-center justify-center p-4 bg-default">
     <div class="w-full max-w-md flex flex-col gap-6">
       <div class="flex flex-col items-center gap-3 text-center">
-        <img src="/MAESTRO-bench.png" alt="" class="h-10 w-auto">
+        <AppLogo class="size-9 text-highlighted" />
         <div class="flex flex-col gap-1">
           <h1 class="text-lg font-semibold text-highlighted">
             {{ workspaces?.length ? 'Your workspaces' : 'No workspace yet' }}

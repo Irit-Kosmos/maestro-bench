@@ -28,7 +28,8 @@ defineShortcuts({
 
     <header class="flex items-center gap-3 border-b border-default px-4 py-2 sm:px-8 print:hidden">
       <!-- A plain link: it leaves the shared page for the app, and must not be taken for one of the link's pages -->
-      <a href="/" class="text-sm font-semibold text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+      <a href="/" class="flex items-center gap-2 text-sm font-semibold text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-inverted">
+        <AppLogo class="size-4" />
         MAESTRO-bench
       </a>
       <UBadge label="Shared, read-only" icon="i-ph-eye-bold" color="neutral" variant="subtle" size="sm" />
