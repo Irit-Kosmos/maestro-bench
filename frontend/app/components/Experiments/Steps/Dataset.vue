@@ -57,8 +57,35 @@ const expandedDataset = ref<number | null>(null)
 // Get selected dataset from props
 const selectedDataset = computed(() => props.selectedDataset)
 
+// Once one is chosen, only it is shown: the others come back with "Change"
+const choosing = ref(false)
+const chosen = computed(() => choosing.value ? undefined : datasets.value.find(d => d.id === selectedDataset.value))
+const listRef = ref<HTMLElement | null>(null)
+
+async function change() {
+  choosing.value = true
+  await nextTick()
+  listRef.value?.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.focus()
+}
+
+// A click picks and folds the list; the arrow keys only move the choice, so the list stays until "Done"
+let pointerPick = false
+function markPointerPick() {
+  pointerPick = true
+}
+
+// Clicking the one already chosen changes nothing, but still folds the list
+function keepCurrent(datasetId: number) {
+  if (pointerPick && datasetId === selectedDataset.value) {
+    choosing.value = false
+    pointerPick = false
+  }
+}
+
 function selectDataset(datasetId: number) {
   emit('update:selectedDataset', datasetId)
+  choosing.value = !pointerPick
+  pointerPick = false
 }
 
 function togglePreview(datasetId: number) {
@@ -67,9 +94,41 @@ function togglePreview(datasetId: number) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
+  <div class="flex flex-col gap-5">
+    <!-- The chosen dataset, on its own -->
+    <div v-if="chosen" class="rounded-lg border border-default">
+      <div class="flex items-center gap-3 px-4 py-1.5">
+        <UIcon name="i-ph-database-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+        <span class="flex min-w-0 flex-1 flex-col py-1 sm:flex-row sm:items-baseline sm:gap-3">
+          <span class="shrink-0 text-sm font-medium text-highlighted">{{ chosen.name }}</span>
+          <span v-if="chosen.description" class="truncate text-sm text-muted" :title="chosen.description">{{ chosen.description }}</span>
+        </span>
+        <UButton
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          :trailing-icon="expandedDataset === chosen.id ? 'i-ph-caret-up-bold' : 'i-ph-caret-down-bold'"
+          :aria-expanded="expandedDataset === chosen.id"
+          :aria-controls="`dataset-preview-${chosen.id}`"
+          @click="togglePreview(chosen.id)"
+        >
+          Preview
+        </UButton>
+        <UButton variant="ghost" color="neutral" size="sm" icon="i-ph-repeat-bold" @click="change">
+          Change
+        </UButton>
+      </div>
+      <div
+        v-if="expandedDataset === chosen.id"
+        :id="`dataset-preview-${chosen.id}`"
+        class="enter-soft border-t border-default px-4 py-4"
+      >
+        <DatasetsPreview :dataset-id="chosen.id" />
+      </div>
+    </div>
+
     <!-- Dataset Selection -->
-    <div>
+    <div v-else ref="listRef">
       <!-- Native radios: arrow keys move the selection, and the checked dot doesn't rely on color -->
       <div v-if="datasets && datasets.length > 0" role="radiogroup" aria-labelledby="dataset-title" class="flex flex-col gap-1.5">
         <div
@@ -79,7 +138,7 @@ function togglePreview(datasetId: number) {
           :class="selectedDataset === dataset.id ? 'border-primary bg-primary/5' : 'border-default hover:border-accented'"
         >
           <div class="flex items-center gap-3 px-4 py-1.5">
-            <label class="flex flex-1 items-center gap-3 min-w-0 cursor-pointer">
+            <label class="flex flex-1 items-center gap-3 min-w-0 cursor-pointer" @pointerdown="markPointerPick" @click="keepCurrent(dataset.id)">
               <input
                 type="radio"
                 name="dataset"
@@ -129,17 +188,28 @@ function togglePreview(datasetId: number) {
 
       <BaseLoadingState v-else message="Loading datasets…" />
 
-      <UButton
-        v-if="canEdit && datasets.length > 0"
-        color="neutral"
-        variant="ghost"
-        size="sm"
-        icon="i-ph-plus-bold"
-        class="mt-2"
-        @click="() => { showCreateModal = true }"
-      >
-        New dataset
-      </UButton>
+      <div v-if="datasets.length > 0 && (canEdit || selectedDataset)" class="mt-2 flex items-center justify-between gap-2">
+        <UButton
+          v-if="canEdit"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          icon="i-ph-plus-bold"
+          @click="() => { showCreateModal = true }"
+        >
+          New dataset
+        </UButton>
+        <UButton
+          v-if="selectedDataset"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          class="ms-auto"
+          @click="() => { choosing = false }"
+        >
+          Done
+        </UButton>
+      </div>
     </div>
 
     <DatasetsCreateDatasetModal
@@ -150,12 +220,9 @@ function togglePreview(datasetId: number) {
 
     <!-- Sampling Configuration -->
     <section v-if="selectedDataset" aria-labelledby="sampling-step-title" class="enter-soft">
-      <h3 id="sampling-step-title" class="text-sm font-semibold text-highlighted">
-        Sampling
+      <h3 id="sampling-step-title" class="mb-2 text-sm font-medium text-highlighted">
+        Rows to run on
       </h3>
-      <p class="mt-0.5 mb-3 text-sm text-muted">
-        Choose which rows this experiment runs on.
-      </p>
 
       <ExperimentsDatasetSamplingConfig
         :dataset-id="selectedDataset"
