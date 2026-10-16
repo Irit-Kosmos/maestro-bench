@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { FilterDefinition, FilterState } from '~/utils/filters'
 
-// The toolbar of a list: search, filters, then the count and a refresh button.
-// What is specific to a list goes in the slots: `group` right after the Filter button, `default` after the filters, `trailing` before the count.
+// The toolbar of a list: search, the Filter button, then the count and a refresh button on one row; the filters in use
+// get a row of their own underneath, so adding one never reflows the controls.
+// What is specific to a list goes in the slots: `default` after the Filter button, `trailing` and `group` (the Display menu) before the count.
 const props = withDefaults(defineProps<{
   definitions: FilterDefinition[]
   /** Items before any search or filter, and how many are left */
@@ -68,16 +69,15 @@ const countLabel = computed(() => {
       {{ title }}
     </h3>
 
-    <BaseFilterBar v-if="definitions.length" v-model="filters" :definitions="definitions">
-      <slot name="group" />
-    </BaseFilterBar>
-    <slot v-else name="group" />
+    <BaseFilterPicker v-if="definitions.length" v-model="filters" :definitions="definitions" />
 
     <slot />
 
     <span class="flex-1" />
 
     <slot name="trailing" />
+
+    <slot name="group" />
 
     <span v-if="countLabel" class="ps-2 text-xs text-muted tabular-nums">{{ countLabel }}</span>
     <UTooltip text="Refresh">
@@ -92,4 +92,11 @@ const countLabel = computed(() => {
       />
     </UTooltip>
   </div>
+
+  <BaseFilterChips
+    v-if="definitions.length"
+    v-model="filters"
+    :definitions="definitions"
+    class="shrink-0 border-b border-default px-2 py-1.5"
+  />
 </template>

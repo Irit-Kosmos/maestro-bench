@@ -563,8 +563,7 @@ const tableColumns = computed<TableColumn<any>[]>(() => {
       <slot name="toolbar" />
 
       <template v-if="groups.length || sorts.length" #group>
-        <BaseGroupMenu v-if="groups.length" v-model="groupBy" :groups="groups" />
-        <BaseSortMenu v-if="sorts.length" v-model="sortBy" :sorts="sorts" />
+        <BaseDisplayMenu v-model:group-by="groupBy" v-model:sort-by="sortBy" :groups="groups" :sorts="sorts" />
       </template>
     </BaseListToolbar>
 

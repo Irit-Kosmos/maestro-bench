@@ -1,52 +1,20 @@
 <script setup lang="ts">
-import type { FilterDefinition, FilterEntry, FilterMode, FilterOption, FilterState, FilterValue } from '~/utils/filters'
-import { effectiveMode, emptyFilterEntry, emptyFilterState, filterModes, modeLabel } from '~/utils/filters'
+import type { FilterDefinition, FilterMode, FilterOption, FilterState } from '~/utils/filters'
+import { effectiveMode, filterModes, modeLabel } from '~/utils/filters'
 
+// The filters in use, one chip each, on their own row under the toolbar (hidden when there are none).
+// Chips wrap onto more lines rather than pushing the toolbar around; "+" adds another, Clear drops them all.
 const props = defineProps<{
   definitions: FilterDefinition[]
 }>()
 const filters = defineModel<FilterState>({ required: true })
 
-const entryFor = (key: string): FilterEntry => filters.value[key] ?? emptyFilterEntry()
-const selectedFor = (key: string) => entryFor(key).values
+const { entryFor, selectedFor, toggle, setMode, remove, clearAll, activeDefinitions } = useFilterEditing(filters, () => props.definitions)
 
 function selectedOptions(definition: FilterDefinition): FilterOption[] {
   const selected = selectedFor(definition.key)
   return definition.options.filter(option => selected.includes(option.value))
 }
-
-function toggle(definition: FilterDefinition, value: FilterValue) {
-  const selected = selectedFor(definition.key)
-  let next: FilterValue[]
-  if (definition.multiple)
-    next = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value]
-  else
-    // Single choice: picking the selected value again clears it
-    next = selected.includes(value) ? [] : [value]
-  // An emptied filter disappears, so it comes back as a plain "is" next time
-  const mode = next.length ? entryFor(definition.key).mode : 'include'
-  filters.value = { ...filters.value, [definition.key]: { mode, values: next } }
-}
-
-function setMode(definition: FilterDefinition, mode: FilterMode) {
-  filters.value = { ...filters.value, [definition.key]: { ...entryFor(definition.key), mode } }
-}
-
-function remove(definition: FilterDefinition) {
-  filters.value = { ...filters.value, [definition.key]: emptyFilterEntry() }
-}
-
-function clearAll() {
-  filters.value = emptyFilterState(props.definitions)
-}
-
-const activeDefinitions = computed(() => props.definitions.filter(definition => selectedFor(definition.key).length))
-
-// Column shown on the right of the "Filter" picker; follows hover and focus
-const panelKey = ref(props.definitions[0]?.key)
-const panelDefinition = computed(() => props.definitions.find(definition => definition.key === panelKey.value) ?? props.definitions[0]!)
-
-const { containerEl: pickerEl, listEl: tabListEl, select: showPanel, onEnter: hoverTab, onMove: moveInTabs, onLeave: leaveTabs } = useSafeTriangle(panelKey)
 
 function operator(definition: FilterDefinition) {
   const entry = entryFor(definition.key)
@@ -75,92 +43,12 @@ const iconOptions = (definition: FilterDefinition) => selectedOptions(definition
 const chipIcons = (definition: FilterDefinition) => iconOptions(definition).slice(0, CHIP_ICON_LIMIT)
 const hasMoreIcons = (definition: FilterDefinition) => iconOptions(definition).length > CHIP_ICON_LIMIT
 
-// Roving tabindex: only the shown tab is a tab stop, so Tab leaves for the options and the arrows move between categories
-function onTabKeydown(event: KeyboardEvent) {
-  const tabs = Array.from(tabListEl.value?.querySelectorAll<HTMLElement>('[role="tab"]') ?? [])
-  const index = tabs.findIndex(tab => tab === event.target)
-  if (index === -1)
-    return
-  const last = tabs.length - 1
-  const targets: Record<string, number> = {
-    ArrowDown: index === last ? 0 : index + 1,
-    ArrowUp: index === 0 ? last : index - 1,
-    Home: 0,
-    End: last,
-  }
-  const target = targets[event.key]
-  if (target === undefined)
-    return
-  event.preventDefault()
-  // Focusing the tab also shows its panel
-  tabs[target]?.focus()
-}
-
 const POPOVER_CONTENT = { align: 'start', sideOffset: 6, collisionPadding: 16 } as const
 const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1.5 transition-colors duration-150 ease-out hover:bg-accented/60 data-[state=open]:bg-accented/60'
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-1">
-    <!-- First in the row, so adding a chip never moves the button the picker is anchored to -->
-    <UPopover :content="POPOVER_CONTENT" :ui="{ content: 'max-w-[calc(100vw-2rem)] overflow-hidden' }">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        icon="i-ph-funnel-simple-bold"
-        label="Filter"
-      />
-
-      <template #content>
-        <div ref="pickerEl" class="flex items-stretch">
-          <div
-            ref="tabListEl"
-            role="tablist"
-            aria-orientation="vertical"
-            class="flex min-h-72 w-36 shrink-0 flex-col border-e border-default p-1"
-            @pointermove="moveInTabs"
-            @pointerleave="leaveTabs"
-            @keydown="onTabKeydown"
-          >
-            <button
-              v-for="definition in definitions"
-              :key="definition.key"
-              type="button"
-              role="tab"
-              :aria-selected="panelDefinition.key === definition.key"
-              :tabindex="panelDefinition.key === definition.key ? 0 : -1"
-              class="flex h-7 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-start text-xs outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
-              :class="panelDefinition.key === definition.key ? 'bg-elevated text-highlighted' : 'text-muted'"
-              @pointerenter="hoverTab(definition.key, $event)"
-              @focus="showPanel(definition.key)"
-              @click="showPanel(definition.key)"
-            >
-              <UIcon :name="definition.icon" class="size-3.5 shrink-0" aria-hidden="true" />
-              <span class="flex-1 truncate">{{ definition.label }}</span>
-              <span v-if="selectedFor(definition.key).length" class="text-xs text-muted tabular-nums">{{ selectedFor(definition.key).length }}</span>
-            </button>
-          </div>
-          <!-- Out of the flow, so the tab list alone sets the height and long option lists scroll -->
-          <div class="relative w-48 min-w-0">
-            <BaseFilterOptionList
-              :key="panelDefinition.key"
-              role="tabpanel"
-              class="absolute inset-0"
-              :options="panelDefinition.options"
-              :selected="selectedFor(panelDefinition.key)"
-              :multiple="panelDefinition.multiple"
-              :search-placeholder="panelDefinition.searchPlaceholder"
-              @toggle="toggle(panelDefinition, $event)"
-            />
-          </div>
-        </div>
-      </template>
-    </UPopover>
-
-    <!-- Next to the button too, for the other ways to shape a list (grouping) -->
-    <slot />
-
+  <div v-if="activeDefinitions.length" class="flex flex-wrap items-center gap-1">
     <div
       v-for="definition in activeDefinitions"
       :key="definition.key"
@@ -243,13 +131,14 @@ const SEGMENT = 'inline-flex cursor-pointer items-center gap-1.5 rounded-sm px-1
       </button>
     </div>
 
+    <BaseFilterPicker v-model="filters" :definitions="definitions" compact />
+
     <UButton
-      v-if="activeDefinitions.length"
       color="neutral"
-      variant="link"
+      variant="ghost"
       size="xs"
       label="Clear"
-      class="text-muted"
+      class="ms-auto text-muted"
       @click="clearAll"
     />
   </div>
