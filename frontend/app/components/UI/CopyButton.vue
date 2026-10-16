@@ -1,11 +1,14 @@
 <script setup lang="ts">
 // Copies text, and says so: the copy icon swaps for a check (or a cross when the browser refuses) with a scale + blur
 // crossfade, so they read as one icon changing state rather than icons overlapping.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   text: string
   /** What is being copied, for the accessible name */
   label: string
-}>()
+  /** Ghost xs by default, as a side action; outline md where copying is the point and it sits next to a field */
+  size?: 'xs' | 'md'
+  variant?: 'ghost' | 'outline'
+}>(), { size: 'xs', variant: 'ghost' })
 
 const state = ref<'idle' | 'copied' | 'failed'>('idle')
 const { fail } = useStandardToast()
@@ -38,8 +41,8 @@ onBeforeUnmount(() => clearTimeout(timer))
   <UTooltip :text="TEXTS[state]" :delay-duration="400">
     <UButton
       color="neutral"
-      variant="ghost"
-      size="xs"
+      :variant="variant"
+      :size="size"
       square
       :aria-label="state === 'idle' ? `Copy ${label}` : TEXTS[state]"
       @click="copy"

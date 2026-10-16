@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Share, ShareKind } from '~/types'
-import { useClipboard } from '@vueuse/core'
 import { apiErrorMessage } from '~/composables/useAnalyses'
 
 // Makes, shows and withdraws the public link of an item. It stays open until what was asked is done, and says
@@ -16,7 +15,6 @@ const open = defineModel<boolean>('open', { required: true })
 
 const { getShare, createShare, revokeShare, linkOf } = useShares()
 const { ok } = useStandardToast()
-const { copy, copied } = useClipboard({ copiedDuring: 1500 })
 
 // What the link gives, in the words of each kind of item
 // What a link to this kind of item picks up later, as the item changes
@@ -128,14 +126,11 @@ function renewLink() {
             <UInput
               :model-value="link"
               readonly
-              size="sm"
               class="min-w-0 flex-1 font-mono"
               aria-label="Public link"
               @focus="($event.target as HTMLInputElement).select()"
             />
-            <UButton size="sm" color="neutral" variant="outline" :icon="copied ? 'i-ph-check-bold' : 'i-ph-copy-bold'" @click="copy(link)">
-              {{ copied ? 'Copied' : 'Copy' }}
-            </UButton>
+            <UICopyButton :text="link" label="public link" size="md" variant="outline" />
           </div>
         </template>
 
