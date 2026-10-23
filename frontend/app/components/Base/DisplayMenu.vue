@@ -60,7 +60,8 @@ const LABEL = 'flex flex-1 items-center gap-2 text-xs text-muted'
 </script>
 
 <template>
-  <UPopover :content="{ align: 'end', sideOffset: 6, collisionPadding: 16 }">
+  <!-- Opening must not focus the first select: its ring looks like an open field -->
+  <UPopover :content="{ align: 'end', sideOffset: 6, collisionPadding: 16, onOpenAutoFocus: (event: Event) => event.preventDefault() }">
     <UButton
       color="neutral"
       variant="ghost"

@@ -7,8 +7,7 @@ Nuxt 4 + Nuxt UI single-page application for the MAESTRO-bench API. See the
 
 ```bash
 pnpm install
-cp .env.example .env   # NUXT_PUBLIC_BACK_URL, defaults to http://localhost:8000
-pnpm dev               # http://localhost:3000
+pnpm dev               # http://localhost:3000, expects the API on http://localhost:8000
 ```
 
 ## Other commands
