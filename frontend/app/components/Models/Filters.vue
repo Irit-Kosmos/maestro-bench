@@ -3,7 +3,7 @@ import type { FilterDefinition, FilterState } from '~/utils/filters'
 import type { SortState } from '~/utils/sorts'
 import { modelGroups, modelSorts } from '~/composables/useModelFilters'
 
-// The toolbar of the models list: the shared one, with the same Group and Sort menus as the tables
+// The toolbar of the models list: the shared one, with the same Display menu as the tables
 defineProps<{
   definitions: FilterDefinition[]
   total: number
@@ -33,8 +33,7 @@ const sortBy = defineModel<SortState | null>('sortBy', { required: true })
     @refresh="emit('refresh')"
   >
     <template #group>
-      <BaseGroupMenu v-model="groupBy" :groups="modelGroups" />
-      <BaseSortMenu v-model="sortBy" :sorts="modelSorts" />
+      <BaseDisplayMenu v-model:group-by="groupBy" v-model:sort-by="sortBy" :groups="modelGroups" :sorts="modelSorts" />
     </template>
   </BaseListToolbar>
 </template>

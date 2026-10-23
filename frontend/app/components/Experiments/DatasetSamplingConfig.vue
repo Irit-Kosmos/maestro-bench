@@ -207,7 +207,12 @@ watch(() => props.datasetId, loadDatasetInfo, { immediate: true })
           :items="samplingTypeOptions"
           :content="false"
           variant="pill"
+          color="neutral"
           size="sm"
+          :ui="{
+            indicator: 'bg-default ring ring-default shadow-xs',
+            trigger: 'data-[state=active]:text-highlighted',
+          }"
           aria-label="Sampling method"
           @update:model-value="(value) => updateSamplingType(String(value))"
         />

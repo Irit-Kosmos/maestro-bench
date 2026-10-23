@@ -60,6 +60,8 @@ maestro-bench/
 
 - At least one LLM provider API key (OpenAI, Anthropic or Mistral), or a local
   [Ollama](https://ollama.com) server (no key needed).
+- A GitLab account (the IRIT's, <https://gitlab.irit.fr>): sign-in goes through
+  GitLab, and you create an application there (see step 1).
 - Either **Docker + Docker Compose**, or for local development
   [uv](https://docs.astral.sh/uv/) (Python 3.12+),
   [pnpm](https://pnpm.io/) (Node.js 22+) and a PostgreSQL server (the Compose
@@ -67,30 +69,47 @@ maestro-bench/
 
 ### 1. Configure
 
+One file holds the settings: `backend/.env`. The frontend needs none, and
+everything not listed here has a working default.
+
 ```bash
-cp backend/.env.example backend/.env    # add your API key(s)
-cp frontend/.env.example frontend/.env  # only needed outside Docker
+cp backend/.env.example backend/.env
 ```
 
 Every page and every API route needs a signed-in user. Sign-in goes through
-GitLab (OpenID Connect), so before the first start:
+GitLab (OpenID Connect): `https://gitlab.irit.fr` for the IRIT, which the
+`.env.example` already uses. Each person who runs the app on their machine
+creates their own GitLab application:
 
-1. In GitLab, create an application (**Edit profile → Applications**, or a
-   group's **Settings → Applications**) with the redirect URI
-   `http://localhost:8000/auth/gitlab/callback`, **Confidential** ticked and the
-   scopes `openid`, `profile` and `email`.
-2. Put its ID and secret in `backend/.env` (`AUTH_GITLAB_*`), along with a
-   `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(48))"`)
-   and who may sign in (`AUTH_ALLOWED_EMAIL_DOMAINS` and/or
-   `AUTH_GITLAB_ALLOWED_GROUPS`).
+1. On GitLab, open your avatar → **Edit profile → Applications**
+   (<https://gitlab.irit.fr/-/user_settings/applications>) and click
+   **Add new application**.
+2. **Name**: anything, e.g. `MAESTRO-bench (local)`.
+3. **Redirect URI**: `http://localhost:8000/auth/gitlab/callback`.
+4. Tick **Confidential**, and the scopes **openid**, **profile** and **email**
+   (nothing else).
+5. Click **Save application**. GitLab shows the **Application ID** and the
+   **Secret**: copy them into `AUTH_GITLAB_CLIENT_ID` and
+   `AUTH_GITLAB_CLIENT_SECRET` in `backend/.env`. The secret is shown only
+   once; if you lose it, use **Renew secret** on the application.
 
-The backend refuses to start without a secret, a provider and an allowlist.
-See [Configuration](#configuration) for every setting.
+Then fill in the rest of `backend/.env`:
+
+| Setting | What to put |
+|---|---|
+| `SECRET_KEY` | Any random string of 32+ characters: `openssl rand -base64 48` |
+| `AUTH_GITLAB_BASE_URL`, `AUTH_GITLAB_CLIENT_ID`, `AUTH_GITLAB_CLIENT_SECRET` | Your GitLab's URL, and the application's ID and secret |
+| `AUTH_ALLOWED_EMAIL_DOMAINS` and/or `AUTH_GITLAB_ALLOWED_GROUPS` | Who may sign in (or `AUTH_ALLOW_ANY_USER=true` to admit any account) |
+| `INSTANCE_ADMINS` | Your email. The first admin to sign in owns the `default` workspace, where the seed script puts the sample data |
+| An LLM key, e.g. `MISTRAL_API_KEY` | At least one provider key, or `OLLAMA_API_BASE` for a local Ollama |
+
+The backend refuses to start without a secret, a GitLab application and a
+sign-in rule. The `.env.example` file lists the optional settings, and
+[Configuration](#configuration) describes them all.
 
 ### 2a. Run with Docker Compose
 
 ```bash
-mkdir -p backend/results   # so the folder is created by you, not by Docker
 docker compose up --build
 ```
 
@@ -238,6 +257,11 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 
 ### Backend (`backend/.env`)
 
+Required to start: `SECRET_KEY`, the three `AUTH_GITLAB_*` settings, and one of
+`AUTH_ALLOWED_EMAIL_DOMAINS`, `AUTH_GITLAB_ALLOWED_GROUPS` or
+`AUTH_ALLOW_ANY_USER=true`. Everything else is optional. Docker Compose sets
+`DATABASE_URL` itself, and `DATA_DIR` is `/data` in the image.
+
 | Variable | Default | Description |
 |---|---|---|
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MISTRAL_API_KEY` | - | Provider API keys (at least one). `GROQ_API_KEY`, `TOGETHER_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` (provider `google`), `XAI_API_KEY`, `CEREBRAS_API_KEY`, `PERPLEXITYAI_API_KEY` and `OPENROUTER_API_KEY` are also recognised. For any other [LiteLLM provider](https://docs.litellm.ai/docs/providers), add it to `SUPPORTED_PROVIDERS` in `backend/core/llm.py`. |
@@ -250,8 +274,9 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | `MAX_UPLOAD_MB` | `50` | Largest dataset file accepted by an upload. |
 | `MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE` | `3` | Experiments one workspace runs at once. The next ones wait, in order, and start as soon as a slot is free. |
 | `MAX_CONCURRENT_EXPERIMENTS` | `8` | Experiments the whole instance runs at once, all workspaces together. A workspace that is at its own limit never holds back another. |
-| `POSTGRES_PASSWORD` | `maestro` | Read by `docker-compose.yml` only: password of the `postgres` service and of the backend's connection. |
 | `DB_ECHO` | `false` | Log SQL statements. |
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` / `DB_POOL_TIMEOUT` | `10` / `20` / `30` | Connections kept open, how many more a burst may open, and the seconds a request waits for a free one. |
+| `DB_STATEMENT_TIMEOUT_MS` / `DB_LOCK_TIMEOUT_MS` / `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `60000` / `10000` / `300000` | Limits set on every connection (0 turns one off): a query that runs too long, a wait for a lock, a transaction left open. Migrations ignore them. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins. |
 | `SECRET_KEY` | - (required) | At least 32 characters. Signs the OAuth state and derives the CSRF tokens. Changing it only interrupts the sign-ins in progress. |
 | `ENCRYPTION_KEY` | - | At least 32 random characters (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Encrypts the API keys that workspaces store. Without it workspaces cannot store keys and only the instance's keys are used. **Changing it makes the stored keys unreadable**: owners must set them again. Keep it apart from `SECRET_KEY`. |
@@ -268,7 +293,10 @@ in `.gitlab-ci.yml` (`RUFF_VERSION`).
 | `PUBLIC_API_URL` | `http://localhost:8000` | Where the browser reaches the API; the GitLab redirect URI is `<PUBLIC_API_URL>/auth/gitlab/callback`. |
 | `SESSION_IDLE_DAYS` / `SESSION_MAX_DAYS` | `7` / `30` | A session expires after this many days without activity, and in any case after the second. |
 
-### Frontend (`frontend/.env`)
+### Frontend
+
+Nothing to set for a local run. These are read from the environment (or a
+`frontend/.env`, which Nuxt loads) when the backend is elsewhere.
 
 | Variable | Default | Description |
 |---|---|---|
