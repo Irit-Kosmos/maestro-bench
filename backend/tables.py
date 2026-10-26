@@ -219,7 +219,7 @@ class Batch(Authored, table=True):
     variations: str = Field(
         default="[]",
         sa_type=JsonText,
-        description="JSON list of {agent_id, field, values} axes (cartesian product)",
+        description="JSON list of {step_key, agent_id, field, values} axes (cartesian product)",
     )
     # Seed of the random sample, shared by the batch's experiments so that they
     # all run on the same dataset rows
@@ -298,6 +298,11 @@ class ExperimentAgentConfig(WorkspaceOwned, table=True):
     id: int | None = Field(default=None, primary_key=True)
     experiment_id: int = Field(foreign_key="experiment.id")
     agent_id: int = Field(foreign_key="agent.id", index=True)
+    # An agent may run several times in an experiment: each run is a step, told
+    # apart by its key ("12", then "12#2"…), and named by its label
+    step_key: str
+    # None: the agent's own name
+    label: str | None = None
 
     # Configuration (uses agent defaults if not specified)
     prompt_version_id: int | None = Field(
@@ -327,9 +332,8 @@ class ExperimentAgentConfig(WorkspaceOwned, table=True):
 
     created_at: datetime = now_field()
 
-    # Add unique constraint to prevent duplicate agent configurations per experiment
     __table_args__ = (
-        Index("idx_experiment_agent_unique", "experiment_id", "agent_id", unique=True),
+        Index("idx_experiment_step_unique", "experiment_id", "step_key", unique=True),
     )
 
     # Relationships
@@ -399,11 +403,14 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     agent_id: int | None = Field(
         default=None, foreign_key="agent.id", ondelete="SET NULL", index=True
     )
+    # Step of the experiment this one ran; empty on snapshots made before agents
+    # could repeat, whose step is their agent
+    step_key: str | None = None
 
     # Snapshot of configuration at execution time (exactly what was used).
     # Aggregators have no model nor prompt: those fields are empty strings.
     kind: str = Field(default="llm")
-    agent_name_snapshot: str = Field(description="Agent name at execution time")
+    agent_name_snapshot: str = Field(description="Name of the step at execution time")
     model_name_snapshot: str = Field(description="Model name used")
     model_provider_snapshot: str = Field(description="Model provider")
     prompt_name_snapshot: str = Field(description="Prompt name used")

@@ -331,3 +331,74 @@ def test_preview_prefers_the_experiment_prompt_versions(
     assert (matched["execution_id"], matched["versions_match"]) == (v1, True)
     assert fallback["execution_id"] is not None
     assert fallback["versions_match"] is False
+
+
+# ---------------------------------------------------------------------------
+# An agent that runs more than once
+# ---------------------------------------------------------------------------
+
+
+def test_an_agent_can_be_a_step_of_the_experiment_twice(client, engine, setup):
+    body = experiment_body(setup, {"input_mappings": []})
+    body["agent_configurations"][f"{setup['langue']}#2"] = {"execution_order": 2}
+    body["agent_configurations"][str(setup["final"])] = {
+        "execution_order": 3,
+        "formulas": [{"name": "gap", "formula": "second - first"}],
+        "input_mappings": [
+            {"variable": "first", "source": "agent",
+             "sourceStep": str(setup["langue"]), "sourcePath": "score"},
+            {"variable": "second", "source": "agent",
+             "sourceStep": f"{setup['langue']}#2", "sourcePath": "score"},
+        ],
+    }
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 201, response.text
+    steps = {c["step_key"]: c for c in response.json()["experiment_configs"]}
+    assert set(steps) == {
+        str(setup["langue"]),
+        f"{setup['langue']}#2",
+        str(setup["contenu"]),
+        str(setup["final"]),
+    }
+    assert steps[str(setup["langue"])]["label"] is None
+    assert steps[f"{setup['langue']}#2"]["label"] == "Langue #2"
+    assert steps[f"{setup['langue']}#2"]["agent_id"] == setup["langue"]
+
+    with scoped(engine) as s:
+        execution = create_execution_snapshot(response.json()["id"], s)
+        agents = build_agent_configs_from_snapshot(execution, s)
+    assert [(a.name, a.step_key) for a in agents] == [
+        ("Langue", str(setup["langue"])),
+        ("Langue #2", f"{setup['langue']}#2"),
+        ("Contenu", str(setup["contenu"])),
+        ("Final", str(setup["final"])),
+    ]
+
+
+def test_an_aggregator_cannot_read_a_step_that_is_not_there(client, setup):
+    body = experiment_body(setup, {})
+    body["agent_configurations"][str(setup["final"])]["input_mappings"] = [
+        {"variable": "langue", "source": "agent",
+         "sourceStep": f"{setup['langue']}#2", "sourcePath": "score"},
+        {"variable": "contenu", "source": "agent",
+         "sourceStep": str(setup["contenu"]), "sourcePath": "score"},
+        {"variable": "w1", "source": "static", "staticValue": "1"},
+        {"variable": "w2", "source": "static", "staticValue": "1"},
+    ]
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "not in the experiment" in response.json()["detail"]
+
+
+def test_a_step_key_must_name_an_agent(client, setup):
+    body = experiment_body(setup, {})
+    body["agent_configurations"]["abc#2"] = {}
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]

@@ -245,3 +245,58 @@ def test_results_keep_aggregator_output_as_json():
         aggregator(1, 1, [{"name": "s", "formula": "1 + 1"}], []), {}, {}, {}
     )
     assert json.loads(trace.output) == {"s": 2}
+
+
+def test_an_agent_can_run_twice_and_each_step_is_read_on_its_own(llm):
+    answers, prompts = llm
+    answers["Langue"] = '{"score": 3}'
+    answers["Langue #2"] = '{"score": 5}'
+    answers["Avis"] = "ok"
+
+    result = run(
+        [
+            judge(1, "Langue", 1),
+            judge(1, "Langue #2", 2, step_key="1#2"),
+            judge(
+                2,
+                "Avis",
+                3,
+                user_prompt="{{ first }} / {{ second }} / {{ Langue_2_output }}",
+                input_mappings=[
+                    {"variable": "first", "source": "agent", "sourceStep": "1",
+                     "sourcePath": "score"},
+                    {"variable": "second", "source": "agent", "sourceStep": "1#2",
+                     "sourcePath": "score"},
+                ],
+            ),
+        ]
+    ).to_dict()
+
+    assert prompts[2].startswith("3 / 5 / ")
+    assert [a["step_key"] for a in result["agents"]] == ["1", "1#2", "2"]
+
+
+def test_an_aggregator_reads_the_step_it_is_mapped_to(llm):
+    answers, _ = llm
+    answers["Langue"] = '{"score": 3}'
+    answers["Langue #2"] = '{"score": 5}'
+
+    result = run(
+        [
+            judge(1, "Langue", 1),
+            judge(1, "Langue #2", 2, step_key="1#2"),
+            aggregator(
+                2,
+                3,
+                [{"name": "gap", "formula": "second - first"}],
+                [
+                    {"variable": "first", "source": "agent", "sourceStep": "1",
+                     "sourcePath": "score"},
+                    {"variable": "second", "source": "agent", "sourceStep": "1#2",
+                     "sourcePath": "score"},
+                ],
+            ),
+        ]
+    ).to_dict()
+
+    assert result["agents"][2]["output"] == {"gap": 2}

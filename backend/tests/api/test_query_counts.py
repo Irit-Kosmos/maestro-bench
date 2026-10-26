@@ -158,6 +158,7 @@ def populate(engine, experiments: int, agents: int, batch_size: int = 2) -> dict
                     ExperimentAgentConfig(
                         experiment_id=experiment.id,
                         agent_id=a.id,
+                        step_key=str(a.id),
                         model_id=models[0].id,
                         prompt_version_id=version.id,
                         execution_order=n,

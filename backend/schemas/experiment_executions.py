@@ -29,6 +29,9 @@ class LatestExecutionFigures(BaseModel):
 class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int | None  # empty once the agent is deleted
+    # Step of the experiment it ran ("12", "12#2"…); None only on an old snapshot
+    # of an agent since deleted
+    step_key: str | None = None
     # "aggregator" snapshots have empty model and prompt fields, and formulas
     kind: str = "llm"
     agent_name_snapshot: str

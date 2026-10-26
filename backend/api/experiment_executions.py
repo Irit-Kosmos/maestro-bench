@@ -47,6 +47,8 @@ def _snapshot_responses(
             AgentExecutionSnapshotResponse(
                 id=int(s.id) if s.id is not None else 0,
                 agent_id=s.agent_id,
+                step_key=s.step_key
+                or (None if s.agent_id is None else str(s.agent_id)),
                 kind=s.kind,
                 agent_name_snapshot=s.agent_name_snapshot,
                 model_name_snapshot=s.model_name_snapshot,

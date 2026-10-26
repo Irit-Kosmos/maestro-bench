@@ -23,6 +23,7 @@ from core.json_output import (
 )
 from core.llm import LLMResponse, call_llm
 from core.prompt_renderer import build_messages
+from core.steps import mapping_source, variable_name
 
 AGGREGATOR = "aggregator"
 
@@ -42,6 +43,8 @@ class AgentConfig:
     execution_order: int = 1
     input_mappings: list[dict] | None = None
     agent_id: int | None = None
+    # Told apart from the other steps of the same agent (see core.steps)
+    step_key: str | None = None
     kind: str = "llm"
     # Aggregators only: ordered [{"name", "formula"}]
     formulas: list[dict] | None = None
@@ -51,6 +54,13 @@ class AgentConfig:
     key_id: str = "instance"
     # Set when the provider cannot be called for this workspace: the agent fails with it
     access_error: str | None = None
+
+    @property
+    def key(self) -> str | None:
+        """Key outputs and mappings know this step by."""
+        if self.step_key is not None:
+            return self.step_key
+        return None if self.agent_id is None else str(self.agent_id)
 
 
 @dataclass
@@ -70,6 +80,7 @@ class AgentTrace:
     kind: str = "llm"
     # Aggregators only: the value each formula variable resolved to
     inputs: dict | None = None
+    step_key: str | None = None
 
 
 @dataclass
@@ -97,6 +108,7 @@ class PipelineResult:
             "agents": [
                 {
                     "name": t.agent_name,
+                    "step_key": t.step_key,
                     "kind": t.kind,
                     **({"inputs": t.inputs} if t.inputs is not None else {}),
                     "model": t.model,
@@ -140,7 +152,7 @@ def _mapped_value(mapping: dict, row: dict, agent_outputs: dict) -> Any:
         column = mapping.get("sourceColumn")
         return row.get(column, MISSING) if column else MISSING
     if source == "agent":
-        raw = agent_outputs.get(mapping.get("sourceAgentId"), MISSING)
+        raw = agent_outputs.get(mapping_source(mapping), MISSING)
         path = mapping.get("sourcePath") or ""
         if raw is MISSING or not path:
             return raw
@@ -216,10 +228,10 @@ def _missing_reason(mapping: dict, agent_names: dict) -> str:
     if source == "dataset":
         return f'column "{mapping.get("sourceColumn") or "?"}" not found'
     if source == "agent":
-        agent_id = mapping.get("sourceAgentId")
-        name = agent_names.get(agent_id)
+        step = mapping_source(mapping)
+        name = agent_names.get(step)
         if name is None:
-            return f"agent #{agent_id} has not run before this one"
+            return f"agent #{step} has not run before this one"
         return f'path "{mapping.get("sourcePath")}" not found in the output of {name}'
     return "no value"
 
@@ -254,7 +266,7 @@ async def run_pipeline(
     # Shared context: starts with the row, accumulates agent outputs
     context = dict(row)
 
-    # Raw agent outputs and names by agent id, for explicit mappings
+    # Raw agent outputs and names by step key, for explicit mappings
     agent_outputs: dict = {}
     agent_names: dict = {}
 
@@ -268,6 +280,7 @@ async def run_pipeline(
             # Resolve this agent's private variable context
             agent_context = _resolve_agent_context(agent, context, row, agent_outputs)
             trace = await _execute_agent(agent, agent_context)
+        trace.step_key = agent.key
         result.agent_traces.append(trace)
 
         # Accumulate totals
@@ -282,13 +295,12 @@ async def run_pipeline(
 
         # Make this agent's output available to subsequent agents
         # Convention: {{ AgentName_output }} (spaces replaced with underscores)
-        safe_name = agent.name.replace(" ", "_")
-        context[f"{safe_name}_output"] = trace.output
+        context[f"{variable_name(agent.name)}_output"] = trace.output
 
-        # Also store by agent id for explicit input mappings
-        if agent.agent_id is not None:
-            agent_outputs[agent.agent_id] = trace.output
-            agent_names[agent.agent_id] = agent.name
+        # Also store by step key for explicit input mappings
+        if agent.key is not None:
+            agent_outputs[agent.key] = trace.output
+            agent_names[agent.key] = agent.name
 
     # Final output = last successful agent's output
     if result.agent_traces:
@@ -304,7 +316,7 @@ def run_aggregator(
     """
     Compute an aggregator's formulas from what earlier agents returned.
 
-    ``agent_outputs`` and ``agent_names`` are keyed by agent id; outputs are
+    ``agent_outputs`` and ``agent_names`` are keyed by step key; outputs are
     raw text or already parsed JSON.
     """
     started = time.perf_counter()

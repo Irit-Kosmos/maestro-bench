@@ -125,6 +125,8 @@ def _experiment_response(
                 id=int(config.id) if config.id is not None else 0,
                 experiment_id=config.experiment_id,
                 agent_id=config.agent_id,
+                step_key=config.step_key,
+                label=config.label,
                 prompt_version_id=config.prompt_version_id,
                 model_id=config.model_id,
                 temperature=config.temperature,

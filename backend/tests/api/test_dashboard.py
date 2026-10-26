@@ -152,6 +152,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
                 ExperimentAgentConfig(
                     experiment_id=exp,
                     agent_id=world["agent"],
+                    step_key=str(world["agent"]),
                     prompt_version_id=world["version"],
                     model_id=world["models"][1],
                     execution_order=0,
@@ -160,6 +161,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
                 ExperimentAgentConfig(
                     experiment_id=exp,
                     agent_id=world["other_agent"],
+                    step_key=str(world["other_agent"]),
                     prompt_version_id=world["version"],
                     model_id=world["models"][0],
                     execution_order=1,

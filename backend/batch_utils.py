@@ -2,9 +2,10 @@
 Pure helpers for batches: expanding variations into grid points, checking that
 a prompt can replace another, and labelling the resulting experiments.
 
-A *variation* is one axis of the grid: ``{"agent_id", "field", "values"}``.
-A batch's experiments are the cartesian product of its axes; each experiment
-sits at one *point* ``{agent_id: {field: value}}``.
+A *variation* is one axis of the grid: ``{"step_key", "agent_id", "field",
+"values"}``, where the step is one run of an agent in the experiment (see
+core.steps). A batch's experiments are the cartesian product of its axes; each
+experiment sits at one *point* ``{step_key: {field: value}}``.
 """
 
 import itertools
@@ -12,17 +13,24 @@ import json
 import math
 from typing import Any
 
+from core.steps import agent_id_of
+
 # Fields of an agent's experiment configuration that a batch may vary
 VARIABLE_FIELDS = ("model_id", "prompt_version_id", "temperature")
 
 # Safety net against a typo turning into hundreds of paid runs
 MAX_BATCH_EXPERIMENTS = 50
 
-Point = dict[int, dict[str, Any]]
+Point = dict[str, dict[str, Any]]
 
 
 class VariationError(ValueError):
     """The requested variations cannot be turned into a batch."""
+
+
+def variation_step(variation: dict) -> str:
+    """Step an axis varies. Axes stored before agents could repeat name an agent only."""
+    return str(variation.get("step_key") or variation["agent_id"])
 
 
 def normalize_variations(variations: list[dict]) -> list[dict]:
@@ -30,15 +38,19 @@ def normalize_variations(variations: list[dict]) -> list[dict]:
     if not variations:
         raise VariationError("A batch needs at least one variation")
 
-    seen: set[tuple[int, str]] = set()
+    seen: set[tuple[str, str]] = set()
     normalized = []
     for variation in variations:
-        agent_id, field = variation["agent_id"], variation["field"]
+        step, field = variation_step(variation), variation["field"]
+        try:
+            agent_id_of(step)
+        except ValueError as e:
+            raise VariationError(str(e)) from e
         if field not in VARIABLE_FIELDS:
             raise VariationError(f"Field '{field}' cannot be varied")
-        if (agent_id, field) in seen:
-            raise VariationError(f"Agent {agent_id} varies '{field}' more than once")
-        seen.add((agent_id, field))
+        if (step, field) in seen:
+            raise VariationError(f"Step {step} varies '{field}' more than once")
+        seen.add((step, field))
 
         values = list(dict.fromkeys(variation["values"]))
         if not values:
@@ -51,7 +63,14 @@ def normalize_variations(variations: list[dict]) -> list[dict]:
                 raise VariationError("Temperature values must be numbers >= 0")
         elif None in values:
             raise VariationError(f"Variation of '{field}' needs a value")
-        normalized.append({"agent_id": agent_id, "field": field, "values": values})
+        normalized.append(
+            {
+                "step_key": step,
+                "agent_id": agent_id_of(step),
+                "field": field,
+                "values": values,
+            }
+        )
     return normalized
 
 
@@ -59,11 +78,11 @@ def count_points(variations: list[dict]) -> int:
     return math.prod(len(v["values"]) for v in variations)
 
 
-def is_base_point(point: Point, base_values: dict[tuple[int, str], Any]) -> bool:
+def is_base_point(point: Point, base_values: dict[tuple[str, str], Any]) -> bool:
     """Whether the point takes, on every axis, the value of the base configuration."""
     return all(
-        fields[field] == base_values[(agent_id, field)]
-        for agent_id, fields in point.items()
+        fields[field] == base_values[(step, field)]
+        for step, fields in point.items()
         for field in fields
     )
 
@@ -74,13 +93,13 @@ def expand_variations(variations: list[dict]) -> list[Point]:
     for combo in itertools.product(*(v["values"] for v in variations)):
         point: Point = {}
         for variation, value in zip(variations, combo, strict=True):
-            point.setdefault(variation["agent_id"], {})[variation["field"]] = value
+            point.setdefault(variation_step(variation), {})[variation["field"]] = value
         points.append(point)
     return points
 
 
 def serialize_point(point: Point) -> str:
-    return json.dumps({str(agent_id): fields for agent_id, fields in point.items()})
+    return json.dumps(point)
 
 
 def parse_point(raw: str | None) -> Point:
@@ -90,7 +109,7 @@ def parse_point(raw: str | None) -> Point:
         data = json.loads(raw)
     except (TypeError, ValueError):
         return {}
-    return {int(agent_id): fields for agent_id, fields in data.items()}
+    return {str(step): fields for step, fields in data.items()}
 
 
 def prompt_variable_names(raw: str | None) -> set[str]:

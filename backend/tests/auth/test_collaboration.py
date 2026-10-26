@@ -478,7 +478,8 @@ def populate(engine, workspace_id: int) -> None:
         experiment.batch_id = batch.id
         add(
             ExperimentAgentConfig(
-                experiment_id=experiment.id, agent_id=agent.id, model_id=model.id,
+                experiment_id=experiment.id, agent_id=agent.id, step_key=str(agent.id),
+                model_id=model.id,
                 prompt_version_id=version.id,
             )
         )
