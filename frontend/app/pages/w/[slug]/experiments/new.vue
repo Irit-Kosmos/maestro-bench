@@ -58,7 +58,7 @@ const skipBase = computed(() => batchMode.value && !!sourceExperiment.value
   && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value) === experimentSignature(sourceExperiment.value))
 const experimentCount = computed(() => variationCount(variations.value, skipBase.value))
 // A prompt variation can bring variables the agent's prompt does not have: they need a mapping too
-const addedVariables = computed(() => addedVariablesByAgent(variationDrafts.value, agentConfigurations.value, allPromptVersions.value ?? []))
+const addedVariables = computed(() => addedVariablesByStep(variationDrafts.value, agentConfigurations.value, allPromptVersions.value ?? []))
 const unmappedAdded = computed(() => unmappedAddedCount(addedVariables.value, agentConfigurations.value))
 const variationsValid = computed(() =>
   !batchMode.value
@@ -87,7 +87,7 @@ watch([sourceExperiment, agents], ([source, list]) => {
   }
   agentConfigurations.value = Object.fromEntries((source.experiment_configs ?? [])
     .filter(config => config.is_active)
-    .map(config => [config.agent_id, {
+    .map(config => [config.step_key, {
       prompt_version_id: config.prompt_version_id ?? undefined,
       model_id: config.model_id ?? undefined,
       temperature: config.temperature ?? undefined,
@@ -144,7 +144,7 @@ const samplingLabel = computed(() => {
 
 const summaryRows = computed(() => {
   const agents = pipeline.items.value
-  const toFix = agents.filter(item => pipeline.issuesOf(item.agent.id).length > 0).length
+  const toFix = agents.filter(item => pipeline.issuesOf(item.key).length > 0).length
   const dataset = datasets.value?.find(d => d.id === selectedDataset.value)
 
   return [
@@ -168,7 +168,7 @@ const summaryRows = computed(() => {
       label: agents.length > 1 ? `Agents · ${agents.length}` : 'Agent',
       value: agents.length === 0
         ? 'Choose an agent'
-        : `${agents.map(item => item.agent.name).join(' → ')}${toFix > 0 ? ` · ${toFix} to fix` : ''}`,
+        : `${agents.map(item => item.label).join(' → ')}${toFix > 0 ? ` · ${toFix} to fix` : ''}`,
       done: agentsValid.value,
       attention: agents.length > 0 && !agentsValid.value,
     },
@@ -247,7 +247,7 @@ async function submit() {
   isSubmitting.value = true
   try {
     // Run order, as shown in the list or wired in the graph
-    const executionOrder = agentConfigRef.value?.getExecutionOrder() ?? new Map<number, number>()
+    const executionOrder = agentConfigRef.value?.getExecutionOrder() ?? new Map<string, number>()
 
     const experimentData = prepareExperimentData({ executionOrder })
 
@@ -352,7 +352,7 @@ defineShortcuts({
             :dataset-headers="datasetHeaders"
             :count="experimentCount"
             :skipped-origin="skipBase ? sourceExperiment?.name : null"
-            @set-mapping="(agentId, mapping) => pipeline.setMapping(agentId, mapping)"
+            @set-mapping="(key, mapping) => pipeline.setMapping(key, mapping)"
           />
         </div>
 

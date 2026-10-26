@@ -26,16 +26,17 @@ const isActive = computed(() => batch.value?.status === 'running' || batch.value
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 
-// One column per varied field, named after the agent too when several agents are involved
-const multipleAgents = computed(() => new Set(batch.value?.variations.map(v => v.agent_id)).size > 1)
+// One column per varied field, named after the step too when several steps are involved
+// (an agent that runs twice is two steps: "Grader" and "Grader #2")
+const multipleAgents = computed(() => new Set(batch.value?.variations.map(v => v.step_key)).size > 1)
 const fieldNames: Record<string, string> = {
   model_id: 'Model',
   prompt_version_id: 'Prompt version',
   temperature: 'Temperature',
 }
 const axes = computed(() => (batch.value?.variations ?? []).map(v => ({
-  key: `${v.agent_id}:${v.field}`,
-  agent_id: v.agent_id,
+  key: `${v.step_key}:${v.field}`,
+  step_key: v.step_key,
   agent_name: v.agent_name,
   field: v.field,
   title: multipleAgents.value ? `${v.agent_name} · ${fieldNames[v.field]}` : fieldNames[v.field],
@@ -56,27 +57,27 @@ function groupByProvider(values: Batch['variations'][number]['values']) {
     .map(key => ({ key, label: key ? providerLabel(key) : '', names: groups.get(key)! }))
 }
 
-// With several agents, one column per axis would make the table unreadable: the table gets a single
-// configuration column instead, with one line per agent listing what varies on it
+// With several steps, one column per axis would make the table unreadable: the table gets a single
+// configuration column instead, with one line per step listing what varies on it
 const agentGroups = computed(() => {
-  const groups = new Map<number, { agent_id: number, name: string, axes: typeof axes.value }>()
+  const groups = new Map<string, { step_key: string, name: string, axes: typeof axes.value }>()
   for (const axis of axes.value) {
-    const group = groups.get(axis.agent_id) ?? { agent_id: axis.agent_id, name: axis.agent_name, axes: [] }
+    const group = groups.get(axis.step_key) ?? { step_key: axis.step_key, name: axis.agent_name, axes: [] }
     group.axes.push(axis)
-    groups.set(axis.agent_id, group)
+    groups.set(axis.step_key, group)
   }
   return [...groups.values()]
 })
 
-function labelOf(experiment: Batch['experiments'][number], axis: { agent_id: number, field: string }) {
-  return experiment.coordinates.find(c => c.agent_id === axis.agent_id && c.field === axis.field)?.label ?? '—'
+function labelOf(experiment: Batch['experiments'][number], axis: { step_key: string, field: string }) {
+  return experiment.coordinates.find(c => c.step_key === axis.step_key && c.field === axis.field)?.label ?? '—'
 }
 
 // The provider of the model an experiment ran on this axis, once the catalogue has loaded
-function providerOf(experiment: Batch['experiments'][number], axis: { agent_id: number, field: string }) {
+function providerOf(experiment: Batch['experiments'][number], axis: { step_key: string, field: string }) {
   if (axis.field !== 'model_id')
     return undefined
-  const value = experiment.coordinates.find(c => c.agent_id === axis.agent_id && c.field === axis.field)?.value
+  const value = experiment.coordinates.find(c => c.step_key === axis.step_key && c.field === axis.field)?.value
   return typeof value === 'number' ? modelsById.value.get(value)?.provider : undefined
 }
 
@@ -314,7 +315,7 @@ async function handleDelete() {
                     :to="`/experiments/${experiment.id}`"
                     class="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-inverted"
                   >
-                    <span v-for="group in agentGroups" :key="group.agent_id" class="contents">
+                    <span v-for="group in agentGroups" :key="group.step_key" class="contents">
                       <span class="truncate text-xs text-muted" :title="group.name">{{ group.name }}</span>
                       <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium text-highlighted">
                         <template v-for="(axis, index) in group.axes" :key="axis.key">

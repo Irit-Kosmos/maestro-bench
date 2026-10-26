@@ -22,8 +22,8 @@ function mappingsOf(snapshot: AgentExecutionSnapshot): AgentInputMapping[] {
   }
 }
 
-// The agents each one reads the output of, with the variables they feed it. Only earlier agents
-// can be sources, so the graph has no cycle.
+// The steps each one reads the output of, with the variables they feed it. Only earlier steps
+// can be sources, so the graph has no cycle. Steps are told apart by key: an agent that ran twice is two nodes.
 const dependencies = computed(() => {
   const list = ordered.value
   return new Map(list.map((snapshot, index) => {
@@ -31,7 +31,8 @@ const dependencies = computed(() => {
     // An aggregator keeps the mappings of variables its formulas no longer read
     const used = snapshot.kind === 'aggregator' ? formulaVariables(parseSnapshotFormulas(snapshot)) : null
     for (const m of mappingsOf(snapshot).filter(m => m.source === 'agent' && (!used || used.includes(m.variable)))) {
-      const source = list.slice(0, index).find(a => a.agent_id === m.sourceAgentId)
+      const wanted = mappingSource(m)
+      const source = wanted === undefined ? undefined : list.slice(0, index).find(a => snapshotStep(a) === wanted)
       if (source)
         carried.set(source, [...(carried.get(source) ?? []), m.variable])
     }
@@ -117,7 +118,7 @@ const PANEL_WIDTH = 384
               </div>
               <UButton variant="ghost" size="sm" icon="i-ph-x-bold" color="neutral" aria-label="Close panel" @click="() => { selectedId = null }" />
             </header>
-            <div class="flex-1 overflow-y-auto p-4">
+            <div class="flex-1 overflow-y-auto">
               <ExperimentsAgentSnapshotDetails :snapshot="selected" :agents="ordered" />
             </div>
           </div>

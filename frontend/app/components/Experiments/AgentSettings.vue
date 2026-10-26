@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Agent, AgentConfiguration, AgentInputMapping, Model, PromptVersion } from '~/types'
+import type { StepRef } from '~/composables/useAgentPipeline'
+import type { AgentConfiguration, AgentInputMapping, Model, PromptVersion } from '~/types'
 
 // The settings of one agent in an experiment: prompt, model, sampling and where each prompt variable gets its value.
 // Shared by the list rows and the graph's side panel so both edit the same thing the same way.
@@ -8,8 +9,8 @@ const props = defineProps<{
   models: readonly Model[]
   promptVersions: readonly PromptVersion[]
   datasetHeaders: readonly string[]
-  /** Agents whose output this agent may read, nearest last */
-  upstreamAgents: readonly Agent[]
+  /** Steps whose output this one may read, nearest last */
+  upstreamSteps: readonly StepRef[]
   /** Smaller type and controls, for a side panel */
   compact?: boolean
 }>()
@@ -106,7 +107,7 @@ const highlighted = ref<string | null>(null)
       :variables="variables"
       :mappings="config?.input_mappings"
       :dataset-headers="datasetHeaders"
-      :upstream-agents="upstreamAgents"
+      :upstream-steps="upstreamSteps"
       title="Prompt variables"
       description="Where each variable of the prompt gets its value for every row."
       :compact="compact"
@@ -118,7 +119,7 @@ const highlighted = ref<string | null>(null)
       :version="promptVersion"
       :variables="variables"
       :mappings="config?.input_mappings"
-      :upstream-agents="upstreamAgents"
+      :upstream-steps="upstreamSteps"
       :active="highlighted"
       :compact="compact"
     />

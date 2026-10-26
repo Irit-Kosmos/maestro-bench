@@ -16,9 +16,9 @@ const aggregator = computed(() => props.data?.agent?.kind === 'aggregator')
 // Lookups provided by the flow view
 const models = inject<Ref<Model[]>>('agentFlowModels', ref([]))
 const promptVersions = inject<Ref<PromptVersion[]>>('agentFlowPromptVersions', ref([]))
-const order = inject<Ref<Map<number, number>>>('agentFlowOrder', ref(new Map()))
+const order = inject<Ref<Map<string, number>>>('agentFlowOrder', ref(new Map()))
 
-const step = computed(() => order.value.get(props.data.agent.id))
+const step = computed(() => order.value.get(props.data.key))
 const kicker = computed(() => {
   const label = step.value ? `Step ${step.value}` : 'Step'
   return aggregator.value ? `${label} · Aggregator` : label
@@ -57,7 +57,7 @@ const model = computed(() => {
     :kicker="kicker"
     :icon="aggregator ? 'i-ph-function-bold' : 'i-ph-ghost-bold'"
     :accent="aggregator"
-    :title="data.agent.name"
+    :title="data.label"
     :selected="selected"
     :muted="!isActive"
   >

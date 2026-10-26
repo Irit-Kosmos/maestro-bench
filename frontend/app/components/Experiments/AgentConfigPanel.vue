@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import type { StepRef } from '~/composables/useAgentPipeline'
 import type { Agent, AgentInputMapping, Model, PromptVersion } from '~/types'
 
 // Side panel of the graph view: the same settings as the list, for the selected node
 defineProps<{
   agent: Agent | null
+  /** The step's name, when it is not its agent's */
+  label?: string
   config: Record<string, any> | undefined
   models: Model[]
   allPromptVersions: PromptVersion[]
   datasetHeaders: readonly string[]
-  upstreamAgents: Agent[]
+  upstreamSteps: readonly StepRef[]
 }>()
 
 const emit = defineEmits<{
@@ -44,7 +47,7 @@ function onKeydown(e: KeyboardEvent) {
     <header class="flex items-start justify-between gap-2 border-b border-default px-3 py-2.5">
       <div class="min-w-0">
         <h4 ref="heading" tabindex="-1" class="truncate text-sm font-semibold text-highlighted outline-none">
-          {{ agent?.name || 'Configure agent' }}
+          {{ label || agent?.name || 'Configure agent' }}
         </h4>
         <p v-if="agent?.description" class="mt-0.5 text-xs text-muted line-clamp-2">
           {{ agent.description }}
@@ -79,7 +82,7 @@ function onKeydown(e: KeyboardEvent) {
         v-if="agent.kind === 'aggregator'"
         :config="config"
         :dataset-headers="datasetHeaders"
-        :upstream-agents="upstreamAgents"
+        :upstream-steps="upstreamSteps"
         compact
         @update="(field, value) => emit('updateConfig', field, value)"
         @set-mapping="mapping => emit('updateInputMapping', mapping)"
@@ -90,7 +93,7 @@ function onKeydown(e: KeyboardEvent) {
         :models="models"
         :prompt-versions="allPromptVersions"
         :dataset-headers="datasetHeaders"
-        :upstream-agents="upstreamAgents"
+        :upstream-steps="upstreamSteps"
         compact
         @update="(field, value) => emit('updateConfig', field, value)"
         @set-mapping="mapping => emit('updateInputMapping', mapping)"

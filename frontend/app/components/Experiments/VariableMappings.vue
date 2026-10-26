@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Agent, AgentInputMapping } from '~/types'
+import type { StepRef } from '~/composables/useAgentPipeline'
+import type { AgentInputMapping } from '~/types'
 
 // Where each variable gets its value for every row: a dataset column, an earlier agent's output
 // (whole, or one field of its JSON), or a fixed value. Shared by prompt variables and formula variables.
@@ -7,8 +8,8 @@ const props = withDefaults(defineProps<{
   variables: readonly string[]
   mappings: readonly AgentInputMapping[] | undefined
   datasetHeaders: readonly string[]
-  /** Agents whose output may be read, nearest last */
-  upstreamAgents: readonly Agent[]
+  /** Steps whose output may be read, nearest last */
+  upstreamSteps: readonly StepRef[]
   title: string
   description: string
   staticLabel?: string
@@ -40,32 +41,32 @@ const rows = computed(() => props.variables.map(variable => ({
 const mappedCount = computed(() => rows.value.filter(row => props.isComplete(row.mapping)).length)
 
 const columnItems = computed(() => props.datasetHeaders.map(h => ({ label: h, value: h })))
-const upstreamItems = computed(() => props.upstreamAgents.map(a => ({ label: a.name, value: a.id })))
+const upstreamItems = computed(() => props.upstreamSteps.map(step => ({ label: step.label, value: step.key })))
 
 // "Previous agent" only makes sense once something runs before this agent (unless it is already chosen)
 function sourceItems(current: AgentInputMapping | undefined) {
   return [
     { label: 'Dataset column', value: 'dataset' },
-    ...(props.upstreamAgents.length > 0 || current?.source === 'agent' ? [{ label: 'Previous agent', value: 'agent' }] : []),
+    ...(props.upstreamSteps.length > 0 || current?.source === 'agent' ? [{ label: 'Previous agent', value: 'agent' }] : []),
     { label: props.staticLabel, value: 'static' },
   ]
 }
 
 const simplify = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-// The agent a variable most likely reads, shown in the select so a wrong guess is easy to see:
+// The step a variable most likely reads, shown in the select so a wrong guess is easy to see:
 // one named like it ("content" or "c" for Content), else the nearest one no other variable reads yet
-function defaultSourceAgent(variable: string): number | undefined {
-  const candidates = props.upstreamAgents
+function defaultSourceStep(variable: string): string | undefined {
+  const candidates = props.upstreamSteps
   const name = simplify(variable)
-  const named = candidates.find(a => simplify(a.name) === name)
-    ?? (name ? candidates.find(a => simplify(a.name).startsWith(name)) : undefined)
+  const named = candidates.find(step => simplify(step.label) === name)
+    ?? (name ? candidates.find(step => simplify(step.label).startsWith(name)) : undefined)
   if (named)
-    return named.id
+    return named.key
   const taken = new Set((props.mappings ?? [])
     .filter(m => m.source === 'agent' && m.variable !== variable)
-    .map(m => m.sourceAgentId))
-  return [...candidates].reverse().find(a => !taken.has(a.id))?.id ?? candidates.at(-1)?.id
+    .map(mappingSource))
+  return [...candidates].reverse().find(step => !taken.has(step.key))?.key ?? candidates.at(-1)?.key
 }
 
 function chooseSource(variable: string, source: AgentInputMapping['source']) {
@@ -75,7 +76,7 @@ function chooseSource(variable: string, source: AgentInputMapping['source']) {
   const mapping: AgentInputMapping = { variable, source }
   // A dataset column is left for the user to pick: guessing the first one would be silently wrong
   if (source === 'agent') {
-    mapping.sourceAgentId = defaultSourceAgent(variable)
+    mapping.sourceStep = defaultSourceStep(variable)
     mapping.sourceOutput = 'output'
   }
   else if (source === 'static') {
@@ -144,19 +145,19 @@ function patchMapping(row: (typeof rows.value)[number], patch: Partial<AgentInpu
           />
           <div v-else-if="row.mapping?.source === 'agent'" class="flex min-w-0 gap-2">
             <USelect
-              :model-value="row.mapping.sourceAgentId"
+              :model-value="mappingSource(row.mapping)"
               :items="upstreamItems"
               placeholder="Choose an agent"
               size="sm"
               class="min-w-0 flex-1"
-              :color="row.mapping.sourceAgentId === undefined ? 'warning' : 'neutral'"
-              :highlight="row.mapping.sourceAgentId === undefined"
+              :color="mappingSource(row.mapping) === undefined ? 'warning' : 'neutral'"
+              :highlight="mappingSource(row.mapping) === undefined"
               :aria-label="`Agent output for ${row.variable}`"
-              @update:model-value="(value: number) => patchMapping(row, { sourceAgentId: value, sourceOutput: 'output', sourcePath: '' })"
+              @update:model-value="(value: string) => patchMapping(row, { sourceStep: value, sourceAgentId: undefined, sourceOutput: 'output', sourcePath: '' })"
             />
             <ExperimentsOutputPathSelect
               :model-value="row.mapping.sourcePath"
-              :agent-id="row.mapping.sourceAgentId"
+              :step-key="mappingSource(row.mapping)"
               whole-label="Whole output"
               :with-lists="withLists"
               class="min-w-0 flex-1"
