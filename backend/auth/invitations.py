@@ -83,7 +83,7 @@ def pending(db: Session, workspace_id: int) -> list[Invitation]:
 
 
 def revoke(db: Session, workspace_id: int, invitation_id: int) -> bool:
-    result = db.execute(
+    result = db.exec(
         update(Invitation)
         .where(
             Invitation.id == invitation_id,
@@ -98,7 +98,7 @@ def revoke(db: Session, workspace_id: int, invitation_id: int) -> bool:
 
 
 def revoke_all(db: Session, workspace_id: int) -> None:
-    db.execute(
+    db.exec(
         update(Invitation)
         .where(
             Invitation.workspace_id == workspace_id,
@@ -143,7 +143,7 @@ def accept(db: Session, token: str, user: User) -> Accepted:
 
     # Counted in the database, so that people opening the link at once all count; and
     # only while it is still open, in case it was revoked in the meantime
-    counted = db.execute(
+    counted = db.exec(
         update(Invitation)
         .where(Invitation.id == invitation.id, Invitation.revoked_at.is_(None), _not_expired())
         .values(uses=Invitation.uses + 1)

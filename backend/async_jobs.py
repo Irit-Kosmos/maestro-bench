@@ -174,7 +174,7 @@ def _mark_queued(experiment_id: int, workspace_id: int) -> None:
     try:
         with Session(engine) as db_session:
             scope_session(db_session, workspace_id)
-            marked = db_session.execute(
+            marked = db_session.exec(
                 update(Experiment)
                 .where(
                     col(Experiment.id) == experiment_id,
@@ -210,12 +210,12 @@ def reap_interrupted_runs() -> int:
     be a single backend process for this to hold.
     """
     with Session(engine) as db_session:
-        db_session.execute(
+        db_session.exec(
             update(ExperimentExecution)
             .where(col(ExperimentExecution.status) == "running")
             .values(status="interrupted", completed_at=datetime.now(UTC))
         )
-        result = db_session.execute(
+        result = db_session.exec(
             update(Experiment)
             .where(col(Experiment.status).in_(("running", "queued")))
             .values(status="interrupted")

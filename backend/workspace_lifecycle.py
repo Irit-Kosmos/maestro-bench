@@ -68,7 +68,7 @@ def archive(db: Session, workspace: Workspace) -> None:
     for experiment_id in in_flight:
         async_jobs.cancel_experiment(experiment_id)
 
-    db.execute(
+    db.exec(
         delete(WorkspaceCredential).where(WorkspaceCredential.workspace_id == workspace.id)
     )
     invitations.revoke_all(db, workspace.id)
@@ -87,13 +87,13 @@ def unarchive(db: Session, workspace: Workspace) -> None:
 def delete_workspace(db: Session, workspace: Workspace) -> None:
     """Remove a workspace with everything in it, files included."""
     workspace_id = workspace.id
-    db.execute(update(Batch).where(Batch.workspace_id == workspace_id).values(base_experiment_id=None))
-    db.execute(update(Experiment).where(Experiment.workspace_id == workspace_id).values(batch_id=None))
+    db.exec(update(Batch).where(Batch.workspace_id == workspace_id).values(base_experiment_id=None))
+    db.exec(update(Experiment).where(Experiment.workspace_id == workspace_id).values(batch_id=None))
     for table in DELETE_ORDER:
-        db.execute(delete(table).where(table.workspace_id == workspace_id))
-    db.execute(delete(Invitation).where(Invitation.workspace_id == workspace_id))
-    db.execute(delete(Membership).where(Membership.workspace_id == workspace_id))
-    db.execute(delete(Workspace).where(Workspace.id == workspace_id))
+        db.exec(delete(table).where(table.workspace_id == workspace_id))
+    db.exec(delete(Invitation).where(Invitation.workspace_id == workspace_id))
+    db.exec(delete(Membership).where(Membership.workspace_id == workspace_id))
+    db.exec(delete(Workspace).where(Workspace.id == workspace_id))
     db.commit()
     # After the commit: a failure above must not leave a workspace without its files
     shutil.rmtree(workspace_files.workspace_dir(workspace_id), ignore_errors=True)

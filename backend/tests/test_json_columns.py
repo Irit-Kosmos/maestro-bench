@@ -28,9 +28,11 @@ def test_a_document_is_stored_as_jsonb_and_comes_back_as_equivalent_text(
 ):
     with scoped(engine) as s:
         stored = s.exec(select(PromptVersion)).one().variables
-        kind = s.execute(
-            text("SELECT jsonb_typeof(variables) FROM promptversion")
-        ).scalar()
+        kind = (
+            s.connection()
+            .execute(text("SELECT jsonb_typeof(variables) FROM promptversion"))
+            .scalar()
+        )
 
     assert kind == "array"
     assert isinstance(stored, str)
@@ -48,7 +50,11 @@ def test_a_missing_document_is_null_not_a_json_null(engine):
 
     with scoped(engine) as s:
         assert s.exec(select(PromptVersion)).one().variables is None
-        assert s.execute(text("SELECT variables IS NULL FROM promptversion")).scalar()
+        assert (
+            s.connection()
+            .execute(text("SELECT variables IS NULL FROM promptversion"))
+            .scalar()
+        )
 
 
 def test_a_text_that_is_not_json_is_refused(engine):
