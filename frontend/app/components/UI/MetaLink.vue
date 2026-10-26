@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A link inside a meta line: same colors as before, with an arrow that slides in on hover/focus
+// A link inside a meta line: an arrow that is always there (it is what says "this is a link"), and nudges on hover/focus
 // Behind a public link a link only works for what the link reaches: the pages that know theirs say so
 // with `in-share`, the others read as text
 defineProps<{
@@ -20,7 +20,7 @@ const { isShared } = useShare()
     <span class="truncate underline-offset-2 group-hover/link:underline"><slot /></span>
     <UIcon
       name="i-ph-arrow-right-bold"
-      class="size-3.5 shrink-0 -translate-x-1 text-toned opacity-0 transition duration-200 ease-out group-hover/link:translate-x-0 group-hover/link:opacity-100 group-focus-visible/link:translate-x-0 group-focus-visible/link:opacity-100 pointer-coarse:translate-x-0 pointer-coarse:opacity-100 motion-reduce:transition-none"
+      class="size-3.5 shrink-0 text-muted transition duration-200 ease-out group-hover/link:translate-x-0.5 group-hover/link:text-highlighted group-focus-visible/link:translate-x-0.5 group-focus-visible/link:text-highlighted motion-reduce:transition-none"
       aria-hidden="true"
     />
   </NuxtLink>
