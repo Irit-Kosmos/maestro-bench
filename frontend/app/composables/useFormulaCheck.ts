@@ -10,8 +10,8 @@ export interface FormulaCheck {
   variables: string[]
 }
 
-/** Prompt version each agent of the experiment uses, by agent id: provided by the agents step */
-export const AGENT_PROMPT_VERSIONS: InjectionKey<Ref<Record<number, number | undefined>>> = Symbol('agentPromptVersions')
+/** Prompt version each step of the experiment uses, by step key: provided by the agents step */
+export const AGENT_PROMPT_VERSIONS: InjectionKey<Ref<Record<string, number | undefined>>> = Symbol('agentPromptVersions')
 
 export interface AggregatorPreview {
   execution_id: number | null
@@ -42,7 +42,7 @@ export function useFormulaCheck(
   mappings: Ref<AgentInputMapping[] | undefined>,
 ) {
   const { $api } = useNuxtApp()
-  const promptVersions = inject(AGENT_PROMPT_VERSIONS, ref<Record<number, number | undefined>>({}))
+  const promptVersions = inject(AGENT_PROMPT_VERSIONS, ref<Record<string, number | undefined>>({}))
 
   const check = computed(() => formulaErrorsOf(formulas.value))
 

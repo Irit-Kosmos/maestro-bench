@@ -66,6 +66,9 @@ export interface AgentInputMapping {
   variable: string
   source: 'dataset' | 'agent' | 'static'
   sourceColumn?: string
+  /** Step whose output is read ("12", or "12#2" for the second run of agent 12): see utils/steps */
+  sourceStep?: string
+  /** Mappings saved before agents could run twice name an agent only: it stands for its first step */
   sourceAgentId?: number
   sourceOutput?: string
   /** Dotted path into the agent's JSON output (`score`, `eval.score`); empty reads the whole output */
@@ -180,6 +183,8 @@ export interface AgentExecutionSnapshot {
   execution_id: number
   /** null once the agent has been deleted: the snapshot keeps its name */
   agent_id: number | null
+  /** The step of the experiment it ran ("12", "12#2"…); null only on an old snapshot of a deleted agent */
+  step_key?: string | null
   /** Aggregator snapshots have empty model and prompt fields */
   kind?: AgentKind
   agent_name_snapshot: string
@@ -297,7 +302,8 @@ export interface CreateExperimentForm {
   name: string
   description?: string
   dataset_id: number | null | undefined
-  agent_configurations?: Record<number, {
+  /** Settings of each step, by step key */
+  agent_configurations?: Record<string, {
     prompt_version_id?: number
     model_id?: number
     temperature?: number
@@ -333,6 +339,10 @@ export interface ExperimentAgentConfig {
   id: number
   experiment_id: number
   agent_id: number
+  /** The step this configures: "12", or "12#2" for the second run of agent 12 */
+  step_key: string
+  /** The step's name when it is not its agent's ("Corrector #2") */
+  label?: string | null
   prompt_version_id: number | null
   model_id: number | null
   temperature: number | null
@@ -510,7 +520,7 @@ export type VariationField = 'model_id' | 'prompt_version_id' | 'temperature'
 
 /** One axis of a batch's grid, as submitted: every value that runs, the base configuration's included */
 export interface Variation {
-  agent_id: number
+  step_key: string
   field: VariationField
   /** A temperature of null is the model's own default */
   values: (number | null)[]
@@ -518,7 +528,7 @@ export interface Variation {
 
 /** One axis as edited in the form: only what is added to the base configuration's value */
 export interface VariationDraft {
-  agent_id: number
+  step_key: string
   field: VariationField
   extras: number[]
 }
@@ -529,13 +539,16 @@ export interface BatchVariationValue {
 }
 
 export interface BatchVariation {
+  step_key: string
   agent_id: number
+  /** Name of the step: its agent's, then "name #2"… */
   agent_name: string
   field: VariationField
   values: BatchVariationValue[]
 }
 
 export interface BatchCoordinate {
+  step_key: string
   agent_id: number
   field: VariationField
   value: number | null

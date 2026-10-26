@@ -1,8 +1,9 @@
+import type { StepRef } from '~/composables/useAgentPipeline'
 import type { Agent, AgentInputMapping } from '~/types'
 import { describe, expect, it } from 'vitest'
 import { markValues, previewValues, splitRendered } from './promptPreview'
 
-const agent = (id: number, name: string) => ({ id, name }) as Agent
+const step = (key: string, label: string): StepRef => ({ key, label, agent: { id: Number.parseInt(key), name: 'Grader' } as Agent })
 const row = { answer: 'Bonjour', score: 4, empty: null }
 
 describe('previewValues', () => {
@@ -33,14 +34,24 @@ describe('previewValues', () => {
     expect(Object.values(values).map(v => v.kind)).toEqual(['missing', 'missing', 'missing'])
   })
 
-  it('names the agent an output comes from, with its path', () => {
+  it('names the step an output comes from, with its path', () => {
     const mappings: AgentInputMapping[] = [
-      { variable: 'a', source: 'agent', sourceAgentId: 2, sourcePath: 'eval.score' },
-      { variable: 'b', source: 'agent', sourceAgentId: 9 },
+      { variable: 'a', source: 'agent', sourceStep: '2', sourcePath: 'eval.score' },
+      { variable: 'b', source: 'agent', sourceStep: '9' },
     ]
-    const values = previewValues(mappings, ['a', 'b'], row, [agent(2, 'Grader')])
+    const values = previewValues(mappings, ['a', 'b'], row, [step('2', 'Grader')])
     expect(values.a).toEqual({ text: '‹Grader: eval.score›', kind: 'stand-in' })
     expect(values.b!.kind).toBe('stand-in')
+  })
+
+  it('tells the runs of one agent apart, and reads mappings saved with an agent id only', () => {
+    const mappings: AgentInputMapping[] = [
+      { variable: 'a', source: 'agent', sourceStep: '2#2' },
+      { variable: 'b', source: 'agent', sourceAgentId: 2 },
+    ]
+    const values = previewValues(mappings, ['a', 'b'], row, [step('2', 'Grader'), step('2#2', 'Grader #2')])
+    expect(values.a!.text).toBe('‹Grader #2›')
+    expect(values.b!.text).toBe('‹Grader›')
   })
 
   it('stands in for a declared variable that has no mapping', () => {

@@ -1,7 +1,12 @@
 import type { FilterSpec } from './filters'
 import type { GroupSummaryPart } from './groups'
-import type { ExecutionListItem } from '~/types'
+import type { AgentExecutionSnapshot, ExecutionListItem } from '~/types'
 import { byOrder } from './filters'
+
+/** The step of the experiment a snapshot ran: its agent for the snapshots made before agents could run twice */
+export function snapshotStep(snapshot: Pick<AgentExecutionSnapshot, 'step_key' | 'agent_id'>): string | undefined {
+  return snapshot.step_key ?? (snapshot.agent_id === null ? undefined : String(snapshot.agent_id))
+}
 
 /** Stopped by someone or by a restart rather than by a problem of its own, so it is never a failure. */
 const isStopped = (status?: string | null) => status === 'cancelled' || status === 'interrupted'

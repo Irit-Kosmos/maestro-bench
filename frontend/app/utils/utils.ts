@@ -1,4 +1,5 @@
 import type { AgentInputMapping } from '~/types'
+import { mappingSource } from './steps'
 
 // Helper function to parse variables string to array
 export function parseVariables(variablesString: string): string[] {
@@ -38,7 +39,7 @@ export function isMappingComplete(mapping: AgentInputMapping | undefined): boole
   if (mapping.source === 'dataset')
     return !!mapping.sourceColumn
   if (mapping.source === 'agent')
-    return mapping.sourceAgentId !== undefined
+    return mappingSource(mapping) !== undefined
   return mapping.source === 'static'
 }
 
