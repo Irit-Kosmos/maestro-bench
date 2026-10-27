@@ -17,6 +17,11 @@ const mine = computed(() => {
   return studies.value.filter(study => ids.has(study.id))
 })
 
+// An archived study is read-only: the item stays in it
+function removable(study: Study) {
+  return canEdit.value && study.status !== 'archived'
+}
+
 async function remove(study: Study) {
   try {
     await assignStudies(props.kind, [props.id], { remove: [study.id] })
@@ -38,13 +43,13 @@ async function remove(study: Study) {
       <NuxtLink
         :to="`/studies/${study.id}`"
         class="inline-flex min-w-0 items-center gap-1.5 rounded-s-md ps-2 text-toned outline-none transition-colors hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
-        :class="canEdit ? 'pe-1' : 'rounded-e-md pe-2'"
+        :class="removable(study) ? 'pe-1' : 'rounded-e-md pe-2'"
       >
         <StudiesStatusIcon :status="study.status" />
         <span class="truncate">{{ study.name }}</span>
       </NuxtLink>
       <button
-        v-if="canEdit"
+        v-if="removable(study)"
         type="button"
         class="me-0.5 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted outline-none transition-colors hover:bg-accented hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
         :aria-label="`Remove from ${study.name}`"
