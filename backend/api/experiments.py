@@ -88,6 +88,14 @@ def _experiment_response(
 ) -> ExperimentResponse:
     """`executions` are ordered from the newest to the oldest."""
     latest_with_results = next((e for e in executions if e.results_file_path), None)
+    latest_analyzable = next(
+        (
+            e
+            for e in executions
+            if e.status == "completed" and e.results_file_path
+        ),
+        None,
+    )
 
     return ExperimentResponse(
         id=int(experiment.id) if experiment.id is not None else 0,
@@ -109,6 +117,10 @@ def _experiment_response(
         variant=parse_point(experiment.variant) or None,
         row_count=execution_row_count(latest_with_results)
         if latest_with_results
+        else None,
+        last_run_at=executions[0].started_at if executions else None,
+        latest_analyzable_execution_id=latest_analyzable.id
+        if latest_analyzable
         else None,
         **latest_figures(executions),
         dataset=DatasetResponse(

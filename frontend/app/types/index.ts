@@ -121,6 +121,10 @@ export interface Experiment {
 
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
+  // When the latest execution started; null while nothing has run
+  last_run_at?: string | null
+  // The latest execution an analysis can read: completed, with its results
+  latest_analyzable_execution_id?: number | null
 
   // Executions of the experiment: how many, and the figures of the latest one
   execution_count?: number
@@ -249,8 +253,8 @@ export interface DashboardTotals {
   /** Rows the executions went through, the failed ones included */
   rows_done: number
   rows_failed: number
-  /** Executions that failed, or went on with failed rows; the cancelled ones are not counted */
-  executions_with_failures: number
+  /** Experiments whose latest execution of the stretch failed, or went on with failed rows; a cancelled one is not counted */
+  experiments_with_failures: number
 }
 
 /** The totals of one slice of the period, `start` being its first instant */

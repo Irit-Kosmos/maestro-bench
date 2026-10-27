@@ -97,20 +97,27 @@ describe('runsFilter', () => {
 })
 
 describe('failuresFilter', () => {
-  const spec = failuresFilter<{ failed: number | null }>(item => item.failed)
+  interface Item { latest?: { status: string, rows_failed: number | null } }
+  const spec = failuresFilter<Item>(item => item.latest)
 
-  it('separates executions with failed rows from clean ones', () => {
-    const items = [{ failed: 3 }, { failed: 0 }, { failed: 0 }]
+  it('separates the latest runs that went wrong from the clean ones', () => {
+    const items: Item[] = [
+      { latest: { status: 'completed', rows_failed: 3 } },
+      { latest: { status: 'failed', rows_failed: 0 } },
+      { latest: { status: 'completed', rows_failed: 0 } },
+      // Cancelling is a choice, not a failure
+      { latest: { status: 'cancelled', rows_failed: 2 } },
+    ]
     const [definition] = buildFilterDefinitions(items, [spec])
-    expect(definition!.options.map(option => [option.label, option.count])).toEqual([['With failed rows', 1], ['No failed rows', 2]])
+    expect(definition!.options.map(option => [option.label, option.count])).toEqual([['Failed or with failed rows', 2], ['No failures', 2]])
   })
 
   it('does not call an experiment without execution clean', () => {
-    expect(buildFilterDefinitions([{ failed: null }], [spec])).toEqual([])
+    expect(buildFilterDefinitions([{}], [spec])).toEqual([])
   })
 
-  it('keeps the items with failed rows', () => {
-    const items = [{ failed: 3 }, { failed: 0 }]
+  it('keeps the items whose latest run went wrong', () => {
+    const items: Item[] = [{ latest: { status: 'failed', rows_failed: 0 } }, { latest: { status: 'completed', rows_failed: 0 } }]
     const state = { [spec.key]: { mode: 'include' as const, values: ['failed'] } }
     expect(items.filter(item => matchesSpecs(item, [spec], state))).toEqual([items[0]])
   })

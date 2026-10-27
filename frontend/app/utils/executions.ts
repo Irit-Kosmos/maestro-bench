@@ -12,17 +12,17 @@ export function snapshotStep(snapshot: Pick<AgentExecutionSnapshot, 'step_key' |
 const isStopped = (status?: string | null) => status === 'cancelled' || status === 'interrupted'
 
 /** Whether an execution is a problem to look into: it failed, or went on with failed rows. Cancelling is a choice, and a restart is not its fault, so neither is. */
-export function hasFailures(execution: Pick<ExecutionListItem, 'status' | 'rows_failed'>): boolean {
-  return !isStopped(execution.status) && (execution.status === 'failed' || execution.rows_failed > 0)
+export function hasFailures(execution: { status?: string | null, rows_failed?: number | null }): boolean {
+  return !isStopped(execution.status) && (execution.status === 'failed' || (execution.rows_failed ?? 0) > 0)
 }
 
 /**
  * What stands out in a group of runs: how many are going and how many went wrong, nothing when all is well.
- * Reads a failure like `hasFailures` does, so the count matches the failures filter and the dashboard.
+ * Reads a failure with `hasFailures`, so the count matches the failures filter and the dashboard.
  */
 export function runsSummary(runs: readonly { status?: string | null, rows_failed?: number | null }[]): GroupSummaryPart[] {
   const running = runs.filter(run => run.status === 'running').length
-  const failed = runs.filter(run => !isStopped(run.status) && (run.status === 'failed' || (run.rows_failed ?? 0) > 0)).length
+  const failed = runs.filter(hasFailures).length
   return [
     ...(running ? [{ label: `${running} running`, class: 'text-warning' }] : []),
     ...(failed ? [{ label: `${failed} failed`, class: 'text-error' }] : []),

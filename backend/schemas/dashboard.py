@@ -45,8 +45,9 @@ class DashboardTotals(BaseModel):
     # Rows the executions went through, the failed ones included
     rows_done: int = 0
     rows_failed: int = 0
-    # Executions that failed, or went on with failed rows; the cancelled ones are a choice, not a problem
-    executions_with_failures: int = 0
+    # Experiments whose latest execution of the stretch failed, or went on with failed
+    # rows; a cancelled one is a choice, not a problem
+    experiments_with_failures: int = 0
 
 
 class DashboardBucket(DashboardTotals):

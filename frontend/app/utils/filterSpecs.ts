@@ -1,5 +1,6 @@
 import type { FilterSpec, FilterState } from './filters'
 import type { Tag } from '~/types'
+import { hasFailures } from './executions'
 import { byOrder, emptyFilterEntry } from './filters'
 import { tagDot } from './tags'
 import { parseApiDate } from './utils'
@@ -135,20 +136,22 @@ export function runsFilter<T>(executions: (item: T) => number | null | undefined
 }
 
 const FAILURES = {
-  failed: { label: 'With failed rows', icon: 'i-ph-warning-bold', iconClass: 'text-error' },
-  clean: { label: 'No failed rows' },
+  failed: { label: 'Failed or with failed rows', icon: 'i-ph-warning-bold', iconClass: 'text-error' },
+  clean: { label: 'No failures' },
 } as const
 
-/** Whether the latest execution had rows that failed. Nothing while there is no execution to tell. */
-export function failuresFilter<T>(rowsFailed: (item: T) => number | null | undefined): FilterSpec<T> {
+/** Whether the latest execution went wrong, read as the dashboard reads it. Nothing while there is no execution to tell. */
+export function failuresFilter<T>(latest: (item: T) => { status?: string | null, rows_failed?: number | null } | undefined): FilterSpec<T> {
   return {
     key: 'failures',
     label: 'Failures',
     icon: 'i-ph-warning-bold',
     multiple: false,
     value: (item) => {
-      const count = rowsFailed(item)
-      return count == null ? undefined : count > 0 ? 'failed' : 'clean'
+      const run = latest(item)
+      if (!run)
+        return undefined
+      return hasFailures(run) ? 'failed' : 'clean'
     },
     present: value => FAILURES[value as keyof typeof FAILURES] ?? { label: String(value) },
     compare: byOrder(Object.keys(FAILURES)),

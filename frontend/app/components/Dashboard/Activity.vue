@@ -104,14 +104,14 @@ const cards = computed<Card[]>(() => {
       worseWhenUp: true,
       before: `${(previous?.rows_failed ?? 0).toLocaleString('en-US')} failed rows`,
       hint: [
-        current.executions_with_failures ? `${plural(current.executions_with_failures, 'execution', 'executions')} affected` : '',
+        current.experiments_with_failures ? `${plural(current.experiments_with_failures, 'experiment', 'experiments')} affected` : '',
         current.rows_done
           ? `${current.rows_failed.toLocaleString('en-US')} of ${current.rows_done.toLocaleString('en-US')} rows`
           : 'No rows processed',
       ].filter(Boolean).join(' · '),
-      // The same executions, over the same period, on the executions list
-      hintTo: current.executions_with_failures
-        ? `/executions?${new URLSearchParams({ failures: '1', ...(range.value === 'all' ? {} : { range: range.value }) })}`
+      // The same experiments, over the same period, on the experiments list
+      hintTo: current.experiments_with_failures
+        ? `/experiments?${new URLSearchParams({ failures: '1', ...(range.value === 'all' ? {} : { range: range.value }) })}`
         : undefined,
       bars: buckets.map(b => b.rows_failed),
       barLabel: b => `${slice(b)} · ${plural(b.rows_failed, 'failed row', 'failed rows')}`,

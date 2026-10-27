@@ -9,7 +9,7 @@ import { useGroupBy } from '~/composables/useGroupBy'
 import { useSortBy } from '~/composables/useSortBy'
 import { runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
-import { datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 // Page meta
@@ -25,20 +25,31 @@ const route = useRoute()
 // Quick test runs (a handful of rows) crowd the list, so they can be filtered out. The choice is remembered per browser
 const rowsEntry = useLocalStorage<FilterEntry>(workspaceStorageKey('maestro:experiments-rows-filter'), emptyFilterEntry())
 
-// A link such as /experiments?batch=<id> opens the list on one batch
+const failures = failuresFilter<Experiment>(exp => exp.execution_count ? { status: exp.execution_statuses?.[0], rows_failed: exp.rows_failed } : undefined)
+const lastRunFilter = dateFilter<Experiment>(exp => exp.last_run_at, 'Last run')
+
+// A link such as /experiments?batch=<id> opens the list on one batch, and the dashboard's
+// /experiments?failures=1&range=7d on what its count was made of
 const batchFromLink = Number(route.query.batch) || undefined
+const seeded: FilterState = {}
+if (route.query.failures)
+  seeded[failures.key] = { mode: 'include', values: ['failed'] }
+const rangeFromLink = DASHBOARD_DATE_RANGES[route.query.range as keyof typeof DASHBOARD_DATE_RANGES]
+if (rangeFromLink)
+  seeded[lastRunFilter.key] = { mode: 'include', values: [rangeFromLink] }
 const filterState = ref<FilterState>({
   rows: rowsEntry.value,
   batch: batchFromLink ? { mode: 'include', values: [batchFromLink] } : emptyFilterEntry(),
+  ...seeded,
 })
 
 watch(() => filterState.value.rows, (entry) => {
   rowsEntry.value = entry ?? emptyFilterEntry()
 })
 
-// The link only seeds the filter: once it changes, the address would be claiming something untrue
-watch(() => filterState.value.batch, () => {
-  if (route.query.batch)
+// The link only seeds the filters: once they change, the address would be claiming something untrue
+watch(() => JSON.stringify([filterState.value.batch, filterState.value[failures.key], filterState.value[lastRunFilter.key]]), () => {
+  if (route.query.batch || route.query.failures || route.query.range)
     navigateTo({ path: '/experiments' }, { replace: true })
 })
 
@@ -197,8 +208,9 @@ const filters = computed<FilterSpec<Experiment>[]>(() => [
     compare: byOrder(['small', 'full']),
   },
   runsFilter(exp => exp.execution_count),
-  failuresFilter(exp => exp.rows_failed),
+  failures,
   dateFilter(exp => exp.created_at),
+  lastRunFilter,
 ])
 
 const actions = [
@@ -227,6 +239,26 @@ const actions = [
 // Navigation handlers
 async function handleViewExperiment(id: number) {
   await navigateTo(`/experiments/${id}`)
+}
+
+// An analysis reads one run of each experiment: the latest that ended well and kept its results.
+// The experiments without one are left out, and said so
+async function analyze(ids: readonly number[]) {
+  const picked = (experiments.value ?? []).filter(exp => ids.includes(exp.id))
+  const runs = picked.flatMap(exp => exp.latest_analyzable_execution_id ? [exp.latest_analyzable_execution_id] : [])
+  if (!runs.length) {
+    info('Nothing to analyze', 'Only experiments with a completed run and its results can be analyzed.')
+    return
+  }
+  const left = picked.length - runs.length
+  if (left > 0) {
+    info(`${left} of ${picked.length} can’t be analyzed`, 'Only experiments with a completed run and its results can be.')
+  }
+  // Oldest first, as the experiment page sends them
+  await navigateTo({
+    path: '/analyses/new',
+    query: { executions: runs.sort((a, b) => a - b).join(','), ...(picked.length === 1 ? { name: picked[0]!.name } : {}) },
+  })
 }
 
 // Stopping a run can't be taken back: it asks first, as the experiment page does
@@ -348,6 +380,15 @@ async function handleCreateExperiment() {
         @refresh="refresh"
       >
         <template #selection-actions>
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-ph-chart-bar-bold"
+            size="sm"
+            @click="analyze(selectedIds)"
+          >
+            Analyze
+          </UButton>
           <StudiesBulkMenu kind="experiment" :ids="selectedIds" />
           <UButton
             variant="ghost"

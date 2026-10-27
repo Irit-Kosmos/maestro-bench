@@ -86,6 +86,10 @@ class ExperimentResponse(LatestExecutionFigures):
 
     # Dataset rows processed by the latest execution that has results
     row_count: int | None = None
+    # When the latest execution started; None while nothing has run
+    last_run_at: datetime | None = None
+    # The latest execution an analysis can read: completed, with its results
+    latest_analyzable_execution_id: int | None = None
 
     # Batch the experiment belongs to, and its coordinates in the batch's grid
     # ({step_key: {field: value}})

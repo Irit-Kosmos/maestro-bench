@@ -200,6 +200,8 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
     ).all()
     executions = session.exec(
         select(
+            ExperimentExecution.id,
+            ExperimentExecution.experiment_id,
             ExperimentExecution.started_at,
             ExperimentExecution.status,
             ExperimentExecution.total_tokens,
@@ -238,7 +240,19 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
             totals.experiments += 1
             totals.completed += status == "completed"
             totals.failed += status == "failed"
-    for started_at, status, tokens, cost, rows_done, rows_failed in executions:
+    # The latest execution of each experiment in each stretch: an experiment is
+    # affected when the run it ended the stretch on went wrong
+    latest_in: dict[int, dict[int, tuple[datetime, int, bool]]] = defaultdict(dict)
+    for (
+        execution_id,
+        experiment_id,
+        started_at,
+        status,
+        tokens,
+        cost,
+        rows_done,
+        rows_failed,
+    ) in executions:
         has_failures = status not in ("cancelled", "interrupted") and (
             status == "failed" or rows_failed > 0
         )
@@ -247,11 +261,17 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
             totals.total_cost_usd += cost or 0.0
             totals.rows_done += rows_done
             totals.rows_failed += rows_failed
-            totals.executions_with_failures += has_failures
+            latest = latest_in[id(totals)]
+            known = latest.get(experiment_id)
+            if known is None or (started_at, execution_id) > known[:2]:
+                latest[experiment_id] = (started_at, execution_id, has_failures)
 
     for totals in (current, previous, *buckets):
         if totals is not None:
             totals.total_cost_usd = round(totals.total_cost_usd, 6)
+            totals.experiments_with_failures = sum(
+                failed for _, _, failed in latest_in[id(totals)].values()
+            )
 
     active = session.exec(
         select(Experiment)
