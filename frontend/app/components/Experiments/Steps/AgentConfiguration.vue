@@ -147,6 +147,13 @@ function removeStep(item: PipelineItem) {
   announcement.value = `${label} removed`
 }
 
+// A node removed from the graph: the graph has already dropped the mappings that read it.
+// Its order is the graph's, so the list's renumbering and pruning would drop mappings to
+// steps the graph runs earlier but the list holds further down
+function removeGraphStep(key: string) {
+  delete configurations.value[key]
+}
+
 // --- Keeping mappings in step with the dataset ---
 
 function syncMappings() {
@@ -310,7 +317,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         :agent-configurations="configurations"
         :dataset-headers="datasetHeaders"
         @update-agent-config="onGraphUpdate"
-        @remove-agent-config="key => pipeline.remove(key)"
+        @remove-agent-config="removeGraphStep"
         @add-agent="key => nextTick(() => pipeline.autoMap(key))"
         @open-prompt-details="id => emit('openPromptDetails', id)"
       >
