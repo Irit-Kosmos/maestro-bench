@@ -27,3 +27,8 @@ pnpm preview
 - `app/types/index.ts` – TypeScript mirror of the backend schemas
 
 Navigation is keyboard-first: press `?` in the app for the shortcuts, `⌘K` for the command palette.
+
+## License
+
+Part of MAESTRO-bench, licensed under the GNU AGPL v3 or later. See the
+[License section of the root README](../README.md#license).

@@ -437,3 +437,17 @@ it expires, unless you deactivate them.
 Deleting a model or a prompt version clears it from the agents, experiment
 configurations and history that referenced it. An agent or a dataset still used
 by an experiment cannot be deleted (HTTP 409).
+
+## License
+
+Copyright (C) 2025-2026 Université de Toulouse, CNRS ([IRIT](https://www.irit.fr/))
+and [Kosmos](https://www.kosmos-education.com/).
+
+MAESTRO-bench is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. It is distributed WITHOUT ANY WARRANTY. See [LICENSE](LICENSE)
+for the full text.
+
+Every source file carries the same notice in its header, with an
+`SPDX-License-Identifier: AGPL-3.0-or-later` line.
