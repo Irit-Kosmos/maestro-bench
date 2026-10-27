@@ -16,8 +16,8 @@ variables:
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
 
   # Keep in line with the base images of backend/Dockerfile and frontend/Dockerfile.local
-  PYTHON_IMAGE: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
-  NODE_IMAGE: node:22-alpine
+  PYTHON_IMAGE: ghcr.io/astral-sh/uv:python3.13-trixie-slim
+  NODE_IMAGE: node:24-alpine
   POSTGRES_IMAGE: postgres:17-alpine
   RUFF_VERSION: "0.14.10"
 

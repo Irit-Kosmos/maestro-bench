@@ -17,7 +17,7 @@ permissions:
 env:
   # Keep in line with .gitlab-ci.yml and the base images of the Dockerfiles
   PYTHON_VERSION: "3.13"
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
   RUFF_VERSION: "0.14.10"
 
 jobs:
