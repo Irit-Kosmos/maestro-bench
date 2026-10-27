@@ -1,0 +1,37 @@
+name: Mirror to GitLab IRIT
+
+# GitHub is the source of truth; the IRIT GitLab only receives main and the
+# version tags so that its CI (runners inside the IRIT network) can build and deploy.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+# Never run two pushes at once: the latest one wins
+concurrency:
+  group: mirror-gitlab
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_REPO: gitlab.irit.fr/talent/TALENT/around-elaastic/around-konsolidation/maestro-bench.git
+        run: |
+          git remote add irit "https://oauth2:${GITLAB_TOKEN}@${GITLAB_REPO}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            git push --force irit "refs/tags/${GITHUB_REF_NAME}"
+          else
+            # GitLab is a pure mirror: nobody commits there, so overwriting is safe
+            git push --force irit HEAD:refs/heads/main
+          fi
