@@ -312,6 +312,60 @@ def test_output_paths_of_one_prompt_version(client, engine, setup, results_dir):
     assert (v3["paths"], v3["list_paths"]) == ([], [])
 
 
+def test_output_paths_of_a_version_another_step_of_the_agent_ran(
+    client, engine, setup, results_dir
+):
+    """The agent ran twice, the second time with the version asked."""
+    path = results_dir / "results-twice.json"
+    rows = [
+        {
+            "row_index": 1,
+            "input_data": {},
+            "agents": [
+                {"name": "Langue", "output": {"old": 1}},
+                {"name": "Langue #2", "output": {"score": 3}},
+            ],
+        }
+    ]
+    path.write_text(json.dumps({"rows": rows}))
+    with scoped(engine) as s:
+        experiment = Experiment(name="Twice", dataset_id=setup["dataset"])
+        s.add(experiment)
+        s.flush()
+        execution = ExperimentExecution(
+            experiment_id=experiment.id,
+            dataset_snapshot="{}",
+            status="completed",
+            results_file_path=path.name,
+        )
+        s.add(execution)
+        s.flush()
+        for order, (key, name, version) in enumerate(
+            [("", "Langue", 1), ("#2", "Langue #2", 2)], start=1
+        ):
+            s.add(
+                AgentExecutionSnapshot(
+                    execution_id=execution.id,
+                    agent_id=setup["langue"],
+                    step_key=f"{setup['langue']}{key}",
+                    agent_name_snapshot=name,
+                    model_name_snapshot="gpt",
+                    model_provider_snapshot="openai",
+                    prompt_name_snapshot="Judge",
+                    prompt_version_snapshot=str(version),
+                    prompt_version_id=version,
+                    execution_order=order,
+                )
+            )
+        s.commit()
+
+    response = client.get(
+        f"/agents/{setup['langue']}/output-paths", params={"prompt_version_id": 2}
+    )
+
+    assert response.json()["paths"] == ["score"]
+
+
 def test_preview_prefers_the_experiment_prompt_versions(
     client, engine, setup, results_dir
 ):

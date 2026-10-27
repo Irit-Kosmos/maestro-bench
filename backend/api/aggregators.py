@@ -90,20 +90,29 @@ def _executions_with(
         }
         standing_for: dict[str, str] = {}
         for step in steps:
-            found = step if step in ran else next(
-                (k for k, s in ran.items() if s.agent_id == agent_id_of(step)), None
+            # The step itself first, then the other steps of its agent; with a
+            # version asked, the first of them that ran with it
+            same_agent = [step] if step in ran else []
+            same_agent += [
+                k
+                for k, s in ran.items()
+                if k != step and s.agent_id == agent_id_of(step)
+            ]
+            version = (versions or {}).get(step)
+            found = next(
+                (
+                    k
+                    for k in same_agent
+                    if version is None or ran[k].prompt_version_id == version
+                ),
+                None,
             )
             if found is None:
                 break
             standing_for[step] = found
         else:
             names = {key: s.agent_name_snapshot for key, s in ran.items()}
-            if all(
-                ran[standing_for[step]].prompt_version_id == version
-                for step, version in (versions or {}).items()
-                if step in standing_for
-            ):
-                yield execution, names, standing_for
+            yield execution, names, standing_for
 
 
 def _is_step(step: str) -> bool:
