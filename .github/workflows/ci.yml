@@ -1,0 +1,80 @@
+name: CI
+
+# Same checks as .gitlab-ci.yml, so that pull requests get feedback on GitHub
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new commit on a pull request cancels the run of the previous one
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Keep in line with .gitlab-ci.yml and the base images of the Dockerfiles
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+  RUFF_VERSION: "0.14.10"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: maestro
+          POSTGRES_PASSWORD: maestro
+          POSTGRES_DB: maestro
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maestro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The tests create and use maestro_test_<worker> on this server (see backend/tests/conftest.py)
+      DATABASE_URL: postgresql+psycopg://maestro:maestro@localhost:5432/maestro
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --frozen
+      - run: uvx ruff@${RUFF_VERSION} check .
+      # The migrations must build the schema from scratch and cover every table change
+      - run: uv run --frozen alembic upgrade head
+      - run: uv run --frozen alembic check
+      # One database per worker; capped so that a big runner does not open dozens
+      - run: uv run --frozen pytest -q -n auto --maxprocesses=4
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      # Reads the pnpm version from "packageManager" in package.json
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
