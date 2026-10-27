@@ -14,12 +14,19 @@ def step_key(agent_id: int, instance: int = 1) -> str:
 
 
 def split_step(step: object) -> tuple[int, int]:
-    """(agent id, instance number) of a step key; ValueError when it is not one."""
+    """(agent id, instance number) of a step key; ValueError when it is not one.
+
+    Only the form `step_key` writes is one: "012" or "12#1" would name the step
+    "12" under a key nothing else looks it up by.
+    """
     agent, _, instance = str(step).partition("#")
     try:
-        return int(agent), int(instance) if instance else 1
+        parsed = int(agent), int(instance) if instance else 1
     except ValueError:
         raise ValueError(f"Invalid step '{step}'") from None
+    if parsed[1] < 1 or step_key(*parsed) != str(step):
+        raise ValueError(f"Invalid step '{step}'")
+    return parsed
 
 
 def agent_id_of(step: object) -> int:

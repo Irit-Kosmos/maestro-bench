@@ -170,3 +170,8 @@ class TestBatchStatus:
     )
     def test_overall_status(self, statuses, expected):
         assert batch_status(statuses) == expected
+
+
+def test_an_axis_must_vary_a_step_key():
+    with pytest.raises(VariationError, match="Invalid step"):
+        normalize_variations([axis("1#1", "model_id", 3)])

@@ -448,6 +448,31 @@ def test_an_aggregator_cannot_read_a_step_that_is_not_there(client, setup):
     assert "not in the experiment" in response.json()["detail"]
 
 
+@pytest.mark.parametrize("step", ["{langue}#1", "0{langue}", "{langue}#0"])
+def test_a_step_key_must_be_written_one_way(client, setup, step):
+    body = experiment_body(setup, {})
+    body["agent_configurations"][step.format(langue=setup["langue"])] = {}
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]
+
+
+def test_a_mapping_must_read_a_step_key(client, setup):
+    body = experiment_body(setup, {"input_mappings": mappings(setup)})
+    body["agent_configurations"][str(setup["contenu"])] = {
+        "input_mappings": [
+            {"variable": "x", "source": "agent", "sourceStep": f"0{setup['langue']}"}
+        ]
+    }
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]
+
+
 def test_a_step_key_must_name_an_agent(client, setup):
     body = experiment_body(setup, {})
     body["agent_configurations"]["abc#2"] = {}
