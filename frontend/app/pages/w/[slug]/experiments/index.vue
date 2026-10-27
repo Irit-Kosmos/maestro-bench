@@ -130,7 +130,7 @@ const columns = computed(() => [
   {
     key: 'status',
     // The icon and the dots of the earlier executions: the progress of a run in flight sits under the row count
-    width: 112,
+    width: 144,
     label: 'Status',
   },
   {
