@@ -9,15 +9,11 @@ from db import SessionDep
 from results_files import execution_row_count, results_path
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
-    ExecutionListAgent,
-    ExecutionListItem,
     ExperimentExecutionResponse,
     ExperimentTrace,
 )
 from tables import (
-    Agent,
     AgentExecutionSnapshot,
-    Batch,
     Experiment,
     ExperimentExecution,
 )
@@ -116,80 +112,6 @@ def get_experiment_executions(
         )
     ).all()
     return _build_execution_responses(list(executions), session)
-
-
-@router.get("/executions", response_model=list[ExecutionListItem])
-def list_executions(session: SessionDep):
-    """Every execution of every experiment, newest first, whatever its status."""
-    executions = session.exec(
-        select(ExperimentExecution).order_by(
-            col(ExperimentExecution.started_at).desc(),
-            col(ExperimentExecution.id).desc(),
-        )
-    ).all()
-
-    experiments = {e.id: e for e in session.exec(select(Experiment)).all()}
-    batches = {b.id: b for b in session.exec(select(Batch)).all()}
-    live_agents = set(session.exec(select(Agent.id)).all())
-    # Only the columns the list shows: the snapshots also hold the full prompts
-    agents_of: dict[int, list[ExecutionListAgent]] = defaultdict(list)
-    for execution_id, agent_id, kind, name, model, provider, prompt, version in (
-        session.exec(
-            select(
-                AgentExecutionSnapshot.execution_id,
-                AgentExecutionSnapshot.agent_id,
-                AgentExecutionSnapshot.kind,
-                AgentExecutionSnapshot.agent_name_snapshot,
-                AgentExecutionSnapshot.model_name_snapshot,
-                AgentExecutionSnapshot.model_provider_snapshot,
-                AgentExecutionSnapshot.prompt_name_snapshot,
-                AgentExecutionSnapshot.prompt_version_snapshot,
-            ).order_by(col(AgentExecutionSnapshot.execution_order))
-        ).all()
-    ):
-        agents_of[execution_id].append(
-            ExecutionListAgent(
-                agent_id=agent_id if agent_id in live_agents else None,
-                kind=kind,
-                name=name,
-                model=model,
-                provider=provider,
-                prompt=prompt,
-                prompt_version=version,
-            )
-        )
-
-    items = []
-    for execution in executions:
-        experiment = experiments.get(execution.experiment_id)
-        batch = batches.get(experiment.batch_id) if experiment else None
-        dataset_name = json.loads(execution.dataset_snapshot).get("name")
-        duration = None
-        if execution.completed_at:
-            duration = (execution.completed_at - execution.started_at).total_seconds()
-        items.append(
-            ExecutionListItem(
-                id=int(execution.id or 0),
-                experiment_id=execution.experiment_id,
-                experiment_name=experiment.name if experiment else "Unknown",
-                batch_id=batch.id if batch else None,
-                batch_name=batch.name if batch else None,
-                dataset_name=dataset_name,
-                status=execution.status,
-                started_at=execution.started_at,
-                completed_at=execution.completed_at,
-                duration_seconds=duration,
-                rows_total=execution.rows_total,
-                rows_done=execution.rows_done,
-                rows_failed=execution.rows_failed,
-                row_count=execution_row_count(execution),
-                has_results=bool(execution.results_file_path),
-                total_tokens=execution.total_tokens,
-                total_cost_usd=execution.total_cost_usd,
-                agents=agents_of.get(int(execution.id or 0), []),
-            )
-        )
-    return items
 
 
 @router.get("/executions/{execution_id}", response_model=ExperimentExecutionResponse)

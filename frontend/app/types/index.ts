@@ -481,32 +481,6 @@ export interface ExecutionRow {
   error: string | null
 }
 
-/** One execution in the list spanning every experiment */
-export interface ExecutionListItem {
-  id: number
-  experiment_id: number
-  experiment_name: string
-  batch_id: number | null
-  batch_name: string | null
-  dataset_name: string | null
-  status: string
-  started_at: string
-  completed_at: string | null
-  duration_seconds: number | null
-  /** Live progress, in dataset rows; failed rows are counted in the rows done */
-  rows_total: number | null
-  rows_done: number
-  rows_failed: number
-  /** Dataset rows processed; null until the results file exists */
-  row_count: number | null
-  has_results: boolean
-  total_tokens: number | null
-  total_cost_usd: number | null
-  /** In the order they ran */
-  /** agent_id is null once the agent has been deleted */
-  agents: { agent_id: number | null, kind?: AgentKind, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
-}
-
 export interface AvailableExecution {
   execution_id: number
   experiment_id: number

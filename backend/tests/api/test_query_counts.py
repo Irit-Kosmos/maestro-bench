@@ -234,7 +234,6 @@ ENDPOINTS = [
     "/experiments/{experiment}/executions",
     "/batches",
     "/batches/{batch}",
-    "/executions",
     "/executions/{execution}",
     "/executions/{execution}/trace",
     "/agents",
