@@ -1,5 +1,5 @@
-# Python 3.13 slim with uv preinstalled
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+# Python 3.13 slim (Debian trixie) with uv preinstalled
+FROM ghcr.io/astral-sh/uv:python3.13-trixie-slim
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
