@@ -20,8 +20,10 @@ from batch_utils import (
     serialize_point,
     unmapped_variables,
     variant_label,
+    variation_step,
 )
 from core.orchestrator import AGGREGATOR
+from core.steps import agent_id_of, split_step, step_label
 from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
@@ -99,9 +101,11 @@ def _value_label(field: str, value: int | float | None, labels: _Labels) -> str:
     return f"{prompt_name} v{version.version}"
 
 
-def _agent_name(agent_id: int, labels: _Labels) -> str:
+def _agent_name(step: str, labels: _Labels) -> str:
+    """Name of a step of a batch: its agent's, then "name #2"…"""
+    agent_id, instance = split_step(step)
     agent = labels.get(Agent, agent_id)
-    return agent.name if agent else f"agent {agent_id}"
+    return step_label(agent.name, instance) if agent else f"agent {agent_id}"
 
 
 # ---------------------------------------------------------------------------
@@ -111,15 +115,15 @@ def _agent_name(agent_id: int, labels: _Labels) -> str:
 
 def _base_values(
     data: BatchCreate, variations: list[dict], session: Session
-) -> dict[tuple[int, str], int | float | None]:
+) -> dict[tuple[str, str], int | float | None]:
     """The value each varied field has in the base configuration."""
-    values: dict[tuple[int, str], int | float | None] = {}
+    values: dict[tuple[str, str], int | float | None] = {}
     for variation in variations:
-        agent_id, field = variation["agent_id"], variation["field"]
-        config = data.config.agent_configurations.get(str(agent_id)) or {}
+        step, field = variation_step(variation), variation["field"]
+        config = data.config.agent_configurations.get(step) or {}
         value = config.get(field)
         if value is None and field != "temperature":
-            agent = session.get(Agent, agent_id)
+            agent = session.get(Agent, agent_id_of(step))
             default = None
             if agent:
                 default = (
@@ -128,7 +132,7 @@ def _base_values(
                     else agent.default_prompt_version_id
                 )
             value = default
-        values[(agent_id, field)] = value
+        values[(step, field)] = value
     return values
 
 
@@ -159,45 +163,48 @@ def _validate_batch(
             f"(the maximum is {MAX_BATCH_EXPERIMENTS})"
         )
 
-    configs = data.config.agent_configurations
-    varied: dict[int, dict[str, list]] = {}
+    configs = {str(step): config for step, config in data.config.agent_configurations.items()}
+    varied: dict[str, dict[str, list]] = {}
     for variation in variations:
-        varied.setdefault(variation["agent_id"], {})[variation["field"]] = variation[
+        varied.setdefault(variation_step(variation), {})[variation["field"]] = variation[
             "values"
         ]
 
     # The base configuration: every active agent must end up with a prompt and a
     # model, otherwise the experiment would silently skip it
     active_agents = 0
-    for agent_id_str, config in configs.items():
+    for step, config in configs.items():
         if not config or not config.get("is_active", True):
             continue
-        agent = session.get(Agent, int(agent_id_str))
+        try:
+            agent = session.get(Agent, agent_id_of(step))
+        except ValueError:
+            fail(f"Invalid step '{step}'")
         if not agent:
             continue
         active_agents += 1
         if agent.kind == AGGREGATOR:
             # Computed from formulas: no prompt and no model
             continue
-        axes = varied.get(agent.id, {})
+        axes = varied.get(step, {})
         if not (
             "prompt_version_id" in axes
             or config.get("prompt_version_id")
             or agent.default_prompt_version_id
         ):
-            fail(f"Agent '{agent.name}' has no prompt version")
+            fail(f"Agent '{_agent_name(step, _Labels(session))}' has no prompt version")
         if not (
             "model_id" in axes or config.get("model_id") or agent.default_model_id
         ):
-            fail(f"Agent '{agent.name}' has no model")
+            fail(f"Agent '{_agent_name(step, _Labels(session))}' has no model")
     if active_agents == 0:
         fail("The batch has no active agent")
 
-    for agent_id, axes in varied.items():
-        agent = session.get(Agent, agent_id)
-        config = configs.get(str(agent_id))
+    for step, axes in varied.items():
+        agent = session.get(Agent, agent_id_of(step))
+        config = configs.get(step)
         if not agent or not config or not config.get("is_active", True):
-            fail(f"Agent {agent_id} is not an active agent of the batch")
+            fail(f"Step {step} is not an active step of the batch")
         assert agent is not None
 
         for model_id in axes.get("model_id", []):
@@ -214,7 +221,7 @@ def _validate_batch(
             )
             if missing:
                 fail(
-                    f"Agent '{agent.name}': prompt "
+                    f"Agent '{_agent_name(step, _Labels(session))}': prompt "
                     f"'{_value_label('prompt_version_id', version_id, _Labels(session))}' "
                     f"needs variables with no input mapping: "
                     f"{', '.join(sorted(missing))}"
@@ -296,8 +303,8 @@ def _preload_labels(
     model_ids: set[int] = set()
     version_ids: set[int] = set()
 
-    def note(agent_id: int, field: str, value: object) -> None:
-        agent_ids.add(agent_id)
+    def note(step: str, field: str, value: object) -> None:
+        agent_ids.add(agent_id_of(step))
         if value is None:
             return
         if field == "model_id":
@@ -308,11 +315,11 @@ def _preload_labels(
     for batch in batches:
         for variation in json.loads(batch.variations or "[]"):
             for value in variation["values"]:
-                note(variation["agent_id"], variation["field"], value)
+                note(variation_step(variation), variation["field"], value)
     for experiment in experiments:
-        for agent_id, fields in parse_point(experiment.variant).items():
+        for step, fields in parse_point(experiment.variant).items():
             for field, value in fields.items():
-                note(agent_id, field, value)
+                note(step, field, value)
 
     labels = _Labels(session)
     labels.preload(Agent, agent_ids)
@@ -337,8 +344,9 @@ def _batch_response(
 
     axis_responses = [
         VariationResponse(
-            agent_id=v["agent_id"],
-            agent_name=_agent_name(v["agent_id"], labels),
+            step_key=variation_step(v),
+            agent_id=agent_id_of(variation_step(v)),
+            agent_name=_agent_name(variation_step(v), labels),
             field=v["field"],
             values=[
                 VariationValueResponse(
@@ -356,13 +364,16 @@ def _batch_response(
         point = parse_point(experiment.variant)
         coordinates = [
             VariantCoordinate(
-                agent_id=v["agent_id"],
+                step_key=variation_step(v),
+                agent_id=agent_id_of(variation_step(v)),
                 field=v["field"],
-                value=point[v["agent_id"]][v["field"]],
-                label=_value_label(v["field"], point[v["agent_id"]][v["field"]], labels),
+                value=point[variation_step(v)][v["field"]],
+                label=_value_label(
+                    v["field"], point[variation_step(v)][v["field"]], labels
+                ),
             )
             for v in variations
-            if v["field"] in point.get(v["agent_id"], {})
+            if v["field"] in point.get(variation_step(v), {})
         ]
         executions = executions_of[experiment.id]
         execution = executions[0] if executions else None
@@ -474,19 +485,18 @@ def create_batch(
         sampling_start_row=data.config.sampling_start_row,
         sampling_end_row=data.config.sampling_end_row,
     )
-    multi_agent = len({v["agent_id"] for v in variations}) > 1
+    multi_step = len({variation_step(v) for v in variations}) > 1
 
     labels = _Labels(session)
     experiment_ids = []
     for point in points:
         parts = []
         for variation in variations:
-            value = point[variation["agent_id"]][variation["field"]]
+            step = variation_step(variation)
+            value = point[step][variation["field"]]
             label = _value_label(variation["field"], value, labels)
             parts.append(
-                f"{_agent_name(variation['agent_id'], labels)}: {label}"
-                if multi_agent
-                else label
+                f"{_agent_name(step, labels)}: {label}" if multi_step else label
             )
         try:
             experiment = add_experiment(

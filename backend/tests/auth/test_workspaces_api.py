@@ -67,7 +67,7 @@ def test_a_workspace_needs_a_name(alice):
 
 SCOPED_READS = [
     "datasets", "models", "prompts", "prompt-versions", "agents",
-    "tags", "batches", "analyses", "analyses/executions", "executions",
+    "tags", "batches", "analyses", "analyses/executions",
     "experiments", "dashboard", "providers", "events",
 ]  # fmt: skip
 

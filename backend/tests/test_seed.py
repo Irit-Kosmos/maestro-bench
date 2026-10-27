@@ -69,7 +69,9 @@ def test_existing_data_is_kept_and_not_duplicated(engine):
         experiment = Experiment(name="Run", dataset_id=dataset.id)
         s.add(experiment)
         s.flush()
-        s.add(ExperimentAgentConfig(experiment_id=experiment.id, agent_id=agent.id))
+        s.add(ExperimentAgentConfig(
+                experiment_id=experiment.id, agent_id=agent.id, step_key=str(agent.id)
+            ))
         s.commit()
         ids = {"dataset": dataset.id, "agent": agent.id}
 

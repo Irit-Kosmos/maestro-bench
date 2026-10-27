@@ -45,7 +45,6 @@ const groups = computed<CommandPaletteGroup[]>(() => {
       { label: 'Dashboard', icon: 'i-ph-squares-four-bold', kbds: ['G', 'H'], onSelect: () => navigate('/') },
       { label: 'Studies', icon: 'i-ph-notebook-bold', kbds: ['G', 'Y'], onSelect: () => navigate('/studies') },
       { label: 'Experiments', icon: 'i-ph-flask-bold', kbds: ['G', 'E'], onSelect: () => navigate('/experiments') },
-      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise-bold', kbds: ['G', 'X'], onSelect: () => navigate('/executions') },
       { label: 'Batches', icon: 'i-ph-arrows-split-bold', kbds: ['G', 'B'], onSelect: () => navigate('/batches') },
       { label: 'Analyses', icon: 'i-ph-chart-bar-bold', kbds: ['G', 'N'], onSelect: () => navigate('/analyses') },
       { label: 'Datasets', icon: 'i-ph-database-bold', kbds: ['G', 'D'], onSelect: () => navigate('/datasets') },

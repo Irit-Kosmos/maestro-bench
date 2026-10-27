@@ -1,6 +1,6 @@
 import type { AgentConfiguration, PromptVersion, VariationDraft } from '~/types'
 import { describe, expect, it } from 'vitest'
-import { addedVariables, addedVariablesByAgent, unmappedAddedCount } from './variations'
+import { addedVariables, addedVariablesByStep, formSignature, resolveVariations, unmappedAddedCount, variationIssues } from './variations'
 
 const version = (id: number, variables: string[]) => ({ id, variables: JSON.stringify(variables) }) as PromptVersion
 
@@ -11,7 +11,7 @@ const config: AgentConfiguration = {
   input_mappings: [{ variable: 'text', source: 'dataset', sourceColumn: 'text' }],
 }
 
-const draft = (extras: number[], field: VariationDraft['field'] = 'prompt_version_id'): VariationDraft => ({ agent_id: 7, field, extras })
+const draft = (extras: number[], field: VariationDraft['field'] = 'prompt_version_id'): VariationDraft => ({ step_key: '7', field, extras })
 
 describe('addedVariables', () => {
   it('lists the variables the current prompt lacks, once each', () => {
@@ -27,10 +27,52 @@ describe('addedVariables', () => {
   })
 })
 
-describe('addedVariablesByAgent', () => {
-  it('groups them by agent and leaves out agents with nothing to map', () => {
-    const drafts = [draft([2]), { agent_id: 8, field: 'prompt_version_id' as const, extras: [1] }]
-    expect(addedVariablesByAgent(drafts, { 7: config, 8: config }, versions)).toEqual({ 7: ['context'] })
+describe('addedVariablesByStep', () => {
+  it('groups them by step and leaves out steps with nothing to map', () => {
+    const drafts = [draft([2]), { step_key: '8', field: 'prompt_version_id' as const, extras: [1] }]
+    expect(addedVariablesByStep(drafts, { 7: config, 8: config }, versions)).toEqual({ 7: ['context'] })
+  })
+
+  it('keeps the two steps of one agent apart', () => {
+    const drafts = [draft([2]), { step_key: '7#2', field: 'prompt_version_id' as const, extras: [3] }]
+    const other: AgentConfiguration = { prompt_version_id: 2 }
+    expect(addedVariablesByStep(drafts, { '7': config, '7#2': other }, versions)).toEqual({ '7': ['context'], '7#2': ['question'] })
+  })
+})
+
+describe('resolveVariations', () => {
+  it('runs the base value of each step then what is added, so two steps of an agent are two axes', () => {
+    const configs: Record<string, AgentConfiguration> = { '7': { model_id: 1 }, '7#2': { model_id: 5 } }
+    const drafts: VariationDraft[] = [
+      { step_key: '7', field: 'model_id', extras: [2] },
+      { step_key: '7#2', field: 'model_id', extras: [6, 5] },
+    ]
+    expect(resolveVariations(drafts, configs)).toEqual([
+      { step_key: '7', field: 'model_id', values: [1, 2] },
+      { step_key: '7#2', field: 'model_id', values: [5, 6] },
+    ])
+  })
+})
+
+describe('variationIssues', () => {
+  it('refuses the same field of the same step twice, not of two steps of one agent', () => {
+    expect(variationIssues([draft([1], 'model_id'), { step_key: '7#2', field: 'model_id', extras: [2] }])).toEqual([])
+    expect(variationIssues([draft([1], 'model_id'), draft([2], 'model_id')])).toHaveLength(1)
+  })
+})
+
+describe('formSignature', () => {
+  const sampling = { sampling_type: 'all' }
+
+  it('tells a pipeline that runs an agent twice from one that runs it once', () => {
+    const once = formSignature(1, sampling, { 7: { model_id: 1, execution_order: 1 } })
+    const twice = formSignature(1, sampling, { '7': { model_id: 1, execution_order: 1 }, '7#2': { model_id: 1, execution_order: 2 } })
+    expect(twice).not.toBe(once)
+  })
+
+  it('reads a mapping saved with an agent id like one with the step', () => {
+    const mapped = (source: object) => ({ 8: { execution_order: 2, input_mappings: [{ variable: 'a', source: 'agent' as const, ...source }] } })
+    expect(formSignature(1, sampling, mapped({ sourceAgentId: 7 }))).toBe(formSignature(1, sampling, mapped({ sourceStep: '7' })))
   })
 })
 

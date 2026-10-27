@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from schemas.experiment_executions import LatestExecutionFigures
 from schemas.experiments import MAX_SAMPLING_SEED, SamplingType
@@ -16,12 +16,21 @@ VariableField = Literal["model_id", "prompt_version_id", "temperature"]
 
 
 class VariationSpec(BaseModel):
-    """One axis of a batch's grid: an agent field and the values it takes."""
+    """One axis of a batch's grid: the field of a step and the values it takes."""
 
-    agent_id: int
+    # Step of the experiment, by key ("12", "12#2"…); an agent alone ("agent_id")
+    # means its first step
+    step_key: str | None = None
+    agent_id: int | None = None
     field: VariableField
     # A temperature of None is the model's own default
     values: list[int | float | None] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _needs_a_step(self):
+        if self.step_key is None and self.agent_id is None:
+            raise ValueError("A variation needs a step_key")
+        return self
 
 
 class BatchBaseConfig(BaseModel):
@@ -57,7 +66,9 @@ class VariationValueResponse(BaseModel):
 
 
 class VariationResponse(BaseModel):
+    step_key: str
     agent_id: int
+    # The step's name: its agent's, then "name #2"…
     agent_name: str
     field: VariableField
     values: list[VariationValueResponse]
@@ -66,6 +77,7 @@ class VariationResponse(BaseModel):
 class VariantCoordinate(BaseModel):
     """Where an experiment sits on one axis."""
 
+    step_key: str
     agent_id: int
     field: VariableField
     value: int | float | None

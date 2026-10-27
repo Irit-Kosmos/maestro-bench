@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import type { PipelineItem } from '~/composables/useAgentPipeline'
 import type { Agent, AgentConfiguration, Model, PromptVersion } from '~/types'
 
-// Agents of the experiment. The backend runs them one after another and returns the last one's output,
-// so the default view is an ordered list. The graph is kept for those who prefer to wire agents visually.
+// Steps of the experiment: runs of an agent, which may run more than once. The backend runs them one after another
+// and returns the last one's output, so the default view is an ordered list. The graph is kept for those who prefer
+// to wire agents visually.
 const props = defineProps<{
   agents?: Agent[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
   datasetHeaders?: readonly string[]
-  /** Variables of the prompt variations, per agent: they keep their mappings */
-  extraVariables?: Record<number, readonly string[]>
+  /** Variables of the prompt variations, per step key: they keep their mappings */
+  extraVariables?: Record<string, readonly string[]>
   /** Reloads the agents, so an agent created here can be added */
   refreshAgents?: () => Promise<void>
 }>()
@@ -18,7 +20,7 @@ const emit = defineEmits<{
   openPromptDetails: [promptVersionId: number]
 }>()
 
-const configurations = defineModel<Record<number, AgentConfiguration>>('agentConfigurations', { required: true })
+const configurations = defineModel<Record<string, AgentConfiguration>>('agentConfigurations', { required: true })
 
 const { info } = useStandardToast()
 
@@ -35,18 +37,18 @@ const pipeline = useAgentPipeline({
 })
 const { items } = pipeline
 
-// Output paths and previews follow the prompt version each agent runs with here
+// Output paths and previews follow the prompt version each step runs with here
 provide(AGENT_PROMPT_VERSIONS, computed(() => Object.fromEntries(Object.entries(configurations.value)
-  .map(([id, config]) => [Number(id), config?.prompt_version_id]))))
+  .map(([key, config]) => [key, config?.prompt_version_id]))))
 
 const view = ref<'list' | 'graph'>('list')
-const flowViewRef = ref<{ computeExecutionOrder: () => Map<number, number>, addAgent: (agent: Agent) => void } | null>(null)
+const flowViewRef = ref<{ computeExecutionOrder: () => Map<string, number>, addAgent: (agent: Agent) => void } | null>(null)
 
 // Run order for submission: the graph's topological order, or simply the list's
 function getExecutionOrder() {
   if (view.value === 'graph' && flowViewRef.value)
     return flowViewRef.value.computeExecutionOrder()
-  return new Map(items.value.map(item => [item.agent.id, item.position]))
+  return new Map(items.value.map(item => [item.key, item.position]))
 }
 
 defineExpose({ getExecutionOrder })
@@ -79,15 +81,15 @@ const { canEdit } = useCurrentWorkspace()
 
 const hasAgents = computed(() => (props.agents?.length ?? 0) > 0)
 
-const openIds = ref(new Set<number>())
+const openKeys = ref(new Set<string>())
 
-function setOpen(id: number, value: boolean) {
-  const next = new Set(openIds.value)
+function setOpen(key: string, value: boolean) {
+  const next = new Set(openKeys.value)
   if (value)
-    next.add(id)
+    next.add(key)
   else
-    next.delete(id)
-  openIds.value = next
+    next.delete(key)
+  openKeys.value = next
 }
 
 function addAgent(agent: Agent) {
@@ -97,16 +99,16 @@ function addAgent(agent: Agent) {
     flowViewRef.value.addAgent(known)
     return
   }
-  pipeline.add(known)
-  // A new agent is what the eyes are on: open it and fold the others. A lone agent is already a form.
-  openIds.value = new Set([known.id])
+  const key = pipeline.add(known)
+  // A new step is what the eyes are on: open it and fold the others. A lone step is already a form.
+  openKeys.value = new Set([key])
 }
 
 const pickerProps = computed(() => ({
   agents: props.agents,
   models: models.value,
   promptVersions: promptVersions.value,
-  addedIds: pipeline.addedIds.value,
+  addedCounts: pipeline.addedCounts.value,
   refreshAgents: props.refreshAgents,
 }))
 
@@ -120,29 +122,36 @@ const announcement = ref('')
 useSortableList(sortableRef, {
   onMove: (from, to) => {
     const item = items.value[from]
-    if (item && pipeline.moveTo(item.agent.id, to))
-      announce(item.agent.id)
+    if (item && pipeline.moveTo(item.key, to))
+      announce(item.key)
   },
 })
 
-function announce(agentId: number) {
-  const item = items.value.find(i => i.agent.id === agentId)
-  announcement.value = item ? `${item.agent.name} is now step ${item.position} of ${items.value.length}` : ''
+function announce(key: string) {
+  const item = items.value.find(i => i.key === key)
+  announcement.value = item ? `${item.label} is now step ${item.position} of ${items.value.length}` : ''
 }
 
-async function move(agentId: number, delta: -1 | 1) {
-  if (!pipeline.move(agentId, delta))
+async function move(key: string, delta: -1 | 1) {
+  if (!pipeline.move(key, delta))
     return
-  announce(agentId)
+  announce(key)
   // Reordering re-inserts the row, which drops focus: put it back on the grip that was used
   await nextTick()
-  listRef.value?.querySelector<HTMLButtonElement>(`[data-drag-handle="${agentId}"]`)?.focus()
+  listRef.value?.querySelector<HTMLButtonElement>(`[data-drag-handle="${key}"]`)?.focus()
 }
 
-function removeAgent(agent: Agent) {
-  const name = agent.name
-  pipeline.remove(agent.id)
-  announcement.value = `${name} removed`
+function removeStep(item: PipelineItem) {
+  const label = item.label
+  pipeline.remove(item.key)
+  announcement.value = `${label} removed`
+}
+
+// A node removed from the graph: the graph has already dropped the mappings that read it.
+// Its order is the graph's, so the list's renumbering and pruning would drop mappings to
+// steps the graph runs earlier but the list holds further down
+function removeGraphStep(key: string) {
+  delete configurations.value[key]
 }
 
 // --- Keeping mappings in step with the dataset ---
@@ -163,14 +172,14 @@ watch(() => props.extraVariables, syncMappings, { deep: true })
 // Coming back to this step: open the agents that still need something
 onMounted(() => {
   if (items.value.length > 1) {
-    openIds.value = new Set(items.value.filter(item => pipeline.issuesOf(item.agent.id).length > 0).map(item => item.agent.id))
+    openKeys.value = new Set(items.value.filter(item => pipeline.issuesOf(item.key).length > 0).map(item => item.key))
   }
 })
 
 // Graph events
-function onGraphUpdate(agentId: number, field: string) {
+function onGraphUpdate(key: string, field: string) {
   if (field === 'prompt_version_id' || field === 'reset')
-    nextTick(() => pipeline.autoMap(agentId))
+    nextTick(() => pipeline.autoMap(key))
 }
 
 // Said once, whatever is chosen, so the section doesn't change under the eyes
@@ -185,7 +194,7 @@ const emptyText = computed(() => {
 })
 
 const problems = computed(() => items.value
-  .map(item => ({ item, issues: pipeline.issuesOf(item.agent.id) }))
+  .map(item => ({ item, issues: pipeline.issuesOf(item.key) }))
   .filter(entry => entry.issues.length > 0))
 const problemCount = computed(() => problems.value.reduce((total, entry) => total + entry.issues.length, 0))
 </script>
@@ -229,41 +238,41 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         >
           <ExperimentsAgentListItem
             v-for="item in items"
-            :key="item.agent.id"
+            :key="item.key"
             :item="item"
             :count="items.length"
             :models="models"
             :prompt-versions="promptVersions"
             :dataset-headers="datasetHeaders"
-            :upstream-agents="pipeline.upstreamOf(item.agent.id)"
-            :issues="pipeline.issuesOf(item.agent.id)"
-            :open="openIds.has(item.agent.id)"
-            @update:open="(value: boolean) => setOpen(item.agent.id, value)"
-            @update="(field, value) => pipeline.update(item.agent.id, field, value)"
-            @set-mapping="mapping => pipeline.setMapping(item.agent.id, mapping)"
+            :upstream-steps="pipeline.upstreamOf(item.key)"
+            :issues="pipeline.issuesOf(item.key)"
+            :open="openKeys.has(item.key)"
+            @update:open="(value: boolean) => setOpen(item.key, value)"
+            @update="(field, value) => pipeline.update(item.key, field, value)"
+            @set-mapping="mapping => pipeline.setMapping(item.key, mapping)"
             @open-prompt-details="id => emit('openPromptDetails', id)"
-            @move="delta => move(item.agent.id, delta)"
-            @remove="removeAgent(item.agent)"
-            @reset="pipeline.reset(item.agent.id)"
+            @move="delta => move(item.key, delta)"
+            @remove="removeStep(item)"
+            @reset="pipeline.reset(item.key)"
           />
         </div>
 
         <div v-else>
           <ExperimentsAgentListItem
             v-for="item in items"
-            :key="item.agent.id"
+            :key="item.key"
             :item="item"
             :count="1"
             :models="models"
             :prompt-versions="promptVersions"
             :dataset-headers="datasetHeaders"
-            :upstream-agents="[]"
-            :issues="pipeline.issuesOf(item.agent.id)"
-            @update="(field, value) => pipeline.update(item.agent.id, field, value)"
-            @set-mapping="mapping => pipeline.setMapping(item.agent.id, mapping)"
+            :upstream-steps="[]"
+            :issues="pipeline.issuesOf(item.key)"
+            @update="(field, value) => pipeline.update(item.key, field, value)"
+            @set-mapping="mapping => pipeline.setMapping(item.key, mapping)"
             @open-prompt-details="id => emit('openPromptDetails', id)"
-            @remove="removeAgent(item.agent)"
-            @reset="pipeline.reset(item.agent.id)"
+            @remove="removeStep(item)"
+            @reset="pipeline.reset(item.key)"
           />
         </div>
 
@@ -278,14 +287,14 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
             {{ problemCount }} {{ problemCount === 1 ? 'thing' : 'things' }} to fix before creating
           </h3>
           <ul class="mt-2 flex flex-col gap-2 ps-6">
-            <li v-for="entry in problems" :key="entry.item.agent.id" class="text-sm">
+            <li v-for="entry in problems" :key="entry.item.key" class="text-sm">
               <template v-if="items.length > 1">
                 <button
                   type="button"
                   class="rounded-sm font-medium text-highlighted underline-offset-2 outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
-                  @click="setOpen(entry.item.agent.id, true)"
+                  @click="setOpen(entry.item.key, true)"
                 >
-                  {{ entry.item.agent.name }}
+                  {{ entry.item.label }}
                 </button>
               </template>
               <ul class="list-disc ps-4 text-muted marker:text-warning" :class="{ 'mt-0.5': items.length > 1 }">
@@ -308,8 +317,8 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         :agent-configurations="configurations"
         :dataset-headers="datasetHeaders"
         @update-agent-config="onGraphUpdate"
-        @remove-agent-config="id => pipeline.remove(id)"
-        @add-agent="id => nextTick(() => pipeline.autoMap(id))"
+        @remove-agent-config="removeGraphStep"
+        @add-agent="key => nextTick(() => pipeline.autoMap(key))"
         @open-prompt-details="id => emit('openPromptDetails', id)"
       >
         <template #tools="{ settled }">

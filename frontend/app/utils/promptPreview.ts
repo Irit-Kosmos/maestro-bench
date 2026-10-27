@@ -1,4 +1,6 @@
-import type { Agent, AgentInputMapping } from '~/types'
+import type { StepRef } from '~/composables/useAgentPipeline'
+import type { AgentInputMapping } from '~/types'
+import { mappingSource } from './steps'
 
 // What an agent would send for one dataset row, to preview its prompt. It reads the mappings the way the
 // backend does (core/orchestrator.py, `_resolve_agent_context`), except that the output of an earlier agent
@@ -26,12 +28,12 @@ function asText(value: unknown): string {
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
-/** The value of each variable, with the row, the mappings and the agents that run before this one */
+/** The value of each variable, with the row, the mappings and the steps that run before this one */
 export function previewValues(
   mappings: readonly AgentInputMapping[] | undefined,
   variables: readonly string[],
   row: Readonly<Record<string, unknown>>,
-  upstreamAgents: readonly Agent[],
+  upstreamSteps: readonly StepRef[],
 ): Record<string, PreviewValue> {
   const values: Record<string, PreviewValue> = {}
 
@@ -53,9 +55,9 @@ export function previewValues(
       values[mapping.variable] = { text: asText(value), kind: value === null || value === undefined ? 'missing' : 'value' }
     }
     else {
-      const agent = upstreamAgents.find(candidate => candidate.id === mapping.sourceAgentId)
+      const step = upstreamSteps.find(candidate => candidate.key === mappingSource(mapping))
       const path = mapping.sourcePath ? `: ${mapping.sourcePath}` : ''
-      values[mapping.variable] = { text: agent ? `‹${agent.name}${path}›` : '‹no agent chosen›', kind: 'stand-in' }
+      values[mapping.variable] = { text: step ? `‹${step.label}${path}›` : '‹no agent chosen›', kind: 'stand-in' }
     }
   }
 

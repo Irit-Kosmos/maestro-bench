@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import type { PipelineItem } from '~/composables/useAgentPipeline'
-import type { Agent, AgentConfiguration, AgentInputMapping, Model, PromptVersion } from '~/types'
+import type { PipelineItem, StepRef } from '~/composables/useAgentPipeline'
+import type { AgentConfiguration, AgentInputMapping, Model, PromptVersion } from '~/types'
 
-// One agent of the experiment.
+// One step of the experiment: a run of an agent, which may run more than once.
 // - Alone, it is simply a form: nothing to expand, reorder or switch off
 // - In a sequence, it is a row that expands into the same form, with move and remove controls
 const props = defineProps<{
   item: PipelineItem
-  /** Number of agents in the experiment */
+  /** Number of steps in the experiment */
   count: number
   models: readonly Model[]
   promptVersions: readonly PromptVersion[]
   datasetHeaders: readonly string[]
-  upstreamAgents: readonly Agent[]
+  upstreamSteps: readonly StepRef[]
   issues: readonly string[]
 }>()
 
@@ -49,7 +49,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
       <UIcon :name="icon" class="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
       <div class="min-w-0 flex-1">
         <h3 class="truncate text-sm font-semibold text-highlighted">
-          {{ item.agent.name }}
+          {{ item.label }}
         </h3>
         <p v-if="item.agent.description" class="mt-1 text-sm text-muted text-pretty line-clamp-2" :title="item.agent.description">
           {{ item.agent.description }}
@@ -71,7 +71,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         v-if="aggregator"
         :config="item.config"
         :dataset-headers="datasetHeaders"
-        :upstream-agents="upstreamAgents"
+        :upstream-steps="upstreamSteps"
         @update="(field, value) => emit('update', field, value)"
         @set-mapping="mapping => emit('setMapping', mapping)"
       />
@@ -81,7 +81,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         :models="models"
         :prompt-versions="promptVersions"
         :dataset-headers="datasetHeaders"
-        :upstream-agents="upstreamAgents"
+        :upstream-steps="upstreamSteps"
         @update="(field, value) => emit('update', field, value)"
         @set-mapping="mapping => emit('setMapping', mapping)"
         @open-prompt-details="id => emit('openPromptDetails', id)"
@@ -116,7 +116,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
 
         <span class="min-w-0 flex-1">
           <span class="flex items-baseline gap-2 min-w-0">
-            <span class="truncate text-sm font-medium text-highlighted">{{ item.agent.name }}</span>
+            <span class="truncate text-sm font-medium text-highlighted">{{ item.label }}</span>
           </span>
           <span class="mt-0.5 block truncate text-xs text-muted">
             <template v-if="!enabled">Skipped in this run</template>
@@ -146,7 +146,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
             v-if="aggregator"
             :config="item.config"
             :dataset-headers="datasetHeaders"
-            :upstream-agents="upstreamAgents"
+            :upstream-steps="upstreamSteps"
             @update="(field, value) => emit('update', field, value)"
             @set-mapping="mapping => emit('setMapping', mapping)"
           />
@@ -156,7 +156,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
             :models="models"
             :prompt-versions="promptVersions"
             :dataset-headers="datasetHeaders"
-            :upstream-agents="upstreamAgents"
+            :upstream-steps="upstreamSteps"
             @update="(field, value) => emit('update', field, value)"
             @set-mapping="mapping => emit('setMapping', mapping)"
             @open-prompt-details="id => emit('openPromptDetails', id)"
@@ -179,8 +179,8 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
     <!-- Outside the trigger so the buttons aren't nested in it -->
     <button
       type="button"
-      :data-drag-handle="item.agent.id"
-      :aria-label="`Reorder ${item.agent.name}: drag, or use the up and down arrow keys`"
+      :data-drag-handle="item.key"
+      :aria-label="`Reorder ${item.label}: drag, or use the up and down arrow keys`"
       class="absolute start-1 top-0 flex h-14 w-6 cursor-grab items-center justify-center rounded text-muted opacity-0 outline-none transition-opacity duration-150 hover:text-toned pointer-coarse:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-inverted group-hover/row:opacity-100 active:cursor-grabbing"
       @keydown.up.prevent="emit('move', -1)"
       @keydown.down.prevent="emit('move', 1)"
@@ -194,7 +194,7 @@ const issueSummary = computed(() => props.issues.length === 1 ? props.issues[0] 
         variant="ghost"
         size="sm"
         icon="i-ph-x-bold"
-        :aria-label="`Remove ${item.agent.name}`"
+        :aria-label="`Remove ${item.label}`"
         @click="emit('remove')"
       />
     </div>

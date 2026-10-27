@@ -312,6 +312,60 @@ def test_output_paths_of_one_prompt_version(client, engine, setup, results_dir):
     assert (v3["paths"], v3["list_paths"]) == ([], [])
 
 
+def test_output_paths_of_a_version_another_step_of_the_agent_ran(
+    client, engine, setup, results_dir
+):
+    """The agent ran twice, the second time with the version asked."""
+    path = results_dir / "results-twice.json"
+    rows = [
+        {
+            "row_index": 1,
+            "input_data": {},
+            "agents": [
+                {"name": "Langue", "output": {"old": 1}},
+                {"name": "Langue #2", "output": {"score": 3}},
+            ],
+        }
+    ]
+    path.write_text(json.dumps({"rows": rows}))
+    with scoped(engine) as s:
+        experiment = Experiment(name="Twice", dataset_id=setup["dataset"])
+        s.add(experiment)
+        s.flush()
+        execution = ExperimentExecution(
+            experiment_id=experiment.id,
+            dataset_snapshot="{}",
+            status="completed",
+            results_file_path=path.name,
+        )
+        s.add(execution)
+        s.flush()
+        for order, (key, name, version) in enumerate(
+            [("", "Langue", 1), ("#2", "Langue #2", 2)], start=1
+        ):
+            s.add(
+                AgentExecutionSnapshot(
+                    execution_id=execution.id,
+                    agent_id=setup["langue"],
+                    step_key=f"{setup['langue']}{key}",
+                    agent_name_snapshot=name,
+                    model_name_snapshot="gpt",
+                    model_provider_snapshot="openai",
+                    prompt_name_snapshot="Judge",
+                    prompt_version_snapshot=str(version),
+                    prompt_version_id=version,
+                    execution_order=order,
+                )
+            )
+        s.commit()
+
+    response = client.get(
+        f"/agents/{setup['langue']}/output-paths", params={"prompt_version_id": 2}
+    )
+
+    assert response.json()["paths"] == ["score"]
+
+
 def test_preview_prefers_the_experiment_prompt_versions(
     client, engine, setup, results_dir
 ):
@@ -331,3 +385,99 @@ def test_preview_prefers_the_experiment_prompt_versions(
     assert (matched["execution_id"], matched["versions_match"]) == (v1, True)
     assert fallback["execution_id"] is not None
     assert fallback["versions_match"] is False
+
+
+# ---------------------------------------------------------------------------
+# An agent that runs more than once
+# ---------------------------------------------------------------------------
+
+
+def test_an_agent_can_be_a_step_of_the_experiment_twice(client, engine, setup):
+    body = experiment_body(setup, {"input_mappings": []})
+    body["agent_configurations"][f"{setup['langue']}#2"] = {"execution_order": 2}
+    body["agent_configurations"][str(setup["final"])] = {
+        "execution_order": 3,
+        "formulas": [{"name": "gap", "formula": "second - first"}],
+        "input_mappings": [
+            {"variable": "first", "source": "agent",
+             "sourceStep": str(setup["langue"]), "sourcePath": "score"},
+            {"variable": "second", "source": "agent",
+             "sourceStep": f"{setup['langue']}#2", "sourcePath": "score"},
+        ],
+    }
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 201, response.text
+    steps = {c["step_key"]: c for c in response.json()["experiment_configs"]}
+    assert set(steps) == {
+        str(setup["langue"]),
+        f"{setup['langue']}#2",
+        str(setup["contenu"]),
+        str(setup["final"]),
+    }
+    assert steps[str(setup["langue"])]["label"] is None
+    assert steps[f"{setup['langue']}#2"]["label"] == "Langue #2"
+    assert steps[f"{setup['langue']}#2"]["agent_id"] == setup["langue"]
+
+    with scoped(engine) as s:
+        execution = create_execution_snapshot(response.json()["id"], s)
+        agents = build_agent_configs_from_snapshot(execution, s)
+    assert [(a.name, a.step_key) for a in agents] == [
+        ("Langue", str(setup["langue"])),
+        ("Langue #2", f"{setup['langue']}#2"),
+        ("Contenu", str(setup["contenu"])),
+        ("Final", str(setup["final"])),
+    ]
+
+
+def test_an_aggregator_cannot_read_a_step_that_is_not_there(client, setup):
+    body = experiment_body(setup, {})
+    body["agent_configurations"][str(setup["final"])]["input_mappings"] = [
+        {"variable": "langue", "source": "agent",
+         "sourceStep": f"{setup['langue']}#2", "sourcePath": "score"},
+        {"variable": "contenu", "source": "agent",
+         "sourceStep": str(setup["contenu"]), "sourcePath": "score"},
+        {"variable": "w1", "source": "static", "staticValue": "1"},
+        {"variable": "w2", "source": "static", "staticValue": "1"},
+    ]
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "not in the experiment" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("step", ["{langue}#1", "0{langue}", "{langue}#0"])
+def test_a_step_key_must_be_written_one_way(client, setup, step):
+    body = experiment_body(setup, {})
+    body["agent_configurations"][step.format(langue=setup["langue"])] = {}
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]
+
+
+def test_a_mapping_must_read_a_step_key(client, setup):
+    body = experiment_body(setup, {"input_mappings": mappings(setup)})
+    body["agent_configurations"][str(setup["contenu"])] = {
+        "input_mappings": [
+            {"variable": "x", "source": "agent", "sourceStep": f"0{setup['langue']}"}
+        ]
+    }
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]
+
+
+def test_a_step_key_must_name_an_agent(client, setup):
+    body = experiment_body(setup, {})
+    body["agent_configurations"]["abc#2"] = {}
+
+    response = client.post("/experiments", json=body)
+
+    assert response.status_code == 422
+    assert "Invalid step" in response.json()["detail"]

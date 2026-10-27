@@ -2,11 +2,11 @@
 import type { PipelineItem } from '~/composables/useAgentPipeline'
 import type { AgentInputMapping, Model, PromptVersion, VariationDraft, VariationField } from '~/types'
 
-// Turns the experiment into a batch: each variation is an axis (an agent's model, prompt version or
+// Turns the experiment into a batch: each variation is an axis (a step's model, prompt version or
 // temperature and the values to try besides the current one), and one experiment runs per combination.
 // The current setup is always one of the runs, so its value is part of every axis.
 const props = defineProps<{
-  /** Agents of the pipeline, in run order */
+  /** Steps of the pipeline, in run order: an agent that runs twice is two steps, so two axes */
   items: readonly PipelineItem[]
   models?: readonly Model[] | null
   promptVersions?: readonly PromptVersion[] | null
@@ -18,21 +18,21 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  setMapping: [agentId: number, mapping: AgentInputMapping]
+  setMapping: [stepKey: string, mapping: AgentInputMapping]
 }>()
 
 const variations = defineModel<VariationDraft[]>('variations', { required: true })
 
 // Aggregators have no model, prompt or temperature to vary
-const agents = computed(() => props.items.filter(item => item.config.is_active !== false && item.agent.kind !== 'aggregator'))
-const multipleAgents = computed(() => agents.value.length > 1)
-const agentItems = computed(() => agents.value.map(item => ({ label: item.agent.name, value: item.agent.id })))
+const steps = computed(() => props.items.filter(item => item.config.is_active !== false && item.agent.kind !== 'aggregator'))
+const multipleSteps = computed(() => steps.value.length > 1)
+const stepItems = computed(() => steps.value.map(item => ({ label: item.label, value: item.key })))
 
 const issues = computed(() => variationIssues(variations.value))
 const incomplete = computed(() => variations.value.some(v => v.extras.length === 0))
 
 function baseOf(variation: VariationDraft) {
-  return baseValue(agents.value.find(item => item.agent.id === variation.agent_id)?.config, variation.field)
+  return baseValue(steps.value.find(item => item.key === variation.step_key)?.config, variation.field)
 }
 
 // The current value is shown ticked and cannot be unticked: it is the setup the other values are compared to
@@ -46,46 +46,46 @@ function onlyAdded(variation: VariationDraft, selected: unknown): number[] {
   return (selected as number[]).filter(value => value !== base)
 }
 
-// A prompt version with variables the agent's prompt lacks says so: they get a mapping right below
-function promptState(agentId: number) {
-  const config = agents.value.find(item => item.agent.id === agentId)?.config
+// A prompt version with variables the step's prompt lacks says so: they get a mapping right below
+function promptState(stepKey: string) {
+  const config = steps.value.find(item => item.key === stepKey)?.config
   return (version: PromptVersion) => {
-    const added = addedVariables({ agent_id: agentId, field: 'prompt_version_id', extras: [version.id] }, config, props.promptVersions ?? [])
+    const added = addedVariables({ step_key: stepKey, field: 'prompt_version_id', extras: [version.id] }, config, props.promptVersions ?? [])
     return added.length > 0 ? { description: `Adds ${added.join(', ')}` } : undefined
   }
 }
 
-// Variables the chosen prompts add to the agent's own, and what they can read: the dataset and the agents before
+// Variables the chosen prompts add to the step's own, and what they can read: the dataset and the steps before
 function addedOf(variation: VariationDraft) {
-  return addedVariables(variation, agents.value.find(item => item.agent.id === variation.agent_id)?.config, props.promptVersions ?? [])
+  return addedVariables(variation, steps.value.find(item => item.key === variation.step_key)?.config, props.promptVersions ?? [])
 }
 
-function mappingsOf(agentId: number) {
-  return agents.value.find(item => item.agent.id === agentId)?.config.input_mappings
+function mappingsOf(stepKey: string) {
+  return steps.value.find(item => item.key === stepKey)?.config.input_mappings
 }
 
-function upstreamOf(agentId: number) {
-  const index = props.items.findIndex(item => item.agent.id === agentId)
+function upstreamOf(stepKey: string) {
+  const index = props.items.findIndex(item => item.key === stepKey)
   return props.items.slice(0, Math.max(index, 0))
     .filter(item => item.config.is_active !== false)
-    .map(item => item.agent)
+    .map(item => ({ key: item.key, label: item.label, agent: item.agent }))
 }
 
 const unmappedCount = computed(() => variations.value.reduce((total, variation) => {
-  const mapped = new Set((mappingsOf(variation.agent_id) ?? []).filter(isMappingComplete).map(m => m.variable))
+  const mapped = new Set((mappingsOf(variation.step_key) ?? []).filter(isMappingComplete).map(m => m.variable))
   return total + addedOf(variation).filter(variable => !mapped.has(variable)).length
 }, 0))
 
-function firstFreeField(agentId: number): VariationField {
-  const used = new Set(variations.value.filter(v => v.agent_id === agentId).map(v => v.field))
+function firstFreeField(stepKey: string): VariationField {
+  const used = new Set(variations.value.filter(v => v.step_key === stepKey).map(v => v.field))
   return VARIATION_FIELDS.find(f => !used.has(f.value))?.value ?? 'model_id'
 }
 
 function add() {
-  const agentId = agents.value[0]?.agent.id
-  if (agentId === undefined)
+  const stepKey = steps.value[0]?.key
+  if (stepKey === undefined)
     return
-  variations.value = [...variations.value, { agent_id: agentId, field: firstFreeField(agentId), extras: [] }]
+  variations.value = [...variations.value, { step_key: stepKey, field: firstFreeField(stepKey), extras: [] }]
 }
 
 function patch(index: number, change: Partial<VariationDraft>) {
@@ -101,11 +101,11 @@ function parseTemperatures(raw: string[]): number[] {
   return [...new Set(numbers)]
 }
 
-// An agent can leave the pipeline while its variation is still listed
-watch(agents, (list) => {
-  const ids = new Set(list.map(item => item.agent.id))
-  if (variations.value.some(v => !ids.has(v.agent_id)))
-    variations.value = variations.value.filter(v => ids.has(v.agent_id))
+// A step can leave the pipeline while its variation is still listed
+watch(steps, (list) => {
+  const keys = new Set(list.map(item => item.key))
+  if (variations.value.some(v => !keys.has(v.step_key)))
+    variations.value = variations.value.filter(v => keys.has(v.step_key))
 })
 </script>
 
@@ -126,12 +126,12 @@ watch(agents, (list) => {
         icon="i-ph-arrows-split-bold"
         color="neutral"
         variant="outline"
-        :disabled="agents.length === 0"
+        :disabled="steps.length === 0"
         @click="add"
       >
         Add a variation
       </UButton>
-      <p v-if="agents.length === 0" class="mt-2 text-xs text-muted">
+      <p v-if="steps.length === 0" class="mt-2 text-xs text-muted">
         Choose an agent first.
       </p>
     </div>
@@ -144,16 +144,16 @@ watch(agents, (list) => {
           class="enter-soft grid gap-3 rounded-lg border border-default p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,10rem)_minmax(0,1fr)_auto]"
         >
           <USelectMenu
-            v-if="multipleAgents"
-            :model-value="variation.agent_id"
+            v-if="multipleSteps"
+            :model-value="variation.step_key"
             value-key="value"
-            :items="agentItems"
+            :items="stepItems"
             class="w-full"
             aria-label="Agent"
-            @update:model-value="(id) => patch(index, { agent_id: id as number, extras: [] })"
+            @update:model-value="(key) => patch(index, { step_key: key as string, extras: [] })"
           />
           <p v-else class="flex h-8 items-center truncate text-sm text-toned">
-            {{ agents[0]?.agent.name }}
+            {{ steps[0]?.label }}
           </p>
 
           <USelectMenu
@@ -182,7 +182,7 @@ watch(agents, (list) => {
             :prompt-versions="promptVersions ?? []"
             multiple
             :locked-id="baseOf(variation)"
-            :item-state="promptState(variation.agent_id)"
+            :item-state="promptState(variation.step_key)"
             placeholder="Choose the prompt versions to run"
             class="w-full"
             aria-label="Prompt versions to run"
@@ -216,12 +216,12 @@ watch(agents, (list) => {
           <div v-if="addedOf(variation).length > 0" class="@container min-w-0 sm:col-span-full">
             <ExperimentsVariableMappings
               :variables="addedOf(variation)"
-              :mappings="mappingsOf(variation.agent_id)"
+              :mappings="mappingsOf(variation.step_key)"
               :dataset-headers="datasetHeaders ?? []"
-              :upstream-agents="upstreamOf(variation.agent_id)"
+              :upstream-steps="upstreamOf(variation.step_key)"
               title="Variables of these prompts"
               description="They use variables the current prompt does not have. Choose where each gets its value; the prompts that do not use one ignore it."
-              @set-mapping="mapping => emit('setMapping', variation.agent_id, mapping)"
+              @set-mapping="mapping => emit('setMapping', variation.step_key, mapping)"
             />
           </div>
         </li>

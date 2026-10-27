@@ -59,6 +59,12 @@ export default defineAppConfig({
     select: { defaultVariants: { color: 'neutral' } },
     selectMenu: { defaultVariants: { color: 'neutral' } },
     textarea: { defaultVariants: { color: 'neutral' } },
+    modal: {
+      slots: {
+        close: 'absolute top-4 end-4 sm:end-5 p-1.5 [&>[data-slot=leadingIcon]]:size-4',
+        header: 'pe-14 sm:pe-14',
+      },
+    },
     breadcrumb: {
       variants: {
         // The current page stays neutral: weight and contrast mark it, not the brand hue

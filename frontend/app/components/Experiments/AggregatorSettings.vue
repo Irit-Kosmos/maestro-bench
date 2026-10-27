@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import type { Agent, AgentConfiguration, AgentInputMapping, FormulaOutput } from '~/types'
+import type { StepRef } from '~/composables/useAgentPipeline'
+import type { AgentConfiguration, AgentInputMapping, FormulaOutput } from '~/types'
 
 // The settings of an aggregator in an experiment: its outputs, each computed by a formula, and where
 // each variable of the formulas gets its value. Formulas run in order: a later one can read an earlier one.
 const props = defineProps<{
   config: AgentConfiguration | undefined
   datasetHeaders: readonly string[]
-  /** Agents whose output this aggregator may read, nearest last */
-  upstreamAgents: readonly Agent[]
+  /** Steps whose output this aggregator may read, nearest last */
+  upstreamSteps: readonly StepRef[]
   /** Smaller type, for a side panel */
   compact?: boolean
 }>()
@@ -56,7 +57,7 @@ function removeOutput(index: number) {
 }
 
 const canPreview = computed(() => (props.config?.input_mappings ?? [])
-  .some(m => m.source === 'agent' && m.sourceAgentId !== undefined && variables.value.includes(m.variable)))
+  .some(m => m.source === 'agent' && mappingSource(m) !== undefined && variables.value.includes(m.variable)))
 
 // A preview answers the formulas it was run with: editing them makes it stale
 watch(() => [props.config?.formulas, props.config?.input_mappings], () => {
@@ -164,7 +165,7 @@ function outputLabel(output: Record<string, unknown>) {
       :variables="variables"
       :mappings="config?.input_mappings"
       :dataset-headers="datasetHeaders"
-      :upstream-agents="upstreamAgents"
+      :upstream-steps="upstreamSteps"
       title="Formula variables"
       description="Where each variable gets its value for every row. Weights are fixed values, so they stay out of the formula."
       static-label="Fixed value"

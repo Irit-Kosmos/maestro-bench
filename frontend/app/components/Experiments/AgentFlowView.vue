@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { StepRef } from '~/composables/useAgentPipeline'
 import type { Agent, Model, PromptVersion } from '~/types'
 import { useAgentFlow } from '~/composables/useAgentFlow'
 
@@ -6,16 +7,16 @@ interface Props {
   agents?: Agent[] | null
   models?: Model[] | null
   allPromptVersions?: PromptVersion[] | null
-  agentConfigurations: Record<number, any>
+  agentConfigurations: Record<string, any>
   datasetHeaders?: readonly string[]
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  updateAgentConfig: [agentId: number, field: string, value: any]
-  removeAgentConfig: [agentId: number]
-  addAgent: [agentId: number]
+  updateAgentConfig: [stepKey: string, field: string, value: any]
+  removeAgentConfig: [stepKey: string]
+  addAgent: [stepKey: string]
   openPromptDetails: [promptVersionId: number]
 }>()
 
@@ -39,7 +40,9 @@ const {
   edges,
   selectedNodeId,
   allAgents,
-  flowAgentIds,
+  flowStepKeys,
+  nodeIdOf,
+  keyOfNode,
   addAgentToFlow,
   removeAgentFromFlow,
   computeExecutionOrder,
@@ -68,12 +71,11 @@ watch(() => props.agentConfigurations, () => {
 // A node added or removed can start or stop carrying a mapping
 watch(() => nodes.value.length, () => syncMappingEdges())
 
-// Agents not on the graph yet, for the "+" under a node
-const available = computed(() => allAgents.value.filter(a => !flowAgentIds.value.includes(a.id)))
-provide('agentFlowAvailable', available)
+// Agents the "+" under a node offers: all of them, an agent may run again
+provide('agentFlowAvailable', allAgents)
 
 const canvasEdges = computed(() => edges.value.map((edge) => {
-  const name = (id: string) => nodes.value.find(n => n.id === id)?.data.agent.name
+  const name = (id: string) => nodes.value.find(n => n.id === id)?.data.label
   return {
     ...edge,
     name: `${name(edge.source) ?? ''} to ${name(edge.target) ?? ''}`,
@@ -83,17 +85,18 @@ const canvasEdges = computed(() => edges.value.map((edge) => {
 }))
 
 // Selected node data for config panel
-const selectedAgent = computed<Agent | null>(() => {
+const selectedNode = computed(() => {
   if (!selectedNodeId.value)
     return null
-  const node = nodes.value.find(n => n.id === selectedNodeId.value)
-  return node?.data?.agent || null
+  return nodes.value.find(n => n.id === selectedNodeId.value)?.data ?? null
 })
 
+const selectedAgent = computed<Agent | null>(() => selectedNode.value?.agent ?? null)
+
 const selectedConfig = computed(() => {
-  if (!selectedNodeId.value || !selectedAgent.value)
+  if (!selectedNode.value)
     return undefined
-  return props.agentConfigurations[selectedAgent.value.id]
+  return props.agentConfigurations[selectedNode.value.key]
 })
 
 // w-80: the panel lies over the canvas, which keeps the graph clear of it
@@ -101,56 +104,57 @@ const PANEL_WIDTH = 320
 
 // Add an agent from the picker above the graph, or from the "+" under a node, which also connects it
 function handleAddAgent(agent: Agent, after?: string) {
-  addAgentToFlow(agent)
+  const key = addAgentToFlow(agent)
   if (after)
-    connect(after, `agent-${agent.id}`)
-  emit('addAgent', agent.id)
+    connect(after, nodeIdOf(key))
+  emit('addAgent', key)
 }
 provide('agentFlowAddAfter', (after: string, agent: Agent) => handleAddAgent(agent, after))
 
 // Remove a node and drop its configuration
 function removeNode(nodeId: string) {
-  const agentId = Number.parseInt(nodeId.replace('agent-', ''))
+  const key = keyOfNode(nodeId)
   removeAgentFromFlow(nodeId)
   // Remove the config entry entirely — reusing 'reset' with undefined would
   // resurrect the key pointing at undefined, which then falsely counts as an
   // active agent in form validation.
-  emit('removeAgentConfig', agentId)
+  emit('removeAgentConfig', key)
 }
 
 // Handle config panel updates
 function handleUpdateConfig(field: string, value: any) {
-  if (!selectedAgent.value)
+  if (!selectedNode.value)
     return
-  flowUpdateAgentConfig(selectedAgent.value.id, field, value)
-  emit('updateAgentConfig', selectedAgent.value.id, field, value)
+  flowUpdateAgentConfig(selectedNode.value.key, field, value)
+  emit('updateAgentConfig', selectedNode.value.key, field, value)
 }
 
 // Handle reset
 function handleResetAgent() {
-  if (!selectedAgent.value)
+  if (!selectedNode.value)
     return
-  const agent = selectedAgent.value
+  const { agent, key } = selectedNode.value
   const resetValue = {
     ...defaultAgentConfig(agent),
-    execution_order: props.agentConfigurations[agent.id]?.execution_order,
+    execution_order: props.agentConfigurations[key]?.execution_order,
   }
-  flowUpdateAgentConfig(agent.id, 'reset', resetValue)
-  emit('updateAgentConfig', agent.id, 'reset', resetValue)
+  flowUpdateAgentConfig(key, 'reset', resetValue)
+  emit('updateAgentConfig', key, 'reset', resetValue)
 }
 
 // Handle input mapping updates from config panel
 function handleUpdateInputMapping(mapping: any) {
-  if (!selectedAgent.value)
+  if (!selectedNode.value)
     return
-  updateInputMapping(selectedAgent.value.id, mapping)
-  emit('updateAgentConfig', selectedAgent.value.id, 'input_mappings', getInputMappings(selectedAgent.value.id))
+  const { key } = selectedNode.value
+  updateInputMapping(key, mapping)
+  emit('updateAgentConfig', key, 'input_mappings', getInputMappings(key))
 }
 
-// Agents the selected one may read: every other agent of the flow except those that run after it
+// Steps the selected one may read: every other step of the flow except those that run after it
 // (reading one of them would make a cycle). Mapping a variable to one draws the edge, so the source
 // does not have to be connected first. Ordered by run order, nearest last.
-const upstreamAgents = computed<Agent[]>(() => {
+const upstreamSteps = computed<StepRef[]>(() => {
   if (!selectedNodeId.value)
     return []
   const downstream = new Set<string>([selectedNodeId.value])
@@ -167,16 +171,17 @@ const upstreamAgents = computed<Agent[]>(() => {
   const order = computeExecutionOrder()
   return nodes.value
     .filter(n => !downstream.has(n.id))
-    .map(n => n.data?.agent)
-    .filter((agent): agent is Agent => !!agent)
-    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    .map(n => n.data)
+    .filter(data => !!data?.agent)
+    .map(data => ({ key: data.key, label: data.label, agent: data.agent }))
+    .sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
 })
 
 // Expose computeExecutionOrder for parent to call
 defineExpose({
   computeExecutionOrder,
   addAgent: (agent: Agent) => handleAddAgent(agent),
-  getFlowAgentIds: () => flowAgentIds.value,
+  getFlowStepKeys: () => flowStepKeys.value,
 })
 </script>
 
@@ -190,7 +195,7 @@ defineExpose({
           :selected="selectedNodeId"
           :inset-right="selectedAgent ? PANEL_WIDTH : 0"
           :can-connect="canConnect"
-          :label-of="node => node.data.agent.name"
+          :label-of="node => node.data.label"
           :scroll-pans="expanded"
           label="Agent graph"
           interactive
@@ -242,11 +247,12 @@ defineExpose({
           <div v-if="selectedAgent" class="absolute inset-y-0 right-0 z-20 max-w-full shadow-lg">
             <ExperimentsAgentConfigPanel
               :agent="selectedAgent"
+              :label="selectedNode?.label"
               :config="selectedConfig"
               :models="models || []"
               :all-prompt-versions="allPromptVersions || []"
               :dataset-headers="datasetHeaders || []"
-              :upstream-agents="upstreamAgents"
+              :upstream-steps="upstreamSteps"
               @update-config="handleUpdateConfig"
               @update-input-mapping="handleUpdateInputMapping"
               @remove="removeNode(selectedNodeId!)"

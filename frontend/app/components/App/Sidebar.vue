@@ -24,7 +24,6 @@ const sections: { label?: string, items: NavItem[] }[] = [
     items: [
       { label: 'Experiments', icon: 'i-ph-flask', to: '/experiments', kbds: ['G', 'E'] },
       { label: 'Batches', icon: 'i-ph-arrows-split', to: '/batches', kbds: ['G', 'B'] },
-      { label: 'Executions', icon: 'i-ph-clock-counter-clockwise', to: '/executions', kbds: ['G', 'X'] },
       { label: 'Analyses', icon: 'i-ph-chart-bar', to: '/analyses', kbds: ['G', 'N'] },
     ],
   },

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Which part of an agent's JSON output a mapping reads: the whole output, or a dotted path
-// suggested from what the agent returned in recent executions (any other path can be typed).
+// Which part of a step's JSON output a mapping reads: the whole output, or a dotted path
+// suggested from what its agent returned in recent executions (any other path can be typed).
 const props = defineProps<{
-  agentId: number | undefined
+  stepKey: string | undefined
   /** Label of the "whole output" choice */
   wholeLabel?: string
   /** Offer the paths to lists too (a score distribution), for formulas that reduce them */
@@ -14,11 +14,13 @@ const path = defineModel<string | undefined>({ default: undefined })
 const WHOLE_OUTPUT = '__whole_output__'
 
 const { pathsOf } = useAgentOutputPaths()
-const promptVersions = inject(AGENT_PROMPT_VERSIONS, ref<Record<number, number | undefined>>({}))
+const promptVersions = inject(AGENT_PROMPT_VERSIONS, ref<Record<string, number | undefined>>({}))
 
-// Suggestions come from runs of the source agent with the prompt version it has here:
+// Suggestions come from runs of the source agent with the prompt version the step has here:
 // another version may answer in another shape
-const known = computed(() => pathsOf(props.agentId, props.agentId === undefined ? undefined : promptVersions.value[props.agentId]))
+const known = computed(() => props.stepKey === undefined
+  ? pathsOf(undefined)
+  : pathsOf(agentIdOfStep(props.stepKey), promptVersions.value[props.stepKey]))
 
 const open = ref(false)
 const typed = ref<string[]>([])

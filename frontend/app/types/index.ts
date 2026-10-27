@@ -66,6 +66,9 @@ export interface AgentInputMapping {
   variable: string
   source: 'dataset' | 'agent' | 'static'
   sourceColumn?: string
+  /** Step whose output is read ("12", or "12#2" for the second run of agent 12): see utils/steps */
+  sourceStep?: string
+  /** Mappings saved before agents could run twice name an agent only: it stands for its first step */
   sourceAgentId?: number
   sourceOutput?: string
   /** Dotted path into the agent's JSON output (`score`, `eval.score`); empty reads the whole output */
@@ -118,6 +121,10 @@ export interface Experiment {
 
   // Dataset rows processed by the latest execution that has results
   row_count?: number | null
+  // When the latest execution started; null while nothing has run
+  last_run_at?: string | null
+  // The latest execution an analysis can read: completed, with its results
+  latest_analyzable_execution_id?: number | null
 
   // Executions of the experiment: how many, and the figures of the latest one
   execution_count?: number
@@ -180,6 +187,8 @@ export interface AgentExecutionSnapshot {
   execution_id: number
   /** null once the agent has been deleted: the snapshot keeps its name */
   agent_id: number | null
+  /** The step of the experiment it ran ("12", "12#2"…); null only on an old snapshot of a deleted agent */
+  step_key?: string | null
   /** Aggregator snapshots have empty model and prompt fields */
   kind?: AgentKind
   agent_name_snapshot: string
@@ -244,8 +253,8 @@ export interface DashboardTotals {
   /** Rows the executions went through, the failed ones included */
   rows_done: number
   rows_failed: number
-  /** Executions that failed, or went on with failed rows; the cancelled ones are not counted */
-  executions_with_failures: number
+  /** Experiments whose latest execution of the stretch failed, or went on with failed rows; a cancelled one is not counted */
+  experiments_with_failures: number
 }
 
 /** The totals of one slice of the period, `start` being its first instant */
@@ -297,7 +306,8 @@ export interface CreateExperimentForm {
   name: string
   description?: string
   dataset_id: number | null | undefined
-  agent_configurations?: Record<number, {
+  /** Settings of each step, by step key */
+  agent_configurations?: Record<string, {
     prompt_version_id?: number
     model_id?: number
     temperature?: number
@@ -333,6 +343,10 @@ export interface ExperimentAgentConfig {
   id: number
   experiment_id: number
   agent_id: number
+  /** The step this configures: "12", or "12#2" for the second run of agent 12 */
+  step_key: string
+  /** The step's name when it is not its agent's ("Corrector #2") */
+  label?: string | null
   prompt_version_id: number | null
   model_id: number | null
   temperature: number | null
@@ -467,32 +481,6 @@ export interface ExecutionRow {
   error: string | null
 }
 
-/** One execution in the list spanning every experiment */
-export interface ExecutionListItem {
-  id: number
-  experiment_id: number
-  experiment_name: string
-  batch_id: number | null
-  batch_name: string | null
-  dataset_name: string | null
-  status: string
-  started_at: string
-  completed_at: string | null
-  duration_seconds: number | null
-  /** Live progress, in dataset rows; failed rows are counted in the rows done */
-  rows_total: number | null
-  rows_done: number
-  rows_failed: number
-  /** Dataset rows processed; null until the results file exists */
-  row_count: number | null
-  has_results: boolean
-  total_tokens: number | null
-  total_cost_usd: number | null
-  /** In the order they ran */
-  /** agent_id is null once the agent has been deleted */
-  agents: { agent_id: number | null, kind?: AgentKind, name: string, model: string, provider: string, prompt: string, prompt_version: string }[]
-}
-
 export interface AvailableExecution {
   execution_id: number
   experiment_id: number
@@ -510,7 +498,7 @@ export type VariationField = 'model_id' | 'prompt_version_id' | 'temperature'
 
 /** One axis of a batch's grid, as submitted: every value that runs, the base configuration's included */
 export interface Variation {
-  agent_id: number
+  step_key: string
   field: VariationField
   /** A temperature of null is the model's own default */
   values: (number | null)[]
@@ -518,7 +506,7 @@ export interface Variation {
 
 /** One axis as edited in the form: only what is added to the base configuration's value */
 export interface VariationDraft {
-  agent_id: number
+  step_key: string
   field: VariationField
   extras: number[]
 }
@@ -529,13 +517,16 @@ export interface BatchVariationValue {
 }
 
 export interface BatchVariation {
+  step_key: string
   agent_id: number
+  /** Name of the step: its agent's, then "name #2"… */
   agent_name: string
   field: VariationField
   values: BatchVariationValue[]
 }
 
 export interface BatchCoordinate {
+  step_key: string
   agent_id: number
   field: VariationField
   value: number | null

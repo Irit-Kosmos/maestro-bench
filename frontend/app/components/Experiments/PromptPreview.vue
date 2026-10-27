@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Agent, AgentInputMapping, PromptVersion } from '~/types'
+import type { StepRef } from '~/composables/useAgentPipeline'
+import type { AgentInputMapping, PromptVersion } from '~/types'
 import { watchDebounced } from '@vueuse/core'
 
 // The prompt an agent runs, next to where its variables get their values: as written, with the variable under
@@ -8,8 +9,8 @@ const props = defineProps<{
   version: PromptVersion | undefined
   variables: readonly string[]
   mappings: readonly AgentInputMapping[] | undefined
-  /** Agents that run before this one, for the outputs a variable may read */
-  upstreamAgents: readonly Agent[]
+  /** Steps that run before this one, for the outputs a variable may read */
+  upstreamSteps: readonly StepRef[]
   /** Variable under the pointer in the mappings */
   active?: string | null
   /** Tighter type, for a side panel */
@@ -40,7 +41,7 @@ function step(by: number) {
 
 const values = computed(() => {
   const row = rows.value[rowIndex.value]
-  return row ? previewValues(props.mappings, props.variables, row, props.upstreamAgents) : null
+  return row ? previewValues(props.mappings, props.variables, row, props.upstreamSteps) : null
 })
 
 const rendered = ref<{ system: string, user: string } | null>(null)

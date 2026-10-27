@@ -98,7 +98,7 @@ def test_empty_database(client):
         "total_cost_usd": 0.0,
         "rows_done": 0,
         "rows_failed": 0,
-        "executions_with_failures": 0,
+        "experiments_with_failures": 0,
     }
     assert activity["previous"]["experiments"] == 0
     assert activity["active"] == []
@@ -152,6 +152,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
                 ExperimentAgentConfig(
                     experiment_id=exp,
                     agent_id=world["agent"],
+                    step_key=str(world["agent"]),
                     prompt_version_id=world["version"],
                     model_id=world["models"][1],
                     execution_order=0,
@@ -160,6 +161,7 @@ def test_experiment_without_execution_falls_back_to_configured_models(
                 ExperimentAgentConfig(
                     experiment_id=exp,
                     agent_id=world["other_agent"],
+                    step_key=str(world["other_agent"]),
                     prompt_version_id=world["version"],
                     model_id=world["models"][0],
                     execution_order=1,
@@ -222,27 +224,39 @@ def test_activity_counts_the_period_only(client, engine, world):
     assert current["rows_failed"] == 2
 
 
-def test_executions_with_failures_are_the_failed_ones_and_those_with_failed_rows(
+def test_an_experiment_is_affected_when_its_latest_run_went_wrong(
     client, engine, world
 ):
-    exp = add_experiment(engine, world, status="completed")
-    add_execution(engine, exp, ["m-a"], status="completed", rows_done=10)
-    add_execution(engine, exp, ["m-a"], status="completed", rows_done=10, rows_failed=2)
-    add_execution(engine, exp, ["m-a"], status="failed")
-    add_execution(engine, exp, ["m-a"], status="running", rows_done=4, rows_failed=1)
-    # Cancelling is a choice, not a problem, even with failed rows behind it
-    add_execution(engine, exp, ["m-a"], status="cancelled", rows_done=4, rows_failed=3)
+    failed_rows = add_experiment(engine, world, status="completed")
     add_execution(
-        engine,
-        exp,
-        ["m-a"],
-        status="failed",
-        started_at=now() - timedelta(days=30),
+        engine, failed_rows, ["m-a"], status="completed", rows_done=10, rows_failed=2
+    )
+    failed = add_experiment(engine, world, status="failed")
+    add_execution(engine, failed, ["m-a"], status="failed")
+    running = add_experiment(engine, world, status="running")
+    add_execution(
+        engine, running, ["m-a"], status="running", rows_done=4, rows_failed=1
+    )
+    # Run again since, and clean this time: nothing left to look into
+    fixed = add_experiment(engine, world, status="completed")
+    add_execution(
+        engine, fixed, ["m-a"], status="failed", started_at=now() - timedelta(hours=2)
+    )
+    add_execution(engine, fixed, ["m-a"], status="completed", rows_done=10)
+    # Cancelling is a choice, not a problem, even with failed rows behind it
+    cancelled = add_experiment(engine, world, status="cancelled")
+    add_execution(
+        engine, cancelled, ["m-a"], status="cancelled", rows_done=4, rows_failed=3
+    )
+    # Out of the period
+    old = add_experiment(engine, world, status="failed")
+    add_execution(
+        engine, old, ["m-a"], status="failed", started_at=now() - timedelta(days=30)
     )
 
     current = client.get("/dashboard").json()["activity"]["current"]
 
-    assert current["executions_with_failures"] == 3
+    assert current["experiments_with_failures"] == 3
 
 
 def test_active_lists_running_and_pending_experiments_however_old(

@@ -15,6 +15,7 @@ import credentials
 import workspace_files
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
+from core.steps import agent_id_of, mapping_source, split_step, step_label
 from dataset_utils import validate_dataset_file
 from references import missing_ids
 from schemas.experiments import ExperimentCreate
@@ -84,7 +85,7 @@ def add_experiment(
     exp_data: ExperimentCreate,
     *,
     name: str | None = None,
-    agent_overrides: dict[int, dict] | None = None,
+    agent_overrides: dict[str, dict] | None = None,
     batch_id: int | None = None,
     variant: str | None = None,
 ) -> Experiment:
@@ -92,7 +93,8 @@ def add_experiment(
 
     Flushes but does not commit, so that a caller creating several experiments
     can make them all-or-nothing. ``agent_overrides`` replaces fields of the
-    submitted configuration of an agent (how a batch varies its experiments).
+    submitted configuration of a step (how a batch varies its experiments).
+    Steps are the keys of ``agent_configurations``: an agent may have several.
 
     Raises ExperimentConfigError when an aggregator cannot run, or when the
     request points to something that is not in the session's workspace.
@@ -116,21 +118,29 @@ def add_experiment(
     session.flush()
     experiment_id = int(experiment.id) if experiment.id is not None else 0
 
-    # Create individual agent configurations for explicitly configured active agents
+    # Create individual agent configurations for explicitly configured active steps
     default_execution_order = 1
     configs: list[tuple[Agent, ExperimentAgentConfig]] = []
-    if exp_data.agent_configurations:
-        agents = session.exec(
-            select(Agent)
-            .where(col(Agent.id).in_([_as_int(a) for a in exp_data.agent_configurations]))
-            .order_by(col(Agent.id))
-        ).all()
-        for agent in agents:
-            agent_config = exp_data.agent_configurations.get(str(agent.id))
+    configurations = _by_step(exp_data.agent_configurations)
+    overrides = _by_step(agent_overrides)
+    if configurations:
+        steps = sorted((split_step(step), step) for step in configurations)
+        agents = {
+            agent.id: agent
+            for agent in session.exec(
+                select(Agent).where(
+                    col(Agent.id).in_({agent_id for (agent_id, _), _ in steps})
+                )
+            ).all()
+        }
+        labels: set[str] = set()
+        for (agent_id, instance), step in steps:
+            agent = agents[agent_id]
+            agent_config = configurations.get(step)
             if not agent_config:
                 continue
-            if agent_overrides and agent.id in agent_overrides:
-                agent_config = {**agent_config, **agent_overrides[agent.id]}
+            if step in overrides:
+                agent_config = {**agent_config, **overrides[step]}
 
             if not agent_config.get("is_active", True):
                 logger.info("Skipping inactive agent %s (%s)", agent.id, agent.name)
@@ -149,11 +159,19 @@ def add_experiment(
                 json.dumps(input_mappings) if input_mappings else None
             )
 
+            label = _unique_label(agent.name, instance, labels)
+            labels.add(label)
+            identity = {
+                "experiment_id": experiment_id,
+                "agent_id": int(agent.id) if agent.id is not None else 0,
+                "step_key": step,
+                "label": None if label == agent.name else label,
+            }
+
             if agent.kind == AGGREGATOR:
                 formulas = agent_config.get("formulas") or []
                 config = ExperimentAgentConfig(
-                    experiment_id=experiment_id,
-                    agent_id=int(agent.id) if agent.id is not None else 0,
+                    **identity,
                     execution_order=execution_order,
                     is_active=True,
                     input_mappings=input_mappings_json,
@@ -183,8 +201,7 @@ def add_experiment(
                 continue
 
             config = ExperimentAgentConfig(
-                experiment_id=experiment_id,
-                agent_id=int(agent.id) if agent.id is not None else 0,
+                **identity,
                 prompt_version_id=prompt_version_id,
                 model_id=model_id,
                 temperature=agent_config.get("temperature"),
@@ -202,19 +219,38 @@ def add_experiment(
     return experiment
 
 
+def _by_step(configurations: dict | None) -> dict[str, dict]:
+    """Per-step settings with their keys as text, however the caller wrote them."""
+    return {str(step): config for step, config in (configurations or {}).items()}
+
+
+def _unique_label(name: str, instance: int, taken: set[str]) -> str:
+    """Name of a step: the agent's, then "name #2"… and never one already in use."""
+    label = step_label(name, instance)
+    while label in taken:
+        instance += 1
+        label = step_label(name, instance)
+    return label
+
+
 def _check_references(
     session: Session,
     exp_data: ExperimentCreate,
-    agent_overrides: dict[int, dict] | None,
+    agent_overrides: dict[str, dict] | None,
 ) -> None:
     """Everything an experiment is built from must be in the workspace it is created in."""
+    steps = _by_step(exp_data.agent_configurations)
+    try:
+        agent_ids = [agent_id_of(step) for step in steps]
+    except ValueError as e:
+        raise ExperimentConfigError(str(e)) from e
+    overrides = _by_step(agent_overrides)
     configurations = [
-        {**(config or {}), **(agent_overrides or {}).get(_as_int(agent_id), {})}
-        for agent_id, config in (exp_data.agent_configurations or {}).items()
+        {**(config or {}), **overrides.get(step, {})} for step, config in steps.items()
     ]
     for label, table, ids in (
         ("Dataset", Dataset, [exp_data.dataset_id]),
-        ("Agent", Agent, [_as_int(a) for a in exp_data.agent_configurations or {}]),
+        ("Agent", Agent, agent_ids),
         (
             "Prompt version",
             PromptVersion,
@@ -235,27 +271,23 @@ def _check_mapped_agents(
 ) -> None:
     """The agents whose outputs an agent reads must be in the workspace."""
     mapped = [
-        mapping.get("sourceAgentId")
+        mapping_source(mapping)
         for _, config in configs
         for mapping in json.loads(config.input_mappings or "[]")
         if isinstance(mapping, dict) and mapping.get("source") == "agent"
     ]
-    if missing := missing_ids(session, Agent, [a for a in mapped if a is not None]):
-        raise ExperimentConfigError(f"Agent {missing[0]} not found")
-
-
-def _as_int(value: object) -> object:
-    """Ids arrive as JSON keys (strings); anything else is left to be refused."""
     try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return value
+        agent_ids = [agent_id_of(step) for step in mapped if step is not None]
+    except ValueError as e:
+        raise ExperimentConfigError(str(e)) from e
+    if missing := missing_ids(session, Agent, agent_ids):
+        raise ExperimentConfigError(f"Agent {missing[0]} not found")
 
 
 def _check_aggregators(configs: list[tuple[Agent, ExperimentAgentConfig]]) -> None:
     """Refuse aggregators whose formulas or variables cannot be evaluated."""
-    names = {config.agent_id: agent.name for agent, config in configs}
-    orders = {config.agent_id: config.execution_order for _, config in configs}
+    names = {config.step_key: config.label or agent.name for agent, config in configs}
+    orders = {config.step_key: config.execution_order for _, config in configs}
     for agent, config in configs:
         if agent.kind != AGGREGATOR:
             continue
@@ -263,29 +295,29 @@ def _check_aggregators(configs: list[tuple[Agent, ExperimentAgentConfig]]) -> No
             json.loads(config.formulas or "[]"),
             json.loads(config.input_mappings or "[]"),
             {
-                agent_id: name
-                for agent_id, name in names.items()
-                if orders[agent_id] < config.execution_order
+                step: name
+                for step, name in names.items()
+                if orders[step] < config.execution_order
             },
             names,
         )
         if problems:
             raise ExperimentConfigError(
-                f'Aggregator "{agent.name}": ' + "; ".join(problems)
+                f'Aggregator "{config.label or agent.name}": ' + "; ".join(problems)
             )
 
 
 def aggregator_problems(
     formulas: list[dict],
     mappings: list[dict],
-    upstream: dict[int, str],
-    all_agents: dict[int, str],
+    upstream: dict[str, str],
+    all_agents: dict[str, str],
 ) -> list[str]:
     """
     Why an aggregator cannot run, or an empty list.
 
-    ``upstream`` names the agents that run before the aggregator, ``all_agents``
-    every agent of the experiment.
+    ``upstream`` names the steps that run before the aggregator, ``all_agents``
+    every step of the experiment, both by step key.
     """
     if not formulas:
         return ["it has no formula"]
@@ -299,14 +331,14 @@ def aggregator_problems(
         mapping = by_variable.get(variable) or {}
         source = mapping.get("source")
         if source == "agent":
-            agent_id = mapping.get("sourceAgentId")
-            if agent_id not in all_agents:
+            step = mapping_source(mapping)
+            if step not in all_agents:
                 problems.append(
                     f'variable "{variable}" reads an agent that is not in the experiment'
                 )
-            elif agent_id not in upstream:
+            elif step not in upstream:
                 problems.append(
-                    f'variable "{variable}" reads {all_agents[agent_id]}, '
+                    f'variable "{variable}" reads {all_agents[step]}, '
                     "which does not run before the aggregator"
                 )
         elif (source == "dataset" and mapping.get("sourceColumn")) or (source == "static" and str(mapping.get("staticValue") or "").strip()):
@@ -389,8 +421,9 @@ def create_execution_snapshot(
                 AgentExecutionSnapshot(
                     execution_id=execution.id,
                     agent_id=agent.id,
+                    step_key=agent_config.step_key,
                     kind=AGGREGATOR,
-                    agent_name_snapshot=agent.name,
+                    agent_name_snapshot=agent_config.label or agent.name,
                     model_name_snapshot="",
                     model_provider_snapshot="",
                     prompt_name_snapshot="",
@@ -414,7 +447,8 @@ def create_execution_snapshot(
         agent_snapshot = AgentExecutionSnapshot(
             execution_id=execution.id,
             agent_id=agent.id,
-            agent_name_snapshot=agent.name,
+            step_key=agent_config.step_key,
+            agent_name_snapshot=agent_config.label or agent.name,
             model_name_snapshot=model.name,
             model_provider_snapshot=model.provider,
             prompt_name_snapshot=prompt_version.prompt.name
@@ -493,6 +527,7 @@ def build_agent_configs_from_snapshot(
                 execution_order=snapshot.execution_order,
                 input_mappings=input_mappings,
                 agent_id=snapshot.agent_id,
+                step_key=snapshot.step_key,
                 kind=snapshot.kind,
                 formulas=json.loads(snapshot.final_formulas)
                 if snapshot.final_formulas
@@ -616,6 +651,7 @@ def _build_config_snapshot(
         "agents": [
             {
                 "agent_id": s.agent_id,
+                "step_key": s.step_key or (None if s.agent_id is None else str(s.agent_id)),
                 "agent_name": s.agent_name_snapshot,
                 "kind": s.kind,
                 "model_name": s.model_name_snapshot,

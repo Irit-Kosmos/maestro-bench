@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Agent, CreateAgentForm, Model, PromptVersion } from '~/types'
 
-// The one field to add an agent to an experiment, in the list and in the graph: typing filters the agents
-// left, and a name nothing matches can be created from it
+// The one field to add an agent to an experiment, in the list and in the graph: typing filters the agents,
+// and a name nothing matches can be created from it. An agent already there can be added again: it runs once more.
 // The field and its dialog are siblings: the attributes (a width, say) belong to the field
 defineOptions({ inheritAttrs: false })
 
@@ -10,8 +10,8 @@ const props = defineProps<{
   agents?: readonly Agent[] | null
   models?: readonly Model[]
   promptVersions?: readonly PromptVersion[]
-  /** Agents already in the experiment: they are not offered again */
-  addedIds: ReadonlySet<number>
+  /** How many times each agent is already in the experiment */
+  addedCounts: ReadonlyMap<number, number>
   /** Reloads the agents, so an agent created here can be added */
   refreshAgents?: () => Promise<void>
 }>()
@@ -32,7 +32,14 @@ const search = ref('')
 const picked = ref<number | string>()
 
 const allAgents = computed(() => props.agents ?? [])
-const hasAgents = computed(() => allAgents.value.length > 0)
+function hintOf(agent: Agent) {
+  const count = props.addedCounts.get(agent.id) ?? 0
+  const summary = agent.description || defaultSummary(agent)
+  if (count === 0)
+    return summary
+  const added = count === 1 ? 'Already added: add it again' : `Added ${count} times: add it again`
+  return summary ? `${added} · ${summary}` : added
+}
 
 function defaultSummary(agent: Agent) {
   if (agent.kind === 'aggregator')
@@ -50,11 +57,10 @@ const menuItems = computed<any[]>(() => {
   const term = name.toLowerCase()
 
   const entries: any[] = allAgents.value
-    .filter(agent => !props.addedIds.has(agent.id)
-      && (!term || `${agent.name} ${agent.description ?? ''}`.toLowerCase().includes(term)))
+    .filter(agent => !term || `${agent.name} ${agent.description ?? ''}`.toLowerCase().includes(term))
     .map(agent => ({
       label: agent.name,
-      hint: agent.description || defaultSummary(agent),
+      hint: hintOf(agent),
       value: agent.id,
       icon: agent.kind === 'aggregator' ? 'i-ph-function-bold' : 'i-ph-ghost-bold',
     }))
@@ -133,7 +139,7 @@ async function onCreate(data: CreateAgentForm) {
       </span>
     </template>
     <template #empty>
-      {{ search.trim() ? 'No agent matches' : hasAgents ? 'Every agent is already added' : 'No agents yet' }}
+      {{ search.trim() ? 'No agent matches' : 'No agents yet' }}
     </template>
   </UInputMenu>
 

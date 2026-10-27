@@ -269,7 +269,7 @@ Required to start: `SECRET_KEY`, the three `AUTH_GITLAB_*` settings, and one of
 | `LLM_MAX_RETRIES` | `6` | Retries on transient provider errors (429, timeouts, 5xx), with exponential backoff that honours `Retry-After`. `LLM_RETRY_BASE_DELAY` / `LLM_RETRY_MAX_DELAY` (`1` / `60` s) tune the backoff. |
 | `<PROVIDER>_MAX_RPS` | - | Optional requests-per-second cap per provider, e.g. `MISTRAL_MAX_RPS=1`. Shared by all running experiments. |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Bind address when running `python main.py`. |
-| `DATABASE_URL` | `postgresql+psycopg://maestro:maestro@localhost:5432/maestro` | SQLAlchemy connection string. PostgreSQL only. Docker Compose sets it to the `postgres` service. |
+| `DATABASE_URL` | local `maestro` database | SQLAlchemy connection string, PostgreSQL only. Default: `postgresql+psycopg://maestro:maestro@localhost:5432/maestro`. Docker Compose sets it to the `postgres` service. |
 | `DATA_DIR` | repository root (`/data` in Docker) | Where files are stored: `<DATA_DIR>/workspaces/<id>/datasets/` and `.../results/`, one folder per workspace. Paths saved in the database are relative to those two folders, and a path that leaves its folder is refused. |
 | `MAX_UPLOAD_MB` | `50` | Largest dataset file accepted by an upload. |
 | `MAX_CONCURRENT_EXPERIMENTS_PER_WORKSPACE` | `3` | Experiments one workspace runs at once. The next ones wait, in order, and start as soon as a slot is free. |

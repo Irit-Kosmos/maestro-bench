@@ -236,6 +236,79 @@ class TestCreateBatch:
         assert experiment["batch_name"] == "Compare"
 
 
+class TestRepeatedAgent:
+    """The same agent may run twice in the pipeline; each run is its own axis."""
+
+    def twice(self, world):
+        step = f"{world['agent']}#2"
+        body = payload(world, [])
+        configs = body["config"]["agent_configurations"]
+        configs[step] = {**configs[str(world["agent"])], "execution_order": 2}
+        body["variations"] = [
+            {
+                "step_key": str(world["agent"]),
+                "field": "model_id",
+                "values": [world["models"][0], world["models"][1]],
+            },
+            {"step_key": step, "field": "model_id", "values": [world["models"][2]]},
+        ]
+        return body
+
+    def test_each_step_varies_on_its_own(self, client, world, engine):
+        response = client.post("/batches", json=self.twice(world))
+
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert [v["step_key"] for v in body["variations"]] == [
+            str(world["agent"]),
+            f"{world['agent']}#2",
+        ]
+        assert [v["agent_name"] for v in body["variations"]] == ["Grader", "Grader #2"]
+        assert [e["name"] for e in body["experiments"]] == [
+            "Compare · Grader: m-a · Grader #2: m-c",
+            "Compare · Grader: m-b · Grader #2: m-c",
+        ]
+        with scoped(engine) as s:
+            configs = s.exec(
+                select(ExperimentAgentConfig).order_by(ExperimentAgentConfig.id)
+            ).all()
+        assert [(c.step_key, c.model_id) for c in configs] == [
+            (str(world["agent"]), world["models"][0]),
+            (f"{world['agent']}#2", world["models"][2]),
+            (str(world["agent"]), world["models"][1]),
+            (f"{world['agent']}#2", world["models"][2]),
+        ]
+
+    def test_the_experiment_knows_its_coordinates_by_step(self, client, world):
+        body = client.post("/batches", json=self.twice(world)).json()
+
+        coordinates = body["experiments"][1]["coordinates"]
+        assert [(c["step_key"], c["value"]) for c in coordinates] == [
+            (str(world["agent"]), world["models"][1]),
+            (f"{world['agent']}#2", world["models"][2]),
+        ]
+        experiment = client.get(f"/experiments/{body['experiments'][1]['id']}").json()
+        assert experiment["variant"] == {
+            str(world["agent"]): {"model_id": world["models"][1]},
+            f"{world['agent']}#2": {"model_id": world["models"][2]},
+        }
+
+    def test_varying_a_step_that_is_not_in_the_batch_is_refused(self, client, world):
+        body = payload(world, [])
+        body["variations"] = [
+            {
+                "step_key": f"{world['agent']}#2",
+                "field": "model_id",
+                "values": [world["models"][1]],
+            }
+        ]
+
+        response = client.post("/batches", json=body)
+
+        assert response.status_code == 422
+        assert "not an active step" in response.json()["detail"]
+
+
 class TestBaseRun:
     """The base configuration is one of the batch's runs."""
 

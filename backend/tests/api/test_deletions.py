@@ -43,6 +43,7 @@ def world(engine):
         config = ExperimentAgentConfig(
             experiment_id=experiment.id,
             agent_id=agent.id,
+            step_key=str(agent.id),
             model_id=model.id,
             prompt_version_id=version.id,
         )

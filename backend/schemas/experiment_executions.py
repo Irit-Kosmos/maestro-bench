@@ -29,6 +29,9 @@ class LatestExecutionFigures(BaseModel):
 class AgentExecutionSnapshotResponse(BaseModel):
     id: int
     agent_id: int | None  # empty once the agent is deleted
+    # Step of the experiment it ran ("12", "12#2"…); None only on an old snapshot
+    # of an agent since deleted
+    step_key: str | None = None
     # "aggregator" snapshots have empty model and prompt fields, and formulas
     kind: str = "llm"
     agent_name_snapshot: str
@@ -47,45 +50,6 @@ class AgentExecutionSnapshotResponse(BaseModel):
     final_max_tokens: int | None
     execution_order: int
     created_at: datetime
-
-
-class ExecutionListAgent(BaseModel):
-    """One agent of an execution, as the executions list shows it."""
-
-    # None once the agent has been deleted: only its snapshot is left
-    agent_id: int | None = None
-    kind: str = "llm"
-    name: str
-    model: str
-    provider: str
-    prompt: str
-    prompt_version: str
-
-
-class ExecutionListItem(BaseModel):
-    """One execution, with the experiment it belongs to, for lists spanning experiments."""
-
-    id: int
-    experiment_id: int
-    experiment_name: str
-    batch_id: int | None = None
-    batch_name: str | None = None
-    dataset_name: str | None = None
-    status: str
-    started_at: datetime
-    completed_at: datetime | None = None
-    duration_seconds: float | None = None
-    # Live progress, in dataset rows; failed rows are counted in the rows done
-    rows_total: int | None = None
-    rows_done: int = 0
-    rows_failed: int = 0
-    # Dataset rows processed; None until the results file exists
-    row_count: int | None = None
-    has_results: bool = False
-    total_tokens: int | None = None
-    total_cost_usd: float | None = None
-    # In the order they ran
-    agents: list[ExecutionListAgent] = []
 
 
 class ExperimentExecutionResponse(BaseModel):

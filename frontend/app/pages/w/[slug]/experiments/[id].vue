@@ -400,7 +400,7 @@ watch(() => route.params.id, () => {
           id="agents"
           title="Agents"
           icon="i-ph-ghost-bold"
-          :count="latestExecution?.agent_executions.length ?? 0"
+          :count="latestExecution && latestExecution.agent_executions.length > 1 ? latestExecution.agent_executions.length : undefined"
           :description="latestExecution && latestExecution.agent_executions.length > 1 ? 'Run from top to bottom. The last agent’s output is the result.' : undefined"
         >
           <template v-if="canShowGraph" #actions>
@@ -441,6 +441,7 @@ watch(() => route.params.id, () => {
           <!-- Values describe themselves, so the icon names the fact (and the title says it on hover) -->
           <ExperimentsSection id="dataset" title="Dataset" icon="i-ph-database-bold" compact>
             <ul class="flex flex-col gap-2 text-sm text-highlighted">
+              <!-- The dataset's identity in one block: name, then the file it comes from and what it is -->
               <li>
                 <UIMetaItem icon="i-ph-tag-bold" label="Name">
                   <UIMetaLink v-if="experiment.dataset_id" :to="`/datasets/${experiment.dataset_id}`">
@@ -448,6 +449,14 @@ watch(() => route.params.id, () => {
                   </UIMetaLink>
                   <span v-else class="truncate">{{ datasetName }}</span>
                 </UIMetaItem>
+                <p v-if="datasetInfo?.file_path" class="mt-0.5 flex min-w-0 items-center gap-1 ps-5 text-xs text-muted" :title="datasetInfo.file_path">
+                  <UIcon name="i-ph-file-xls-bold" class="size-3.5 shrink-0 text-dimmed" aria-hidden="true" />
+                  <span class="sr-only">File: </span>
+                  <span class="truncate font-mono">{{ datasetInfo.file_path }}</span>
+                </p>
+                <p v-if="datasetInfo?.description" class="mt-0.5 line-clamp-2 ps-5 text-xs text-muted text-pretty" :title="datasetInfo.description">
+                  {{ datasetInfo.description }}
+                </p>
               </li>
               <li>
                 <UIMetaItem icon="i-ph-rows-bold" label="Rows used">
@@ -471,16 +480,6 @@ watch(() => route.params.id, () => {
                   :loading="isResampling"
                   @click="handleResample"
                 />
-              </li>
-              <li v-if="datasetInfo?.file_path">
-                <UIMetaItem icon="i-ph-file-xls-bold" label="File">
-                  <span class="truncate font-mono text-xs text-toned" :title="datasetInfo.file_path">{{ datasetInfo.file_path }}</span>
-                </UIMetaItem>
-              </li>
-              <li v-if="datasetInfo?.description" class="ps-5">
-                <p class="line-clamp-2 text-xs text-muted text-pretty" :title="datasetInfo.description">
-                  {{ datasetInfo.description }}
-                </p>
               </li>
             </ul>
           </ExperimentsSection>

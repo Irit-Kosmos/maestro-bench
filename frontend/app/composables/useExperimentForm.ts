@@ -39,7 +39,8 @@ export function useExperimentForm(
     sampling_seed: undefined,
   })
 
-  const agentConfigurations = ref<Record<number, AgentConfiguration>>({})
+  // Settings of each step of the pipeline, by step key (see utils/steps)
+  const agentConfigurations = ref<Record<string, AgentConfiguration>>({})
 
   // Computed property to handle dataset selection conversion between null and undefined
   const selectedDataset = computed({
@@ -63,43 +64,44 @@ export function useExperimentForm(
     return true // 'all' is always valid
   })
 
-  // Get variables required by an agent's selected prompt version
-  function getAgentPromptVariables(agentId: number): string[] {
-    const config = agentConfigurations.value[agentId]
+  // Get variables required by a step's selected prompt version
+  function getAgentPromptVariables(key: string): string[] {
+    const config = agentConfigurations.value[key]
     if (!config?.prompt_version_id)
       return []
     const version = allPromptVersions?.value?.find(v => v.id === config.prompt_version_id)
     return parsePromptVariables(version?.variables)
   }
 
-  // Get active agent IDs (excluding explicitly disabled agents)
-  function getActiveAgentIds(): number[] {
+  // Get active step keys (excluding explicitly disabled steps)
+  function getActiveStepKeys(): string[] {
     return Object.entries(agentConfigurations.value)
       .filter(([_, config]) => config?.is_active !== false)
-      .map(([id]) => Number.parseInt(id))
+      .map(([key]) => key)
   }
 
-  function isAggregator(agentId: number): boolean {
+  function isAggregator(key: string): boolean {
+    const agentId = agentIdOfStep(key)
     return !!agents?.value?.some(a => a.id === agentId && a.kind === 'aggregator')
   }
 
-  // The backend silently skips an agent without a prompt version or a model, so an experiment
-  // is only valid when every active agent has both and maps every variable of its prompt.
+  // The backend silently skips a step without a prompt version or a model, so an experiment
+  // is only valid when every active step has both and maps every variable of its prompt.
   // An aggregator needs its formulas written and their variables mapped (the backend checks the rest).
   function areAgentsReady(): boolean {
-    const activeIds = getActiveAgentIds()
-    if (activeIds.length === 0)
+    const activeKeys = getActiveStepKeys()
+    if (activeKeys.length === 0)
       return false
 
-    return activeIds.every((agentId) => {
-      const config = agentConfigurations.value[agentId]
-      if (isAggregator(agentId))
+    return activeKeys.every((key) => {
+      const config = agentConfigurations.value[key]
+      if (isAggregator(key))
         return aggregatorIssues(config).length === 0 && !formulaErrorsOf(config?.formulas)?.errors.some(Boolean)
       if (!config?.prompt_version_id || !config.model_id)
         return false
 
       const inputMappings = config.input_mappings || []
-      return getAgentPromptVariables(agentId).every(variable =>
+      return getAgentPromptVariables(key).every(variable =>
         inputMappings.some((m: AgentInputMapping) => m.variable === variable && isMappingComplete(m)),
       )
     })
@@ -109,7 +111,7 @@ export function useExperimentForm(
 
   const formValid = computed(() => detailsValid.value && datasetValid.value && agentsValid.value)
 
-  // Helper to get active agent configurations
+  // Helper to get active step configurations
   const getActiveAgentConfigurations = () => {
     return Object.fromEntries(
       Object.entries(agentConfigurations.value).filter(([_, config]) => config?.is_active === true),
@@ -118,18 +120,17 @@ export function useExperimentForm(
 
   // Prepare experiment data for submission
   const prepareExperimentData = (options?: {
-    executionOrder?: Map<number, number>
+    executionOrder?: Map<string, number>
   }) => {
     const agent_configs = getActiveAgentConfigurations()
 
-    // Add execution_order to each agent config
+    // Add execution_order to each step config
     if (options?.executionOrder) {
       Object.keys(agent_configs).forEach((key) => {
-        const agentId = Number.parseInt(key)
-        const order = options.executionOrder!.get(agentId)
+        const order = options.executionOrder!.get(key)
         if (order !== undefined) {
-          agent_configs[agentId] = {
-            ...agent_configs[agentId],
+          agent_configs[key] = {
+            ...agent_configs[key],
             execution_order: order,
           }
         }

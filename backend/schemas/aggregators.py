@@ -27,8 +27,8 @@ class FormulaCheckResponse(BaseModel):
 class AggregatorPreviewRequest(BaseModel):
     formulas: list[FormulaOutput]
     input_mappings: list[dict] = []
-    # Prompt version each source agent uses in the experiment, by agent id
-    prompt_versions: dict[int, int | None] = {}
+    # Prompt version each source step uses in the experiment, by step key
+    prompt_versions: dict[str, int | None] = {}
 
 
 class AggregatorPreviewRow(BaseModel):

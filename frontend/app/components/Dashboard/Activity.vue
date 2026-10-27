@@ -104,14 +104,14 @@ const cards = computed<Card[]>(() => {
       worseWhenUp: true,
       before: `${(previous?.rows_failed ?? 0).toLocaleString('en-US')} failed rows`,
       hint: [
-        current.executions_with_failures ? `${plural(current.executions_with_failures, 'execution', 'executions')} affected` : '',
+        current.experiments_with_failures ? `${plural(current.experiments_with_failures, 'experiment', 'experiments')} affected` : '',
         current.rows_done
           ? `${current.rows_failed.toLocaleString('en-US')} of ${current.rows_done.toLocaleString('en-US')} rows`
           : 'No rows processed',
       ].filter(Boolean).join(' · '),
-      // The same executions, over the same period, on the executions list
-      hintTo: current.executions_with_failures
-        ? `/executions?${new URLSearchParams({ failures: '1', ...(range.value === 'all' ? {} : { range: range.value }) })}`
+      // The same experiments, over the same period, on the experiments list
+      hintTo: current.experiments_with_failures
+        ? `/experiments?${new URLSearchParams({ failures: '1', ...(range.value === 'all' ? {} : { range: range.value }) })}`
         : undefined,
       bars: buckets.map(b => b.rows_failed),
       barLabel: b => `${slice(b)} · ${plural(b.rows_failed, 'failed row', 'failed rows')}`,
@@ -178,7 +178,8 @@ function changeClass(card: Card) {
 
       <template v-else>
         <div v-for="card in cards" :key="card.key" class="flex flex-col gap-1.5 bg-default px-4 py-3">
-          <div class="flex items-baseline justify-between gap-2">
+          <!-- Fixed height: the change badge must not make the header taller than when it is absent -->
+          <div class="flex h-4 items-center justify-between gap-2">
             <span class="text-xs font-medium text-muted">{{ card.label }}</span>
             <UTooltip
               v-if="card.change.kind !== 'none'"
