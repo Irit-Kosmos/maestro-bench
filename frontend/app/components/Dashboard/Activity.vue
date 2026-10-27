@@ -178,7 +178,8 @@ function changeClass(card: Card) {
 
       <template v-else>
         <div v-for="card in cards" :key="card.key" class="flex flex-col gap-1.5 bg-default px-4 py-3">
-          <div class="flex items-baseline justify-between gap-2">
+          <!-- Fixed height: the change badge must not make the header taller than when it is absent -->
+          <div class="flex h-4 items-center justify-between gap-2">
             <span class="text-xs font-medium text-muted">{{ card.label }}</span>
             <UTooltip
               v-if="card.change.kind !== 'none'"
