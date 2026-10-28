@@ -30,7 +30,7 @@ from fastapi import APIRouter, Query
 from sqlmodel import Session, col, func, select
 
 from db import SessionDep
-from loading import by_id, grouped_by
+from loading import by_id, grouped_by, people
 from results_files import execution_row_count
 from schemas.dashboard import (
     DashboardActiveExperiment,
@@ -38,6 +38,7 @@ from schemas.dashboard import (
     DashboardBucket,
     DashboardExperiment,
     DashboardModel,
+    DashboardModelUsage,
     DashboardResponse,
     DashboardTotals,
 )
@@ -53,7 +54,7 @@ from tables import (
 
 router = APIRouter(tags=["dashboard"])
 
-RECENT_LIMIT = 5
+RECENT_LIMIT = 20
 
 # Periods the activity can cover, and how finely each is cut for its sparklines
 PERIODS = {
@@ -152,6 +153,7 @@ def _recent_experiments(
 ) -> list[DashboardExperiment]:
     datasets = by_id(session, Dataset, (e.dataset_id for e in experiments))
     batches = by_id(session, Batch, (e.batch_id for e in experiments))
+    authors = people(session, (e.created_by for e in experiments))
     executions = grouped_by(
         session,
         ExperimentExecution,
@@ -186,6 +188,7 @@ def _recent_experiments(
                 duration_seconds=duration,
                 total_tokens=execution.total_tokens if execution else None,
                 total_cost_usd=execution.total_cost_usd if execution else None,
+                author=authors.get(experiment.created_by),
             )
         )
     return recent
@@ -203,6 +206,68 @@ def _window(range_: str, now: datetime, session: Session) -> _Window:
     cutoff = now - GROWTH_WINDOW
     return _Window(
         earliest, bucket, span, growth_cutoff=cutoff if earliest < cutoff else None
+    )
+
+
+def _models_used(
+    start: datetime,
+    totals_of: dict[int, tuple[int | None, float | None]],
+    session: Session,
+) -> list[DashboardModelUsage]:
+    """What each model ran since `start`, from what each step used.
+
+    An execution made before steps kept their own usage only has its totals: they are
+    shared evenly between its models.
+    """
+    steps_of: dict[int, list[tuple[str, str, int | None, float | None]]] = defaultdict(list)
+    for execution_id, name, provider, tokens, cost in session.exec(
+        select(
+            AgentExecutionSnapshot.execution_id,
+            AgentExecutionSnapshot.model_name_snapshot,
+            AgentExecutionSnapshot.model_provider_snapshot,
+            AgentExecutionSnapshot.total_tokens,
+            AgentExecutionSnapshot.total_cost_usd,
+        )
+        .join(
+            ExperimentExecution,
+            col(AgentExecutionSnapshot.execution_id) == col(ExperimentExecution.id),
+        )
+        # Aggregators have no model
+        .where(
+            ExperimentExecution.started_at >= start,
+            AgentExecutionSnapshot.model_name_snapshot != "",
+        )
+    ).all():
+        steps_of[execution_id].append((name, provider, tokens, cost))
+
+    usage: dict[tuple[str, str], DashboardModelUsage] = {}
+
+    def of(name: str, provider: str) -> DashboardModelUsage:
+        return usage.setdefault(
+            (name, provider), DashboardModelUsage(name=name, provider=provider)
+        )
+
+    for execution_id, steps in steps_of.items():
+        models = list(dict.fromkeys((name, provider) for name, provider, _, _ in steps))
+        for name, provider in models:
+            of(name, provider).executions += 1
+        if all(cost is not None for *_, cost in steps):
+            for name, provider, tokens, cost in steps:
+                model = of(name, provider)
+                model.total_tokens += tokens or 0
+                model.total_cost_usd += cost or 0.0
+        else:
+            tokens, cost = totals_of.get(execution_id, (None, None))
+            for name, provider in models:
+                model = of(name, provider)
+                model.total_tokens += (tokens or 0) // len(models)
+                model.total_cost_usd += (cost or 0.0) / len(models)
+
+    for model in usage.values():
+        model.total_cost_usd = round(model.total_cost_usd, 6)
+    return sorted(
+        usage.values(),
+        key=lambda m: (-m.total_cost_usd, -m.total_tokens, -m.executions, m.name),
     )
 
 
@@ -304,6 +369,15 @@ def _activity(range_: str, session: Session) -> DashboardActivity:
         current=current,
         previous=previous,
         buckets=buckets,
+        models=_models_used(
+            window.start,
+            {
+                execution_id: (tokens, cost)
+                for execution_id, _, started_at, _, tokens, cost, _, _ in executions
+                if started_at >= window.start
+            },
+            session,
+        ),
         active=[
             DashboardActiveExperiment(
                 id=int(exp.id or 0), name=exp.name, status=exp.status

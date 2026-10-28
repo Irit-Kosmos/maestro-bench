@@ -78,8 +78,8 @@ def add_experiment(engine, world, **fields) -> int:
         return experiment.id
 
 
-def add_execution(engine, experiment_id, models, **fields) -> int:
-    """An execution with one agent snapshot per model name."""
+def add_execution(engine, experiment_id, models, usage=None, **fields) -> int:
+    """An execution with one agent snapshot per model name, and what each step used if given."""
     with scoped(engine) as s:
         execution = ExperimentExecution(
             experiment_id=experiment_id, dataset_snapshot="{}", **fields
@@ -97,6 +97,8 @@ def add_execution(engine, experiment_id, models, **fields) -> int:
                     prompt_name_snapshot="Grader",
                     prompt_version_snapshot="1",
                     execution_order=order,
+                    total_tokens=usage[order][0] if usage else None,
+                    total_cost_usd=usage[order][1] if usage else None,
                 )
             )
         s.commit()
@@ -159,6 +161,8 @@ def test_recent_experiment_carries_its_latest_execution(client, engine, world):
     assert recent["total_cost_usd"] == 0.5
     # No results file yet
     assert recent["row_count"] is None
+    # Made before authors were kept
+    assert recent["author"] is None
 
 
 def test_experiment_without_execution_falls_back_to_configured_models(
@@ -198,13 +202,13 @@ def test_experiment_without_execution_falls_back_to_configured_models(
 
 
 def test_recent_experiments_are_newest_first_and_capped(client, engine, world):
-    for i in range(8):
-        add_experiment(engine, world, created_at=now() - timedelta(hours=8 - i))
+    for i in range(22):
+        add_experiment(engine, world, created_at=now() - timedelta(hours=22 - i))
 
     recent = client.get("/dashboard").json()["recent_experiments"]
 
-    assert len(recent) == 5
-    assert [r["id"] for r in recent] == [8, 7, 6, 5, 4]
+    assert len(recent) == 20
+    assert [r["id"] for r in recent] == list(range(22, 2, -1))
 
 
 def test_activity_counts_the_period_only(client, engine, world):
@@ -276,6 +280,58 @@ def test_an_experiment_is_affected_when_its_latest_run_went_wrong(
     current = client.get("/dashboard").json()["activity"]["current"]
 
     assert current["experiments_with_failures"] == 3
+
+
+def test_models_add_up_what_each_step_used(client, engine, world):
+    exp = add_experiment(engine, world, status="completed")
+    add_execution(
+        engine,
+        exp,
+        ["m-a", "m-b", "m-a"],
+        usage=[(100, 0.5), (40, 0.1), (60, 0.25)],
+        total_tokens=200,
+        total_cost_usd=0.85,
+    )
+    add_execution(engine, exp, ["m-b"], usage=[(10, 0.2)])
+    # Out of the period
+    add_execution(
+        engine, exp, ["m-a"], usage=[(999, 9.0)], started_at=now() - timedelta(days=30)
+    )
+
+    models = client.get("/dashboard").json()["activity"]["models"]
+
+    assert models == [
+        {
+            "name": "m-a",
+            "provider": "openai",
+            "executions": 1,
+            "total_tokens": 160,
+            "total_cost_usd": 0.75,
+        },
+        {
+            "name": "m-b",
+            "provider": "openai",
+            "executions": 2,
+            "total_tokens": 50,
+            "total_cost_usd": 0.3,
+        },
+    ]
+
+
+def test_models_share_the_totals_of_executions_without_step_usage(
+    client, engine, world
+):
+    exp = add_experiment(engine, world, status="completed")
+    add_execution(
+        engine, exp, ["m-a", "m-b", "m-a"], total_tokens=300, total_cost_usd=0.5
+    )
+
+    models = client.get("/dashboard").json()["activity"]["models"]
+
+    assert [(m["name"], m["total_tokens"], m["total_cost_usd"]) for m in models] == [
+        ("m-a", 150, 0.25),
+        ("m-b", 150, 0.25),
+    ]
 
 
 def test_active_lists_running_and_pending_experiments_however_old(
