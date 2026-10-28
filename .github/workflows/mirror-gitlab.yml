@@ -23,15 +23,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push to GitLab
+      - name: Set up the deploy key
         env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          GITLAB_REPO: gitlab.irit.fr/talent/TALENT/around-elaastic/around-konsolidation/maestro-bench.git
+          # Private half of the GitLab deploy key with write access (whole file, BEGIN/END lines included)
+          GITLAB_SSH_KEY: ${{ secrets.GITLAB_SSH_KEY }}
+          # Pinned host key of gitlab.irit.fr (SHA256:d69EuNFLS/x1XtROMysHg4QQ8wL4zR7oBpyvgMO3Udc):
+          # never trust whatever key the server presents on the day
+          GITLAB_HOST_KEY: gitlab.irit.fr ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN/mFJ3KykUAa9btycWevScsDSSj050AeP2xHB/7IgCR
         run: |
-          git remote add irit "https://oauth2:${GITLAB_TOKEN}@${GITLAB_REPO}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$GITLAB_SSH_KEY" > ~/.ssh/gitlab_mirror
+          chmod 600 ~/.ssh/gitlab_mirror
+          printf '%s\n' "$GITLAB_HOST_KEY" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<'EOF'
+          Host gitlab.irit.fr
+            User git
+            IdentityFile ~/.ssh/gitlab_mirror
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Push to GitLab
+        run: |
+          git remote add irit git@gitlab.irit.fr:talent/TALENT/around-elaastic/around-konsolidation/maestro-bench.git
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             git push --force irit "refs/tags/${GITHUB_REF_NAME}"
           else
             # GitLab is a pure mirror: nobody commits there, so overwriting is safe
             git push --force irit HEAD:refs/heads/main
           fi
+
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f ~/.ssh/gitlab_mirror
