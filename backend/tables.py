@@ -455,6 +455,10 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     final_formulas: str | None = Field(default=None, sa_type=JsonText)
 
     execution_order: int = Field(description="Order in which this agent was executed")
+    # What this step used over all the rows, once the run is over; empty while it runs
+    # and on snapshots made before steps kept their own
+    total_tokens: int | None = None
+    total_cost_usd: float | None = None
     created_at: datetime = now_field()
 
     __table_args__ = (
