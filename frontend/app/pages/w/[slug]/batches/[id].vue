@@ -235,6 +235,7 @@ async function handleDelete() {
           <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(batch.created_at) }}
           </UIMetaItem>
+          <UIPerson v-if="batch.author" :person="batch.author" label="Created by" />
           <UIMetaItem v-if="batch.dataset_name" icon="i-ph-database-bold" label="Dataset">
             <UIMetaLink v-if="batch.dataset_id" :to="`/datasets/${batch.dataset_id}`">
               {{ batch.dataset_name }}

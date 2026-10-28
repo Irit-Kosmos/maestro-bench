@@ -30,7 +30,7 @@ import { useGroupBy } from '~/composables/useGroupBy'
 import { useSortBy } from '~/composables/useSortBy'
 import { runsSummary } from '~/utils/executions'
 import { byOrder, emptyFilterEntry } from '~/utils/filters'
-import { DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { authorFilter, DASHBOARD_DATE_RANGES, datasetFilter, dateFilter, earlierRunsFilter, failuresFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 // Page meta
@@ -80,7 +80,6 @@ const { canEdit } = useCurrentWorkspace()
 const { ok, info, fail, showDeleteSuccess, showDeleteError } = useStandardToast()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const showDeleteDialog = ref(false)
 const isDeleting = ref(false)
 const showCancelDialog = ref(false)
@@ -167,7 +166,8 @@ const columns = computed(() => [
   },
   {
     key: 'created_at',
-    width: 112,
+    // The author's avatar leads the date
+    width: 136,
     label: 'Created',
   },
 ])
@@ -230,6 +230,7 @@ const filters = computed<FilterSpec<Experiment>[]>(() => [
   },
   runsFilter(exp => exp.execution_count),
   failures,
+  authorFilter(exp => exp.author),
   dateFilter(exp => exp.created_at),
   lastRunFilter,
 ])
@@ -465,9 +466,7 @@ async function handleCreateExperiment() {
 
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
-            {{ formatRelativeDate(row.original.created_at) }}
-          </span>
+          <UIAuthorDate :date="row.original.created_at" :person="row.original.author" />
         </template>
       </BaseDataTable>
     </div>

@@ -18,7 +18,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { FilterSpec, FilterState } from './filters'
-import type { Tag } from '~/types'
+import type { Person, Tag } from '~/types'
 import { hasFailures } from './executions'
 import { byOrder, emptyFilterEntry } from './filters'
 import { tagDot } from './tags'
@@ -82,6 +82,27 @@ export function datasetFilter<T>(name: (item: T) => string | null | undefined): 
     plural: 'datasets',
     searchPlaceholder: 'Search a dataset…',
     value: name,
+  }
+}
+
+/** Who made an item, picked by name. Items nobody is known to have made carry no value. */
+export function authorFilter<T>(author: (item: T) => Person | null | undefined, label = 'Created by'): FilterSpec<T> {
+  // The name of each person, learnt from the items as the filter reads them: two people may share a name
+  const names = new Map<number, string>()
+  return {
+    key: 'author',
+    label,
+    icon: 'i-ph-user-bold',
+    plural: 'people',
+    searchPlaceholder: 'Search a person…',
+    value: (item) => {
+      const person = author(item)
+      if (!person)
+        return undefined
+      names.set(person.id, person.display_name)
+      return person.id
+    },
+    present: value => ({ label: names.get(Number(value)) ?? 'Former member', icon: 'i-ph-user-bold' }),
   }
 }
 

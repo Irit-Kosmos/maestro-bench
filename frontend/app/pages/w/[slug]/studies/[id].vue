@@ -240,9 +240,7 @@ const stats = computed(() => study.value
           <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(study.created_at) }}
           </UIMetaItem>
-          <UIMetaItem v-if="study.author" icon="i-ph-user-bold" label="Created by">
-            {{ study.author.display_name }}
-          </UIMetaItem>
+          <UIPerson v-if="study.author" :person="study.author" label="Created by" />
         </div>
       </header>
 

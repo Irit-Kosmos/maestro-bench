@@ -23,7 +23,7 @@
 import type { CreateDatasetForm, Dataset } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
 import type { SortSpec } from '~/utils/sorts'
-import { dateFilter } from '~/utils/filterSpecs'
+import { authorFilter, dateFilter } from '~/utils/filterSpecs'
 import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 // Page meta
@@ -36,7 +36,6 @@ const { data: datasets, pending, error, refresh } = await useMyLazyFetch<Dataset
 
 // Composables
 const { createDataset, deleteDataset } = useDatasets()
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 // Page meta
@@ -71,6 +70,7 @@ const columns = [
 ]
 
 const filters: FilterSpec<Dataset>[] = [
+  authorFilter(dataset => dataset.author),
   dateFilter(dataset => dataset.created_at),
 ]
 
@@ -209,9 +209,7 @@ useCreateFromQuery(handleCreateClick)
       >
         <!-- Custom cell for created_at -->
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
-            {{ formatRelativeDate(row.original.created_at) }}
-          </span>
+          <UIAuthorDate :date="row.original.created_at" :person="row.original.author" />
         </template>
       </BaseDataTable>
     </div>

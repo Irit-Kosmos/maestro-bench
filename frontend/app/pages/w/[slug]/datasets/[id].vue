@@ -167,6 +167,12 @@ watch(() => route.params.id, () => {
                 {{ formatRelativeDate(dataset.created_at) }}
               </dd>
             </div>
+            <div v-if="dataset.author" class="flex min-w-0 items-center gap-1.5">
+              <dt>Created by</dt>
+              <dd class="min-w-0 text-toned">
+                <UIPerson :person="dataset.author" />
+              </dd>
+            </div>
             <div class="flex min-w-0 items-baseline gap-1.5">
               <dt>File</dt>
               <dd class="min-w-0 max-w-56 truncate font-mono text-toned" :title="dataset.file_path || undefined">

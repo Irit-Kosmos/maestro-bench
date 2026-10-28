@@ -29,6 +29,7 @@ const analysisId = computed(() => Number.parseInt(route.params.id as string))
 const { fetchResults, updateAnalysis, deleteAnalysis } = useAnalyses()
 const { canEdit } = useCurrentWorkspace()
 const { isShared } = useShare()
+const { formatDate } = useUIHelpers()
 const { showUpdateSuccess, showUpdateError, showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const { data: analysis, pending, error, refresh: refreshAnalysis } = await useMyLazyFetch<Analysis>(
@@ -168,6 +169,15 @@ async function confirmDelete() {
           · {{ analysis.config.value_type }}
           · {{ analysis.runs.length }} execution{{ analysis.runs.length === 1 ? '' : 's' }}
         </p>
+        <div class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
+          <UIMetaItem icon="i-ph-hash-bold" label="Analysis">
+            {{ analysis.id }}
+          </UIMetaItem>
+          <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
+            {{ formatDate(analysis.created_at) }}
+          </UIMetaItem>
+          <UIPerson v-if="analysis.author" :person="analysis.author" label="Created by" />
+        </div>
         <p v-if="analysis.description" class="mt-1 text-sm text-toned max-w-prose">
           {{ analysis.description }}
         </p>

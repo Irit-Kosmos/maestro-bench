@@ -47,6 +47,8 @@ export interface Prompt {
   description: string | null
   tags: Tag[]
   created_at: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   versions?: PromptVersion[]
 }
 
@@ -61,6 +63,8 @@ export interface PromptVersion {
   is_default: boolean
   notes: string | null
   created_at: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   prompt?: Prompt
 }
 
@@ -69,6 +73,8 @@ export interface Dataset {
   name: string
   description: string | null
   created_at: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   file_path?: string
 }
 
@@ -124,6 +130,8 @@ export interface Experiment {
   dataset_id: number
   created_at: string
   completed_at?: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   dataset?: Dataset
   agent_configs?: ExperimentAgentConfig[]
   status?: ExperimentStatus
@@ -191,6 +199,8 @@ export interface ExperimentExecution {
   started_at: string
   completed_at?: string
   status: string
+  /** Who launched it; null when nobody is known to have (launched before this was kept, or the account is gone) */
+  launched_by?: Person | null
   dataset_snapshot: string
   results_file_path?: string
   // Dataset rows processed; null until the results file exists
@@ -315,6 +325,8 @@ export interface Agent {
   default_prompt_version_id: number | null
   default_model_id: number | null
   created_at: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   default_prompt_version?: PromptVersion
   default_model?: Model
   /** Only the agents list reads them */
@@ -427,6 +439,8 @@ export interface Analysis {
   config: AnalysisConfig
   runs: AnalysisRunRef[]
   tags: Tag[]
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   created_at: string
   updated_at: string
 }
@@ -581,6 +595,8 @@ export interface Batch {
   name: string
   description: string | null
   created_at: string
+  /** Who made it; null when nobody is known to have (made before authors were kept, or the account is gone) */
+  author?: Person | null
   base_experiment_id: number | null
   base_experiment_name: string | null
   dataset_id: number | null

@@ -104,8 +104,13 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
               class="ms-auto"
             />
           </span>
-          <span class="text-xs text-muted" :title="formatDate(version.created_at)">
-            {{ formatRelativeDate(version.created_at) }}
+          <!-- Who wrote it and when, as a commit reads -->
+          <span class="flex w-full min-w-0 items-center gap-1.5 text-xs text-muted">
+            <template v-if="version.author">
+              <UIPerson :person="version.author" label="Created by" class="text-toned" />
+              <span aria-hidden="true">·</span>
+            </template>
+            <span class="shrink-0" :title="formatDate(version.created_at)">{{ formatRelativeDate(version.created_at) }}</span>
           </span>
         </button>
       </li>
