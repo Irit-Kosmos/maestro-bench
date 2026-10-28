@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, col, select
 
 from db import SessionDep
+from loading import people
 from results_files import execution_row_count, results_path
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
@@ -90,6 +91,7 @@ def _build_execution_responses(
     executions: list[ExperimentExecution], session: Session
 ) -> list[ExperimentExecutionResponse]:
     snapshots = _snapshot_responses([int(e.id) for e in executions], session)
+    launchers = people(session, (e.created_by for e in executions))
     return [
         ExperimentExecutionResponse(
             id=int(execution.id) if execution.id is not None else 0,
@@ -97,6 +99,7 @@ def _build_execution_responses(
             started_at=execution.started_at,
             completed_at=execution.completed_at,
             status=execution.status,
+            launched_by=launchers.get(execution.created_by),
             dataset_snapshot=execution.dataset_snapshot,
             results_file_path=execution.results_file_path,
             row_count=execution_row_count(execution),

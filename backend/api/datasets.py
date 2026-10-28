@@ -23,6 +23,7 @@ import dataclasses
 import json
 import logging
 import secrets
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -36,6 +37,7 @@ from analysis.agreement import compute_agreement, pair_metric_infos
 from dataset_rows import DatasetFileError, read_dataset_rows, write_dataset_rows
 from dataset_utils import get_dataset_file_path, validate_dataset_file
 from db import SessionDep
+from loading import people
 from schemas.datasets import (
     DESCRIPTION_MAX_LENGTH,
     NAME_MAX_LENGTH,
@@ -43,6 +45,7 @@ from schemas.datasets import (
     DatasetCreate,
     DatasetInfo,
     DatasetPreview,
+    DatasetResponse,
     DatasetRows,
     DatasetRowsSaved,
     DatasetRowsUpdate,
@@ -196,12 +199,23 @@ async def _receive_upload(request: Request, destination: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/datasets", response_model=list[Dataset])
+def _responses(session: Session, datasets: Sequence[Dataset]) -> list[DatasetResponse]:
+    """The datasets with their authors, in one query for all of them."""
+    authors = people(session, (d.created_by for d in datasets))
+    return [
+        DatasetResponse.model_validate(d).model_copy(
+            update={"author": authors.get(d.created_by)}
+        )
+        for d in datasets
+    ]
+
+
+@router.get("/datasets", response_model=list[DatasetResponse])
 def list_datasets(session: SessionDep):
-    return session.exec(select(Dataset)).all()
+    return _responses(session, session.exec(select(Dataset)).all())
 
 
-@router.post("/datasets", response_model=Dataset, status_code=201)
+@router.post("/datasets", response_model=DatasetResponse, status_code=201)
 def create_dataset(
     dataset_data: DatasetCreate,
     session: SessionDep,
@@ -220,10 +234,10 @@ def create_dataset(
     session.add(dataset)
     session.commit()
     session.refresh(dataset)
-    return dataset
+    return _responses(session, [dataset])[0]
 
 
-@router.post("/datasets/upload", response_model=Dataset, status_code=201)
+@router.post("/datasets/upload", response_model=DatasetResponse, status_code=201)
 async def upload_dataset(
     request: Request,
     session: SessionDep,
@@ -261,18 +275,18 @@ async def upload_dataset(
     except BaseException:
         destination.unlink(missing_ok=True)
         raise
-    return dataset
+    return (await asyncio.to_thread(_responses, session, [dataset]))[0]
 
 
-@router.get("/datasets/{dataset_id}", response_model=Dataset)
+@router.get("/datasets/{dataset_id}", response_model=DatasetResponse)
 def get_dataset(dataset_id: int, session: SessionDep):
     dataset = session.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(404, "Dataset not found")
-    return dataset
+    return _responses(session, [dataset])[0]
 
 
-@router.put("/datasets/{dataset_id}", response_model=Dataset)
+@router.put("/datasets/{dataset_id}", response_model=DatasetResponse)
 def update_dataset(dataset_id: int, data: DatasetUpdate, session: SessionDep):
     """Rename or describe a dataset. An empty description clears it."""
     dataset = session.get(Dataset, dataset_id)
@@ -290,7 +304,7 @@ def update_dataset(dataset_id: int, data: DatasetUpdate, session: SessionDep):
     session.add(dataset)
     session.commit()
     session.refresh(dataset)
-    return dataset
+    return _responses(session, [dataset])[0]
 
 
 @router.get("/datasets/{dataset_id}/preview", response_model=DatasetPreview)

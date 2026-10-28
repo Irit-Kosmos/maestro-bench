@@ -29,7 +29,7 @@ from batch_utils import parse_point
 from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment
-from loading import by_id, grouped_by
+from loading import by_id, grouped_by, people
 from results_files import execution_row_count
 from schemas.experiments import (
     DatasetResponse,
@@ -39,6 +39,7 @@ from schemas.experiments import (
     ExperimentRerunResponse,
     ExperimentResponse,
 )
+from schemas.people import PersonResponse
 from study_utils import clear_item_links
 from tables import (
     Batch,
@@ -47,7 +48,7 @@ from tables import (
     ExperimentAgentConfig,
     ExperimentExecution,
 )
-from workspace_scope import current_workspace_id
+from workspace_scope import current_user_id, current_workspace_id
 
 router = APIRouter(tags=["experiments"])
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ def _build_experiment_responses(
     ids = [e.id for e in experiments if e.id is not None]
     datasets = by_id(session, Dataset, (e.dataset_id for e in experiments))
     batches = by_id(session, Batch, (e.batch_id for e in experiments))
+    authors = people(session, (e.created_by for e in experiments))
     configs = grouped_by(
         session,
         ExperimentAgentConfig,
@@ -84,6 +86,7 @@ def _build_experiment_responses(
             experiment,
             dataset=datasets.get(experiment.dataset_id),
             batch=batches.get(experiment.batch_id),
+            author=authors.get(experiment.created_by),
             experiment_configs=configs[experiment.id],
             executions=executions[experiment.id],
         )
@@ -102,6 +105,7 @@ def _experiment_response(
     *,
     dataset: Dataset | None,
     batch: Batch | None,
+    author: PersonResponse | None,
     experiment_configs: list[ExperimentAgentConfig],
     executions: list[ExperimentExecution],
 ) -> ExperimentResponse:
@@ -124,6 +128,7 @@ def _experiment_response(
         status=experiment.status,
         created_at=experiment.created_at,
         completed_at=experiment.completed_at,
+        author=author,
         sampling_type=experiment.sampling_type,
         sampling_size=experiment.sampling_size,
         sampling_start_row=experiment.sampling_start_row,
@@ -204,7 +209,9 @@ def create_experiment(
     experiment_id = int(experiment.id) if experiment.id is not None else 0
     try:
         outcome = async_jobs.start_experiment(
-            experiment_id, current_workspace_id(session)
+            experiment_id,
+            current_workspace_id(session),
+            launched_by=current_user_id(session),
         )
         logger.info("Experiment %s dispatched (%s)", experiment_id, outcome)
     except Exception:
@@ -303,7 +310,9 @@ def rerun_experiment(
 
     try:
         outcome = async_jobs.start_experiment(
-            experiment_id, current_workspace_id(session)
+            experiment_id,
+            current_workspace_id(session),
+            launched_by=current_user_id(session),
         )
         return ExperimentRerunResponse(
             experiment_id=experiment_id,

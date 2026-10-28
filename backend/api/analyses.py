@@ -30,7 +30,7 @@ from analysis.compute import comparison_warnings, compute_run, validate_config
 from auth.workspaces import requires
 from core.json_output import parse_json_output, scalar_paths
 from db import SessionDep
-from loading import by_id
+from loading import by_id, people
 from references import missing_ids
 from results_files import execution_row_count, results_path
 from schemas.analyses import (
@@ -49,6 +49,7 @@ from schemas.analyses import (
     MetricInfo,
     RunResultResponse,
 )
+from schemas.people import PersonResponse
 from schemas.tags import TagResponse
 from study_utils import clear_item_links
 from tables import (
@@ -71,7 +72,9 @@ FIELD_SCAN_ROWS = 50
 # ---------------------------------------------------------------------------
 
 
-def _to_response(analysis: Analysis, tags: list[Tag]) -> AnalysisResponse:
+def _to_response(
+    analysis: Analysis, tags: list[Tag], author: PersonResponse | None = None
+) -> AnalysisResponse:
     return AnalysisResponse(
         id=int(analysis.id) if analysis.id is not None else 0,
         name=analysis.name,
@@ -79,8 +82,18 @@ def _to_response(analysis: Analysis, tags: list[Tag]) -> AnalysisResponse:
         config=AnalysisConfigSchema.model_validate_json(analysis.config),
         runs=[AnalysisRunRef.model_validate(r) for r in json.loads(analysis.runs)],
         tags=[TagResponse.model_validate(t) for t in tags],
+        author=author,
         created_at=analysis.created_at,
         updated_at=analysis.updated_at,
+    )
+
+
+def _full_response(session: Session, analysis: Analysis) -> AnalysisResponse:
+    """One analysis, with its tags and author."""
+    return _to_response(
+        analysis,
+        item_tags(session, "analysis", analysis.id or 0),
+        people(session, [analysis.created_by]).get(analysis.created_by),
     )
 
 
@@ -362,7 +375,11 @@ def list_analyses(session: SessionDep):
         select(Analysis).order_by(col(Analysis.updated_at).desc())
     ).all()
     tags = tags_by_item(session, "analysis", [a.id for a in analyses if a.id])
-    return [_to_response(a, tags.get(a.id or 0, [])) for a in analyses]
+    authors = people(session, (a.created_by for a in analyses))
+    return [
+        _to_response(a, tags.get(a.id or 0, []), authors.get(a.created_by))
+        for a in analyses
+    ]
 
 
 @router.post("/analyses", response_model=AnalysisResponse, status_code=201)
@@ -382,7 +399,7 @@ def create_analysis(
     set_item_tags(session, "analysis", analysis.id or 0, data.tag_ids)
     session.commit()
     session.refresh(analysis)
-    return _to_response(analysis, item_tags(session, "analysis", analysis.id or 0))
+    return _full_response(session, analysis)
 
 
 @router.get("/analyses/{analysis_id}", response_model=AnalysisResponse)
@@ -390,7 +407,7 @@ def get_analysis(analysis_id: int, session: SessionDep):
     analysis = session.get(Analysis, analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return _to_response(analysis, item_tags(session, "analysis", analysis_id))
+    return _full_response(session, analysis)
 
 
 @router.put("/analyses/{analysis_id}", response_model=AnalysisResponse)
@@ -420,7 +437,7 @@ def update_analysis(
     session.add(analysis)
     session.commit()
     session.refresh(analysis)
-    return _to_response(analysis, item_tags(session, "analysis", analysis_id))
+    return _full_response(session, analysis)
 
 
 @router.delete("/analyses/{analysis_id}", status_code=204)

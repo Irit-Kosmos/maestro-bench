@@ -24,6 +24,9 @@ from collections.abc import Iterable
 
 from sqlmodel import Session, SQLModel, col, select
 
+from schemas.people import PersonResponse
+from tables import User
+
 
 def by_id[T: SQLModel](
     session: Session, table: type[T], ids: Iterable[int | None]
@@ -54,3 +57,13 @@ def grouped_by[T: SQLModel](
     for row in session.exec(query).all():
         groups[getattr(row, column.key)].append(row)
     return groups
+
+
+def people(
+    session: Session, user_ids: Iterable[int | None]
+) -> dict[int, PersonResponse]:
+    """The people behind these user ids, in one query. Accounts that are gone are left out."""
+    return {
+        user_id: PersonResponse.model_validate(user)
+        for user_id, user in by_id(session, User, user_ids).items()
+    }

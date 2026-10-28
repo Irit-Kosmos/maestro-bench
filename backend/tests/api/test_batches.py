@@ -49,7 +49,7 @@ def jobs(monkeypatch):
     monkeypatch.setattr(
         async_jobs,
         "start_experiment",
-        lambda eid, workspace_id: jobs.started.append(eid) or "started",
+        lambda eid, workspace_id, launched_by=None: jobs.started.append(eid) or "started",
     )
     monkeypatch.setattr(
         async_jobs, "cancel_experiment", lambda eid: jobs.cancelled.append(eid) or True

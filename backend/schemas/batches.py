@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from schemas.experiment_executions import LatestExecutionFigures
 from schemas.experiments import MAX_SAMPLING_SEED, SamplingType
+from schemas.people import PersonResponse
 
 VariableField = Literal["model_id", "prompt_version_id", "temperature"]
 
@@ -126,6 +127,8 @@ class BatchResponse(BaseModel):
     name: str
     description: str | None
     created_at: datetime
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
     base_experiment_id: int | None
     base_experiment_name: str | None = None
     dataset_id: int | None = None

@@ -29,6 +29,7 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
+from schemas.people import PersonResponse
 from schemas.tags import TagResponse
 
 
@@ -101,9 +102,11 @@ class PromptResponse(BaseModel):
 
 
 class PromptDetail(PromptResponse):
-    """A prompt with its tags (the tags are not read where a prompt only gives context)"""
+    """A prompt with its tags and author (not read where a prompt only gives context)"""
 
     tags: list[TagResponse] = []
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
 
 
 class PromptVersionResponse(BaseModel):
@@ -119,6 +122,8 @@ class PromptVersionResponse(BaseModel):
     is_default: bool
     notes: str | None
     created_at: datetime
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
     prompt: PromptResponse | None = None
 
 

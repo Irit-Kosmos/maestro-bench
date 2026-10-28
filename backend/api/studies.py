@@ -30,7 +30,7 @@ from auth.workspaces import WorkspaceContext, workspace_context
 from batch_utils import batch_status
 from db import SessionDep
 from execution_stats import latest_figures
-from loading import by_id, grouped_by
+from loading import by_id, grouped_by, people
 from schemas.studies import (
     ActivityEvent,
     ActivityItem,
@@ -47,7 +47,7 @@ from schemas.studies import (
     StudyUpdate,
 )
 from schemas.tags import TagResponse
-from study_utils import check_items_exist, clear_item_journal, note_responses, people
+from study_utils import check_items_exist, clear_item_journal, note_responses
 from tables import (
     Analysis,
     Batch,

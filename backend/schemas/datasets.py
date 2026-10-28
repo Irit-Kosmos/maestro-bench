@@ -26,10 +26,24 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from schemas.people import PersonResponse
 
 NAME_MAX_LENGTH = 200
 DESCRIPTION_MAX_LENGTH = 2000
+
+
+class DatasetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: str | None
+    file_path: str | None
+    created_at: datetime
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
 
 
 class DatasetCreate(BaseModel):

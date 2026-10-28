@@ -39,6 +39,7 @@ from tables import (
     Model,
     Prompt,
     PromptVersion,
+    User,
 )
 from tests.conftest import scoped
 
@@ -209,3 +210,19 @@ def test_no_transaction_is_left_open_while_the_run_waits_for_its_rows(
 
         assert run is not None
         assert not session.in_transaction()
+
+
+def test_the_execution_records_who_launched_it(engine, experiment_id, pipeline):
+    with Session(engine, expire_on_commit=False) as db:
+        user = User(display_name="Alice")
+        db.add(user)
+        db.commit()
+    # What `start_experiment` leaves for the run, as the route that launched it asked
+    async_jobs._launched_by[experiment_id] = user.id
+
+    asyncio.run(async_jobs.run_experiment_async(experiment_id))
+
+    with Session(engine) as session:
+        execution = session.exec(select(ExperimentExecution)).one()
+        assert execution.created_by == user.id
+    assert experiment_id not in async_jobs._launched_by

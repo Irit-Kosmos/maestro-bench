@@ -28,6 +28,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from schemas.people import PersonResponse
 from schemas.tags import TagResponse
 
 
@@ -74,6 +75,8 @@ class AnalysisResponse(BaseModel):
     config: AnalysisConfigSchema
     runs: list[AnalysisRunRef]
     tags: list[TagResponse] = []
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
     created_at: datetime
     updated_at: datetime
 
