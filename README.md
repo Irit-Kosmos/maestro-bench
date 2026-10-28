@@ -64,7 +64,7 @@ maestro-bench/
   GitLab, and you create an application there (see step 1).
 - Either **Docker + Docker Compose**, or for local development
   [uv](https://docs.astral.sh/uv/) (Python 3.12+),
-  [pnpm](https://pnpm.io/) (Node.js 22+) and a PostgreSQL server (the Compose
+  [pnpm](https://pnpm.io/) (Node.js 24+) and a PostgreSQL server (the Compose
   `postgres` service works for that).
 
 ### 1. Configure
