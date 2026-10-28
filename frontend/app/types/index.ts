@@ -269,6 +269,8 @@ export interface DashboardExperiment {
   duration_seconds: number | null
   total_tokens: number | null
   total_cost_usd: number | null
+  /** Who made it; null when nobody is known to have */
+  author?: Person | null
 }
 
 /** What was run over a stretch of time */
@@ -297,6 +299,16 @@ export interface DashboardActiveExperiment {
   status: ExperimentStatus
 }
 
+/** What one model ran over the period */
+export interface DashboardModelUsage {
+  name: string
+  provider: string
+  /** Executions that had a step on it */
+  executions: number
+  total_tokens: number
+  total_cost_usd: number
+}
+
 export type DashboardRange = '24h' | '7d' | '30d' | '90d' | 'all'
 
 export interface DashboardActivity {
@@ -308,6 +320,8 @@ export interface DashboardActivity {
   previous: DashboardTotals | null
   /** The period cut in even slices, oldest first */
   buckets: DashboardBucket[]
+  /** Models the period's executions ran on, the costliest first */
+  models: DashboardModelUsage[]
   /** Experiments pending or running right now, newest first */
   active: DashboardActiveExperiment[]
 }

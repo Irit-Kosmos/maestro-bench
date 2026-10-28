@@ -22,54 +22,71 @@
 <script setup lang="ts">
 import type { DashboardExperiment } from '~/types'
 
-// Recent runs, one line each. Columns appear as the block gets wider (container queries, so a
-// resized sidebar counts too): the name and when always stay, the rest in order of importance.
-defineProps<{
+// Recent runs, two lines each, as the recent work beside: the name, then where it comes from (its
+// batch, which the line leads to, and its dataset). Inside a batch the experiments share most of
+// their name, so they are named by the values they vary alone ("mistral-small-2503 · Content A"),
+// the axes being in the tooltip. Columns appear as the block gets wider (container queries, so a
+// resized sidebar counts too), in order of importance.
+const props = defineProps<{
   experiments: readonly DashboardExperiment[]
   loading?: boolean
+  /** How many rows to show at most */
+  maxRows?: number
 }>()
 
 const { formatDate, formatRelativeDate } = useUIHelpers()
 
-const grid = 'grid items-center gap-x-4 px-4 grid-cols-[1rem_minmax(0,1fr)_3.5rem] @2xl:grid-cols-[1rem_minmax(0,1fr)_minmax(0,10rem)_4.5rem_3.5rem] @4xl:grid-cols-[1rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_4rem_4.5rem_4.5rem_3.5rem] @6xl:grid-cols-[1rem_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_4rem_4.5rem_4rem_4.5rem_3.5rem]'
+const shown = computed(() => props.experiments.slice(0, props.maxRows ?? 8))
+
+const grid = 'grid items-center gap-x-4 px-4 grid-cols-[1rem_minmax(0,1fr)_4.5rem] @xl:grid-cols-[1rem_minmax(0,1.2fr)_minmax(0,1fr)_4rem_1.25rem_4.5rem] @4xl:grid-cols-[1rem_minmax(0,1.4fr)_minmax(0,1fr)_3.5rem_4rem_1.25rem_4.5rem]'
 const show = {
-  models: 'hidden @2xl:block',
-  cost: 'hidden @2xl:block',
-  dataset: 'hidden @4xl:block',
+  models: 'hidden @xl:block',
   rows: 'hidden @4xl:block',
-  duration: 'hidden @4xl:block',
-  tokens: 'hidden @6xl:block',
+  cost: 'hidden @xl:block',
+  author: 'hidden @xl:flex',
 }
 const head = 'text-xs text-muted truncate'
+
+// "Language: mistral-small-2503" → "mistral-small-2503": what tells the batch's experiments apart
+function variedValues(exp: DashboardExperiment) {
+  const { segments, batch } = splitExperimentName(exp.name, exp.batch_name)
+  if (!batch)
+    return segments
+  return segments.map((segment) => {
+    const colon = segment.indexOf(': ')
+    return colon > 0 ? segment.slice(colon + 2) : segment
+  })
+}
 </script>
 
 <template>
   <div class="@container">
     <!-- Column labels: the rows below carry the same information for assistive tech -->
-    <div v-if="!loading" class="h-8 border-b border-default" :class="[grid]" aria-hidden="true">
+    <div class="h-8 border-b border-default" :class="[grid]" aria-hidden="true">
       <span />
       <span :class="head">Experiment</span>
       <span :class="[head, show.models]">Models</span>
-      <span :class="[head, show.dataset]">Dataset</span>
       <span class="text-right" :class="[head, show.rows]">Rows</span>
-      <span class="text-right" :class="[head, show.duration]">Duration</span>
-      <span class="text-right" :class="[head, show.tokens]">Tokens</span>
       <span class="text-right" :class="[head, show.cost]">Cost</span>
+      <span :class="[head, show.author]" title="Created by">By</span>
       <span class="text-right" :class="[head]">When</span>
     </div>
 
     <div v-if="loading" class="divide-y divide-default">
-      <div v-for="i in 6" :key="i" class="h-14 px-4 flex items-center gap-3">
+      <div v-for="i in 6" :key="i" class="h-12 px-4 flex items-center gap-3">
         <USkeleton class="size-3.5 rounded-full" />
-        <USkeleton class="h-3.5 w-56" />
-        <USkeleton class="h-3 w-16 ms-auto" />
+        <div class="flex flex-col gap-1.5">
+          <USkeleton class="h-3.5 w-48" />
+          <USkeleton class="h-3 w-28" />
+        </div>
+        <USkeleton class="h-3 w-12 ms-auto" />
       </div>
     </div>
 
     <ul v-else class="divide-y divide-default">
-      <!-- An empty link stretches over the row (the name can't be the link: the batch link sits inside it) -->
+      <!-- An empty link stretches over the row (the name can't be the link: the batch link sits in the row) -->
       <li
-        v-for="exp in experiments"
+        v-for="exp in shown"
         :key="exp.id"
         class="relative hover:bg-elevated/50"
       >
@@ -78,60 +95,55 @@ const head = 'text-xs text-muted truncate'
           :aria-label="`Open experiment ${exp.name}`"
           class="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
         />
-        <div class="h-14" :class="[grid]">
+        <div class="h-12" :class="[grid]">
           <UIStatusIcon :status="exp.status" />
 
-          <ExperimentsName
-            class="text-sm font-medium text-highlighted"
-            :name="exp.name"
-            :batch-name="exp.batch_name"
-            :hint="`#${exp.id}`"
-            stacked
-          >
-            <template v-if="exp.batch_id" #after>
+          <span class="flex min-w-0 flex-col">
+            <span class="truncate text-sm text-highlighted" :title="exp.name">
+              <template v-for="(value, i) in variedValues(exp)" :key="i">
+                <span v-if="i > 0" class="text-dimmed" aria-hidden="true"> · </span>
+                <span :class="i === 0 ? 'font-medium' : 'text-default'">{{ value }}</span>
+              </template>
+            </span>
+            <span class="flex min-w-0 items-center gap-1 text-xs text-muted">
+              <!-- Above the row link: this part opens the batch -->
               <NuxtLink
+                v-if="exp.batch_id"
                 :to="`/batches/${exp.batch_id}`"
-                :title="`Batch: ${exp.batch_name}`"
                 :aria-label="`Open batch ${exp.batch_name}`"
-                class="relative z-1 shrink-0 self-center rounded text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted"
+                class="relative z-1 flex min-w-0 shrink items-center gap-1 rounded text-toned outline-none hover:text-highlighted hover:underline focus-visible:ring-2 focus-visible:ring-inverted"
               >
-                <UIcon name="i-ph-arrows-split-bold" class="size-3.5 block" aria-hidden="true" />
+                <UIcon name="i-ph-arrows-split-bold" class="size-3 shrink-0 text-dimmed" aria-hidden="true" />
+                <span class="truncate" :title="`Batch: ${exp.batch_name}`">{{ exp.batch_name }}</span>
               </NuxtLink>
-            </template>
-          </ExperimentsName>
+              <span v-if="exp.batch_id && exp.dataset_name" class="text-dimmed" aria-hidden="true">·</span>
+              <span v-if="exp.dataset_name" class="flex min-w-0 shrink-[2] items-center gap-1" :title="`Dataset: ${exp.dataset_name}`">
+                <UIcon name="i-ph-database-bold" class="size-3 shrink-0 text-dimmed" aria-hidden="true" />
+                <span class="sr-only">on dataset</span>
+                <span class="truncate">{{ exp.dataset_name }}</span>
+              </span>
+            </span>
+          </span>
 
-          <div class="min-w-0 text-xs text-toned" :class="[show.models]">
+          <div class="min-w-0 text-xs text-default" :class="[show.models]">
             <ModelsStack :models="exp.models" />
           </div>
 
-          <!-- Above the row link so the full name shows on hover, and it opens the experiment like the rest of the row -->
-          <span
-            class="relative z-1 cursor-pointer truncate text-xs text-muted"
-            :class="[show.dataset]"
-            :title="exp.dataset_name ?? undefined"
-            @click="navigateTo(`/experiments/${exp.id}`)"
-          >
-            {{ exp.dataset_name ?? '—' }}
-          </span>
-
           <UIRowCount :rows="exp.row_count" tone="quiet" class="text-right text-xs" :class="[show.rows]" />
 
-          <span class="text-right text-xs text-muted tabular-nums" :class="[show.duration]">
-            {{ formatElapsed(exp.duration_seconds) }}
-          </span>
-
           <span
-            class="text-right text-xs text-muted tabular-nums" :class="[show.tokens]"
-            :title="exp.total_tokens != null ? `${exp.total_tokens.toLocaleString('en-US')} tokens` : undefined"
+            class="text-right text-xs text-default tabular-nums" :class="[show.cost]"
+            :title="formatCostPrecise(exp.total_cost_usd)"
           >
-            {{ formatTokens(exp.total_tokens) }}
-          </span>
-
-          <span class="text-right text-xs text-toned tabular-nums" :class="[show.cost]">
             {{ formatCost(exp.total_cost_usd) }}
           </span>
 
-          <span class="text-right text-xs text-muted tabular-nums" :title="formatDate(exp.created_at)">
+          <!-- Above the row link, so its name shows on hover -->
+          <span class="relative z-1 items-center" :class="[show.author]">
+            <UIPerson :person="exp.author" label="Created by" avatar-only />
+          </span>
+
+          <span class="whitespace-nowrap text-right text-xs text-muted tabular-nums" :title="formatDate(exp.created_at)">
             {{ formatRelativeDate(exp.created_at) }}
           </span>
         </div>

@@ -38,7 +38,7 @@ const titleId = useId()
 
 <template>
   <section :aria-labelledby="titleId" class="rounded-lg border border-default overflow-hidden">
-    <header class="flex items-center justify-between gap-3 h-11 px-4 border-b border-default">
+    <header class="flex shrink-0 items-center justify-between gap-3 h-11 px-4 border-b border-default">
       <h2 :id="titleId" class="text-sm font-medium text-highlighted">
         {{ title }}
       </h2>
