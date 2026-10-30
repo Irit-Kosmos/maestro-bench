@@ -56,6 +56,9 @@ function show(next: 'copied' | 'failed') {
 const TEXTS = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' }
 
 onBeforeUnmount(() => clearTimeout(timer))
+
+// Reduced motion keeps the swap, drops the movement
+const iconClass = 'transition-[opacity,scale,filter] duration-200 ease-out data-hidden:scale-25 data-hidden:opacity-0 data-hidden:blur-xs motion-reduce:transition-opacity motion-reduce:duration-150 motion-reduce:ease-[ease] motion-reduce:data-hidden:scale-100 motion-reduce:data-hidden:filter-none'
 </script>
 
 <template>
@@ -69,34 +72,10 @@ onBeforeUnmount(() => clearTimeout(timer))
       @click="copy"
     >
       <span class="relative block size-4" aria-hidden="true">
-        <UIcon name="i-ph-copy-bold" class="copy-icon absolute inset-0 size-4" :data-hidden="state !== 'idle' || undefined" />
-        <UIcon name="i-ph-check-bold" class="copy-icon absolute inset-0 size-4 text-success" :data-hidden="state !== 'copied' || undefined" />
-        <UIcon name="i-ph-x-bold" class="copy-icon absolute inset-0 size-4 text-error" :data-hidden="state !== 'failed' || undefined" />
+        <UIcon :class="iconClass" name="i-ph-copy-bold" class="absolute inset-0 size-4" :data-hidden="state !== 'idle' || undefined" />
+        <UIcon :class="iconClass" name="i-ph-check-bold" class="absolute inset-0 size-4 text-success" :data-hidden="state !== 'copied' || undefined" />
+        <UIcon :class="iconClass" name="i-ph-x-bold" class="absolute inset-0 size-4 text-error" :data-hidden="state !== 'failed' || undefined" />
       </span>
     </UButton>
   </UTooltip>
 </template>
-
-<style scoped>
-.copy-icon {
-  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out), filter 200ms var(--ease-out);
-}
-
-.copy-icon[data-hidden] {
-  opacity: 0;
-  scale: 0.25;
-  filter: blur(4px);
-}
-
-/* Reduced motion keeps the swap, drops the movement */
-@media (prefers-reduced-motion: reduce) {
-  .copy-icon {
-    transition: opacity 150ms ease;
-  }
-
-  .copy-icon[data-hidden] {
-    scale: 1;
-    filter: none;
-  }
-}
-</style>

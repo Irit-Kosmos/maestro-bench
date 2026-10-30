@@ -23,7 +23,7 @@
 import type { Batch } from '~/types'
 import type { FilterSpec } from '~/utils/filters'
 import type { SortSpec } from '~/utils/sorts'
-import { datasetFilter, dateFilter, earlierRunsFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
+import { authorFilter, datasetFilter, dateFilter, earlierRunsFilter, runsFilter, statusFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort, statusSort, textSort } from '~/utils/sortSpecs'
 
 definePageMeta({
@@ -39,7 +39,6 @@ const { data: batches, pending, error, refresh } = await useMyLazyFetch<Batch[]>
 
 const { deleteBatch } = useBatches()
 const { canEdit } = useCurrentWorkspace()
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const showDeleteDialog = ref(false)
@@ -68,6 +67,7 @@ const filters: FilterSpec<Batch>[] = [
   earlierRunsFilter(batch => batch.earlier_execution_statuses),
   datasetFilter(batch => batch.dataset_name),
   runsFilter(batch => batch.execution_count, batch => batch.experiments.length),
+  authorFilter(batch => batch.author),
   dateFilter(batch => batch.created_at),
 ]
 
@@ -185,9 +185,7 @@ async function confirmDelete() {
         </template>
 
         <template #created_at-cell="{ row }">
-          <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
-            {{ formatRelativeDate(row.original.created_at) }}
-          </span>
+          <UIAuthorDate :date="row.original.created_at" :person="row.original.author" />
         </template>
       </BaseDataTable>
     </div>

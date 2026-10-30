@@ -28,17 +28,19 @@ from sqlmodel import Session, select
 
 import async_jobs
 import event_bus
-from core.orchestrator import PipelineResult
+from core.orchestrator import AgentTrace, PipelineResult
 from experiment_utils import add_experiment
 from schemas.experiments import ExperimentCreate
 from tables import (
     Agent,
+    AgentExecutionSnapshot,
     Dataset,
     Experiment,
     ExperimentExecution,
     Model,
     Prompt,
     PromptVersion,
+    User,
 )
 from tests.conftest import scoped
 
@@ -209,3 +211,54 @@ def test_no_transaction_is_left_open_while_the_run_waits_for_its_rows(
 
         assert run is not None
         assert not session.in_transaction()
+
+
+def test_the_execution_records_who_launched_it(engine, experiment_id, pipeline):
+    with Session(engine, expire_on_commit=False) as db:
+        user = User(display_name="Alice")
+        db.add(user)
+        db.commit()
+    # What `start_experiment` leaves for the run, as the route that launched it asked
+    async_jobs._launched_by[experiment_id] = user.id
+
+    asyncio.run(async_jobs.run_experiment_async(experiment_id))
+
+    with Session(engine) as session:
+        execution = session.exec(select(ExperimentExecution)).one()
+        assert execution.created_by == user.id
+    assert experiment_id not in async_jobs._launched_by
+
+
+def test_each_step_keeps_what_it_used(engine, experiment_id, monkeypatch):
+    async def run_pipeline(agents, row, row_index=0, dataset_row_id=None):
+        (agent,) = agents
+        trace = AgentTrace(
+            agent_name=agent.name,
+            model="m",
+            provider="ollama",
+            messages_sent=[],
+            output="ok",
+            tokens_in=3,
+            tokens_out=2,
+            cost_usd=0.01,
+            step_key=agent.key,
+        )
+        return PipelineResult(
+            row_index=row_index,
+            input_data=row,
+            dataset_row_id=dataset_row_id,
+            agent_traces=[trace],
+            total_tokens_in=3,
+            total_tokens_out=2,
+            total_cost_usd=0.01,
+        )
+
+    monkeypatch.setattr(async_jobs, "run_pipeline", run_pipeline)
+
+    asyncio.run(async_jobs.run_experiment_async(experiment_id))
+
+    with scoped(engine) as s:
+        (snapshot,) = s.exec(select(AgentExecutionSnapshot)).all()
+        execution = s.exec(select(ExperimentExecution)).one()
+    assert snapshot.total_tokens == execution.total_tokens == ROWS * 5
+    assert snapshot.total_cost_usd == execution.total_cost_usd == round(ROWS * 0.01, 6)

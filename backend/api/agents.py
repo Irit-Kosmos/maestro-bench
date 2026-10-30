@@ -22,6 +22,7 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from db import SessionDep
+from loading import people
 from references import missing_ids
 from schemas.agents import AgentCreate, AgentResponse, AgentUpdate
 from tables import (
@@ -33,6 +34,13 @@ from tables import (
 from tag_utils import clear_item_tags, item_tags, set_item_tags, tags_by_item
 
 router = APIRouter(tags=["agents"])
+
+
+def _response(session: Session, agent: Agent) -> AgentResponse:
+    tags = item_tags(session, "agent", agent.id or 0)
+    return AgentResponse.from_agent(
+        agent, tags, people(session, [agent.created_by]).get(agent.created_by)
+    )
 
 
 def _check_references(session: Session, fields: dict) -> None:
@@ -50,7 +58,11 @@ def _check_references(session: Session, fields: dict) -> None:
 def list_agents(session: SessionDep):
     agents = session.exec(select(Agent)).all()
     tags = tags_by_item(session, "agent", [a.id for a in agents if a.id])
-    return [AgentResponse.from_agent(a, tags.get(a.id or 0, [])) for a in agents]
+    authors = people(session, (a.created_by for a in agents))
+    return [
+        AgentResponse.from_agent(a, tags.get(a.id or 0, []), authors.get(a.created_by))
+        for a in agents
+    ]
 
 
 @router.post("/agents", response_model=AgentResponse, status_code=201)
@@ -71,7 +83,7 @@ def create_agent(
     set_item_tags(session, "agent", agent.id or 0, agent_data.tag_ids)
     session.commit()
     session.refresh(agent)
-    return AgentResponse.from_agent(agent, item_tags(session, "agent", agent.id or 0))
+    return _response(session, agent)
 
 
 @router.get("/agents/{agent_id}", response_model=AgentResponse)
@@ -79,7 +91,7 @@ def get_agent(agent_id: int, session: SessionDep):
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(404, "Agent not found")
-    return AgentResponse.from_agent(agent, item_tags(session, "agent", agent_id))
+    return _response(session, agent)
 
 
 @router.put("/agents/{agent_id}", response_model=AgentResponse)
@@ -103,7 +115,7 @@ def update_agent(
     session.add(agent)
     session.commit()
     session.refresh(agent)
-    return AgentResponse.from_agent(agent, item_tags(session, "agent", agent_id))
+    return _response(session, agent)
 
 
 @router.delete("/agents/{agent_id}", status_code=204)

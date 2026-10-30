@@ -23,7 +23,7 @@
 import type { Analysis } from '~/types'
 import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { SortSpec } from '~/utils/sorts'
-import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { authorFilter, dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort } from '~/utils/sortSpecs'
 
 definePageMeta({
@@ -39,7 +39,6 @@ const { data: analyses, pending, error, refresh } = await useMyLazyFetch<Analysi
 
 const { deleteAnalysis } = useAnalyses()
 const { canEdit } = useCurrentWorkspace()
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const showDeleteDialog = ref(false)
@@ -87,6 +86,7 @@ const filters: FilterSpec<Analysis>[] = [
     value: analysis => analysis.config.truth_column,
   },
   tagsFilter<Analysis>(analysis => analysis.tags),
+  authorFilter(analysis => analysis.author),
   dateFilter(analysis => analysis.updated_at, 'Updated'),
 ]
 
@@ -185,9 +185,7 @@ async function confirmDelete() {
         </template>
 
         <template #updated_at-cell="{ row }">
-          <span class="text-sm text-muted" :title="formatDate(row.original.updated_at)">
-            {{ formatRelativeDate(row.original.updated_at) }}
-          </span>
+          <UIAuthorDate :date="row.original.updated_at" :person="row.original.author" />
         </template>
       </BaseDataTable>
     </div>

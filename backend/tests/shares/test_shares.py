@@ -320,7 +320,14 @@ def test_a_link_hides_people_tags_notes_and_files_of_the_server(alice, team, eng
         for forbidden in FORBIDDEN_TEXT:
             assert forbidden not in text, forbidden
         for key, value in walk(document):
-            if key in ("author", "added_by", "file_path", "base_experiment_id", "base_experiment_name"):
+            if key in (
+                "author",
+                "added_by",
+                "launched_by",
+                "file_path",
+                "base_experiment_id",
+                "base_experiment_name",
+            ):
                 assert value is None, key
             if key == "results_file_path":
                 # Only that there is a file, not where it is

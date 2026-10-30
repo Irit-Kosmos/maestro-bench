@@ -64,13 +64,24 @@ const status = computed(() => props.status || 'pending')
 const label = computed(() => status.value.charAt(0).toUpperCase() + status.value.slice(1))
 
 const detail = computed(() => details[status.value] ?? label.value)
+
+// Reduced motion keeps the swap, drops the movement
+const swapActive = 'transition-[opacity,scale,filter] ease-out motion-reduce:transition-opacity motion-reduce:duration-150 motion-reduce:ease-[ease]'
+const swapHidden = 'scale-25 opacity-0 blur-xs motion-reduce:scale-100 motion-reduce:filter-none'
 </script>
 
 <template>
   <UTooltip :text="detail" :disabled="!tooltip">
     <span class="inline-flex shrink-0 items-center align-middle" :title="tooltip ? undefined : label">
-      <!-- A status that changes while it is on screen (a run ending) crosses over to the next one -->
-      <Transition name="status-swap" mode="out-in">
+      <!-- A status that changes while it is on screen (a run ending) crosses over to the next one. Same swap as the
+           copy button. No `appear`: a row that mounts (or scrolls in) never plays it -->
+      <Transition
+        mode="out-in"
+        :enter-active-class="`duration-200 ${swapActive}`"
+        :leave-active-class="`duration-100 ${swapActive}`"
+        :enter-from-class="swapHidden"
+        :leave-to-class="swapHidden"
+      >
         <!-- Lucide has no half-filled circle -->
         <svg
           v-if="!config.icon"
@@ -91,35 +102,3 @@ const detail = computed(() => details[status.value] ?? label.value)
     </span>
   </UTooltip>
 </template>
-
-<style scoped>
-/* Same swap as the copy button. No `appear`: a row that mounts (or scrolls in) never plays it */
-.status-swap-enter-active {
-  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out), filter 200ms var(--ease-out);
-}
-
-.status-swap-leave-active {
-  transition: opacity 100ms var(--ease-out), scale 100ms var(--ease-out), filter 100ms var(--ease-out);
-}
-
-.status-swap-enter-from,
-.status-swap-leave-to {
-  opacity: 0;
-  scale: 0.25;
-  filter: blur(4px);
-}
-
-/* Reduced motion keeps the swap, drops the movement */
-@media (prefers-reduced-motion: reduce) {
-  .status-swap-enter-active,
-  .status-swap-leave-active {
-    transition: opacity 150ms ease;
-  }
-
-  .status-swap-enter-from,
-  .status-swap-leave-to {
-    scale: 1;
-    filter: none;
-  }
-}
-</style>

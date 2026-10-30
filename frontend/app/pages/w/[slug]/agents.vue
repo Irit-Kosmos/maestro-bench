@@ -28,13 +28,12 @@ import { h, resolveComponent } from 'vue'
 import { useGroupBy } from '~/composables/useGroupBy'
 import { useSortBy } from '~/composables/useSortBy'
 import { byOrder } from '~/utils/filters'
-import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { authorFilter, dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 // Composables
 const { showCreateSuccess, showCreateError, showDeleteSuccess, showDeleteError, ok } = useStandardToast()
 const { createAgent, deleteAgent } = useAgents()
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 
 // Fetch data directly in the page
@@ -115,7 +114,7 @@ const columns = [
   },
   { key: 'default_prompt_version_id', width: 170, label: 'Prompt', formatter: (_: unknown, row: AgentRow) => row.prompt_label ?? '' },
   { key: 'default_model_id', width: 180, label: 'Model', formatter: (_: unknown, row: AgentRow) => row.model?.name ?? '' },
-  { key: 'created_at', width: 112, label: 'Created' },
+  { key: 'created_at', width: 136, label: 'Created' },
 ]
 
 const KINDS = {
@@ -142,6 +141,7 @@ const filters: FilterSpec<AgentRow>[] = [
     value: agent => agent.model?.name,
   },
   tagsFilter<AgentRow>(agent => agent.tags),
+  authorFilter<AgentRow>(agent => agent.author),
   dateFilter<AgentRow>(agent => agent.created_at),
 ]
 
@@ -354,9 +354,7 @@ async function handleDeleteAgent() {
       </template>
 
       <template #created_at-cell="{ row }">
-        <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
-          {{ formatRelativeDate(row.original.created_at) }}
-        </span>
+        <UIAuthorDate :date="row.original.created_at" :person="row.original.author" />
       </template>
     </BaseDataTable>
 

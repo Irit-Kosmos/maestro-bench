@@ -27,6 +27,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from schemas.people import PersonResponse
+
 
 class LatestExecutionFigures(BaseModel):
     """An experiment's executions, as its lists show them.
@@ -77,6 +79,9 @@ class ExperimentExecutionResponse(BaseModel):
     started_at: datetime
     completed_at: datetime | None
     status: str
+    # None when nobody is known to have launched it (launched before this was kept,
+    # or the account is gone)
+    launched_by: PersonResponse | None = None
     dataset_snapshot: str
     results_file_path: str | None
     # Dataset rows processed; None until the results file exists

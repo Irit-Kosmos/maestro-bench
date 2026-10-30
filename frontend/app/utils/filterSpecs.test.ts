@@ -19,7 +19,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFilterDefinitions, matchesSpecs } from './filters'
-import { dateFilter, dateRanges, failuresFilter, filterByTag, runsFilter, statusFilter, tagsFilter } from './filterSpecs'
+import { authorFilter, dateFilter, dateRanges, failuresFilter, filterByTag, runsFilter, statusFilter, tagsFilter } from './filterSpecs'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const HOUR = 60 * 60 * 1000
@@ -172,5 +172,26 @@ describe('filterByTag', () => {
   it('lifts the filter when that tag is already the only one', () => {
     const once = filterByTag({}, 'a')
     expect(filterByTag(once, 'a').tags).toEqual({ mode: 'include', values: [] })
+  })
+})
+
+describe('authorFilter', () => {
+  const alice = { id: 1, display_name: 'Alice', avatar_url: null }
+  const bob = { id: 2, display_name: 'Bob', avatar_url: null }
+  const items = [{ author: bob }, { author: alice }, { author: alice }, { author: null }]
+  const spec = authorFilter<typeof items[number]>(item => item.author)
+
+  it('offers the people who made something, by name, with how many items each', () => {
+    const [definition] = buildFilterDefinitions(items, [spec])
+    expect(definition!.options.map(option => [option.label, option.count])).toEqual([['Alice', 2], ['Bob', 1]])
+  })
+
+  it('keeps the items of the people picked, and not those nobody is known to have made', () => {
+    const kept = items.filter(item => matchesSpecs(item, [spec], { author: { mode: 'include', values: [alice.id] } }))
+    expect(kept).toEqual([{ author: alice }, { author: alice }])
+  })
+
+  it('is left out when nobody is known to have made anything', () => {
+    expect(buildFilterDefinitions([{ author: null }], [spec])).toEqual([])
   })
 })

@@ -29,6 +29,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from schemas.experiment_executions import LatestExecutionFigures
+from schemas.people import PersonResponse
 
 SamplingType = Literal["all", "random", "range"]
 
@@ -92,6 +93,8 @@ class ExperimentResponse(LatestExecutionFigures):
     status: str
     created_at: datetime
     completed_at: datetime | None
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
     dataset: DatasetResponse | None = None
     experiment_configs: list[ExperimentAgentConfigResponse] = []
 

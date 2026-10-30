@@ -27,6 +27,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from schemas.people import PersonResponse
+
 
 class DashboardModel(BaseModel):
     name: str
@@ -50,6 +52,8 @@ class DashboardExperiment(BaseModel):
     duration_seconds: float | None = None
     total_tokens: int | None = None
     total_cost_usd: float | None = None
+    # Who made it; None when nobody is known to have
+    author: PersonResponse | None = None
 
 
 class DashboardTotals(BaseModel):
@@ -81,6 +85,17 @@ class DashboardActiveExperiment(BaseModel):
     status: str
 
 
+class DashboardModelUsage(BaseModel):
+    """What one model ran over the period."""
+
+    name: str
+    provider: str
+    # Executions that had a step on it
+    executions: int = 0
+    total_tokens: int = 0
+    total_cost_usd: float = 0.0
+
+
 class DashboardActivity(BaseModel):
     """What was run over the period, set against the period before it."""
 
@@ -93,6 +108,8 @@ class DashboardActivity(BaseModel):
     previous: DashboardTotals | None = None
     # The period cut in even slices, oldest first
     buckets: list[DashboardBucket]
+    # Models the period's executions ran on, the costliest first
+    models: list[DashboardModelUsage] = []
     # Experiments in flight right now, whatever their age
     active: list[DashboardActiveExperiment]
 

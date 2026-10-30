@@ -56,6 +56,9 @@ const rowClass = {
   del: 'border-error bg-error/10 before:text-error before:content-["−"]',
 } as const
 
+// Lines revealed by opening a fold fade in; click-initiated and rare, so a short one is fine
+const revealClass = 'transition-opacity duration-140 ease-out starting:opacity-0'
+
 const markClass = {
   ctx: '',
   add: 'bg-success/25',
@@ -79,7 +82,7 @@ const markClass = {
       <div
         v-else
         class="relative min-h-[1.625em] border-s-2 ps-6 pe-3 break-words whitespace-pre-wrap first:rounded-t-[calc(var(--radius-md)-1px)] last:rounded-b-[calc(var(--radius-md)-1px)] before:absolute before:start-2 before:select-none before:text-[11px]"
-        :class="[rowClass[entry.row.kind], { 'diff-reveal': entry.revealed }]"
+        :class="[rowClass[entry.row.kind], { [revealClass]: entry.revealed }]"
       >
         <template v-for="(part, index) in entry.row.parts" :key="index">
           <mark v-if="part.changed" class="rounded-[3px] text-inherit" :class="markClass[entry.row.kind]">{{ part.text }}</mark><template v-else>
@@ -91,16 +94,3 @@ const markClass = {
     </template>
   </div>
 </template>
-
-<style scoped>
-/* Lines revealed by opening a fold fade in; click-initiated and rare, so a short one is fine */
-.diff-reveal {
-  animation: diff-reveal 140ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-@keyframes diff-reveal {
-  from {
-    opacity: 0;
-  }
-}
-</style>

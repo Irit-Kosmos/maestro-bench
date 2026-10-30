@@ -119,7 +119,7 @@ class WorkspaceOwned(SQLModel):
 
 
 class Authored(WorkspaceOwned):
-    """Top-level resources, which remember who created them."""
+    """Rows that remember who created them (who launched it, for an execution)."""
 
     created_by: int | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL", exclude=True
@@ -155,7 +155,7 @@ class Prompt(Authored, table=True):
     versions: list["PromptVersion"] = Relationship(back_populates="prompt")
 
 
-class PromptVersion(WorkspaceOwned, table=True):
+class PromptVersion(Authored, table=True):
     """Versioned prompt configurations - pure prompts without model coupling"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -177,7 +177,7 @@ class PromptVersion(WorkspaceOwned, table=True):
     prompt: Prompt | None = Relationship(back_populates="versions")
 
 
-class Agent(WorkspaceOwned, table=True):
+class Agent(Authored, table=True):
     """Individual agent that can be configured with prompts/models at experiment time"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -362,7 +362,7 @@ class ExperimentAgentConfig(WorkspaceOwned, table=True):
     model: Model | None = Relationship()
 
 
-class ExperimentExecution(WorkspaceOwned, table=True):
+class ExperimentExecution(Authored, table=True):
     """Immutable snapshot of an experiment execution for scientific reproducibility"""
 
     id: int | None = Field(default=None, primary_key=True)
@@ -455,6 +455,10 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     final_formulas: str | None = Field(default=None, sa_type=JsonText)
 
     execution_order: int = Field(description="Order in which this agent was executed")
+    # What this step used over all the rows, once the run is over; empty while it runs
+    # and on snapshots made before steps kept their own
+    total_tokens: int | None = None
+    total_cost_usd: float | None = None
     created_at: datetime = now_field()
 
     __table_args__ = (

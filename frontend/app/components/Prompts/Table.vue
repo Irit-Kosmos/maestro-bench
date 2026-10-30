@@ -23,7 +23,7 @@
 import type { Prompt } from '~/types'
 import type { FilterSpec, FilterState } from '~/utils/filters'
 import type { SortSpec } from '~/utils/sorts'
-import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { authorFilter, dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 import { dateSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 interface Props {
@@ -37,7 +37,6 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 
 // Table configuration
@@ -64,6 +63,7 @@ const columns = [
 
 const filters: FilterSpec<Prompt>[] = [
   tagsFilter<Prompt>(prompt => prompt.tags),
+  authorFilter(prompt => prompt.author),
   dateFilter(prompt => prompt.created_at),
 ]
 
@@ -101,9 +101,7 @@ const filterState = ref<FilterState>({})
 
     <!-- Custom cell for created_at -->
     <template #created_at-cell="{ row }">
-      <span class="text-sm text-muted" :title="formatDate(row.original.created_at)">
-        {{ formatRelativeDate(row.original.created_at) }}
-      </span>
+      <UIAuthorDate :date="row.original.created_at" :person="row.original.author" />
     </template>
 
     <!-- Custom cell for description -->

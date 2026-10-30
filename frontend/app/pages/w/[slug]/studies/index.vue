@@ -27,7 +27,7 @@ import type { SortSpec } from '~/utils/sorts'
 import { h, resolveComponent } from 'vue'
 import { apiErrorMessage } from '~/composables/useAnalyses'
 import { byOrder } from '~/utils/filters'
-import { dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
+import { authorFilter, dateFilter, filterByTag, tagsFilter } from '~/utils/filterSpecs'
 import { dateSort, figureSort, nameSort, textSort } from '~/utils/sortSpecs'
 
 definePageMeta({
@@ -41,7 +41,6 @@ useSeoMeta({
 
 const { studies, pending, error, refreshStudies: refresh, deleteStudy } = useStudies()
 const { canEdit } = useCurrentWorkspace()
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
 // The studies being worked on come first; how they are cut is remembered per browser
@@ -89,7 +88,7 @@ const columns = [
   { key: 'execution_count', label: 'Executions', width: 104, class: figureClass, formatter: (count: number) => count ? String(count) : '—' },
   { key: 'total_tokens', label: 'Tokens', width: 80, class: figureClass, formatter: (tokens: number | null) => formatTokens(tokens) },
   { key: 'total_cost_usd', label: 'Cost', width: 88, class: figureClass, formatter: (cost: number | null) => formatCost(cost) },
-  { key: 'updated_at', label: 'Updated', width: 112 },
+  { key: 'updated_at', label: 'Updated', width: 136 },
 ]
 
 function presentStatus(status: string | number | boolean) {
@@ -118,6 +117,7 @@ const filters: FilterSpec<Study>[] = [
     compare: byOrder(STUDY_STATUS_ORDER),
   },
   tagsFilter<Study>(study => study.tags),
+  authorFilter<Study>(study => study.author),
   dateFilter<Study>(study => study.updated_at, 'Updated'),
 ]
 
@@ -229,9 +229,7 @@ async function confirmDelete() {
         </template>
 
         <template #updated_at-cell="{ row }">
-          <span class="text-sm text-muted" :title="formatDate(row.original.updated_at)">
-            {{ formatRelativeDate(row.original.updated_at) }}
-          </span>
+          <UIAuthorDate :date="row.original.updated_at" :person="row.original.author" />
         </template>
       </BaseDataTable>
     </div>

@@ -91,7 +91,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => [
         <UBadge v-if="version.is_default" label="Default" color="primary" variant="subtle" size="sm" />
         <UBadge v-if="!version.is_active" label="Inactive" color="neutral" variant="subtle" size="sm" />
         <span class="hidden truncate text-xs text-muted sm:block">
-          Created {{ formatDate(version.created_at) }}
+          Created {{ formatDate(version.created_at) }}<template v-if="version.author">
+            by {{ version.author.display_name }}
+          </template>
         </span>
       </div>
 

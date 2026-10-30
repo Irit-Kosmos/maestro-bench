@@ -276,7 +276,7 @@ function applyView(animate: boolean) {
   if (!world.value || !dots.value)
     return
   const animated = animate && motion()
-  world.value.classList.toggle('is-animating', animated)
+  world.value.toggleAttribute('data-animating', animated)
   world.value.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`
   const step = 20 * view.k
   dots.value.style.backgroundPosition = `${view.x}px ${view.y}px`
@@ -644,6 +644,51 @@ const preview = computed(() => {
   return { d: edgePath(start, end).d, valid: state.valid }
 })
 
+// --- Classes: what each piece looks like in its current state ---
+
+// An edge that appears (a connection made, an agent added) is drawn from its source on, then gets its arrowhead.
+// Before the first fit, edges simply are
+const edgeLineClass = computed(() => ready.value
+  ? '[stroke-dasharray:1] transition-[stroke,stroke-dashoffset] duration-[150ms,360ms] ease-out starting:[stroke-dashoffset:1] motion-reduce:duration-0'
+  : 'transition-[stroke] duration-150 ease-out')
+const edgeArrowClass = computed(() => ready.value
+  ? 'transition-[stroke,opacity] duration-[150ms,200ms] delay-[0ms,160ms] ease-out starting:opacity-0 motion-reduce:duration-0'
+  : 'transition-[stroke] duration-150 ease-out')
+
+function nodeClass(id: string) {
+  const state = connecting.value
+  const source = state?.source === id
+  const target = state?.over === id && state.valid
+  const rejected = state?.over === id && !state.valid && !source
+  return [
+    // A node added after the first fit eases in; the ones that were there simply are
+    ready.value && 'transition-[opacity,scale] duration-200 ease-out starting:scale-95 starting:opacity-0 motion-reduce:starting:scale-100',
+    // In the hand: above the others, lifted
+    dragging.value === id && 'z-2 shadow-[0_18px_32px_-12px_rgb(0_0_0/0.28)]',
+    // While connecting, what can take the edge says so, and what cannot stays quiet
+    state && !source && !target && 'opacity-55',
+    target && 'outline-2 outline-offset-3 outline-inverted',
+    !state ? 'cursor-pointer' : rejected ? 'cursor-not-allowed' : 'cursor-crosshair',
+  ]
+}
+
+// Ports: where edges leave and enter. The input only shows when something is being connected: otherwise the
+// arrowhead is enough
+function portInClass(id: string) {
+  const state = connecting.value
+  return state?.over === id && state.valid ? 'scale-150 border-(--ui-text-highlighted) opacity-100' : 'border-(--graph-edge) opacity-0'
+}
+
+function portOutClass(id: string) {
+  return [
+    connecting.value?.source === id ? 'scale-145 border-(--ui-text-highlighted) bg-(--ui-text-highlighted)' : 'border-(--graph-edge) bg-default',
+    // A hit area well past the dot: it is small to see, not to grab
+    props.interactive && 'cursor-crosshair before:absolute before:-inset-2.5 hover:scale-145 hover:border-(--ui-text-highlighted) hover:bg-(--ui-text-highlighted)',
+  ]
+}
+
+const portClass = 'absolute left-1/2 size-[7px] rounded-full border-[1.5px] transition-[border-color,scale,opacity] duration-150 ease-out'
+
 // --- Lifecycle ---
 
 onMounted(() => {
@@ -680,8 +725,8 @@ defineExpose({ fit: refit, zoomBy })
 <template>
   <div
     ref="root"
-    class="graph relative size-full overflow-hidden bg-muted outline-none select-none"
-    :class="{ 'is-ready': ready, 'is-panning': panning, 'is-dragging': !!dragging, 'is-connecting': !!connecting }"
+    class="relative size-full touch-none overflow-hidden bg-muted outline-none select-none [--graph-edge-active:var(--ui-text-highlighted)] [--graph-edge-hover:var(--ui-text-muted)] [--graph-edge:var(--ui-border-accented)]"
+    :class="{ 'cursor-grabbing! **:cursor-grabbing!': panning || !!dragging, 'cursor-crosshair': !!connecting }"
     role="group"
     :aria-label="label"
     tabindex="0"
@@ -692,44 +737,58 @@ defineExpose({ fit: refit, zoomBy })
     @click="onClick"
     @keydown="onKeydown"
   >
-    <div ref="dots" class="graph-dots pointer-events-none absolute inset-0" aria-hidden="true" />
+    <!-- The pane is not a button: it keeps the arrow, and only turns into a hand while it is being dragged.
+         Nodes can be clicked, so they say so. The dots are a texture, not a grid to read: they stay well below the
+         edges and the cards in weight -->
+    <div
+      ref="dots"
+      class="pointer-events-none absolute inset-0 bg-[image:radial-gradient(circle,color-mix(in_oklab,var(--ui-border-accented)_38%,transparent)_1px,transparent_1.25px)] transition-opacity duration-150 ease-out"
+      aria-hidden="true"
+    />
 
-    <div ref="world" class="graph-world absolute top-0 left-0 origin-top-left">
-      <svg class="graph-edges" aria-hidden="true">
-        <g
-          v-for="shape in shapes"
-          :key="shape.edge.id"
-          class="graph-edge"
-          :class="{ 'is-active': shape.active, 'is-hovered': hoveredEdge === shape.edge.id }"
-        >
-          <path class="graph-edge-hit" :d="shape.d" @pointerenter="hoveredEdge = shape.edge.id" @pointerleave="hoveredEdge = null" />
-          <path class="graph-edge-line" :d="shape.d" pathLength="1" />
-          <path class="graph-edge-arrow" :d="shape.arrow" />
+    <!-- Hidden until the first fit places the graph: then it fades in, once -->
+    <div
+      ref="world"
+      class="absolute top-0 left-0 origin-top-left data-animating:transition-[transform,opacity] data-animating:duration-200 data-animating:ease-out"
+      :class="ready ? 'opacity-100 transition-opacity duration-200 ease-out' : 'opacity-0'"
+    >
+      <svg
+        class="pointer-events-none absolute top-0 left-0 size-px overflow-visible fill-none stroke-[1.5] [stroke-linecap:round] [stroke-linejoin:round]"
+        aria-hidden="true"
+      >
+        <g v-for="shape in shapes" :key="shape.edge.id" :class="hoveredEdge === shape.edge.id ? 'stroke-(--graph-edge-hover)' : 'stroke-(--graph-edge)'">
+          <path class="stroke-transparent stroke-[18] [pointer-events:stroke]" :d="shape.d" @pointerenter="hoveredEdge = shape.edge.id" @pointerleave="hoveredEdge = null" />
+          <path :class="edgeLineClass" :d="shape.d" pathLength="1" />
+          <path :class="edgeArrowClass" :d="shape.arrow" />
         </g>
         <!-- The edges of the selected node are drawn again on top, in the highlight colour. A layer of its own,
              always there and faded in: reordering the edges above would move their elements, and a moved
              element plays its entrance again -->
-        <g class="graph-edges-highlight">
-          <g v-for="shape in shapes" :key="shape.edge.id" class="graph-edge-highlight" :class="{ 'is-active': shape.active }">
+        <g class="stroke-(--graph-edge-active)">
+          <g
+            v-for="shape in shapes"
+            :key="shape.edge.id"
+            class="transition-opacity duration-150 ease-out"
+            :class="shape.active ? 'opacity-100' : 'opacity-0'"
+          >
             <path :d="shape.d" />
             <path :d="shape.arrow" />
           </g>
         </g>
-        <path v-if="preview" class="graph-edge-line graph-edge-preview" :class="{ 'is-valid': preview.valid }" :d="preview.d" />
+        <path
+          v-if="preview"
+          class="transition-[stroke] duration-150 ease-out"
+          :class="preview.valid ? 'stroke-(--graph-edge-active)' : 'stroke-(--graph-edge-hover) [stroke-dasharray:4_5]'"
+          :d="preview.d"
+        />
       </svg>
 
       <div
         v-for="node in nodes"
         :key="node.id"
         :ref="(el) => bindNode(node.id, el)"
-        class="graph-node"
-        :class="{
-          'is-selected': node.id === selected,
-          'is-dragging': dragging === node.id,
-          'is-source': connecting?.source === node.id,
-          'is-target': connecting?.over === node.id && connecting.valid,
-          'is-rejected': connecting?.over === node.id && !connecting.valid && connecting.source !== node.id,
-        }"
+        class="group/graph-node absolute top-0 left-0 rounded-[14px] select-none focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-inverted"
+        :class="nodeClass(node.id)"
         :style="{ translate: `${positionOf(node.id).x}px ${positionOf(node.id).y}px`, width: `${nodeWidth}px` }"
         :data-id="node.id"
         data-graph-node
@@ -739,10 +798,10 @@ defineExpose({ fit: refit, zoomBy })
         tabindex="0"
       >
         <slot name="node" :node="node" :selected="node.id === selected" :leaf="!sources.has(node.id)" />
-        <span class="graph-port graph-port-in" aria-hidden="true" />
+        <span :class="[portClass, portInClass(node.id)]" class="top-0 -translate-1/2 bg-default" aria-hidden="true" />
         <span
-          class="graph-port graph-port-out"
-          :class="{ 'is-interactive': interactive }"
+          :class="[portClass, portOutClass(node.id)]"
+          class="bottom-0 -translate-x-1/2 translate-y-1/2"
           data-port
           aria-hidden="true"
           @pointerdown="startConnect($event, node.id)"
@@ -752,7 +811,7 @@ defineExpose({ fit: refit, zoomBy })
       <div
         v-for="ghost in leaving"
         :key="`leaving-${ghost.key}`"
-        class="graph-node is-leaving"
+        class="pointer-events-none absolute top-0 left-0 scale-[0.96] rounded-[14px] opacity-0 transition-[opacity,scale] duration-150 ease-out starting:scale-100 starting:opacity-100"
         :style="{ translate: `${ghost.at.x}px ${ghost.at.y}px`, width: `${nodeWidth}px` }"
         aria-hidden="true"
       >
@@ -763,16 +822,21 @@ defineExpose({ fit: refit, zoomBy })
       <template v-for="shape in shapes" :key="`pill-${shape.edge.id}`">
         <div
           v-if="shape.edge.label || (interactive && shape.edge.deletable !== false)"
-          class="graph-pill"
-          :class="{ 'is-hovered': hoveredEdge === shape.edge.id, 'is-active': shape.active }"
+          class="pointer-events-none absolute top-0 left-0"
           :style="{ translate: `${shape.label.x}px ${shape.label.y}px` }"
         >
-          <div class="graph-pill-body" data-graph-ui @pointerenter="hoveredEdge = shape.edge.id" @pointerleave="hoveredEdge = null">
-            <span v-if="shape.edge.label" class="graph-pill-label" :title="shape.edge.label">{{ shape.edge.label }}</span>
+          <div class="pointer-events-auto flex -translate-1/2" data-graph-ui @pointerenter="hoveredEdge = shape.edge.id" @pointerleave="hoveredEdge = null">
+            <span
+              v-if="shape.edge.label"
+              class="block max-w-44 truncate rounded-md border bg-default px-1.5 py-0.5 font-mono text-[11px] leading-4 transition-colors duration-150 ease-out"
+              :class="hoveredEdge === shape.edge.id || shape.active ? 'border-accented text-toned' : 'border-default text-muted'"
+              :title="shape.edge.label"
+            >{{ shape.edge.label }}</span>
             <button
               v-else
               type="button"
-              class="graph-pill-remove"
+              class="relative grid size-4.5 place-items-center rounded-full border bg-default transition-[color,border-color,scale] duration-120 ease-out before:absolute before:-inset-1 hover:border-error hover:text-error active:scale-[0.92] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted"
+              :class="hoveredEdge === shape.edge.id ? 'border-accented text-highlighted' : 'border-default text-muted'"
               :aria-label="`${shape.edge.removeLabel ?? 'Remove connection'}${shape.edge.name ? `: ${shape.edge.name}` : ''}`"
               :title="shape.edge.removeLabel ?? 'Remove connection'"
               @click="emit('disconnect', shape.edge.id)"
@@ -800,7 +864,7 @@ defineExpose({ fit: refit, zoomBy })
             {{ zoomPercent }}%
           </GraphControl>
           <GraphControl label="Zoom in" icon="i-ph-plus-bold" kbd="+" :disabled="zoomPercent >= Math.round(GRAPH_MAX_ZOOM * 100)" @click="zoomBy(ZOOM_STEP)" />
-          <span class="mx-0.5 h-4 w-px bg-[var(--ui-border)]" aria-hidden="true" />
+          <span class="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
           <GraphControl label="Fit to view" icon="i-ph-corners-out-bold" kbd="0" @click="refit()" />
           <GraphControl v-if="draggable" label="Arrange nodes" icon="i-ph-tree-structure-bold" :disabled="manual.size === 0" @click="arrange" />
           <slot name="actions" />
@@ -809,339 +873,3 @@ defineExpose({ fit: refit, zoomBy })
     </div>
   </div>
 </template>
-
-<style scoped>
-.graph {
-  --graph-edge: var(--ui-border-accented);
-  --graph-edge-hover: var(--ui-text-muted);
-  --graph-edge-active: var(--ui-text-highlighted);
-  touch-action: none;
-}
-
-/* The pane is not a button: it keeps the arrow, and only turns into a hand while it is being dragged.
-   Nodes can be clicked, so they say so. */
-.graph.is-panning,
-.graph.is-panning *,
-.graph.is-dragging,
-.graph.is-dragging * {
-  cursor: grabbing !important;
-}
-
-.graph.is-connecting,
-.graph.is-connecting .graph-node {
-  cursor: crosshair;
-}
-
-.graph-dots {
-  /* A texture, not a grid to read: the dots stay well below the edges and the cards in weight */
-  background-image: radial-gradient(circle, color-mix(in oklab, var(--ui-border-accented) 38%, transparent) 1px, transparent 1.25px);
-  transition: opacity 150ms var(--ease-out);
-}
-
-/* Hidden until the first fit places the graph: then it fades in, once */
-.graph-world {
-  opacity: 0;
-}
-
-.graph.is-ready .graph-world {
-  opacity: 1;
-  transition: opacity 200ms var(--ease-out);
-}
-
-.graph-world.is-animating {
-  transition: transform 200ms var(--ease-out), opacity 200ms var(--ease-out);
-}
-
-/* Edges ------------------------------------------------------------------ */
-
-.graph-edges {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.graph-edge-line,
-.graph-edge-arrow {
-  fill: none;
-  stroke: var(--graph-edge);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke 150ms var(--ease-out);
-}
-
-.graph-edge-hit {
-  fill: none;
-  stroke: transparent;
-  stroke-width: 18;
-  pointer-events: stroke;
-}
-
-.graph-edge.is-hovered .graph-edge-line,
-.graph-edge.is-hovered .graph-edge-arrow {
-  stroke: var(--graph-edge-hover);
-}
-
-.graph-edge-highlight {
-  fill: none;
-  stroke: var(--graph-edge-active);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0;
-  transition: opacity 150ms var(--ease-out);
-}
-
-.graph-edge-highlight.is-active {
-  opacity: 1;
-}
-
-.graph-edge-preview {
-  stroke: var(--graph-edge-hover);
-  stroke-dasharray: 4 5;
-}
-
-.graph-edge-preview.is-valid {
-  stroke: var(--graph-edge-active);
-  stroke-dasharray: none;
-}
-
-/* An edge that appears (a connection made, an agent added) is drawn from its source on, then gets its arrowhead */
-.graph.is-ready .graph-edge-line {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
-  transition: stroke 150ms var(--ease-out), stroke-dashoffset 360ms var(--ease-out);
-
-  @starting-style {
-    stroke-dashoffset: 1;
-  }
-}
-
-.graph.is-ready .graph-edge-arrow {
-  transition: stroke 150ms var(--ease-out), opacity 200ms var(--ease-out) 160ms;
-
-  @starting-style {
-    opacity: 0;
-  }
-}
-
-.graph.is-ready .graph-edge-preview {
-  stroke-dasharray: 4 5;
-}
-
-.graph.is-ready .graph-edge-preview.is-valid {
-  stroke-dasharray: none;
-}
-
-/* Pills -------------------------------------------------------------------- */
-
-.graph-pill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-}
-
-.graph-pill-body {
-  translate: -50% -50%;
-  display: flex;
-  pointer-events: auto;
-}
-
-.graph-pill-label {
-  display: block;
-  max-width: 11rem;
-  overflow: hidden;
-  border: 1px solid var(--ui-border);
-  border-radius: 6px;
-  background: var(--ui-bg);
-  padding: 0.125rem 0.375rem;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  line-height: 1rem;
-  color: var(--ui-text-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: border-color 150ms var(--ease-out), color 150ms var(--ease-out);
-}
-
-.graph-pill.is-hovered .graph-pill-label,
-.graph-pill.is-active .graph-pill-label {
-  border-color: var(--ui-border-accented);
-  color: var(--ui-text-toned);
-}
-
-.graph-pill-remove {
-  position: relative;
-  display: grid;
-  width: 1.125rem;
-  height: 1.125rem;
-  place-items: center;
-  border: 1px solid var(--ui-border);
-  border-radius: 999px;
-  background: var(--ui-bg);
-  color: var(--ui-text-muted);
-  transition: color 120ms var(--ease-out), border-color 120ms var(--ease-out), scale 120ms var(--ease-out);
-}
-
-/* A hit area past the 18px button, which also shrinks with the zoom */
-.graph-pill-remove::before {
-  position: absolute;
-  inset: -4px;
-  content: '';
-}
-
-/* Always there, quietly: a dependency between agents is something to see and to be able to cut */
-.graph-pill.is-hovered .graph-pill-remove {
-  border-color: var(--ui-border-accented);
-  color: var(--ui-text-highlighted);
-}
-
-.graph-pill-remove:hover {
-  border-color: var(--ui-error);
-  color: var(--ui-error);
-}
-
-.graph-pill-remove:active {
-  scale: 0.92;
-}
-
-.graph-pill-remove:focus-visible {
-  outline: 2px solid var(--ui-border-inverted);
-  outline-offset: 2px;
-}
-
-/* Nodes -------------------------------------------------------------------- */
-
-.graph-node {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 14px;
-  outline: none;
-  cursor: pointer;
-  user-select: none;
-}
-
-/* In the hand: above the others, lifted */
-.graph-node.is-dragging {
-  z-index: 2;
-  box-shadow: 0 18px 32px -12px rgb(0 0 0 / 0.28);
-  transition: box-shadow 150ms var(--ease-out);
-}
-
-/* A node added after the first fit eases in; the ones that were there simply are */
-.graph.is-ready .graph-node:not(.is-leaving) {
-  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out);
-
-  @starting-style {
-    opacity: 0;
-    scale: 0.95;
-  }
-}
-
-.graph-node.is-leaving {
-  opacity: 0;
-  scale: 0.96;
-  pointer-events: none;
-  transition: opacity 150ms var(--ease-out), scale 150ms var(--ease-out);
-
-  @starting-style {
-    opacity: 1;
-    scale: 1;
-  }
-}
-
-.graph-node:focus-visible {
-  outline: 2px solid var(--ui-border-inverted);
-  outline-offset: 3px;
-}
-
-/* While connecting, what can take the edge says so, and what cannot stays quiet */
-.graph.is-connecting .graph-node:not(.is-source, .is-target) {
-  opacity: 0.55;
-  transition: opacity 150ms var(--ease-out);
-}
-
-.graph-node.is-target {
-  outline: 2px solid var(--ui-border-inverted);
-  outline-offset: 3px;
-}
-
-.graph-node.is-rejected {
-  cursor: not-allowed;
-}
-
-/* Ports: where edges leave and enter */
-.graph-port {
-  position: absolute;
-  left: 50%;
-  width: 7px;
-  height: 7px;
-  border: 1.5px solid var(--graph-edge);
-  border-radius: 999px;
-  background: var(--ui-bg);
-  transition: border-color 150ms var(--ease-out), scale 150ms var(--ease-out), opacity 150ms var(--ease-out);
-}
-
-.graph-port-out {
-  bottom: 0;
-  translate: -50% 50%;
-}
-
-/* The input only shows when something is being connected: otherwise the arrowhead is enough */
-.graph-port-in {
-  top: 0;
-  translate: -50% -50%;
-  opacity: 0;
-}
-
-.graph.is-connecting .graph-node.is-target .graph-port-in {
-  border-color: var(--ui-text-highlighted);
-  opacity: 1;
-  scale: 1.5;
-}
-
-.graph-port-out.is-interactive {
-  cursor: crosshair;
-}
-
-/* A hit area well past the dot: it is small to see, not to grab */
-.graph-port-out.is-interactive::before {
-  position: absolute;
-  inset: -10px;
-  content: '';
-}
-
-.graph-node.is-source .graph-port-out {
-  border-color: var(--ui-text-highlighted);
-  background: var(--ui-text-highlighted);
-  scale: 1.45;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .graph-port-out.is-interactive:hover {
-    border-color: var(--ui-text-highlighted);
-    background: var(--ui-text-highlighted);
-    scale: 1.45;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .graph.is-ready .graph-edge-line,
-  .graph.is-ready .graph-edge-arrow,
-  .graph-world.is-animating {
-    transition-duration: 0ms;
-  }
-
-  .graph.is-ready .graph-node:not(.is-leaving) {
-    @starting-style {
-      scale: 1;
-    }
-  }
-}
-</style>

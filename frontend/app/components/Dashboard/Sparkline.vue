@@ -43,7 +43,7 @@ const bars = computed(() => {
 </script>
 
 <template>
-  <div v-if="values.length" class="flex h-8 w-24 shrink-0 items-stretch gap-0.5" :role="summary ? 'img' : undefined" :aria-label="summary || undefined" :aria-hidden="summary ? undefined : true">
+  <div v-if="values.length" class="flex h-10 w-24 shrink-0 items-stretch gap-0.5" :role="summary ? 'img' : undefined" :aria-label="summary || undefined" :aria-hidden="summary ? undefined : true">
     <UTooltip
       v-for="(bar, i) in bars"
       :key="i"

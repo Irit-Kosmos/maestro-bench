@@ -100,10 +100,7 @@ const labelClass = 'text-xs leading-6 text-muted'
 
     <div v-if="!isShared" :class="rowClass">
       <span :class="labelClass">Created by</span>
-      <span class="inline-flex h-6 min-w-0 items-center gap-1.5 text-toned">
-        <UAvatar :src="study.author?.avatar_url ?? undefined" :alt="study.author?.display_name ?? 'Former member'" size="2xs" />
-        <span class="truncate">{{ study.author?.display_name ?? 'Former member' }}</span>
-      </span>
+      <UIPerson :person="study.author" size="2xs" class="h-6 text-toned" />
     </div>
 
     <div :class="rowClass">

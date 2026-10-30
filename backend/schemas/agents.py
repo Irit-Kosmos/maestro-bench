@@ -29,6 +29,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from schemas.people import PersonResponse
 from schemas.tags import TagResponse
 from tables import Tag
 
@@ -53,9 +54,13 @@ class AgentResponse(BaseModel):
     default_model_id: int | None
     created_at: datetime
     tags: list[TagResponse] = []
+    # None when nobody is known to have made it (made before authors were kept, or the account is gone)
+    author: PersonResponse | None = None
 
     @classmethod
-    def from_agent(cls, agent, tags: Sequence[Tag] = ()) -> AgentResponse:
+    def from_agent(
+        cls, agent, tags: Sequence[Tag] = (), author: PersonResponse | None = None
+    ) -> AgentResponse:
         return cls(
             id=int(agent.id) if agent.id is not None else 0,
             name=agent.name,
@@ -65,6 +70,7 @@ class AgentResponse(BaseModel):
             default_model_id=agent.default_model_id,
             created_at=agent.created_at,
             tags=[TagResponse.model_validate(t) for t in tags],
+            author=author,
         )
 
 

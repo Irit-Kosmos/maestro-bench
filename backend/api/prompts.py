@@ -17,14 +17,18 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter, HTTPException
 from jinja2 import TemplateError
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from auth.workspaces import requires
 from core.prompt_renderer import render_prompt
 from db import SessionDep
+from loading import people
+from schemas.people import PersonResponse
 from schemas.prompts import (
     PromptCreate,
     PromptDetail,
@@ -41,10 +45,34 @@ from tag_utils import clear_item_tags, item_tags, set_item_tags, tags_by_item
 router = APIRouter(tags=["prompts"])
 
 
-def _detail(prompt: Prompt, tags: list[Tag]) -> PromptDetail:
+def _detail(
+    prompt: Prompt, tags: list[Tag], author: PersonResponse | None
+) -> PromptDetail:
     return PromptDetail.model_validate(prompt, from_attributes=True).model_copy(
-        update={"tags": tags}
+        update={"tags": tags, "author": author}
     )
+
+
+def _full_detail(session: Session, prompt: Prompt) -> PromptDetail:
+    """One prompt, with its tags and author."""
+    return _detail(
+        prompt,
+        item_tags(session, "prompt", prompt.id or 0),
+        people(session, [prompt.created_by]).get(prompt.created_by),
+    )
+
+
+def _version_responses(
+    session: Session, versions: Sequence[PromptVersion]
+) -> list[PromptVersionResponse]:
+    """The versions with their authors, in one query for all of them."""
+    authors = people(session, (v.created_by for v in versions))
+    return [
+        PromptVersionResponse.model_validate(v, from_attributes=True).model_copy(
+            update={"author": authors.get(v.created_by)}
+        )
+        for v in versions
+    ]
 
 
 # Prompt endpoints
@@ -52,7 +80,10 @@ def _detail(prompt: Prompt, tags: list[Tag]) -> PromptDetail:
 def list_prompts(session: SessionDep):
     prompts = session.exec(select(Prompt)).all()
     tags = tags_by_item(session, "prompt", [p.id for p in prompts if p.id])
-    return [_detail(p, tags.get(p.id or 0, [])) for p in prompts]
+    authors = people(session, (p.created_by for p in prompts))
+    return [
+        _detail(p, tags.get(p.id or 0, []), authors.get(p.created_by)) for p in prompts
+    ]
 
 
 @router.post("/prompts", response_model=PromptDetail, status_code=201)
@@ -68,7 +99,7 @@ def create_prompt(
     set_item_tags(session, "prompt", prompt.id or 0, prompt_data.tag_ids)
     session.commit()
     session.refresh(prompt)
-    return _detail(prompt, item_tags(session, "prompt", prompt.id or 0))
+    return _full_detail(session, prompt)
 
 
 @router.post("/prompts/render", response_model=PromptRenderResponse)
@@ -98,7 +129,7 @@ def get_prompt(prompt_id: int, session: SessionDep):
     prompt = session.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found")
-    return _detail(prompt, item_tags(session, "prompt", prompt_id))
+    return _full_detail(session, prompt)
 
 
 @router.put("/prompts/{prompt_id}", response_model=PromptDetail)
@@ -121,7 +152,7 @@ def update_prompt(
     session.add(prompt)
     session.commit()
     session.refresh(prompt)
-    return _detail(prompt, item_tags(session, "prompt", prompt_id))
+    return _full_detail(session, prompt)
 
 
 @router.delete("/prompts/{prompt_id}", status_code=204)
@@ -144,20 +175,27 @@ def list_all_prompt_versions(session: SessionDep):
         .where(PromptVersion.is_active)
         .options(selectinload(PromptVersion.prompt))
     )
-    return session.exec(query).all()
+    return _version_responses(session, session.exec(query).all())
 
 
-@router.get("/prompts/{prompt_id}/versions", response_model=list[PromptVersion])
+@router.get(
+    "/prompts/{prompt_id}/versions", response_model=list[PromptVersionResponse]
+)
 def list_prompt_versions(
     prompt_id: int, session: SessionDep
 ):
-    return session.exec(
-        select(PromptVersion).where(PromptVersion.prompt_id == prompt_id)
+    versions = session.exec(
+        select(PromptVersion)
+        .where(PromptVersion.prompt_id == prompt_id)
+        .options(selectinload(PromptVersion.prompt))
     ).all()
+    return _version_responses(session, versions)
 
 
 @router.post(
-    "/prompts/{prompt_id}/versions", response_model=PromptVersion, status_code=201
+    "/prompts/{prompt_id}/versions",
+    response_model=PromptVersionResponse,
+    status_code=201,
 )
 def create_prompt_version(
     prompt_id: int,
@@ -194,20 +232,20 @@ def create_prompt_version(
     session.add(version)
     session.commit()
     session.refresh(version)
-    return version
+    return _version_responses(session, [version])[0]
 
 
-@router.get("/prompt-versions/{version_id}", response_model=PromptVersion)
+@router.get("/prompt-versions/{version_id}", response_model=PromptVersionResponse)
 def get_prompt_version(
     version_id: int, session: SessionDep
 ):
     version = session.get(PromptVersion, version_id)
     if not version:
         raise HTTPException(status_code=404, detail="Prompt version not found")
-    return version
+    return _version_responses(session, [version])[0]
 
 
-@router.put("/prompt-versions/{version_id}", response_model=PromptVersion)
+@router.put("/prompt-versions/{version_id}", response_model=PromptVersionResponse)
 def update_prompt_version(
     version_id: int,
     version_data: PromptVersionUpdate,
@@ -236,7 +274,7 @@ def update_prompt_version(
     session.add(version)
     session.commit()
     session.refresh(version)
-    return version
+    return _version_responses(session, [version])[0]
 
 
 @router.delete("/prompt-versions/{version_id}", status_code=204)

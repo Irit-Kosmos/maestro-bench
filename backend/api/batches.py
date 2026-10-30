@@ -46,7 +46,7 @@ from core.steps import agent_id_of, split_step, step_label
 from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
-from loading import by_id, grouped_by
+from loading import by_id, grouped_by, people
 from results_files import execution_row_count
 from schemas.batches import (
     BatchCancelResponse,
@@ -59,6 +59,7 @@ from schemas.batches import (
     VariationValueResponse,
 )
 from schemas.experiments import ExperimentCreate
+from schemas.people import PersonResponse
 from study_utils import clear_item_links
 from tables import (
     Agent,
@@ -71,7 +72,7 @@ from tables import (
     Prompt,
     PromptVersion,
 )
-from workspace_scope import current_workspace_id
+from workspace_scope import current_user_id, current_workspace_id
 
 router = APIRouter(tags=["batches"])
 logger = logging.getLogger(__name__)
@@ -293,6 +294,7 @@ def _build_batch_responses(
         (experiments_of[b.id][0].dataset_id for b in batches if experiments_of[b.id]),
     )
     labels = _preload_labels(batches, experiments, session)
+    authors = people(session, (b.created_by for b in batches))
 
     return [
         _batch_response(
@@ -300,6 +302,7 @@ def _build_batch_responses(
             labels,
             experiments=experiments_of[batch.id],
             base=bases.get(batch.base_experiment_id),
+            author=authors.get(batch.created_by),
             dataset=datasets.get(experiments_of[batch.id][0].dataset_id)
             if experiments_of[batch.id]
             else None,
@@ -355,6 +358,7 @@ def _batch_response(
     *,
     experiments: list[Experiment],
     base: Experiment | None,
+    author: PersonResponse | None,
     dataset: Dataset | None,
     executions_of: dict[int, list[ExperimentExecution]],
     agent_names_of: dict[int, list[str]],
@@ -431,6 +435,7 @@ def _batch_response(
         name=batch.name,
         description=batch.description,
         created_at=batch.created_at,
+        author=author,
         base_experiment_id=base.id if base else None,
         base_experiment_name=base.name if base else None,
         dataset_id=dataset.id if dataset else None,
@@ -534,7 +539,9 @@ def create_batch(
     workspace_id = current_workspace_id(session)
     for experiment_id in experiment_ids:
         try:
-            async_jobs.start_experiment(experiment_id, workspace_id)
+            async_jobs.start_experiment(
+                experiment_id, workspace_id, launched_by=current_user_id(session)
+            )
         except Exception:
             logger.exception("Failed to start experiment %s", experiment_id)
     logger.info("Batch %s dispatched (%d experiments)", batch.id, len(experiment_ids))
@@ -591,7 +598,9 @@ def rerun_batch(batch_id: int, session: SessionDep):
             skipped += 1
             continue
         try:
-            async_jobs.start_experiment(int(experiment.id), workspace_id)
+            async_jobs.start_experiment(
+                int(experiment.id), workspace_id, launched_by=current_user_id(session)
+            )
             started += 1
         except Exception:
             logger.exception("Failed to start experiment %s", experiment.id)

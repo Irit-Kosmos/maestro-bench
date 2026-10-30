@@ -33,7 +33,7 @@ defineProps<{
 <template>
   <button
     type="button"
-    class="graph-control"
+    class="inline-flex h-7 min-w-7 items-center justify-center rounded-md text-muted transition-[background-color,color,scale] duration-120 ease-out enabled:hover:bg-elevated enabled:hover:text-highlighted enabled:active:scale-95 aria-pressed:text-highlighted disabled:cursor-default disabled:opacity-40 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-inverted"
     :aria-label="label"
     :aria-pressed="pressed"
     :data-tooltip="label"
@@ -45,41 +45,3 @@ defineProps<{
     </slot>
   </button>
 </template>
-
-<style>
-.graph-control {
-  display: inline-flex;
-  height: 1.75rem;
-  min-width: 1.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: var(--ui-text-muted);
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out), scale 120ms var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .graph-control:not(:disabled):hover {
-    background: var(--ui-bg-elevated);
-    color: var(--ui-text-highlighted);
-  }
-}
-
-.graph-control:not(:disabled):active {
-  scale: 0.95;
-}
-
-.graph-control[aria-pressed='true'] {
-  color: var(--ui-text-highlighted);
-}
-
-.graph-control:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.graph-control:focus-visible {
-  outline: 2px solid var(--ui-border-inverted);
-  outline-offset: -1px;
-}
-</style>

@@ -43,6 +43,9 @@ const items = computed<DropdownMenuItem[]>(() => options.map(option => ({
     colorMode.preference = option.value
   },
 })))
+
+// Reduced motion keeps the crossfade, drops the scale and the blur
+const iconClass = 'transition-[opacity,scale,filter] duration-200 ease-out motion-reduce:scale-100! motion-reduce:filter-none! motion-reduce:transition-opacity motion-reduce:duration-150 motion-reduce:ease-[ease]'
 </script>
 
 <template>
@@ -63,29 +66,15 @@ const items = computed<DropdownMenuItem[]>(() => options.map(option => ({
           <UIcon
             name="i-ph-sun-bold"
             data-theme-icon
-            class="theme-icon absolute inset-0 size-4 dark:scale-90 dark:opacity-0 dark:blur-[2px]"
+            :class="iconClass" class="absolute inset-0 size-4 dark:scale-90 dark:opacity-0 dark:blur-[2px]"
           />
           <UIcon
             name="i-ph-moon-bold"
             data-theme-icon
-            class="theme-icon absolute inset-0 size-4 scale-90 opacity-0 blur-[2px] dark:scale-100 dark:opacity-100 dark:blur-none"
+            :class="iconClass" class="absolute inset-0 size-4 scale-90 opacity-0 blur-[2px] dark:scale-100 dark:opacity-100 dark:blur-none"
           />
         </span>
       </UButton>
     </UDropdownMenu>
   </UTooltip>
 </template>
-
-<style scoped>
-.theme-icon {
-  transition: opacity 200ms var(--ease-out), scale 200ms var(--ease-out), filter 200ms var(--ease-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .theme-icon {
-    transition: opacity 150ms ease;
-    scale: 1 !important;
-    filter: none !important;
-  }
-}
-</style>

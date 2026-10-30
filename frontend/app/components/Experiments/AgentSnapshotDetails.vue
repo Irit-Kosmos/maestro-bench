@@ -27,6 +27,8 @@ const props = defineProps<{
   snapshot: AgentExecutionSnapshot
   /** All agents of the execution, to name the source of "previous agent" mappings (steps are told apart by key) */
   agents: readonly AgentExecutionSnapshot[]
+  /** In a panel of fixed height: an open prompt is as tall as its text, up to the height left, and scrolls inside it past that */
+  fill?: boolean
 }>()
 
 const aggregator = computed(() => props.snapshot.kind === 'aggregator')
@@ -75,11 +77,14 @@ const prompts = computed(() => [
   { label: 'System prompt', content: props.snapshot.final_system_prompt },
   { label: 'User prompt', content: props.snapshot.final_user_prompt },
 ].filter(p => !!p.content))
+
+// Which prompts are open: with `fill`, only those are laid out to fit the height left
+const openPrompts = reactive<Record<string, boolean>>({})
 </script>
 
 <template>
   <!-- A body without a frame: the caller draws the card around it (and the agent's name above it) -->
-  <div class="@container flex flex-col divide-y divide-default">
+  <div class="@container flex flex-col divide-y divide-default" :class="fill ? 'h-full overflow-y-auto' : ''">
     <!-- How it ran: one line of facts -->
     <dl v-if="!aggregator" class="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3 text-sm">
       <div class="flex min-w-0 items-center gap-1.5">
@@ -147,9 +152,20 @@ const prompts = computed(() => [
     </ul>
 
     <!-- UCollapsible rather than <details>: the text opens in height with the chevron, like the other disclosures -->
+    <!-- With `fill` the text opens without the height animation: the box is sized by the panel, so the animated height jumps at its end -->
     <!-- The copy button sits over the header row rather than inside the trigger: a button can't nest in a button -->
-    <div v-for="prompt in prompts" :key="prompt.label" class="relative">
-      <UCollapsible class="group/prompt">
+    <div
+      v-for="prompt in prompts"
+      :key="prompt.label"
+      class="relative"
+      :class="fill && openPrompts[prompt.label] ? 'flex min-h-24 flex-col' : ''"
+    >
+      <UCollapsible
+        v-model:open="openPrompts[prompt.label]"
+        class="group/prompt"
+        :class="fill && openPrompts[prompt.label] ? 'flex min-h-0 flex-col' : ''"
+        :ui="fill ? { content: 'flex min-h-0 flex-col data-[state=open]:animate-none data-[state=closed]:animate-none' } : undefined"
+      >
         <button
           type="button"
           class="flex w-full cursor-pointer items-center gap-2 py-2 ps-4 pe-12 text-start text-sm text-highlighted outline-none hover:bg-elevated/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-inverted"
@@ -158,7 +174,7 @@ const prompts = computed(() => [
           {{ prompt.label }}
         </button>
         <template #content>
-          <pre class="max-h-80 overflow-auto whitespace-pre-wrap border-t border-default px-4 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
+          <pre :class="fill ? 'min-h-0' : 'max-h-80'" class="overflow-auto whitespace-pre-wrap border-t border-default px-4 py-3 font-mono text-xs leading-relaxed text-toned">{{ prompt.content }}</pre>
         </template>
       </UCollapsible>
       <UICopyButton :text="prompt.content!" :label="prompt.label.toLowerCase()" class="absolute end-2 top-1.5" />

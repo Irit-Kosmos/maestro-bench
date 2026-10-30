@@ -17,7 +17,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""What studies and notes share: the items they point to, and the people behind them."""
+"""What studies and notes share: the items they point to, and the notes as the caller sees them."""
 
 from collections.abc import Iterable
 
@@ -25,11 +25,10 @@ from fastapi import HTTPException
 from sqlmodel import Session, delete
 
 from auth.workspaces import WorkspaceContext
-from loading import by_id
+from loading import people
 from references import missing_ids
 from schemas.notes import NoteResponse
-from schemas.people import PersonResponse
-from tables import Analysis, Batch, Experiment, Note, Share, Study, StudyItem, User
+from tables import Analysis, Batch, Experiment, Note, Share, Study, StudyItem
 
 # The tables a study gathers, and the ones a note can be about (a study too)
 ITEM_TABLES: dict[str, type] = {
@@ -61,16 +60,6 @@ def clear_item_links(session: Session, kind: str, item_id: int) -> None:
         delete(StudyItem).where(StudyItem.kind == kind, StudyItem.item_id == item_id)
     )
     clear_item_journal(session, kind, item_id)
-
-
-def people(
-    session: Session, user_ids: Iterable[int | None]
-) -> dict[int, PersonResponse]:
-    """The people behind these user ids, in one query. Accounts that are gone are left out."""
-    return {
-        user_id: PersonResponse.model_validate(user)
-        for user_id, user in by_id(session, User, user_ids).items()
-    }
 
 
 def note_responses(

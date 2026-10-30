@@ -20,16 +20,29 @@
 -->
 
 <script setup lang="ts">
-// A row that opens something: one link across the whole row, so the hit area is the row
-defineProps<{ to: string }>()
+import type { Person } from '~/types'
+
+// A date cell of a list, led by who made the item: their avatar, then how long ago. The avatar keeps its
+// place when nobody is known, so the dates of a column stay aligned.
+const props = withDefaults(defineProps<{
+  date: string
+  person?: Person | null
+  /** What the person did, for the tooltip of the avatar */
+  label?: string
+}>(), {
+  person: null,
+  label: 'Created by',
+})
+
+const { formatDate, formatRelativeDate } = useUIHelpers()
 </script>
 
 <template>
-  <!-- Hover is instant on purpose: rows are scanned and hovered constantly -->
-  <NuxtLink
-    :to="to"
-    class="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-11 px-4 py-1.5 outline-none hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
-  >
-    <slot />
-  </NuxtLink>
+  <span class="flex items-center gap-2">
+    <span class="flex size-4 shrink-0">
+      <!-- Above the row's link, so that its tooltip opens -->
+      <UIPerson v-if="props.person" :person="props.person" :label="label" avatar-only class="relative z-1" />
+    </span>
+    <span class="text-sm text-muted" :title="formatDate(date)">{{ formatRelativeDate(date) }}</span>
+  </span>
 </template>

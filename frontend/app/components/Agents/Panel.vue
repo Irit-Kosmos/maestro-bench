@@ -182,6 +182,7 @@ defineShortcuts({
           <span class="text-xs text-muted tabular-nums">
             Created {{ formatDate(agent.created_at) }}
           </span>
+          <UIPerson v-if="agent.author" :person="agent.author" label="Created by" class="text-xs text-muted" />
           <span v-if="dirty" class="inline-flex items-center gap-1 text-xs text-warning">
             <span class="size-1.5 rounded-full bg-warning" aria-hidden="true" />
             Unsaved

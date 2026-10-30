@@ -641,6 +641,7 @@ def process_pipeline_results(
         execution.total_tokens = total_tokens_in + total_tokens_out
         execution.total_cost_usd = round(total_cost, 6)
         session.add(execution)
+        _store_step_usage(execution, pipeline_results, session)
         session.commit()
 
     return {
@@ -649,6 +650,33 @@ def process_pipeline_results(
         "total_rows": len(pipeline_results),
         "total_cost_usd": round(total_cost, 6),
     }
+
+
+def _store_step_usage(
+    execution: ExperimentExecution,
+    pipeline_results: list[PipelineResult],
+    session: Session,
+) -> None:
+    """Put on each step's snapshot the tokens and cost it used over all the rows."""
+    used: dict[str, tuple[int, float]] = {}
+    for result in pipeline_results:
+        for trace in result.agent_traces:
+            if trace.step_key is None:
+                continue
+            tokens, cost = used.get(trace.step_key, (0, 0.0))
+            used[trace.step_key] = (
+                tokens + trace.tokens_in + trace.tokens_out,
+                cost + trace.cost_usd,
+            )
+    for snapshot in execution.agent_snapshots:
+        # A trace knows its step the way the orchestrator does: its key, or its agent
+        key = snapshot.step_key or (
+            str(snapshot.agent_id) if snapshot.agent_id is not None else None
+        )
+        tokens, cost = used.get(key, (0, 0.0)) if key else (0, 0.0)
+        snapshot.total_tokens = tokens
+        snapshot.total_cost_usd = round(cost, 6)
+        session.add(snapshot)
 
 
 def _build_config_snapshot(

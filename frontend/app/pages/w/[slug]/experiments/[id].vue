@@ -402,6 +402,7 @@ watch(() => route.params.id, () => {
           <UIMetaItem icon="i-ph-calendar-blank-bold" label="Created">
             {{ formatDate(experiment.created_at) }}
           </UIMetaItem>
+          <UIPerson v-if="experiment.author" :person="experiment.author" label="Created by" />
           <!-- Behind a public link the batch is named only when the link reaches it -->
           <UIMetaItem v-if="experiment.batch_id && (!isShared || experiment.batch_name)" icon="i-ph-arrows-split-bold" label="Batch">
             <UIMetaLink :to="`/batches/${experiment.batch_id}`" in-share>
@@ -531,6 +532,7 @@ watch(() => route.params.id, () => {
                       <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
                       <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
                       <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                      <UIPerson v-if="row.execution.launched_by" :person="row.execution.launched_by" label="Launched by" class="text-xs text-muted" />
                     </div>
                     <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
                     <!-- What the run took, used and cost: only what exists (a running one has none yet) -->

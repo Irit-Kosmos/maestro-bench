@@ -70,6 +70,8 @@ _running_tasks: dict[int, asyncio.Task] = {}
 _workspace_of_task: dict[int, int] = {}
 # Experiments waiting for a free slot, oldest first: (experiment_id, workspace_id)
 _queue: list[tuple[int, int]] = []
+# experiment_id → who asked for its next run, until the run starts and records them
+_launched_by: dict[int, int | None] = {}
 
 
 def _has_room(workspace_id: int) -> bool:
@@ -124,8 +126,10 @@ def _on_loop[T](fn: Callable[..., T], *args: Any) -> T:
     return fn(*args)
 
 
-def _schedule(experiment_id: int, workspace_id: int) -> str:
+def _schedule(experiment_id: int, workspace_id: int, launched_by: int | None) -> str:
     """Start, restart or queue a run: "started", "queued" or "waiting" (already queued)."""
+    # The latest to ask is the one the run records, even when it was already queued
+    _launched_by[experiment_id] = launched_by
     existing = _running_tasks.get(experiment_id)
     if existing and not existing.done():
         existing.cancel()
@@ -143,14 +147,17 @@ def _schedule(experiment_id: int, workspace_id: int) -> str:
     return "queued"
 
 
-def start_experiment(experiment_id: int, workspace_id: int) -> str:
+def start_experiment(
+    experiment_id: int, workspace_id: int, launched_by: int | None = None
+) -> str:
     """Run an experiment now, or queue it when the limits are reached.
 
     Returns "started" or "queued". Starting an experiment that is already running
     restarts it on the slot it holds; one that is already queued keeps its place.
+    `launched_by` is the user the execution records as the one who launched it.
     Callable from a worker thread or from the event loop.
     """
-    outcome = _on_loop(_schedule, experiment_id, workspace_id)
+    outcome = _on_loop(_schedule, experiment_id, workspace_id, launched_by)
     if outcome == "waiting":
         return "queued"
     if outcome == "queued":
@@ -164,6 +171,7 @@ def _unschedule(experiment_id: int) -> str | None:
     waiting = next((e for e in _queue if e[0] == experiment_id), None)
     if waiting is not None:
         _queue.remove(waiting)
+        _launched_by.pop(experiment_id, None)
         return "waiting"
 
     task = _running_tasks.get(experiment_id)
@@ -265,15 +273,18 @@ class _Run:
     sampling_config: dict
 
 
-def _begin_run(db_session: Session, experiment_id: int) -> _Run | None:
+def _begin_run(
+    db_session: Session, experiment_id: int, launched_by: int | None = None
+) -> _Run | None:
     """Mark the experiment running and snapshot what is about to run (blocking)."""
     experiment = db_session.get(Experiment, experiment_id)
     if not experiment:
         logger.warning("Experiment %s not found", experiment_id)
         return None
 
-    # From here on the run only sees the experiment's own workspace
-    scope_session(db_session, experiment.workspace_id)
+    # From here on the run only sees the experiment's own workspace, and the
+    # execution it adds records who launched it
+    scope_session(db_session, experiment.workspace_id, launched_by)
     logger.info("Found experiment: %s", experiment.name)
     experiment.status = "running"
     db_session.add(experiment)
@@ -332,12 +343,16 @@ async def run_experiment_async(experiment_id: int) -> None:
     that a run never holds up the API, the live stream or the other runs.
     """
     logger.info("Starting experiment %s", experiment_id)
+    # Read on the loop, where `_schedule` wrote it
+    launched_by = _launched_by.pop(experiment_id, None)
 
     try:
         with Session(engine) as db_session:
             run: _Run | None = None
             try:
-                run = await asyncio.to_thread(_begin_run, db_session, experiment_id)
+                run = await asyncio.to_thread(
+                    _begin_run, db_session, experiment_id, launched_by
+                )
                 if run is None:
                     return
                 run.progress.announce("running")

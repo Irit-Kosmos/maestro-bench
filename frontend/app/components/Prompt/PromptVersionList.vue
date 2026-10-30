@@ -81,9 +81,10 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
       </li>
 
       <li v-for="version in versions" :key="version.id">
+        <!-- Selected row: raised surface, plus an edge so it reads without colour -->
         <button
           type="button"
-          class="flex w-full flex-col gap-0.5 px-4 py-2 text-left text-sm outline-none hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted"
+          class="flex w-full flex-col gap-0.5 px-4 py-2 text-left text-sm outline-none not-data-selected:hover:bg-elevated/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-inverted data-selected:bg-elevated data-selected:shadow-[inset_2px_0_0_var(--ui-primary)]"
           :aria-current="!drafting && version.id === selectedId ? 'true' : undefined"
           :data-selected="!drafting && version.id === selectedId ? '' : undefined"
           @click="emit('select', version.id)"
@@ -104,19 +105,16 @@ const rowClass = 'flex h-9 w-full items-center gap-2 px-4 text-left text-sm outl
               class="ms-auto"
             />
           </span>
-          <span class="text-xs text-muted" :title="formatDate(version.created_at)">
-            {{ formatRelativeDate(version.created_at) }}
+          <!-- Who wrote it and when, as a commit reads -->
+          <span class="flex w-full min-w-0 items-center gap-1.5 text-xs text-muted">
+            <template v-if="version.author">
+              <UIPerson :person="version.author" label="Created by" class="text-toned" />
+              <span aria-hidden="true">·</span>
+            </template>
+            <span class="shrink-0" :title="formatDate(version.created_at)">{{ formatRelativeDate(version.created_at) }}</span>
           </span>
         </button>
       </li>
     </ul>
   </nav>
 </template>
-
-<style scoped>
-/* Selected row: raised surface, plus an edge so it reads without colour */
-[data-selected] {
-  background-color: var(--ui-bg-elevated);
-  box-shadow: inset 2px 0 0 var(--ui-primary);
-}
-</style>

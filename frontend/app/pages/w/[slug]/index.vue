@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import type { Analysis, Batch, Dashboard, ProviderStatus } from '~/types'
+import { DASHBOARD_RANGES } from '~/utils/dashboard'
 
 definePageMeta({
   title: 'Dashboard',
@@ -34,15 +35,15 @@ const { data: dashboard, status, error: dashboardError, refresh: refreshDashboar
 const { data: batches, error: batchesError, refresh: refreshBatches } = await useMyLazyFetch<Batch[]>('/batches')
 const { data: analyses, error: analysesError, refresh: refreshAnalyses } = await useMyLazyFetch<Analysis[]>('/analyses')
 const { data: providers } = await useMyLazyFetch<ProviderStatus[]>('/providers')
+const { studies, refreshStudies } = useStudies()
 
-const { formatDate, formatRelativeDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 
 const isRefreshing = ref(false)
 async function refresh() {
   isRefreshing.value = true
   try {
-    await Promise.all([refreshDashboard(), refreshBatches(), refreshAnalyses()])
+    await Promise.all([refreshDashboard(), refreshBatches(), refreshAnalyses(), refreshStudies()])
   }
   finally {
     isRefreshing.value = false
@@ -52,19 +53,19 @@ async function refresh() {
 // Runs are watched from here as well: the running banner, the figures and the lists follow them
 useRefreshOnRunStatus(() => Promise.all([refreshDashboard(), refreshBatches()]))
 
-function latest<T extends { created_at: string }>(items: readonly T[] | null | undefined) {
-  return [...(items ?? [])].sort((a, b) => parseApiDate(b.created_at).getTime() - parseApiDate(a.created_at).getTime()).slice(0, 5)
-}
-
-const recentBatches = computed(() => latest(batches.value))
-const recentAnalyses = computed(() => latest(analyses.value))
+// Rows are 48px (two lines) plus their divider. Besides its rows, a block has its borders, its
+// 44px header and its 32px column labels.
+const experimentsCell = useTemplateRef<HTMLElement>('experimentsCell')
+const workCell = useTemplateRef<HTMLElement>('workCell')
+const experimentRows = useFittingRows(experimentsCell, 49, 7, 2 + 44 + 32)
+const workRows = useFittingRows(workCell, 49, 7, 2 + 44 + 32)
 
 // Nothing can run without a key: the one provider fact worth raising here
 const noProvider = computed(() => !!providers.value?.length && !providers.value.some(p => p.configured))
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6 xl:flex-1">
     <AppPageActions>
       <UButton
         data-tooltip="Refresh"
@@ -111,72 +112,80 @@ const noProvider = computed(() => !!providers.value?.length && !providers.value.
         </div>
       </Transition>
 
-      <DashboardActivity
-        v-model:range="range"
-        :activity="dashboard?.activity"
-        :loading="!dashboard"
-        :refreshing="!!dashboard && status === 'pending'"
-      />
+      <!-- The period's figures and the models they ran on, under the period they follow -->
+      <section aria-labelledby="dashboard-activity" class="flex shrink-0 flex-col gap-2">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="dashboard-activity" class="text-sm font-medium text-highlighted">
+            Activity
+          </h2>
+          <UTabs
+            v-model="range"
+            :items="DASHBOARD_RANGES.map(r => ({ label: r.label, value: r.value }))"
+            :content="false"
+            variant="pill"
+            color="neutral"
+            size="xs"
+            :ui="{
+              indicator: 'bg-default ring ring-default shadow-xs',
+              trigger: 'data-[state=active]:text-highlighted',
+            }"
+            aria-label="Period"
+          />
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6">
+          <DashboardActivity
+            v-model:range="range"
+            :activity="dashboard?.activity"
+            :loading="!dashboard"
+            :refreshing="!!dashboard && status === 'pending'"
+          />
+          <DashboardModels
+            :models="dashboard?.activity.models ?? []"
+            :loading="!dashboard"
+            class="motion-safe:transition-opacity"
+            :class="{ 'opacity-60': !!dashboard && status === 'pending' }"
+          />
+        </div>
+      </section>
 
-      <BaseSection title="Recent experiments" to="/experiments">
-        <DashboardRecentExperiments
-          v-if="!dashboard || dashboard.recent_experiments.length"
-          :experiments="dashboard?.recent_experiments ?? []"
-          :loading="!dashboard"
-        />
-        <BaseEmptyState
-          v-else
-          title="No experiments yet"
-          message="Run agents over a dataset to see results here."
-          icon="i-ph-flask-bold"
-          action-label="New experiment"
-          action-to="/experiments/new"
-          action-requires="editor"
-        />
-      </BaseSection>
+      <!-- On wide screens both lists show as many rows as the rest of the height holds: no scrolling.
+           The cells are measured, and each block stays as tall as its rows -->
+      <div class="grid grid-cols-1 xl:min-h-80 xl:flex-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-rows-[minmax(0,1fr)] gap-6">
+        <div ref="experimentsCell" class="min-h-0">
+          <BaseSection title="Recent experiments" to="/experiments">
+            <DashboardRecentExperiments
+              v-if="!dashboard || dashboard.recent_experiments.length"
+              :experiments="dashboard?.recent_experiments ?? []"
+              :loading="!dashboard"
+              :max-rows="experimentRows"
+            />
+            <BaseEmptyState
+              v-else
+              title="No experiments yet"
+              message="Run agents over a dataset to see results here."
+              icon="i-ph-flask-bold"
+              action-label="New experiment"
+              action-to="/experiments/new"
+              action-requires="editor"
+            />
+          </BaseSection>
+        </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <BaseSection title="Batches" to="/batches">
-          <ul v-if="recentBatches.length" class="divide-y divide-default">
-            <li v-for="batch in recentBatches" :key="batch.id">
-              <DashboardListRow :to="`/batches/${batch.id}`">
-                <UIStatusIcon :status="batch.status" />
-                <span class="min-w-0 truncate text-sm font-medium text-highlighted" :title="batch.name">{{ batch.name }}</span>
-                <span class="shrink-0 text-xs text-muted tabular-nums">#{{ batch.id }}</span>
-                <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
-                  {{ batch.counts.completed ?? 0 }} / {{ batch.experiments.length }} done
-                </span>
-                <span class="w-14 shrink-0 text-end text-xs text-muted" :title="formatDate(batch.created_at)">
-                  {{ formatRelativeDate(batch.created_at) }}
-                </span>
-              </DashboardListRow>
-            </li>
-          </ul>
-          <p v-else class="px-4 py-6 text-sm text-muted">
-            {{ batches ? 'No batches yet. Vary models, prompts or temperatures from any experiment.' : batchesError ? 'Couldn’t load the batches. Use Refresh to try again.' : 'Loading…' }}
-          </p>
-        </BaseSection>
-
-        <BaseSection title="Analyses" to="/analyses">
-          <ul v-if="recentAnalyses.length" class="divide-y divide-default">
-            <li v-for="analysis in recentAnalyses" :key="analysis.id">
-              <DashboardListRow :to="`/analyses/${analysis.id}`">
-                <UIcon name="i-ph-chart-bar-bold" class="size-3.5 shrink-0 text-muted" aria-hidden="true" />
-                <span class="min-w-0 truncate text-sm font-medium text-highlighted" :title="analysis.name">{{ analysis.name }}</span>
-                <span class="shrink-0 text-xs text-muted tabular-nums">#{{ analysis.id }}</span>
-                <span class="ms-auto shrink-0 text-xs text-muted tabular-nums">
-                  {{ analysis.runs.length }} {{ analysis.runs.length === 1 ? 'execution' : 'executions' }}
-                </span>
-                <span class="w-14 shrink-0 text-end text-xs text-muted" :title="formatDate(analysis.updated_at)">
-                  {{ formatRelativeDate(analysis.updated_at) }}
-                </span>
-              </DashboardListRow>
-            </li>
-          </ul>
-          <p v-else class="px-4 py-6 text-sm text-muted">
-            {{ analyses ? 'No analyses yet. Compare executions to a ground truth.' : analysesError ? 'Couldn’t load the analyses. Use Refresh to try again.' : 'Loading…' }}
-          </p>
-        </BaseSection>
+        <div ref="workCell" class="min-h-0">
+          <BaseSection title="Recent work">
+            <p v-if="!batches && !analyses && (batchesError || analysesError)" class="px-4 py-6 text-sm text-muted">
+              Couldn’t load the batches and analyses. Use Refresh to try again.
+            </p>
+            <DashboardRecentWork
+              v-else
+              :batches="batches ?? []"
+              :analyses="analyses ?? []"
+              :studies="studies"
+              :loading="!batches && !analyses"
+              :max-rows="workRows"
+            />
+          </BaseSection>
+        </div>
       </div>
     </template>
   </div>

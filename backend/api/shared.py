@@ -92,6 +92,7 @@ ID_FORMAT = re.compile(r"[0-9]{1,18}")
 BLANKED: dict[str, object] = {
     "author": None,
     "added_by": None,
+    "launched_by": None,
     "tags": [],
     "file_path": None,
     # The experiment a batch came from is not part of the batch: neither is its name
