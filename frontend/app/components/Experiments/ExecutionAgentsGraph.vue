@@ -139,8 +139,8 @@ const PANEL_WIDTH = 384
               </div>
               <UButton variant="ghost" size="sm" icon="i-ph-x-bold" color="neutral" aria-label="Close panel" @click="() => { selectedId = null }" />
             </header>
-            <div class="flex-1 overflow-y-auto">
-              <ExperimentsAgentSnapshotDetails :snapshot="selected" :agents="ordered" />
+            <div class="min-h-0 flex-1">
+              <ExperimentsAgentSnapshotDetails :snapshot="selected" :agents="ordered" fill />
             </div>
           </div>
         </Transition>
