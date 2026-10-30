@@ -301,7 +301,7 @@ Nothing to set for a local run. These are read from the environment (or a
 | Variable | Default | Description |
 |---|---|---|
 | `NUXT_PUBLIC_BACK_URL` | `http://localhost:8000` | Backend URL as seen from the browser. |
-| `NUXT_PUBLIC_SOURCE_URL` | the IRIT GitLab repository | Where the "Source code" entry of the help menu (the `?` at the bottom of the sidebar) leads. Empty hides the entry. |
+| `NUXT_PUBLIC_SOURCE_URL` | <https://github.com/Irit-Kosmos/maestro-bench> | Where the "Source code" entry of the help menu (the `?` at the bottom of the sidebar) leads. Empty hides the entry. |
 
 ### Workspaces
 
