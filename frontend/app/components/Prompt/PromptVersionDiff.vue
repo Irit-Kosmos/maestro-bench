@@ -44,6 +44,8 @@ function toggle(key: string, byDefault: boolean) {
   toggled.value = { ...toggled.value, [key]: !isOpen(key, byDefault) }
 }
 
+const collapsibleUi = { content: 'data-[state=open]:animate-none data-[state=closed]:animate-none' }
+
 const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs font-medium text-muted outline-none hover:text-highlighted focus-visible:ring-2 focus-visible:ring-inverted'
 </script>
 
@@ -75,8 +77,8 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
           </h3>
           <BaseDiffStat :added="field.diff.added" :removed="field.diff.removed" />
         </div>
-        <!-- The toggle is the button above: the collapsible only animates what it opens -->
-        <UCollapsible :open="isOpen(field.key, moved(field) && field.key !== 'notes')">
+        <!-- The toggle is the button above. A field opens and closes at once, without sliding -->
+        <UCollapsible :open="isOpen(field.key, moved(field) && field.key !== 'notes')" :ui="collapsibleUi">
           <template #content>
             <BaseDiffBlock :items="moved(field) ? field.diff.items : field.full" />
           </template>
@@ -104,7 +106,7 @@ const toggleClass = '-ms-1 flex items-center gap-0.5 rounded-sm px-1 text-xs fon
           </button>
         </h3>
       </div>
-      <UCollapsible :open="isOpen('variables', variablesMoved)">
+      <UCollapsible :open="isOpen('variables', variablesMoved)" :ui="collapsibleUi">
         <template #content>
           <ul class="flex flex-wrap gap-1.5">
             <li v-for="tag in diff.variables" :key="tag.name">
