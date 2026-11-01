@@ -93,6 +93,12 @@ describe('formSignature', () => {
     const mapped = (source: object) => ({ 8: { execution_order: 2, input_mappings: [{ variable: 'a', source: 'agent' as const, ...source }] } })
     expect(formSignature(1, sampling, mapped({ sourceAgentId: 7 }))).toBe(formSignature(1, sampling, mapped({ sourceStep: '7' })))
   })
+
+  it('tells a dataset read under other column names from the same one read as it is', () => {
+    const configs = { 7: { model_id: 1, execution_order: 1 } }
+    expect(formSignature(1, sampling, configs, { text: 'content' })).not.toBe(formSignature(1, sampling, configs))
+    expect(formSignature(1, sampling, configs, null)).toBe(formSignature(1, sampling, configs))
+  })
 })
 
 describe('unmappedAddedCount', () => {

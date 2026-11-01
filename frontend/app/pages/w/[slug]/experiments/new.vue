@@ -73,6 +73,13 @@ const datasetHeaders = computed(() => {
   return datasetPreview.value?.headers || []
 })
 
+// An experiment of a batch that varies the dataset reads its rows under the base dataset's
+// column names: a copy does too, as long as it keeps that dataset
+const copiedColumnMap = computed(() => {
+  const source = sourceExperiment.value
+  return source?.column_map && selectedDataset.value === source.dataset_id ? source.column_map : null
+})
+
 // --- Variations: more than none makes it a batch ---
 
 // A batch is an experiment with at least one variation. The current setup is one of its runs,
@@ -107,7 +114,7 @@ const variations = computed(() => [
   ...resolveVariations(variationDrafts.value, agentConfigurations.value),
 ])
 const skipBase = computed(() => batchMode.value && !!sourceExperiment.value
-  && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value) === experimentSignature(sourceExperiment.value))
+  && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value, copiedColumnMap.value) === experimentSignature(sourceExperiment.value))
 const experimentCount = computed(() => variationCount(variations.value, skipBase.value))
 // A prompt variation can bring variables the agent's prompt does not have: they need a mapping too
 const addedVariables = computed(() => addedVariablesByStep(variationDrafts.value, agentConfigurations.value, allPromptVersions.value ?? []))
@@ -115,7 +122,7 @@ const unmappedAdded = computed(() => unmappedAddedCount(addedVariables.value, ag
 const variationsValid = computed(() =>
   !batchMode.value
   || (variationDrafts.value.every(draft => draft.extras.length > 0)
-    && (!datasetAxis.value || (datasetExtras.value.length > 0 && unmatchedDatasets.value === 0 && tooShortDatasets.value.length === 0))
+    && (!datasetAxis.value || (!copiedColumnMap.value && datasetExtras.value.length > 0 && unmatchedDatasets.value === 0 && tooShortDatasets.value.length === 0))
     && variationIssues(variationDrafts.value).length === 0
     && unmappedAdded.value === 0
     && experimentCount.value > 0),
@@ -299,7 +306,7 @@ async function submit() {
     // Run order, as shown in the list or wired in the graph
     const executionOrder = agentConfigRef.value?.getExecutionOrder() ?? new Map<string, number>()
 
-    const experimentData = prepareExperimentData({ executionOrder })
+    const experimentData = { ...prepareExperimentData({ executionOrder }), column_map: copiedColumnMap.value ?? undefined }
 
     if (batchMode.value) {
       const { name, description, ...config } = experimentData
@@ -405,6 +412,7 @@ defineShortcuts({
             :skipped-origin="skipBase ? sourceExperiment?.name : null"
             :datasets="datasets"
             :base-dataset-id="selectedDataset"
+            :dataset-renamed="!!copiedColumnMap"
             :used-columns="usedDatasetColumns"
             :shape-of="datasetShapes.shapeOf"
             :has-failed="datasetShapes.hasFailed"

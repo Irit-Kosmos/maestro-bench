@@ -40,6 +40,8 @@ const props = defineProps<{
   skippedOrigin?: string | null
   datasets?: readonly Dataset[] | null
   baseDatasetId?: number | null
+  /** The base dataset is read under other column names (copied from a batch that varies the dataset) */
+  datasetRenamed?: boolean
   /** Base columns the pipeline reads: every dataset of the axis needs a column for each */
   usedColumns?: readonly string[]
   shapeOf?: (id: number) => DatasetShape | undefined
@@ -68,6 +70,8 @@ const baseDataset = computed(() => props.datasets?.find(d => d.id === props.base
 const datasetExtras = computed(() => (datasetAxis.value?.extras ?? []).filter(id => id !== props.baseDatasetId))
 // The base dataset is ticked and cannot be unticked, as the current value of the other axes
 const datasetItems = computed(() => (props.datasets ?? []).map(d => ({ label: d.name, value: d.id, disabled: d.id === props.baseDatasetId })))
+// The other datasets' columns stand for the base dataset's as it is on disk
+const canVaryDataset = computed(() => !!props.baseDatasetId && !props.datasetRenamed)
 const datasetValues = computed(() => props.baseDatasetId ? [props.baseDatasetId, ...datasetExtras.value] : datasetExtras.value)
 
 function addDatasetAxis() {
@@ -181,7 +185,7 @@ watch(steps, (list) => {
   >
     <template v-if="anyAxis" #actions>
       <div class="flex gap-2">
-        <UButton v-if="!datasetAxis" icon="i-ph-database-bold" color="neutral" variant="outline" size="xs" :disabled="!baseDatasetId" @click="addDatasetAxis">
+        <UButton v-if="!datasetAxis" icon="i-ph-database-bold" color="neutral" variant="outline" size="xs" :disabled="!canVaryDataset" @click="addDatasetAxis">
           Vary the dataset
         </UButton>
         <UButton icon="i-ph-plus-bold" color="neutral" variant="outline" size="xs" :disabled="steps.length === 0" @click="add">
@@ -205,14 +209,14 @@ watch(steps, (list) => {
           icon="i-ph-database-bold"
           color="neutral"
           variant="outline"
-          :disabled="!baseDatasetId"
+          :disabled="!canVaryDataset"
           @click="addDatasetAxis"
         >
           Vary the dataset
         </UButton>
       </div>
-      <p v-if="steps.length === 0 || !baseDatasetId" class="mt-2 text-xs text-muted">
-        {{ !baseDatasetId ? 'Choose a dataset first.' : 'Choose an agent first.' }}
+      <p v-if="steps.length === 0 || !canVaryDataset" class="mt-2 text-xs text-muted">
+        {{ !baseDatasetId ? 'Choose a dataset first.' : datasetRenamed ? 'This dataset is read under other column names: vary the dataset from the base experiment of its batch.' : 'Choose an agent first.' }}
       </p>
     </div>
 
@@ -350,6 +354,9 @@ watch(steps, (list) => {
       <p class="text-sm" :class="count > BATCH_CONFIRM_THRESHOLD ? 'text-warning' : 'text-toned'" role="status">
         <template v-if="incomplete">
           Add at least one value besides the current one in each variation.
+        </template>
+        <template v-else-if="datasetAxis && datasetRenamed">
+          This dataset is read under other column names: vary the dataset from the base experiment of its batch.
         </template>
         <template v-else-if="(unmatchedDatasets ?? 0) > 0">
           Match the columns of {{ unmatchedDatasets === 1 ? 'the dataset' : `the ${unmatchedDatasets} datasets` }} above.

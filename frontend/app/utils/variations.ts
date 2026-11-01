@@ -200,6 +200,7 @@ interface Signature {
   dataset_id: number | null | undefined
   sampling: (number | string | null)[]
   agents: unknown[]
+  columns: [string, string][]
 }
 
 function mappingSignature(mappings: readonly { variable: string, source: string, sourceColumn?: string, sourceStep?: string, sourceAgentId?: number, sourceOutput?: string, sourcePath?: string, staticValue?: string }[] | null | undefined) {
@@ -227,6 +228,7 @@ export function formSignature(
   datasetId: number | null | undefined,
   sampling: { sampling_type?: string, sampling_size?: number, sampling_start_row?: number, sampling_end_row?: number, sampling_seed?: number },
   configurations: Record<string, AgentConfiguration>,
+  columnMap?: Record<string, string> | null,
 ): string {
   const signature: Signature = {
     dataset_id: datasetId,
@@ -235,6 +237,8 @@ export function formSignature(
     agents: agentsSignature(Object.entries(configurations)
       .filter(([, config]) => config?.is_active !== false)
       .map(([key, config]) => ({ step_key: key, config }))),
+    // The same dataset read under other column names is other rows
+    columns: Object.entries(columnMap ?? {}).sort(([a], [b]) => a.localeCompare(b)),
   }
   return JSON.stringify(signature)
 }
@@ -260,5 +264,6 @@ export function experimentSignature(experiment: Experiment): string {
         input_mappings: config.input_mappings ?? [],
         formulas: config.formulas ?? undefined,
       }])),
+    experiment.column_map,
   )
 }
