@@ -72,6 +72,8 @@ class BatchBaseConfig(BaseModel):
     sampling_end_row: int | None = None
     # Seed of the batch's random sample; drawn at random when left out
     sampling_seed: int | None = Field(default=None, ge=0, le=MAX_SAMPLING_SEED)
+    # Columns of the dataset read under other names (see ExperimentCreate.column_map)
+    column_map: dict[str, str] | None = None
 
 
 class BatchCreate(BaseModel):

@@ -50,7 +50,12 @@ from core.steps import agent_id_of, split_step, step_label
 from dataset_utils import dataset_shape, validate_dataset_file
 from db import SessionDep
 from execution_stats import latest_figures
-from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
+from experiment_utils import (
+    ExperimentConfigError,
+    add_experiment,
+    check_column_map,
+    new_sampling_seed,
+)
 from loading import by_id, grouped_by, people
 from results_files import execution_row_count
 from schemas.batches import (
@@ -187,6 +192,17 @@ def _validate_batch(
         Experiment, data.base_experiment_id
     ):
         fail(f"Base experiment {data.base_experiment_id} not found")
+    if data.config.column_map:
+        # The other datasets' columns stand for the base dataset's as it is on disk
+        if any(is_dataset_axis(v) for v in variations):
+            fail(
+                "A dataset read under other column names cannot be varied: "
+                "start from the base experiment of its batch"
+            )
+        try:
+            check_column_map(session, data.config.dataset_id, data.config.column_map)
+        except ExperimentConfigError as e:
+            fail(str(e))
 
     if total < 1:
         fail("Nothing to run: the only experiment would repeat the base experiment")
@@ -295,6 +311,8 @@ def _validate_datasets(
             raise
 
     base = session.get(Dataset, data.config.dataset_id)
+    if not base:
+        fail(f"Dataset {data.config.dataset_id} not found")
     assert base is not None
     base_headers, _ = shape(base)
     used = _used_columns(configs, varied, set(base_headers), session)
@@ -311,8 +329,6 @@ def _validate_datasets(
                 f"Dataset '{dataset.name}' has {row_count} rows: "
                 f"the range starting at row {start_row} would leave it empty"
             )
-    if not base:
-        fail(f"Dataset {data.config.dataset_id} not found")
         if dataset_id == data.config.dataset_id:
             continue
 
@@ -645,6 +661,7 @@ def create_batch(
         sampling_size=data.config.sampling_size,
         sampling_start_row=data.config.sampling_start_row,
         sampling_end_row=data.config.sampling_end_row,
+        column_map=data.config.column_map,
     )
     dataset_axis = next((v for v in variations if is_dataset_axis(v)), None)
     multi_step = (
@@ -668,17 +685,21 @@ def create_batch(
         try:
             experiment = add_experiment(
                 session,
-                base.model_copy(update={"dataset_id": dataset_id}),
+                base.model_copy(
+                    update={
+                        "dataset_id": dataset_id,
+                        # The base dataset is read as the base configuration says
+                        "column_map": column_map_of(dataset_axis, dataset_id)
+                        if dataset_axis and dataset_id != base.dataset_id
+                        else base.column_map,
+                    }
+                ),
                 name=f"{batch.name} · {variant_label(parts)}",
                 agent_overrides={
                     step: fields for step, fields in point.items() if step != DATASET_AXIS
                 },
                 batch_id=batch.id,
                 variant=serialize_point(point),
-                # The base dataset is read as it is
-                column_map=column_map_of(dataset_axis, dataset_id)
-                if dataset_axis and dataset_id != base.dataset_id
-                else None,
             )
         except ExperimentConfigError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e

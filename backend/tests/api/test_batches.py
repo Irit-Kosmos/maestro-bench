@@ -918,6 +918,58 @@ class TestDatasetAxis:
         assert response.status_code == 422
         assert "no column for content" in response.json()["detail"]
 
+    def test_a_copied_experiment_keeps_its_column_map(
+        self, client, world, other_dataset, engine
+    ):
+        config = payload(world, [])["config"]
+        response = client.post(
+            "/experiments",
+            json={
+                "name": "Copy",
+                **config,
+                "dataset_id": other_dataset,
+                "column_map": {"text": "content"},
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["column_map"] == {"text": "content"}
+
+    def test_a_copied_column_map_must_name_columns_of_the_dataset(
+        self, client, world, other_dataset
+    ):
+        config = payload(world, [])["config"]
+        response = client.post(
+            "/experiments",
+            json={
+                **config,
+                "name": "Copy",
+                "dataset_id": other_dataset,
+                "column_map": {"text": "nope"},
+            },
+        )
+        assert response.status_code == 422
+        assert "has no column nope" in response.json()["detail"]
+
+    def test_the_base_point_of_a_batch_keeps_a_copied_column_map(
+        self, client, world, other_dataset, engine
+    ):
+        body = payload(world, [model_axis(world, 0, 1)])
+        body["config"].update(dataset_id=other_dataset, column_map={"text": "content"})
+        response = client.post("/batches", json=body)
+        assert response.status_code == 201
+        with scoped(engine) as s:
+            created = s.exec(select(Experiment).order_by(Experiment.id)).all()
+        assert [json.loads(e.column_map) for e in created] == [{"text": "content"}] * 2
+
+    def test_a_copied_column_map_cannot_vary_the_dataset(
+        self, client, world, other_dataset
+    ):
+        body = payload(world, [dataset_axis(world, other_dataset)])
+        body["config"]["column_map"] = {"text": "text"}
+        response = client.post("/batches", json=body)
+        assert response.status_code == 422
+        assert "cannot be varied" in response.json()["detail"]
+
     def test_unknown_base_dataset_is_refused(self, client, world, other_dataset):
         body = payload(world, [dataset_axis(world, other_dataset)])
         body["config"]["dataset_id"] = 999_999

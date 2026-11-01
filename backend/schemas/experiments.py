@@ -83,6 +83,9 @@ class ExperimentCreate(BaseModel):
     # Seed of a random sample: the same seed takes the same rows from the same dataset
     # and sample size. Drawn at random when left out.
     sampling_seed: int | None = Field(default=None, ge=0, le=MAX_SAMPLING_SEED)
+    # Columns of the dataset read under other names, as {name: column}: kept when
+    # copying an experiment of a batch that varies the dataset
+    column_map: dict[str, str] | None = None
 
 
 class ExperimentResponse(LatestExecutionFigures):
