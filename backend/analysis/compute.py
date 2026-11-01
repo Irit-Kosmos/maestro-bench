@@ -93,6 +93,8 @@ class RunResult:
 class AnalysisResult:
     runs: list[RunResult]
     warnings: list[str]
+    # What to know about the comparison that is not a problem
+    notes: list[str] = field(default_factory=list)
 
 
 def validate_config(config: AnalysisConfig) -> None:
@@ -118,6 +120,7 @@ def compute_analysis(config: AnalysisConfig, runs: list[RunInput]) -> AnalysisRe
     return AnalysisResult(
         runs=[compute_run(config, run) for run in runs],
         warnings=comparison_warnings(runs),
+        notes=comparison_notes(runs),
     )
 
 
@@ -251,12 +254,29 @@ def comparison_warnings(runs: list[RunInput]) -> list[str]:
 
     warnings = []
     if len({s.get("file_path") for s in snapshots}) > 1:
-        warnings.append("Runs use different datasets")
+        if not _datasets_varied_on_purpose(snapshots):
+            warnings.append("Runs use different datasets")
     elif len({_sampling_key(s) for s in snapshots}) > 1 or any(
         _is_unseeded_random(s) for s in snapshots
     ):
         warnings.append("Runs use different samples of the dataset")
     return warnings
+
+
+def comparison_notes(runs: list[RunInput]) -> list[str]:
+    """What the comparison is about, when it is not a problem."""
+    snapshots = [run.dataset for run in runs if run.dataset]
+    if len({s.get("file_path") for s in snapshots}) > 1 and _datasets_varied_on_purpose(
+        snapshots
+    ):
+        return ["Runs use different datasets: their batch varies the dataset"]
+    return []
+
+
+def _datasets_varied_on_purpose(snapshots: list[dict]) -> bool:
+    """Whether all the runs come from one batch that varies the dataset."""
+    batches = {s.get("dataset_axis_batch_id") for s in snapshots}
+    return len(batches) == 1 and None not in batches
 
 
 def _sampling_key(snapshot: dict) -> tuple:

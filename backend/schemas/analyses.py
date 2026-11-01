@@ -131,6 +131,8 @@ class AnalysisResultResponse(BaseModel):
     metrics: list[MetricInfo]
     runs: list[RunResultResponse]
     warnings: list[str]
+    # What to know about the comparison that is not a problem
+    notes: list[str] = []
 
 
 class AgentFields(BaseModel):
