@@ -139,6 +139,7 @@ def _experiment_response(
         batch_id=experiment.batch_id,
         batch_name=batch.name if batch else None,
         variant=parse_point(experiment.variant) or None,
+        column_map=json.loads(experiment.column_map) if experiment.column_map else None,
         row_count=execution_row_count(latest_with_results)
         if latest_with_results
         else None,

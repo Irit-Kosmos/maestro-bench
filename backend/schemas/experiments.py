@@ -118,6 +118,9 @@ class ExperimentResponse(LatestExecutionFigures):
     batch_id: int | None = None
     batch_name: str | None = None
     variant: dict[str, dict] | None = None
+    # Columns of the dataset read under other names, as {name: column}: set when
+    # the experiment's batch varies the dataset
+    column_map: dict[str, str] | None = None
 
 
 # Forward reference resolution

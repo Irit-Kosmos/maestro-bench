@@ -25,7 +25,10 @@ Dataset records only store a path relative to that folder.
 """
 
 import csv
+import json
 from pathlib import Path
+
+import pandas as pd
 
 import workspace_files
 
@@ -68,3 +71,33 @@ def count_csv_rows(file_path: Path) -> int:
     with file_path.open("r", encoding="utf-8-sig", newline="") as f:
         records = sum(1 for record in csv.reader(f) if record)
     return max(records - 1, 0)
+
+
+def dataset_shape(file_path: Path) -> tuple[list[str], int]:
+    """Column names and number of rows of a dataset file."""
+    if file_path.suffix.lower() == ".json":
+        with file_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        rows = data if isinstance(data, list) else [data]
+        headers = list(
+            dict.fromkeys(key for row in rows if isinstance(row, dict) for key in row)
+        )
+        return headers, len(rows)
+    with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+        headers = next(csv.reader(f), [])
+    return headers, count_csv_rows(file_path)
+
+
+def apply_column_map(df: pd.DataFrame, column_map: dict[str, str]) -> pd.DataFrame:
+    """Rows of a dataset under the base dataset's column names.
+
+    ``column_map`` is {base column: column of this dataset}. Each mapped column
+    takes the base name; a column of this dataset that already has that name
+    gives way to it. The other columns stay as they are.
+    """
+    renamed = {base: df[column] for base, column in column_map.items() if column in df.columns}
+    if not renamed:
+        return df
+    sources = set(column_map.values())
+    kept = df.drop(columns=[c for c in df.columns if c in sources or c in renamed])
+    return pd.concat([kept, pd.DataFrame(renamed, index=df.index)], axis=1)

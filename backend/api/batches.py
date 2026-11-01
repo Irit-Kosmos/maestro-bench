@@ -27,12 +27,16 @@ from sqlmodel import Session, col, select
 
 import async_jobs
 from batch_utils import (
+    DATASET_AXIS,
+    DATASET_FIELD,
     MAX_BATCH_EXPERIMENTS,
     VariationError,
     batch_status,
+    column_map_of,
     expand_variations,
     format_temperature,
     is_base_point,
+    is_dataset_axis,
     normalize_variations,
     parse_point,
     prompt_variable_names,
@@ -43,6 +47,7 @@ from batch_utils import (
 )
 from core.orchestrator import AGGREGATOR
 from core.steps import agent_id_of, split_step, step_label
+from dataset_utils import dataset_shape, validate_dataset_file
 from db import SessionDep
 from execution_stats import latest_figures
 from experiment_utils import ExperimentConfigError, add_experiment, new_sampling_seed
@@ -110,6 +115,9 @@ def _value_label(field: str, value: int | float | None, labels: _Labels) -> str:
     """Human-readable name of a value of a varied field."""
     if field == "temperature":
         return format_temperature(None if value is None else float(value))
+    if field == DATASET_FIELD:
+        dataset = labels.get(Dataset, int(value))
+        return dataset.name if dataset else f"dataset {value}"
     if field == "model_id":
         model = labels.get(Model, int(value))
         return model.name if model else f"model {value}"
@@ -123,6 +131,8 @@ def _value_label(field: str, value: int | float | None, labels: _Labels) -> str:
 
 def _agent_name(step: str, labels: _Labels) -> str:
     """Name of a step of a batch: its agent's, then "name #2"…"""
+    if step == DATASET_AXIS:
+        return "Dataset"
     agent_id, instance = split_step(step)
     agent = labels.get(Agent, agent_id)
     return step_label(agent.name, instance) if agent else f"agent {agent_id}"
@@ -140,6 +150,9 @@ def _base_values(
     values: dict[tuple[str, str], int | float | None] = {}
     for variation in variations:
         step, field = variation_step(variation), variation["field"]
+        if is_dataset_axis(variation):
+            values[(step, field)] = data.config.dataset_id
+            continue
         config = data.config.agent_configurations.get(step) or {}
         value = config.get(field)
         if value is None and field != "temperature":
@@ -186,6 +199,8 @@ def _validate_batch(
     configs = {str(step): config for step, config in data.config.agent_configurations.items()}
     varied: dict[str, dict[str, list]] = {}
     for variation in variations:
+        if is_dataset_axis(variation):
+            continue
         varied.setdefault(variation_step(variation), {})[variation["field"]] = variation[
             "values"
         ]
@@ -247,6 +262,106 @@ def _validate_batch(
                     f"{', '.join(sorted(missing))}"
                 )
 
+    dataset_axis = next((v for v in variations if is_dataset_axis(v)), None)
+    if dataset_axis:
+        _validate_datasets(data, dataset_axis, configs, varied, session)
+
+
+def _validate_datasets(
+    data: BatchCreate,
+    axis: dict,
+    configs: dict[str, dict],
+    varied: dict[str, dict[str, list]],
+    session: Session,
+):
+    """Raise HTTP 422 unless every dataset of the axis can stand for the base one.
+
+    Each dataset must have a column for every column of the base dataset the
+    configuration reads, under its own name or one the axis maps it to.
+    """
+
+    def fail(detail: str):
+        raise HTTPException(status_code=422, detail=detail)
+
+    workspace_id = current_workspace_id(session)
+
+    def shape(dataset: Dataset) -> tuple[list[str], int]:
+        try:
+            if not dataset.file_path:
+                raise FileNotFoundError("no file")
+            return dataset_shape(validate_dataset_file(workspace_id, dataset.file_path))
+        except (OSError, ValueError) as e:
+            fail(f"Dataset '{dataset.name}' cannot be read: {e}")
+            raise
+
+    base = session.get(Dataset, data.config.dataset_id)
+    assert base is not None
+    base_headers, _ = shape(base)
+    used = _used_columns(configs, varied, set(base_headers), session)
+
+    start_row = data.config.sampling_start_row
+    for dataset_id in axis["values"]:
+        dataset = session.get(Dataset, dataset_id)
+        if not dataset:
+            fail(f"Dataset {dataset_id} not found")
+        assert dataset is not None
+        headers, row_count = shape(dataset)
+        if data.config.sampling_type == "range" and start_row and start_row > row_count:
+            fail(
+                f"Dataset '{dataset.name}' has {row_count} rows: "
+                f"the range starting at row {start_row} would leave it empty"
+            )
+        if dataset_id == data.config.dataset_id:
+            continue
+
+        column_map = column_map_of(axis, dataset_id)
+        if unknown := sorted(set(column_map) - set(base_headers)):
+            fail(f"'{base.name}' has no column {', '.join(unknown)}")
+        if absent := sorted(set(column_map.values()) - set(headers)):
+            fail(f"Dataset '{dataset.name}' has no column {', '.join(absent)}")
+        if missing := sorted(c for c in used if column_map.get(c, c) not in headers):
+            fail(
+                f"Dataset '{dataset.name}' has no column for {', '.join(missing)}: "
+                "choose which of its columns stands for each"
+            )
+
+
+def _used_columns(
+    configs: dict[str, dict],
+    varied: dict[str, dict[str, list]],
+    base_headers: set[str],
+    session: Session,
+) -> set[str]:
+    """Columns of the base dataset the batch's active steps read.
+
+    A step with input mappings reads the columns they name. One without reads the
+    whole row: its prompts' variables that are columns of the dataset.
+    """
+    used: set[str] = set()
+    for step, config in configs.items():
+        if not config or not config.get("is_active", True):
+            continue
+        mappings = [m for m in config.get("input_mappings") or [] if isinstance(m, dict)]
+        used |= {
+            m["sourceColumn"]
+            for m in mappings
+            if m.get("source") == "dataset" and m.get("sourceColumn")
+        }
+        if mappings:
+            continue
+        agent = session.get(Agent, agent_id_of(step))
+        if not agent or agent.kind == AGGREGATOR:
+            continue
+        version_ids = [
+            *varied.get(step, {}).get("prompt_version_id", []),
+            config.get("prompt_version_id") or agent.default_prompt_version_id,
+        ]
+        for version_id in version_ids:
+            version = session.get(PromptVersion, int(version_id)) if version_id else None
+            if version:
+                used |= prompt_variable_names(version.variables) & base_headers
+    return used
+
 
 # ---------------------------------------------------------------------------
 # Response builder
@@ -288,11 +403,7 @@ def _build_batch_responses(
             agent_names_of[execution_id].append(name)
 
     bases = by_id(session, Experiment, (b.base_experiment_id for b in batches))
-    datasets = by_id(
-        session,
-        Dataset,
-        (experiments_of[b.id][0].dataset_id for b in batches if experiments_of[b.id]),
-    )
+    datasets = by_id(session, Dataset, (e.dataset_id for e in experiments))
     labels = _preload_labels(batches, experiments, session)
     authors = people(session, (b.created_by for b in batches))
 
@@ -303,9 +414,11 @@ def _build_batch_responses(
             experiments=experiments_of[batch.id],
             base=bases.get(batch.base_experiment_id),
             author=authors.get(batch.created_by),
-            dataset=datasets.get(experiments_of[batch.id][0].dataset_id)
-            if experiments_of[batch.id]
-            else None,
+            datasets=[
+                datasets[dataset_id]
+                for dataset_id in dict.fromkeys(e.dataset_id for e in experiments_of[batch.id])
+                if dataset_id in datasets
+            ],
             executions_of=executions_of,
             agent_names_of=agent_names_of,
         )
@@ -324,8 +437,13 @@ def _preload_labels(
     agent_ids: set[int] = set()
     model_ids: set[int] = set()
     version_ids: set[int] = set()
+    dataset_ids: set[int] = set()
 
     def note(step: str, field: str, value: object) -> None:
+        if step == DATASET_AXIS:
+            if value is not None:
+                dataset_ids.add(int(value))
+            return
         agent_ids.add(agent_id_of(step))
         if value is None:
             return
@@ -347,9 +465,15 @@ def _preload_labels(
     labels.preload(Agent, agent_ids)
     labels.preload(Model, model_ids)
     labels.preload(PromptVersion, version_ids)
+    labels.preload(Dataset, dataset_ids)
     versions = [labels.get(PromptVersion, i) for i in version_ids]
     labels.preload(Prompt, (v.prompt_id for v in versions if v is not None))
     return labels
+
+
+def _axis_agent_id(variation: dict) -> int | None:
+    """Agent whose step an axis varies; None for the dataset axis."""
+    return None if is_dataset_axis(variation) else agent_id_of(variation_step(variation))
 
 
 def _batch_response(
@@ -359,7 +483,7 @@ def _batch_response(
     experiments: list[Experiment],
     base: Experiment | None,
     author: PersonResponse | None,
-    dataset: Dataset | None,
+    datasets: list[Dataset],
     executions_of: dict[int, list[ExperimentExecution]],
     agent_names_of: dict[int, list[str]],
 ) -> BatchResponse:
@@ -368,12 +492,16 @@ def _batch_response(
     axis_responses = [
         VariationResponse(
             step_key=variation_step(v),
-            agent_id=agent_id_of(variation_step(v)),
+            agent_id=_axis_agent_id(v),
             agent_name=_agent_name(variation_step(v), labels),
             field=v["field"],
             values=[
                 VariationValueResponse(
-                    value=value, label=_value_label(v["field"], value, labels)
+                    value=value,
+                    label=_value_label(v["field"], value, labels),
+                    column_map=column_map_of(v, int(value)) or None
+                    if is_dataset_axis(v)
+                    else None,
                 )
                 for value in v["values"]
             ],
@@ -388,7 +516,7 @@ def _batch_response(
         coordinates = [
             VariantCoordinate(
                 step_key=variation_step(v),
-                agent_id=agent_id_of(variation_step(v)),
+                agent_id=_axis_agent_id(v),
                 field=v["field"],
                 value=point[variation_step(v)][v["field"]],
                 label=_value_label(
@@ -438,8 +566,9 @@ def _batch_response(
         author=author,
         base_experiment_id=base.id if base else None,
         base_experiment_name=base.name if base else None,
-        dataset_id=dataset.id if dataset else None,
-        dataset_name=dataset.name if dataset else None,
+        # A batch that varies the dataset names them all, and links to none
+        dataset_id=datasets[0].id if len(datasets) == 1 else None,
+        dataset_name=", ".join(d.name for d in datasets) or None,
         variations=axis_responses,
         status=batch_status(statuses),
         counts=dict(Counter(statuses)),
@@ -509,7 +638,10 @@ def create_batch(
         sampling_start_row=data.config.sampling_start_row,
         sampling_end_row=data.config.sampling_end_row,
     )
-    multi_step = len({variation_step(v) for v in variations}) > 1
+    dataset_axis = next((v for v in variations if is_dataset_axis(v)), None)
+    multi_step = (
+        len({variation_step(v) for v in variations if not is_dataset_axis(v)}) > 1
+    )
 
     labels = _Labels(session)
     experiment_ids = []
@@ -520,16 +652,25 @@ def create_batch(
             value = point[step][variation["field"]]
             label = _value_label(variation["field"], value, labels)
             parts.append(
-                f"{_agent_name(step, labels)}: {label}" if multi_step else label
+                f"{_agent_name(step, labels)}: {label}"
+                if multi_step and not is_dataset_axis(variation)
+                else label
             )
+        dataset_id = point.get(DATASET_AXIS, {}).get(DATASET_FIELD, base.dataset_id)
         try:
             experiment = add_experiment(
                 session,
-                base,
+                base.model_copy(update={"dataset_id": dataset_id}),
                 name=f"{batch.name} · {variant_label(parts)}",
-                agent_overrides=point,
+                agent_overrides={
+                    step: fields for step, fields in point.items() if step != DATASET_AXIS
+                },
                 batch_id=batch.id,
                 variant=serialize_point(point),
+                # The base dataset is read as it is
+                column_map=column_map_of(dataset_axis, dataset_id)
+                if dataset_axis and dataset_id != base.dataset_id
+                else None,
             )
         except ExperimentConfigError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e

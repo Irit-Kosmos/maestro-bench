@@ -25,6 +25,10 @@ A *variation* is one axis of the grid: ``{"step_key", "agent_id", "field",
 "values"}``, where the step is one run of an agent in the experiment (see
 core.steps). A batch's experiments are the cartesian product of its axes; each
 experiment sits at one *point* ``{step_key: {field: value}}``.
+
+The dataset is the one axis that is not a step's: it sits under the key
+``"dataset"`` (``{"dataset": {"dataset_id": 7}}``), and comes with, for each
+dataset, the columns that stand for the base dataset's (``column_maps``).
 """
 
 import itertools
@@ -37,6 +41,10 @@ from core.steps import agent_id_of
 # Fields of an agent's experiment configuration that a batch may vary
 VARIABLE_FIELDS = ("model_id", "prompt_version_id", "temperature")
 
+# The dataset axis: the experiment's dataset, not a field of one of its steps
+DATASET_AXIS = "dataset"
+DATASET_FIELD = "dataset_id"
+
 # Safety net against a typo turning into hundreds of paid runs
 MAX_BATCH_EXPERIMENTS = 50
 
@@ -47,9 +55,49 @@ class VariationError(ValueError):
     """The requested variations cannot be turned into a batch."""
 
 
+def is_dataset_axis(variation: dict) -> bool:
+    return variation["field"] == DATASET_FIELD
+
+
 def variation_step(variation: dict) -> str:
     """Step an axis varies. Axes stored before agents could repeat name an agent only."""
+    if is_dataset_axis(variation):
+        return DATASET_AXIS
     return str(variation.get("step_key") or variation["agent_id"])
+
+
+def _normalize_column_maps(raw: dict | None, dataset_ids: list) -> dict[str, dict[str, str]]:
+    """Each dataset's columns that differ from the base dataset's: {base column: its column}."""
+    maps: dict[str, dict[str, str]] = {}
+    for dataset_id, columns in (raw or {}).items():
+        if int(dataset_id) not in dataset_ids:
+            continue
+        renamed = {
+            str(base): str(column)
+            for base, column in (columns or {}).items()
+            if column and str(column) != str(base)
+        }
+        if renamed:
+            maps[str(int(dataset_id))] = renamed
+    return maps
+
+
+def _normalize_dataset_axis(variation: dict) -> dict:
+    values = list(dict.fromkeys(variation["values"]))
+    if not values or any(v is None or isinstance(v, bool) or int(v) != v for v in values):
+        raise VariationError("Variation of the dataset needs dataset ids")
+    values = [int(v) for v in values]
+    return {
+        "step_key": DATASET_AXIS,
+        "field": DATASET_FIELD,
+        "values": values,
+        "column_maps": _normalize_column_maps(variation.get("column_maps"), values),
+    }
+
+
+def column_map_of(variation: dict, dataset_id: int) -> dict[str, str]:
+    """Columns of a dataset of the axis that stand for the base dataset's ones."""
+    return dict((variation.get("column_maps") or {}).get(str(dataset_id), {}))
 
 
 def normalize_variations(variations: list[dict]) -> list[dict]:
@@ -60,6 +108,12 @@ def normalize_variations(variations: list[dict]) -> list[dict]:
     seen: set[tuple[str, str]] = set()
     normalized = []
     for variation in variations:
+        if is_dataset_axis(variation):
+            if (DATASET_AXIS, DATASET_FIELD) in seen:
+                raise VariationError("The dataset is varied more than once")
+            seen.add((DATASET_AXIS, DATASET_FIELD))
+            normalized.append(_normalize_dataset_axis(variation))
+            continue
         step, field = variation_step(variation), variation["field"]
         try:
             agent_id_of(step)
@@ -90,6 +144,9 @@ def normalize_variations(variations: list[dict]) -> list[dict]:
                 "values": values,
             }
         )
+    # The dataset first: it varies slowest, so the experiments of a dataset sit
+    # together, and it leads their names
+    normalized.sort(key=lambda v: not is_dataset_axis(v))
     return normalized
 
 

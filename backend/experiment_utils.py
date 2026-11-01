@@ -32,6 +32,7 @@ from sqlmodel import Session, col, select
 
 import credentials
 import workspace_files
+from batch_utils import DATASET_AXIS, parse_point
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from core.steps import agent_id_of, mapping_source, split_step, step_label
@@ -107,12 +108,15 @@ def add_experiment(
     agent_overrides: dict[str, dict] | None = None,
     batch_id: int | None = None,
     variant: str | None = None,
+    column_map: dict[str, str] | None = None,
 ) -> Experiment:
     """Add an experiment and its agent configurations to the session.
 
     Flushes but does not commit, so that a caller creating several experiments
     can make them all-or-nothing. ``agent_overrides`` replaces fields of the
     submitted configuration of a step (how a batch varies its experiments).
+    ``column_map`` reads the dataset's rows under other column names (see
+    Experiment.column_map).
     Steps are the keys of ``agent_configurations``: an agent may have several.
 
     Raises ExperimentConfigError when an aggregator cannot run, or when the
@@ -132,6 +136,7 @@ def add_experiment(
         else None,
         batch_id=batch_id,
         variant=variant,
+        column_map=json.dumps(column_map) if column_map else None,
     )
     session.add(experiment)
     session.flush()
@@ -400,6 +405,15 @@ def create_execution_snapshot(
                 "name": dataset.name,
                 "description": dataset.description,
                 "file_path": dataset.file_path,
+                # The rows are read under these column names ({name: column})
+                "column_map": json.loads(experiment.column_map)
+                if experiment.column_map
+                else None,
+                # Set when the experiment's batch varies the dataset: comparing it
+                # with the others of the batch is comparing datasets on purpose
+                "dataset_axis_batch_id": experiment.batch_id
+                if DATASET_AXIS in parse_point(experiment.variant)
+                else None,
                 "sampling_config": {
                     "sampling_type": experiment.sampling_type,
                     "sampling_size": experiment.sampling_size,

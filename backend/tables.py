@@ -280,6 +280,10 @@ class Experiment(Authored, table=True):
     # Seed of the random sample, kept so that every run takes the same rows until
     # the sample is redrawn. An experiment of a batch uses the batch's seed instead.
     sampling_seed: int | None = Field(default=None, sa_type=BigInteger)
+    # Columns of the dataset that stand for other names, as {name: column}: an
+    # experiment of a batch that varies the dataset reads its rows under the base
+    # dataset's column names. None when the rows are read as they are.
+    column_map: str | None = Field(default=None, sa_type=JsonText)
 
     __table_args__ = (
         CheckConstraint(
