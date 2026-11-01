@@ -166,6 +166,8 @@ export interface Experiment {
   batch_id?: number | null
   batch_name?: string | null
   variant?: Record<string, Record<string, number>> | null
+  // Columns of the dataset read under other names ({ name: column }): set when the batch varies the dataset
+  column_map?: Record<string, string> | null
 
   // The agents' configuration, as submitted
   experiment_configs?: ExperimentAgentConfig[]
@@ -511,6 +513,8 @@ export interface AnalysisResult {
   metrics: MetricInfo[]
   runs: AnalysisRunResult[]
   warnings: string[]
+  /** What to know about the comparison that is not a problem */
+  notes?: string[]
 }
 
 export interface ExecutionFields {
@@ -542,13 +546,18 @@ export interface AvailableExecution {
 // --- Batches: experiments generated from one base configuration by varying agent fields ---
 
 export type VariationField = 'model_id' | 'prompt_version_id' | 'temperature'
+/** What a batch's axis varies: a field of a step, or the experiment's dataset */
+export type AxisField = VariationField | 'dataset_id'
 
 /** One axis of a batch's grid, as submitted: every value that runs, the base configuration's included */
 export interface Variation {
+  /** "dataset" for the dataset axis */
   step_key: string
-  field: VariationField
+  field: AxisField
   /** A temperature of null is the model's own default */
   values: (number | null)[]
+  /** Dataset axis only: for each dataset, the column that stands for each base column ({ base: column }) */
+  column_maps?: Record<number, Record<string, string>>
 }
 
 /** One axis as edited in the form: only what is added to the base configuration's value */
@@ -558,24 +567,34 @@ export interface VariationDraft {
   extras: number[]
 }
 
+/** The dataset axis as edited in the form: the datasets added to the base one, and the columns picked for them */
+export interface DatasetAxisDraft {
+  extras: number[]
+  /** By dataset: the column picked for a base column ('' for none); a base column not listed takes the one of the same name */
+  picks: Record<number, Record<string, string>>
+}
+
 export interface BatchVariationValue {
   value: number | null
   label: string
+  /** Dataset axis only: the columns of this dataset read under other names ({ name: column }) */
+  column_map?: Record<string, string> | null
 }
 
 export interface BatchVariation {
   step_key: string
-  agent_id: number
-  /** Name of the step: its agent's, then "name #2"… */
+  /** null for the dataset axis */
+  agent_id: number | null
+  /** Name of the step: its agent's, then "name #2"…; "Dataset" for the dataset axis */
   agent_name: string
-  field: VariationField
+  field: AxisField
   values: BatchVariationValue[]
 }
 
 export interface BatchCoordinate {
   step_key: string
-  agent_id: number
-  field: VariationField
+  agent_id: number | null
+  field: AxisField
   value: number | null
   label: string
 }

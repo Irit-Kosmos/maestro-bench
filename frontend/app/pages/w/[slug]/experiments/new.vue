@@ -20,7 +20,7 @@
 -->
 
 <script setup lang="ts">
-import type { Agent, Dataset, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
+import type { Agent, Dataset, DatasetAxisDraft, Experiment, Model, PromptVersion, VariationDraft } from '~/types'
 
 definePageMeta({ requiresRole: 'editor' })
 
@@ -68,13 +68,44 @@ const { data: sourceExperiment } = sourceId
   ? await useMyLazyFetch<Experiment>(`/experiments/${sourceId}`)
   : { data: ref<Experiment | null>(null) }
 
+// Dataset headers from preview
+const datasetHeaders = computed(() => {
+  return datasetPreview.value?.headers || []
+})
+
 // --- Variations: more than none makes it a batch ---
 
 // A batch is an experiment with at least one variation. The current setup is one of its runs,
 // except when it was copied from an experiment that is still unchanged: that one already exists.
 const variationDrafts = ref<VariationDraft[]>([])
-const batchMode = computed(() => variationDrafts.value.length > 0)
-const variations = computed(() => resolveVariations(variationDrafts.value, agentConfigurations.value))
+// The same setup on other datasets: their columns stand for the base dataset's
+const datasetAxis = ref<DatasetAxisDraft | null>(null)
+const batchMode = computed(() => variationDrafts.value.length > 0 || datasetAxis.value !== null)
+const datasetShapes = useDatasetShapes()
+const datasetExtras = computed(() => (datasetAxis.value?.extras ?? []).filter(id => id !== selectedDataset.value))
+watch(datasetExtras, ids => ids.forEach(id => datasetShapes.load(id)), { immediate: true })
+const usedDatasetColumns = computed(() => usedColumns(agentConfigurations.value, variationDrafts.value, allPromptVersions.value ?? [], datasetHeaders.value))
+// Datasets whose columns are not all read yet, or still lack one the pipeline reads
+const unmatchedDatasets = computed(() => datasetExtras.value.filter((id) => {
+  const headers = datasetShapes.shapeOf(id)?.headers
+  return !headers || missingColumns(usedDatasetColumns.value, headers, datasetAxis.value?.picks[id]).length > 0
+}).length)
+// A range of rows that starts past the end of a dataset would run nothing on it
+const tooShortDatasets = computed(() => {
+  const start = samplingConfig.value.sampling_start_row
+  if (!datasetAxis.value || samplingConfig.value.sampling_type !== 'range' || !start)
+    return []
+  const rowsOf = (id: number) => id === selectedDataset.value ? datasetPreview.value?.total_rows : datasetShapes.shapeOf(id)?.total_rows
+  return [selectedDataset.value, ...datasetExtras.value]
+    .filter((id): id is number => typeof id === 'number' && (rowsOf(id) ?? Infinity) < start)
+    .map(id => datasets.value?.find(d => d.id === id)?.name ?? `Dataset ${id}`)
+})
+const variations = computed(() => [
+  ...(datasetAxis.value && selectedDataset.value && datasetExtras.value.length > 0
+    ? [datasetVariation(selectedDataset.value, datasetAxis.value, datasetHeaders.value, id => datasetShapes.shapeOf(id)?.headers)]
+    : []),
+  ...resolveVariations(variationDrafts.value, agentConfigurations.value),
+])
 const skipBase = computed(() => batchMode.value && !!sourceExperiment.value
   && formSignature(selectedDataset.value, samplingConfig.value, agentConfigurations.value) === experimentSignature(sourceExperiment.value))
 const experimentCount = computed(() => variationCount(variations.value, skipBase.value))
@@ -84,6 +115,7 @@ const unmappedAdded = computed(() => unmappedAddedCount(addedVariables.value, ag
 const variationsValid = computed(() =>
   !batchMode.value
   || (variationDrafts.value.every(draft => draft.extras.length > 0)
+    && (!datasetAxis.value || (datasetExtras.value.length > 0 && unmatchedDatasets.value === 0 && tooShortDatasets.value.length === 0))
     && variationIssues(variationDrafts.value).length === 0
     && unmappedAdded.value === 0
     && experimentCount.value > 0),
@@ -122,11 +154,6 @@ watch([sourceExperiment, agents], ([source, list]) => {
 
 // Ref for the agent configuration section (to read the run order)
 const agentConfigRef = ref()
-
-// Dataset headers from preview
-const datasetHeaders = computed(() => {
-  return datasetPreview.value?.headers || []
-})
 
 // The agents preview their prompts with the first rows of the dataset
 provide(DATASET_SAMPLE, computed(() => datasetPreview.value?.sample_data ?? []))
@@ -198,11 +225,13 @@ const summaryRows = computed(() => {
       label: 'Variations',
       value: !batchMode.value
         ? 'None, runs a single experiment'
-        : unmappedAdded.value > 0
-          ? `Map ${unmappedAdded.value === 1 ? 'a variable' : `${unmappedAdded.value} variables`} of the prompts`
-          : experimentCount.value > 0
-            ? `${experimentCount.value} ${experimentCount.value === 1 ? 'experiment' : 'experiments'}`
-            : 'Add a value to each variation',
+        : unmatchedDatasets.value > 0
+          ? `Match the columns of ${unmatchedDatasets.value === 1 ? 'a dataset' : `${unmatchedDatasets.value} datasets`}`
+          : unmappedAdded.value > 0
+            ? `Map ${unmappedAdded.value === 1 ? 'a variable' : `${unmappedAdded.value} variables`} of the prompts`
+            : experimentCount.value > 0
+              ? `${experimentCount.value} ${experimentCount.value === 1 ? 'experiment' : 'experiments'}`
+              : 'Add a value to each variation',
       done: variationsValid.value,
       attention: batchMode.value && !variationsValid.value,
     },
@@ -367,12 +396,20 @@ defineShortcuts({
 
           <ExperimentsStepsVariations
             v-model:variations="variationDrafts"
+            v-model:dataset-axis="datasetAxis"
             :items="pipeline.items.value"
             :models="models"
             :prompt-versions="allPromptVersions"
             :dataset-headers="datasetHeaders"
             :count="experimentCount"
             :skipped-origin="skipBase ? sourceExperiment?.name : null"
+            :datasets="datasets"
+            :base-dataset-id="selectedDataset"
+            :used-columns="usedDatasetColumns"
+            :shape-of="datasetShapes.shapeOf"
+            :has-failed="datasetShapes.hasFailed"
+            :too-short="tooShortDatasets"
+            :unmatched-datasets="unmatchedDatasets"
             @set-mapping="(key, mapping) => pipeline.setMapping(key, mapping)"
           />
         </div>
