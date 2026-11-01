@@ -167,6 +167,15 @@ function exportCsv() {
       description="Metrics are computed independently per execution; differences may come from the data, not the model."
     />
     <UAlert
+      v-for="note in result.notes ?? []"
+      :key="note"
+      color="neutral"
+      variant="subtle"
+      icon="i-ph-info-bold"
+      :title="note"
+      description="Each execution keeps its own metrics: compare them dataset by dataset."
+    />
+    <UAlert
       v-if="missingRuns.length"
       color="error"
       variant="subtle"
