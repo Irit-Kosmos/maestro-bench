@@ -319,7 +319,13 @@ def _validate_datasets(
             fail(f"'{base.name}' has no column {', '.join(unknown)}")
         if absent := sorted(set(column_map.values()) - set(headers)):
             fail(f"Dataset '{dataset.name}' has no column {', '.join(absent)}")
-        if missing := sorted(c for c in used if column_map.get(c, c) not in headers):
+        # A column read under another name is no longer there under its own
+        taken = set(column_map.values())
+        if missing := sorted(
+            c
+            for c in used
+            if column_map.get(c, c) not in headers or (c not in column_map and c in taken)
+        ):
             fail(
                 f"Dataset '{dataset.name}' has no column for {', '.join(missing)}: "
                 "choose which of its columns stands for each"

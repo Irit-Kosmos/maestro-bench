@@ -67,15 +67,22 @@ def variation_step(variation: dict) -> str:
 
 
 def _normalize_column_maps(raw: dict | None, dataset_ids: list) -> dict[str, dict[str, str]]:
-    """Each dataset's columns that differ from the base dataset's: {base column: its column}."""
+    """Each dataset's columns that differ from the base dataset's: {base column: its column}.
+
+    A column kept under its own name is left out, unless another base column takes
+    it too: it would otherwise be read under that other name only (see
+    dataset_utils.apply_column_map).
+    """
     maps: dict[str, dict[str, str]] = {}
     for dataset_id, columns in (raw or {}).items():
         if int(dataset_id) not in dataset_ids:
             continue
+        picked = {str(base): str(column) for base, column in (columns or {}).items() if column}
+        taken = {column for base, column in picked.items() if column != base}
         renamed = {
-            str(base): str(column)
-            for base, column in (columns or {}).items()
-            if column and str(column) != str(base)
+            base: column
+            for base, column in picked.items()
+            if column != base or column in taken
         }
         if renamed:
             maps[str(int(dataset_id))] = renamed

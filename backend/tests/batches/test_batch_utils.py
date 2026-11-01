@@ -221,6 +221,18 @@ class TestDatasetAxis:
         assert column_map_of(dataset, 4) == {"text": "content"}
         assert column_map_of(dataset, 3) == {}
 
+    def test_keeps_a_column_another_base_column_takes_too(self):
+        variations = normalize_variations(
+            [
+                {
+                    "field": "dataset_id",
+                    "values": [3, 4],
+                    "column_maps": {"4": {"question": "text", "text": "text"}},
+                }
+            ]
+        )
+        assert column_map_of(variations[0], 4) == {"question": "text", "text": "text"}
+
     def test_varies_slowest(self):
         variations = normalize_variations(
             [axis(1, "model_id", 10, 11), {"field": "dataset_id", "values": [3, 4]}]
@@ -259,3 +271,9 @@ class TestApplyColumnMap:
         assert apply_column_map(df, {"text": "content", "copy": "content"}).to_dict(
             "records"
         ) == [{"text": "a", "copy": "a"}]
+
+    def test_a_column_kept_under_its_own_name_stays(self):
+        df = pd.DataFrame({"text": ["a"]})
+        assert apply_column_map(df, {"question": "text", "text": "text"}).to_dict(
+            "records"
+        ) == [{"question": "a", "text": "a"}]

@@ -93,7 +93,8 @@ def apply_column_map(df: pd.DataFrame, column_map: dict[str, str]) -> pd.DataFra
 
     ``column_map`` is {base column: column of this dataset}. Each mapped column
     takes the base name; a column of this dataset that already has that name
-    gives way to it. The other columns stay as they are.
+    gives way to it. A mapped column is no longer there under its own name, unless
+    the map keeps it (``{"text": "text"}``). The other columns stay as they are.
     """
     renamed = {base: df[column] for base, column in column_map.items() if column in df.columns}
     if not renamed:

@@ -898,6 +898,26 @@ class TestDatasetAxis:
         assert response.status_code == 422
         assert "no column for answer" in response.json()["detail"]
 
+    def test_a_column_read_under_another_name_is_gone_under_its_own(
+        self, client, world, other_dataset, datasets_dir
+    ):
+        # "content" stands for "text", while the agents read "content" too
+        (datasets_dir / "answers.csv").write_text("text,content,label\na,b,1\n")
+        world_mappings = [
+            {"variable": "answer", "source": "dataset", "sourceColumn": "text"},
+            {"variable": "content", "source": "dataset", "sourceColumn": "content"},
+        ]
+        response = client.post(
+            "/batches",
+            json=payload(
+                world,
+                [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}})],
+                input_mappings=world_mappings,
+            ),
+        )
+        assert response.status_code == 422
+        assert "no column for content" in response.json()["detail"]
+
     def test_mapped_columns_must_exist(self, client, world, other_dataset):
         response = client.post(
             "/batches",
