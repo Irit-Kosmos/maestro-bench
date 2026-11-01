@@ -214,6 +214,24 @@ def test_a_workspace_key_is_handed_to_litellm(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("provider", "temperature", "top_p"),
+    [("mistral", 0, 1), ("mistral", 0.7, None), ("mistral", None, None), ("anthropic", 0, None)],
+)
+def test_greedy_sampling_on_mistral_sets_top_p(monkeypatch, provider, temperature, top_p):
+    seen = []
+
+    async def fake_acompletion(**kwargs):
+        seen.append(kwargs)
+        return _response()
+
+    monkeypatch.setattr(llm.litellm, "acompletion", fake_acompletion)
+    asyncio.run(
+        llm.call_llm("m", provider, [{"role": "user", "content": "hi"}], temperature=temperature)
+    )
+    assert seen[0].get("top_p") == top_p
+
+
+@pytest.mark.parametrize(
     ("provider", "model", "expected"),
     [
         ("google", "gemini-2.5-flash", "gemini/gemini-2.5-flash"),

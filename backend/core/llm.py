@@ -177,6 +177,11 @@ async def call_llm(
     }
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
+    # Mistral treats a temperature of 0 as greedy sampling and refuses it unless
+    # top_p is 1, while some of its models default to less. Only for Mistral:
+    # recent Anthropic models refuse a temperature and a top_p together.
+    if provider.lower() == "mistral" and temperature == 0:
+        kwargs["top_p"] = 1
     if api_key is not None:
         kwargs["api_key"] = api_key
 
