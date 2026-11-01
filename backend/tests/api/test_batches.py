@@ -918,6 +918,13 @@ class TestDatasetAxis:
         assert response.status_code == 422
         assert "no column for content" in response.json()["detail"]
 
+    def test_unknown_base_dataset_is_refused(self, client, world, other_dataset):
+        body = payload(world, [dataset_axis(world, other_dataset)])
+        body["config"]["dataset_id"] = 999_999
+        response = client.post("/batches", json=body)
+        assert response.status_code == 422
+        assert "999999 not found" in response.json()["detail"]
+
     def test_mapped_columns_must_exist(self, client, world, other_dataset):
         response = client.post(
             "/batches",

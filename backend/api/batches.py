@@ -311,6 +311,8 @@ def _validate_datasets(
                 f"Dataset '{dataset.name}' has {row_count} rows: "
                 f"the range starting at row {start_row} would leave it empty"
             )
+    if not base:
+        fail(f"Dataset {data.config.dataset_id} not found")
         if dataset_id == data.config.dataset_id:
             continue
 
