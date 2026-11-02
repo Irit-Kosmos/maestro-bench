@@ -40,7 +40,7 @@ from sqlmodel import Session, col, select
 import config
 import event_bus
 from core.orchestrator import AgentConfig, PipelineResult, run_pipeline
-from dataset_utils import count_csv_rows, validate_dataset_file
+from dataset_utils import apply_column_map, count_csv_rows, validate_dataset_file
 from db import engine
 from experiment_utils import (
     apply_dataset_sampling,
@@ -271,6 +271,8 @@ class _Run:
     agent_configs: list[AgentConfig]
     dataset_file_path: str
     sampling_config: dict
+    # {name: column}: the rows are read under the base dataset's column names
+    column_map: dict[str, str] | None = None
 
 
 def _begin_run(
@@ -315,6 +317,7 @@ def _begin_run(
         agent_configs=agent_configs,
         dataset_file_path=dataset_file_path,
         sampling_config=dataset_snapshot.get("sampling_config", {}),
+        column_map=dataset_snapshot.get("column_map"),
     )
     # Nothing is left open while the run waits for its first rows: the database drops
     # a transaction that idles for too long (see config.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS)
@@ -430,6 +433,14 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
         logger.exception("Failed to mark experiment %s as %s", experiment_id, status)
 
 
+async def _with_column_map(
+    chunks: AsyncGenerator[pd.DataFrame, None], column_map: dict[str, str]
+) -> AsyncGenerator[pd.DataFrame, None]:
+    """The chunks with their columns renamed (see dataset_utils.apply_column_map)."""
+    async for chunk in chunks:
+        yield apply_column_map(chunk, column_map)
+
+
 class _RunProgress:
     """Counts the rows of an execution as they finish and publishes the count.
 
@@ -528,6 +539,8 @@ class _ExperimentProcessor:
         chunks, total = await self._open_dataset(
             run.workspace_id, run.dataset_file_path, run.sampling_config
         )
+        if run.column_map:
+            chunks = _with_column_map(chunks, run.column_map)
         await self.progress.start(total)
 
         all_results: list[PipelineResult] = []

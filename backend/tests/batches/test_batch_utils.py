@@ -17,11 +17,13 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import pandas as pd
 import pytest
 
 from batch_utils import (
     VariationError,
     batch_status,
+    column_map_of,
     count_points,
     expand_variations,
     is_base_point,
@@ -31,6 +33,7 @@ from batch_utils import (
     serialize_point,
     unmapped_variables,
 )
+from dataset_utils import apply_column_map
 
 
 def axis(step, field, *values):
@@ -194,3 +197,83 @@ class TestBatchStatus:
 def test_an_axis_must_vary_a_step_key():
     with pytest.raises(VariationError, match="Invalid step"):
         normalize_variations([axis("1#1", "model_id", 3)])
+
+
+class TestDatasetAxis:
+    def test_goes_first_and_drops_identical_columns(self):
+        variations = normalize_variations(
+            [
+                axis(1, "model_id", 10, 11),
+                {
+                    "field": "dataset_id",
+                    "values": [3, 4, 3],
+                    "column_maps": {
+                        "4": {"text": "content", "label": "label"},
+                        "9": {"text": "other"},
+                    },
+                },
+            ]
+        )
+        dataset = variations[0]
+        assert dataset["step_key"] == "dataset"
+        assert dataset["values"] == [3, 4]
+        assert dataset["column_maps"] == {"4": {"text": "content"}}
+        assert column_map_of(dataset, 4) == {"text": "content"}
+        assert column_map_of(dataset, 3) == {}
+
+    def test_keeps_a_column_another_base_column_takes_too(self):
+        variations = normalize_variations(
+            [
+                {
+                    "field": "dataset_id",
+                    "values": [3, 4],
+                    "column_maps": {"4": {"question": "text", "text": "text"}},
+                }
+            ]
+        )
+        assert column_map_of(variations[0], 4) == {"question": "text", "text": "text"}
+
+    def test_varies_slowest(self):
+        variations = normalize_variations(
+            [axis(1, "model_id", 10, 11), {"field": "dataset_id", "values": [3, 4]}]
+        )
+        points = expand_variations(variations)
+        assert [p["dataset"]["dataset_id"] for p in points] == [3, 3, 4, 4]
+        assert points[1] == {"dataset": {"dataset_id": 3}, "1": {"model_id": 11}}
+
+    def test_only_once(self):
+        with pytest.raises(VariationError):
+            normalize_variations(
+                [{"field": "dataset_id", "values": [3]}, {"field": "dataset_id", "values": [4]}]
+            )
+
+    def test_needs_dataset_ids(self):
+        with pytest.raises(VariationError):
+            normalize_variations([{"field": "dataset_id", "values": [None]}])
+
+
+class TestApplyColumnMap:
+    def test_mapped_columns_take_the_base_names(self):
+        df = pd.DataFrame({"content": ["a"], "gold": [1], "extra": ["x"]}, index=[7])
+        renamed = apply_column_map(df, {"text": "content", "label": "gold"})
+        assert renamed.to_dict("records") == [{"extra": "x", "text": "a", "label": 1}]
+        # The row keeps its position in the file
+        assert list(renamed.index) == [7]
+
+    def test_own_column_of_the_same_name_gives_way(self):
+        df = pd.DataFrame({"content": ["mapped"], "text": ["own"]})
+        assert apply_column_map(df, {"text": "content"}).to_dict("records") == [
+            {"text": "mapped"}
+        ]
+
+    def test_one_column_can_stand_for_two(self):
+        df = pd.DataFrame({"content": ["a"]})
+        assert apply_column_map(df, {"text": "content", "copy": "content"}).to_dict(
+            "records"
+        ) == [{"text": "a", "copy": "a"}]
+
+    def test_a_column_kept_under_its_own_name_stays(self):
+        df = pd.DataFrame({"text": ["a"]})
+        assert apply_column_map(df, {"question": "text", "text": "text"}).to_dict(
+            "records"
+        ) == [{"question": "a", "text": "a"}]

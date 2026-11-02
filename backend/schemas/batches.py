@@ -32,7 +32,8 @@ from schemas.experiment_executions import LatestExecutionFigures
 from schemas.experiments import MAX_SAMPLING_SEED, SamplingType
 from schemas.people import PersonResponse
 
-VariableField = Literal["model_id", "prompt_version_id", "temperature"]
+# A step's model, prompt version or temperature, or the experiment's dataset
+VariableField = Literal["model_id", "prompt_version_id", "temperature", "dataset_id"]
 
 
 class VariationSpec(BaseModel):
@@ -45,9 +46,15 @@ class VariationSpec(BaseModel):
     field: VariableField
     # A temperature of None is the model's own default
     values: list[int | float | None] = Field(min_length=1)
+    # Dataset axis only: for each dataset (by id), the columns that stand for the
+    # base dataset's ones, as {base column: its column}. A base column left out
+    # is read under its own name.
+    column_maps: dict[int, dict[str, str]] | None = None
 
     @model_validator(mode="after")
     def _needs_a_step(self):
+        if self.field == "dataset_id":
+            return self
         if self.step_key is None and self.agent_id is None:
             raise ValueError("A variation needs a step_key")
         return self
@@ -65,6 +72,8 @@ class BatchBaseConfig(BaseModel):
     sampling_end_row: int | None = None
     # Seed of the batch's random sample; drawn at random when left out
     sampling_seed: int | None = Field(default=None, ge=0, le=MAX_SAMPLING_SEED)
+    # Columns of the dataset read under other names (see ExperimentCreate.column_map)
+    column_map: dict[str, str] | None = None
 
 
 class BatchCreate(BaseModel):
@@ -83,12 +92,15 @@ class BatchCreate(BaseModel):
 class VariationValueResponse(BaseModel):
     value: int | float | None
     label: str
+    # Dataset axis only: the columns of this dataset read under other names
+    column_map: dict[str, str] | None = None
 
 
 class VariationResponse(BaseModel):
+    # "dataset" for the dataset axis, which has no agent
     step_key: str
-    agent_id: int
-    # The step's name: its agent's, then "name #2"…
+    agent_id: int | None
+    # The step's name: its agent's, then "name #2"…; "Dataset" for the dataset axis
     agent_name: str
     field: VariableField
     values: list[VariationValueResponse]
@@ -98,7 +110,7 @@ class VariantCoordinate(BaseModel):
     """Where an experiment sits on one axis."""
 
     step_key: str
-    agent_id: int
+    agent_id: int | None
     field: VariableField
     value: int | float | None
     label: str

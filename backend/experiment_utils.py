@@ -32,10 +32,11 @@ from sqlmodel import Session, col, select
 
 import credentials
 import workspace_files
+from batch_utils import DATASET_AXIS, parse_point
 from core.formula import check_outputs, free_variables
 from core.orchestrator import AGGREGATOR, AgentConfig, PipelineResult
 from core.steps import agent_id_of, mapping_source, split_step, step_label
-from dataset_utils import validate_dataset_file
+from dataset_utils import dataset_shape, validate_dataset_file
 from references import missing_ids
 from schemas.experiments import ExperimentCreate
 from tables import (
@@ -49,12 +50,32 @@ from tables import (
     Model,
     PromptVersion,
 )
+from workspace_scope import current_workspace_id
 
 logger = logging.getLogger(__name__)
 
 
 class ExperimentConfigError(ValueError):
     """The submitted agent configurations cannot make a runnable experiment."""
+
+
+def check_column_map(session: Session, dataset_id: int, column_map: dict[str, str] | None):
+    """Raise ExperimentConfigError unless every column the map reads is in the dataset."""
+    if not column_map:
+        return
+    dataset = session.get(Dataset, dataset_id)
+    if not dataset or not dataset.file_path:
+        raise ExperimentConfigError(f"Dataset {dataset_id} not found")
+    try:
+        headers, _ = dataset_shape(
+            validate_dataset_file(current_workspace_id(session), dataset.file_path)
+        )
+    except (OSError, ValueError) as e:
+        raise ExperimentConfigError(f"Dataset '{dataset.name}' cannot be read: {e}") from e
+    if absent := sorted(set(column_map.values()) - set(headers)):
+        raise ExperimentConfigError(
+            f"Dataset '{dataset.name}' has no column {', '.join(absent)}"
+        )
 
 
 def apply_dataset_sampling(
@@ -113,6 +134,8 @@ def add_experiment(
     Flushes but does not commit, so that a caller creating several experiments
     can make them all-or-nothing. ``agent_overrides`` replaces fields of the
     submitted configuration of a step (how a batch varies its experiments).
+    ``exp_data.column_map`` reads the dataset's rows under other column names
+    (see Experiment.column_map, and check_column_map).
     Steps are the keys of ``agent_configurations``: an agent may have several.
 
     Raises ExperimentConfigError when an aggregator cannot run, or when the
@@ -132,6 +155,7 @@ def add_experiment(
         else None,
         batch_id=batch_id,
         variant=variant,
+        column_map=json.dumps(exp_data.column_map) if exp_data.column_map else None,
     )
     session.add(experiment)
     session.flush()
@@ -400,6 +424,15 @@ def create_execution_snapshot(
                 "name": dataset.name,
                 "description": dataset.description,
                 "file_path": dataset.file_path,
+                # The rows are read under these column names ({name: column})
+                "column_map": json.loads(experiment.column_map)
+                if experiment.column_map
+                else None,
+                # Set when the experiment's batch varies the dataset: comparing it
+                # with the others of the batch is comparing datasets on purpose
+                "dataset_axis_batch_id": experiment.batch_id
+                if DATASET_AXIS in parse_point(experiment.variant)
+                else None,
                 "sampling_config": {
                     "sampling_type": experiment.sampling_type,
                     "sampling_size": experiment.sampling_size,

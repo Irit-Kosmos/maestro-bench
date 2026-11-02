@@ -74,6 +74,9 @@ useSeoMeta({
 // How the dataset rows were picked, next to how many there were, and whether the
 // next run takes the same rows. A random sample is redrawn on each run, except in a
 // batch, where every run uses the batch's sample so the variants stay comparable.
+// Columns of the dataset read under another name, as [name, column]
+const columnRenames = computed(() => Object.entries(experiment.value?.column_map ?? {}))
+
 const samplingHint = computed(() => {
   const exp = experiment.value
   if (!exp)
@@ -485,6 +488,20 @@ watch(() => route.params.id, () => {
                   <UIRowCount :rows="datasetRows" />
                   <span class="text-muted">· {{ samplingHint }}</span>
                 </UIMetaItem>
+              </li>
+              <!-- A batch that varies the dataset reads this one's rows under the base dataset's column names -->
+              <li v-if="columnRenames.length > 0">
+                <UIMetaItem icon="i-ph-arrows-left-right-bold" label="Columns read as">
+                  <span class="text-muted">Read under the base dataset’s names</span>
+                </UIMetaItem>
+                <ul class="mt-0.5 flex flex-col gap-0.5 ps-5 text-xs text-muted">
+                  <li v-for="[name, column] in columnRenames" :key="name" class="flex min-w-0 items-center gap-1.5">
+                    <span class="truncate font-mono">{{ column }}</span>
+                    <UIcon name="i-ph-arrow-right-bold" class="size-3 shrink-0 text-dimmed" aria-hidden="true" />
+                    <span class="sr-only">read as</span>
+                    <span class="truncate font-mono text-toned">{{ name }}</span>
+                  </li>
+                </ul>
               </li>
               <li v-if="experiment.sampling_type === 'random' && experiment.sampling_seed != null" class="flex items-center justify-between gap-2">
                 <UIMetaItem icon="i-ph-dice-five-bold" label="Sample seed">

@@ -202,3 +202,31 @@ def test_comparison_warnings(snapshots, expected):
         for i, snapshot in enumerate(snapshots)
     ]
     assert compute_analysis(numeric_config(n_boot=10), runs).warnings == expected
+
+
+def test_datasets_varied_by_their_batch_are_a_note_not_a_warning():
+    snapshots = [
+        {**_snapshot("a.csv"), "dataset_axis_batch_id": 4},
+        {**_snapshot("b.csv", sampling_type="range", sampling_start_row=1), "dataset_axis_batch_id": 4},
+    ]
+    runs = [
+        RunInput(f"R{i}", "Grader", scored_rows(PAIRS), dataset=snapshot)
+        for i, snapshot in enumerate(snapshots)
+    ]
+    result = compute_analysis(numeric_config(n_boot=10), runs)
+    assert result.warnings == []
+    assert result.notes == ["Runs use different datasets: their batch varies the dataset"]
+
+
+def test_datasets_of_different_batches_still_warn():
+    snapshots = [
+        {**_snapshot("a.csv"), "dataset_axis_batch_id": 4},
+        {**_snapshot("b.csv"), "dataset_axis_batch_id": 5},
+    ]
+    runs = [
+        RunInput(f"R{i}", "Grader", scored_rows(PAIRS), dataset=snapshot)
+        for i, snapshot in enumerate(snapshots)
+    ]
+    result = compute_analysis(numeric_config(n_boot=10), runs)
+    assert result.warnings == ["Runs use different datasets"]
+    assert result.notes == []

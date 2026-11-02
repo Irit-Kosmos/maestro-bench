@@ -21,11 +21,13 @@
 
 <script setup lang="ts">
 import type { PipelineItem } from '~/composables/useAgentPipeline'
-import type { AgentInputMapping, Model, PromptVersion, VariationDraft, VariationField } from '~/types'
+import type { DatasetShape } from '~/composables/useDatasetShapes'
+import type { AgentInputMapping, Dataset, DatasetAxisDraft, Model, PromptVersion, VariationDraft, VariationField } from '~/types'
 
 // Turns the experiment into a batch: each variation is an axis (a step's model, prompt version or
 // temperature and the values to try besides the current one), and one experiment runs per combination.
 // The current setup is always one of the runs, so its value is part of every axis.
+// The dataset is an axis too: the same setup on other datasets, whose columns stand for the base one's.
 const props = defineProps<{
   /** Steps of the pipeline, in run order: an agent that runs twice is two steps, so two axes */
   items: readonly PipelineItem[]
@@ -36,6 +38,18 @@ const props = defineProps<{
   count: number
   /** Name of the existing experiment the current setup was copied from, which is not run again */
   skippedOrigin?: string | null
+  datasets?: readonly Dataset[] | null
+  baseDatasetId?: number | null
+  /** The base dataset is read under other column names (copied from a batch that varies the dataset) */
+  datasetRenamed?: boolean
+  /** Base columns the pipeline reads: every dataset of the axis needs a column for each */
+  usedColumns?: readonly string[]
+  shapeOf?: (id: number) => DatasetShape | undefined
+  hasFailed?: (id: number) => boolean
+  /** Datasets too short for the range of rows to run */
+  tooShort?: readonly string[]
+  /** Datasets of the axis that still have columns to match */
+  unmatchedDatasets?: number
 }>()
 
 const emit = defineEmits<{
@@ -43,14 +57,47 @@ const emit = defineEmits<{
 }>()
 
 const variations = defineModel<VariationDraft[]>('variations', { required: true })
+const datasetAxis = defineModel<DatasetAxisDraft | null>('datasetAxis', { default: null })
 
 // Aggregators have no model, prompt or temperature to vary
 const steps = computed(() => props.items.filter(item => item.config.is_active !== false && item.agent.kind !== 'aggregator'))
 const multipleSteps = computed(() => steps.value.length > 1)
 const stepItems = computed(() => steps.value.map(item => ({ label: item.label, value: item.key })))
 
+// --- Dataset axis ---
+
+const baseDataset = computed(() => props.datasets?.find(d => d.id === props.baseDatasetId))
+const datasetExtras = computed(() => (datasetAxis.value?.extras ?? []).filter(id => id !== props.baseDatasetId))
+// The base dataset is ticked and cannot be unticked, as the current value of the other axes
+const datasetItems = computed(() => (props.datasets ?? []).map(d => ({ label: d.name, value: d.id, disabled: d.id === props.baseDatasetId })))
+// The other datasets' columns stand for the base dataset's as it is on disk
+const canVaryDataset = computed(() => !!props.baseDatasetId && !props.datasetRenamed)
+const datasetValues = computed(() => props.baseDatasetId ? [props.baseDatasetId, ...datasetExtras.value] : datasetExtras.value)
+
+function addDatasetAxis() {
+  datasetAxis.value = { extras: [], picks: {} }
+}
+
+function setDatasets(selected: unknown) {
+  if (!datasetAxis.value)
+    return
+  const extras = (selected as number[]).filter(id => id !== props.baseDatasetId)
+  datasetAxis.value = { ...datasetAxis.value, extras }
+}
+
+function setPicks(id: number, picks: Record<string, string>) {
+  if (datasetAxis.value)
+    datasetAxis.value = { ...datasetAxis.value, picks: { ...datasetAxis.value.picks, [id]: picks } }
+}
+
+function datasetName(id: number) {
+  return props.datasets?.find(d => d.id === id)?.name ?? `Dataset ${id}`
+}
+
 const issues = computed(() => variationIssues(variations.value))
-const incomplete = computed(() => variations.value.some(v => v.extras.length === 0))
+const incomplete = computed(() => variations.value.some(v => v.extras.length === 0)
+  || (datasetAxis.value !== null && datasetExtras.value.length === 0))
+const anyAxis = computed(() => variations.value.length > 0 || datasetAxis.value !== null)
 
 function baseOf(variation: VariationDraft) {
   return baseValue(steps.value.find(item => item.key === variation.step_key)?.config, variation.field)
@@ -134,31 +181,87 @@ watch(steps, (list) => {
   <ExperimentsSection
     id="variations"
     title="Variations"
-    description="Optional. Also run this setup with other models, prompts or temperatures: one experiment per combination, the current setup included."
+    description="Optional. Also run this setup with other models, prompts, temperatures or datasets: one experiment per combination, the current setup included."
   >
-    <template v-if="variations.length > 0" #actions>
-      <UButton icon="i-ph-plus-bold" color="neutral" variant="outline" size="xs" @click="add">
-        Add a variation
-      </UButton>
+    <template v-if="anyAxis" #actions>
+      <div class="flex gap-2">
+        <UButton v-if="!datasetAxis" icon="i-ph-database-bold" color="neutral" variant="outline" size="xs" :disabled="!canVaryDataset" @click="addDatasetAxis">
+          Vary the dataset
+        </UButton>
+        <UButton icon="i-ph-plus-bold" color="neutral" variant="outline" size="xs" :disabled="steps.length === 0" @click="add">
+          Add a variation
+        </UButton>
+      </div>
     </template>
 
-    <div v-if="variations.length === 0">
-      <UButton
-        icon="i-ph-arrows-split-bold"
-        color="neutral"
-        variant="outline"
-        :disabled="steps.length === 0"
-        @click="add"
-      >
-        Add a variation
-      </UButton>
-      <p v-if="steps.length === 0" class="mt-2 text-xs text-muted">
-        Choose an agent first.
+    <div v-if="!anyAxis">
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          icon="i-ph-arrows-split-bold"
+          color="neutral"
+          variant="outline"
+          :disabled="steps.length === 0"
+          @click="add"
+        >
+          Add a variation
+        </UButton>
+        <UButton
+          icon="i-ph-database-bold"
+          color="neutral"
+          variant="outline"
+          :disabled="!canVaryDataset"
+          @click="addDatasetAxis"
+        >
+          Vary the dataset
+        </UButton>
+      </div>
+      <p v-if="steps.length === 0 || !canVaryDataset" class="mt-2 text-xs text-muted">
+        {{ !baseDatasetId ? 'Choose a dataset first.' : datasetRenamed ? 'This dataset is read under other column names: vary the dataset from the base experiment of its batch.' : 'Choose an agent first.' }}
       </p>
     </div>
 
     <div v-else class="flex flex-col gap-3">
       <ul class="flex flex-col gap-3">
+        <li
+          v-if="datasetAxis"
+          class="enter-soft grid gap-3 rounded-lg border border-default p-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto]"
+        >
+          <p class="flex h-8 items-center gap-1.5 text-sm text-toned">
+            <UIcon name="i-ph-database-bold" class="size-4 shrink-0 text-muted" aria-hidden="true" />
+            Dataset
+          </p>
+          <USelectMenu
+            :model-value="datasetValues"
+            value-key="value"
+            :items="datasetItems"
+            multiple
+            :placeholder="baseDataset ? `${baseDataset.name} and…` : 'Choose the datasets to run'"
+            class="w-full"
+            aria-label="Datasets to run"
+            @update:model-value="setDatasets"
+          />
+          <UButton
+            icon="i-ph-x-bold"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            aria-label="Stop varying the dataset"
+            @click="() => { datasetAxis = null }"
+          />
+          <div v-if="datasetExtras.length > 0" class="flex min-w-0 flex-col gap-2 sm:col-span-full">
+            <ExperimentsDatasetColumns
+              v-for="id in datasetExtras"
+              :key="id"
+              :name="datasetName(id)"
+              :base-headers="datasetHeaders ?? []"
+              :headers="shapeOf?.(id)?.headers"
+              :failed="hasFailed?.(id)"
+              :used="usedColumns ?? []"
+              :picks="datasetAxis.picks[id] ?? {}"
+              @update:picks="(picks) => setPicks(id, picks)"
+            />
+          </div>
+        </li>
         <li
           v-for="(variation, index) in variations"
           :key="index"
@@ -251,6 +354,15 @@ watch(steps, (list) => {
       <p class="text-sm" :class="count > BATCH_CONFIRM_THRESHOLD ? 'text-warning' : 'text-toned'" role="status">
         <template v-if="incomplete">
           Add at least one value besides the current one in each variation.
+        </template>
+        <template v-else-if="datasetAxis && datasetRenamed">
+          This dataset is read under other column names: vary the dataset from the base experiment of its batch.
+        </template>
+        <template v-else-if="(unmatchedDatasets ?? 0) > 0">
+          Match the columns of {{ unmatchedDatasets === 1 ? 'the dataset' : `the ${unmatchedDatasets} datasets` }} above.
+        </template>
+        <template v-else-if="(tooShort ?? []).length > 0">
+          {{ tooShort!.join(', ') }} {{ tooShort!.length === 1 ? 'has' : 'have' }} fewer rows than where the range starts.
         </template>
         <template v-else-if="unmappedCount > 0">
           Map {{ unmappedCount === 1 ? 'the variable' : `the ${unmappedCount} variables` }} of the prompts above.

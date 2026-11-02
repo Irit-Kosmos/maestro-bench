@@ -19,7 +19,7 @@
 
 import type { AgentConfiguration, PromptVersion, VariationDraft } from '~/types'
 import { describe, expect, it } from 'vitest'
-import { addedVariables, addedVariablesByStep, formSignature, resolveVariations, unmappedAddedCount, variationIssues } from './variations'
+import { addedVariables, addedVariablesByStep, columnMap, datasetVariation, formSignature, missingColumns, resolveVariations, shadowedColumns, unmappedAddedCount, usedColumns, variationCount, variationIssues } from './variations'
 
 const version = (id: number, variables: string[]) => ({ id, variables: JSON.stringify(variables) }) as PromptVersion
 
@@ -93,6 +93,12 @@ describe('formSignature', () => {
     const mapped = (source: object) => ({ 8: { execution_order: 2, input_mappings: [{ variable: 'a', source: 'agent' as const, ...source }] } })
     expect(formSignature(1, sampling, mapped({ sourceAgentId: 7 }))).toBe(formSignature(1, sampling, mapped({ sourceStep: '7' })))
   })
+
+  it('tells a dataset read under other column names from the same one read as it is', () => {
+    const configs = { 7: { model_id: 1, execution_order: 1 } }
+    expect(formSignature(1, sampling, configs, { text: 'content' })).not.toBe(formSignature(1, sampling, configs))
+    expect(formSignature(1, sampling, configs, null)).toBe(formSignature(1, sampling, configs))
+  })
 })
 
 describe('unmappedAddedCount', () => {
@@ -105,5 +111,43 @@ describe('unmappedAddedCount', () => {
     }
     // "question" has a source but no column yet
     expect(unmappedAddedCount(added, { 7: mapped })).toBe(1)
+  })
+})
+
+describe('dataset axis', () => {
+  const baseHeaders = ['text', 'label', 'id']
+
+  it('reads the mapped columns, and the prompt variables of a step without mappings', () => {
+    const configs: Record<string, AgentConfiguration> = {
+      1: config,
+      2: { prompt_version_id: 3, input_mappings: [] },
+    }
+    const drafts: VariationDraft[] = [{ step_key: '2', field: 'prompt_version_id', extras: [1] }]
+    expect(usedColumns(configs, drafts, versions, baseHeaders).sort()).toEqual(['text'])
+    expect(usedColumns(configs, [], versions, [...baseHeaders, 'question']).sort()).toEqual(['question', 'text'])
+  })
+
+  it('matches columns by name whatever their case, then by what is picked', () => {
+    const headers = ['Text', 'gold', 'label']
+    expect(columnMap(baseHeaders, headers, undefined)).toEqual({ text: 'Text', label: 'label' })
+    expect(columnMap(baseHeaders, headers, { label: 'gold' })).toEqual({ text: 'Text', label: 'gold' })
+    // Picking no column undoes the match
+    expect(missingColumns(['text'], headers, { text: '' })).toEqual(['text'])
+    expect(missingColumns(['text', 'id'], headers, undefined)).toEqual(['id'])
+  })
+
+  it('tells when a column gives way to another taking its name', () => {
+    expect(shadowedColumns({ label: 'gold', text: 'text' }, ['gold', 'label', 'text'])).toEqual(['label'])
+  })
+
+  it('submits the base dataset first, with the columns of the others', () => {
+    const variation = datasetVariation(1, { extras: [1, 4], picks: { 4: { text: 'content' } } }, baseHeaders, () => ['content', 'label'])
+    expect(variation).toEqual({
+      step_key: 'dataset',
+      field: 'dataset_id',
+      values: [1, 4],
+      column_maps: { 4: { text: 'content', label: 'label' } },
+    })
+    expect(variationCount([variation, { step_key: '1', field: 'model_id', values: [1, 2] }])).toBe(4)
   })
 })

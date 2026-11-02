@@ -28,7 +28,7 @@ import async_jobs
 from batch_utils import parse_point
 from db import SessionDep
 from execution_stats import latest_figures
-from experiment_utils import ExperimentConfigError, add_experiment
+from experiment_utils import ExperimentConfigError, add_experiment, check_column_map
 from loading import by_id, grouped_by, people
 from results_files import execution_row_count
 from schemas.experiments import (
@@ -139,6 +139,7 @@ def _experiment_response(
         batch_id=experiment.batch_id,
         batch_name=batch.name if batch else None,
         variant=parse_point(experiment.variant) or None,
+        column_map=json.loads(experiment.column_map) if experiment.column_map else None,
         row_count=execution_row_count(latest_with_results)
         if latest_with_results
         else None,
@@ -200,6 +201,7 @@ def create_experiment(
 ):
     """Create a new experiment and automatically start it."""
     try:
+        check_column_map(session, exp_data.dataset_id, exp_data.column_map)
         experiment = add_experiment(session, exp_data)
     except ExperimentConfigError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e

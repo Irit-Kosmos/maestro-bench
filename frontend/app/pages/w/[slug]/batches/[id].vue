@@ -48,19 +48,20 @@ const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
 
 // One column per varied field, named after the step too when several steps are involved
-// (an agent that runs twice is two steps: "Grader" and "Grader #2")
-const multipleAgents = computed(() => new Set(batch.value?.variations.map(v => v.step_key)).size > 1)
+// (an agent that runs twice is two steps: "Grader" and "Grader #2"). The dataset is no step's.
+const multipleAgents = computed(() => new Set(batch.value?.variations.filter(v => v.field !== 'dataset_id').map(v => v.step_key)).size > 1)
 const fieldNames: Record<string, string> = {
   model_id: 'Model',
   prompt_version_id: 'Prompt version',
   temperature: 'Temperature',
+  dataset_id: 'Dataset',
 }
 const axes = computed(() => (batch.value?.variations ?? []).map(v => ({
   key: `${v.step_key}:${v.field}`,
   step_key: v.step_key,
   agent_name: v.agent_name,
   field: v.field,
-  title: multipleAgents.value ? `${v.agent_name} · ${fieldNames[v.field]}` : fieldNames[v.field],
+  title: multipleAgents.value && v.field !== 'dataset_id' ? `${v.agent_name} · ${fieldNames[v.field]}` : fieldNames[v.field],
   values: v.values.map(value => value.label),
   // Models read better under their provider: a comparison across providers is the point of most batches
   providerGroups: v.field === 'model_id' ? groupByProvider(v.values) : [],

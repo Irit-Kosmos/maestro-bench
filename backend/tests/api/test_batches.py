@@ -26,6 +26,7 @@ from sqlmodel import select
 
 import async_jobs
 from api import batches, experiments
+from experiment_utils import create_execution_snapshot
 from tables import (
     Agent,
     Batch,
@@ -801,3 +802,220 @@ class TestResample:
         assert client.post(f"/experiments/{exp_id}/resample").status_code == 409
         # The experiment shows the batch's seed
         assert client.get(f"/experiments/{exp_id}").json()["sampling_seed"] is not None
+
+
+@pytest.fixture
+def other_dataset(engine, world, datasets_dir):
+    """The world's dataset on disk, and a second one with other column names."""
+    (datasets_dir / "answers.csv").write_text("text,label\na,1\nb,0\nc,1\n")
+    (datasets_dir / "other.csv").write_text("content,gold\nx,1\ny,0\n")
+    with scoped(engine) as s:
+        other = Dataset(name="other", file_path="other.csv")
+        s.add(other)
+        s.commit()
+        return other.id
+
+
+def dataset_axis(world, other, column_maps=None):
+    return {
+        "field": "dataset_id",
+        "values": [world["dataset"], other],
+        "column_maps": column_maps,
+    }
+
+
+class TestDatasetAxis:
+    def test_one_experiment_per_dataset_and_value(
+        self, client, world, other_dataset, engine
+    ):
+        variations = [
+            model_axis(world, 0, 1),
+            dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}}),
+        ]
+        response = client.post("/batches", json=payload(world, variations))
+
+        assert response.status_code == 201
+        body = response.json()
+        # The dataset leads the names, and varies slowest
+        assert [e["name"] for e in body["experiments"]] == [
+            "Compare · answers · m-a",
+            "Compare · answers · m-b",
+            "Compare · other · m-a",
+            "Compare · other · m-b",
+        ]
+        assert body["dataset_id"] is None
+        assert body["dataset_name"] == "answers, other"
+        axis = body["variations"][0]
+        assert (axis["step_key"], axis["agent_id"], axis["agent_name"]) == (
+            "dataset",
+            None,
+            "Dataset",
+        )
+        assert [v["column_map"] for v in axis["values"]] == [None, {"text": "content"}]
+
+        with scoped(engine) as s:
+            created = s.exec(select(Experiment).order_by(Experiment.id)).all()
+        assert [e.dataset_id for e in created] == [world["dataset"]] * 2 + [other_dataset] * 2
+        assert [json.loads(e.column_map) if e.column_map else None for e in created] == [
+            None,
+            None,
+            {"text": "content"},
+            {"text": "content"},
+        ]
+
+    def test_dataset_alone_is_a_batch(self, client, world, other_dataset):
+        response = client.post(
+            "/batches",
+            json=payload(
+                world,
+                [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}})],
+            ),
+        )
+        assert response.status_code == 201
+        assert [e["name"] for e in response.json()["experiments"]] == [
+            "Compare · answers",
+            "Compare · other",
+        ]
+
+    def test_a_column_the_agents_read_must_have_a_counterpart(
+        self, client, world, other_dataset, jobs
+    ):
+        response = client.post(
+            "/batches", json=payload(world, [dataset_axis(world, other_dataset)])
+        )
+        assert response.status_code == 422
+        assert "no column for text" in response.json()["detail"]
+        assert jobs.started == []
+
+    def test_unmapped_agents_need_their_prompt_variables(
+        self, client, world, other_dataset, datasets_dir
+    ):
+        (datasets_dir / "answers.csv").write_text("answer,label\na,1\n")
+        response = client.post(
+            "/batches",
+            json=payload(world, [dataset_axis(world, other_dataset)], input_mappings=[]),
+        )
+        assert response.status_code == 422
+        assert "no column for answer" in response.json()["detail"]
+
+    def test_a_column_read_under_another_name_is_gone_under_its_own(
+        self, client, world, other_dataset, datasets_dir
+    ):
+        # "content" stands for "text", while the agents read "content" too
+        (datasets_dir / "answers.csv").write_text("text,content,label\na,b,1\n")
+        world_mappings = [
+            {"variable": "answer", "source": "dataset", "sourceColumn": "text"},
+            {"variable": "content", "source": "dataset", "sourceColumn": "content"},
+        ]
+        response = client.post(
+            "/batches",
+            json=payload(
+                world,
+                [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}})],
+                input_mappings=world_mappings,
+            ),
+        )
+        assert response.status_code == 422
+        assert "no column for content" in response.json()["detail"]
+
+    def test_a_copied_experiment_keeps_its_column_map(
+        self, client, world, other_dataset, engine
+    ):
+        config = payload(world, [])["config"]
+        response = client.post(
+            "/experiments",
+            json={
+                "name": "Copy",
+                **config,
+                "dataset_id": other_dataset,
+                "column_map": {"text": "content"},
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["column_map"] == {"text": "content"}
+
+    def test_a_copied_column_map_must_name_columns_of_the_dataset(
+        self, client, world, other_dataset
+    ):
+        config = payload(world, [])["config"]
+        response = client.post(
+            "/experiments",
+            json={
+                **config,
+                "name": "Copy",
+                "dataset_id": other_dataset,
+                "column_map": {"text": "nope"},
+            },
+        )
+        assert response.status_code == 422
+        assert "has no column nope" in response.json()["detail"]
+
+    def test_the_base_point_of_a_batch_keeps_a_copied_column_map(
+        self, client, world, other_dataset, engine
+    ):
+        body = payload(world, [model_axis(world, 0, 1)])
+        body["config"].update(dataset_id=other_dataset, column_map={"text": "content"})
+        response = client.post("/batches", json=body)
+        assert response.status_code == 201
+        with scoped(engine) as s:
+            created = s.exec(select(Experiment).order_by(Experiment.id)).all()
+        assert [json.loads(e.column_map) for e in created] == [{"text": "content"}] * 2
+
+    def test_a_copied_column_map_cannot_vary_the_dataset(
+        self, client, world, other_dataset
+    ):
+        body = payload(world, [dataset_axis(world, other_dataset)])
+        body["config"]["column_map"] = {"text": "text"}
+        response = client.post("/batches", json=body)
+        assert response.status_code == 422
+        assert "cannot be varied" in response.json()["detail"]
+
+    def test_unknown_base_dataset_is_refused(self, client, world, other_dataset):
+        body = payload(world, [dataset_axis(world, other_dataset)])
+        body["config"]["dataset_id"] = 999_999
+        response = client.post("/batches", json=body)
+        assert response.status_code == 422
+        assert "999999 not found" in response.json()["detail"]
+
+    def test_mapped_columns_must_exist(self, client, world, other_dataset):
+        response = client.post(
+            "/batches",
+            json=payload(
+                world,
+                [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "nope"}})],
+            ),
+        )
+        assert response.status_code == 422
+        assert "has no column nope" in response.json()["detail"]
+
+    def test_a_range_past_the_end_of_a_dataset_is_refused(
+        self, client, world, other_dataset
+    ):
+        body = payload(
+            world,
+            [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}})],
+        )
+        body["config"].update(
+            sampling_type="range", sampling_start_row=3, sampling_end_row=3
+        )
+        response = client.post("/batches", json=body)
+        assert response.status_code == 422
+        assert "'other' has 2 rows" in response.json()["detail"]
+
+    def test_the_execution_reads_the_rows_under_the_base_names(
+        self, client, world, other_dataset, engine
+    ):
+        body = client.post(
+            "/batches",
+            json=payload(
+                world,
+                [dataset_axis(world, other_dataset, {str(other_dataset): {"text": "content"}})],
+            ),
+        ).json()
+        with scoped(engine) as s:
+            snapshot = json.loads(
+                create_execution_snapshot(body["experiments"][1]["id"], s).dataset_snapshot
+            )
+        assert snapshot["file_path"] == "other.csv"
+        assert snapshot["column_map"] == {"text": "content"}
+        assert snapshot["dataset_axis_batch_id"] == body["id"]

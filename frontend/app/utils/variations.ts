@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { AgentConfiguration, AgentInputMapping, Experiment, PromptVersion, Variation, VariationDraft, VariationField } from '~/types'
+import type { AgentConfiguration, AgentInputMapping, DatasetAxisDraft, Experiment, PromptVersion, Variation, VariationDraft, VariationField } from '~/types'
 import { mappingSource } from './steps'
 import { isMappingComplete, parsePromptVariables } from './utils'
 
@@ -110,12 +110,97 @@ export function variationIssues(drafts: readonly VariationDraft[]): string[] {
   return [...issues]
 }
 
+// --- The dataset axis: the same setup on other datasets, their columns standing for the base one's ---
+
+/**
+ * Columns of the base dataset the pipeline reads: those its mappings name, and for a step without
+ * mappings (it gets the whole row) the variables of its prompts that are columns.
+ */
+export function usedColumns(
+  configs: Record<string, AgentConfiguration>,
+  drafts: readonly VariationDraft[],
+  promptVersions: readonly PromptVersion[],
+  baseHeaders: readonly string[],
+): string[] {
+  const headers = new Set(baseHeaders)
+  const used = new Set<string>()
+  for (const [stepKey, config] of Object.entries(configs)) {
+    if (!config || config.is_active === false)
+      continue
+    const mappings = config.input_mappings ?? []
+    for (const mapping of mappings) {
+      if (mapping.source === 'dataset' && mapping.sourceColumn)
+        used.add(mapping.sourceColumn)
+    }
+    if (mappings.length > 0)
+      continue
+    const versionIds = [config.prompt_version_id, ...drafts.filter(d => d.step_key === stepKey && d.field === 'prompt_version_id').flatMap(d => d.extras)]
+    for (const id of versionIds) {
+      for (const variable of parsePromptVariables(promptVersions.find(v => v.id === id)?.variables)) {
+        if (headers.has(variable))
+          used.add(variable)
+      }
+    }
+  }
+  return [...used]
+}
+
+/** The column of a dataset that stands for a base column by default: the one of the same name, whatever its case */
+export function matchingColumn(base: string, headers: readonly string[]): string | undefined {
+  return headers.find(h => h === base) ?? headers.find(h => h.toLowerCase() === base.toLowerCase())
+}
+
+/** The column that stands for a base column: the one picked, else the matching one; undefined for none */
+export function columnFor(base: string, headers: readonly string[], picks: Record<string, string> | undefined): string | undefined {
+  if (picks && base in picks)
+    return picks[base] || undefined
+  return matchingColumn(base, headers)
+}
+
+/** Every base column with a column standing for it ({ base: column }) */
+export function columnMap(baseHeaders: readonly string[], headers: readonly string[], picks: Record<string, string> | undefined): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const base of baseHeaders) {
+    const column = columnFor(base, headers, picks)
+    if (column)
+      map[base] = column
+  }
+  return map
+}
+
+/** Columns the pipeline reads that nothing stands for in a dataset */
+export function missingColumns(used: readonly string[], headers: readonly string[], picks: Record<string, string> | undefined): string[] {
+  return used.filter(base => !columnFor(base, headers, picks))
+}
+
+/** Columns of a dataset that give way to another of its columns taking their name */
+export function shadowedColumns(map: Record<string, string>, headers: readonly string[]): string[] {
+  return Object.entries(map).filter(([base, column]) => column !== base && headers.includes(base)).map(([base]) => base)
+}
+
+/** The dataset axis as submitted: the base dataset first, then the added ones with their columns */
+export function datasetVariation(
+  baseId: number,
+  draft: DatasetAxisDraft,
+  baseHeaders: readonly string[],
+  headersOf: (id: number) => readonly string[] | undefined,
+): Variation {
+  const extras = draft.extras.filter(id => id !== baseId)
+  return {
+    step_key: 'dataset',
+    field: 'dataset_id',
+    values: [baseId, ...extras],
+    column_maps: Object.fromEntries(extras.map(id => [id, columnMap(baseHeaders, headersOf(id) ?? [], draft.picks[id])])),
+  }
+}
+
 // --- Is the form still the experiment it was copied from? ---
 
 interface Signature {
   dataset_id: number | null | undefined
   sampling: (number | string | null)[]
   agents: unknown[]
+  columns: [string, string][]
 }
 
 function mappingSignature(mappings: readonly { variable: string, source: string, sourceColumn?: string, sourceStep?: string, sourceAgentId?: number, sourceOutput?: string, sourcePath?: string, staticValue?: string }[] | null | undefined) {
@@ -143,6 +228,7 @@ export function formSignature(
   datasetId: number | null | undefined,
   sampling: { sampling_type?: string, sampling_size?: number, sampling_start_row?: number, sampling_end_row?: number, sampling_seed?: number },
   configurations: Record<string, AgentConfiguration>,
+  columnMap?: Record<string, string> | null,
 ): string {
   const signature: Signature = {
     dataset_id: datasetId,
@@ -151,6 +237,8 @@ export function formSignature(
     agents: agentsSignature(Object.entries(configurations)
       .filter(([, config]) => config?.is_active !== false)
       .map(([key, config]) => ({ step_key: key, config }))),
+    // The same dataset read under other column names is other rows
+    columns: Object.entries(columnMap ?? {}).sort(([a], [b]) => a.localeCompare(b)),
   }
   return JSON.stringify(signature)
 }
@@ -176,5 +264,6 @@ export function experimentSignature(experiment: Experiment): string {
         input_mappings: config.input_mappings ?? [],
         formulas: config.formulas ?? undefined,
       }])),
+    experiment.column_map,
   )
 }

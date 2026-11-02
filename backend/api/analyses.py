@@ -26,7 +26,12 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, col, select
 
 from analysis import METRICS, AnalysisConfig, RunInput, result_rows
-from analysis.compute import comparison_warnings, compute_run, validate_config
+from analysis.compute import (
+    comparison_notes,
+    comparison_warnings,
+    compute_run,
+    validate_config,
+)
 from auth.workspaces import requires
 from core.json_output import parse_json_output, scalar_paths
 from db import SessionDep
@@ -199,6 +204,7 @@ def _compute(
         runs=responses,
         # Only the runs that could be computed are compared
         warnings=comparison_warnings(inputs),
+        notes=comparison_notes(inputs),
     )
 
 
