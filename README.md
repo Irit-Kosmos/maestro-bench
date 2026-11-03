@@ -214,12 +214,24 @@ page lists (a dataset on Datasets, a prompt on Prompts...), an experiment elsewh
    reported, never counted as 0.
 
    The same computation is available without saving through
-   `POST /analyses/compute`, for scripts and notebooks:
+   `POST /workspaces/{slug}/analyses/compute`, for scripts and notebooks. The
+   route needs a signed-in user with at least the viewer role in that
+   workspace: send the `maestro_session` cookie (copy it from your browser) and
+   the CSRF token returned by `GET /auth/me`.
 
    ```python
    import httpx
 
-   result = httpx.post("http://localhost:8000/analyses/compute", json={
+   client = httpx.Client(
+       base_url="http://localhost:8000",
+       cookies={"maestro_session": "<cookie value from your browser>"},
+   )
+   csrf = client.get("/auth/me").json()["csrf_token"]
+
+   result = client.post("/workspaces/my-workspace/analyses/compute", headers={
+       "X-CSRF-Token": csrf,
+       "Origin": "http://localhost:3000",  # the UI's URL (FRONTEND_URL)
+   }, json={
        "config": {
            "truth_column": "score_avg",
            "output_path": "score",
