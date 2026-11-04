@@ -46,7 +46,7 @@ export function unscopedRoutePath(routePath: string): string | null {
 }
 
 /** Paths the API serves outside any workspace. */
-const UNSCOPED_API = ['/auth', '/workspaces', '/invitations', '/health']
+const UNSCOPED_API = ['/auth', '/workspaces', '/invitations', '/health', '/admin']
 
 export function isWorkspaceApiPath(request: string): boolean {
   if (!request.startsWith('/'))

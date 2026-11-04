@@ -41,6 +41,10 @@ const items = computed<DropdownMenuItem[][]>(() => [
     { label: 'Settings', icon: 'i-ph-gear', kbds: ['G', 'S'], to: '/settings' },
     ...(can('owner') ? [{ label: 'Invite and manage members', icon: 'i-ph-users', to: '/settings#members' }] : []),
   ],
+  // The whole instance, for its administrators only (the API refuses everyone else anyway)
+  ...(user.value?.is_instance_admin
+    ? [[{ label: 'Instance administration', icon: 'i-ph-shield-check', to: '/admin' }]]
+    : []),
   [
     { label: 'Switch workspace', icon: 'i-ph-arrows-left-right', kbds: ['O', 'W'], to: '/w' },
     { label: 'Log out', icon: 'i-ph-sign-out', onSelect: logout },

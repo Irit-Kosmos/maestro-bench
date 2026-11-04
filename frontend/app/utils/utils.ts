@@ -129,6 +129,20 @@ export function formatTokens(tokens: number | null | undefined): string {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(tokens)
 }
 
+// "812 B", "3.4 MB", "1.2 GB": a size on disk
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined)
+    return '—'
+  const units = ['B', 'kB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000
+    unit++
+  }
+  return `${unit === 0 ? value : value.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${units[unit]}`
+}
+
 // "42s", "2m 14s", "1h 05m": a run's length at a glance, never fractions of a second
 export function formatElapsed(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || seconds < 0)

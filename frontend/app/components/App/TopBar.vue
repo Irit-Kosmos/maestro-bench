@@ -34,6 +34,7 @@ const labelMap: Record<string, { label: string, icon: string }> = {
   prompts: { label: 'Prompts', icon: 'i-ph-chat-text' },
   models: { label: 'Models', icon: 'i-ph-cpu' },
   settings: { label: 'Settings', icon: 'i-ph-gear' },
+  admin: { label: 'Administration', icon: 'i-ph-shield-check' },
   new: { label: 'New', icon: 'i-ph-plus' },
 }
 
