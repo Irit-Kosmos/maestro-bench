@@ -411,6 +411,53 @@ Deactivating a user closes their sessions at once. The allowlists are only
 checked at sign-in: someone who stops matching them keeps their session until
 it expires, unless you deactivate them.
 
+### What administrators can see
+
+The instance administrators (`INSTANCE_ADMINS`) have an **Administration** page
+(workspace menu → *Instance administration*, `/admin`). It follows three rules:
+
+- **As little as possible.** Each field is there because an administration
+  task needs it. Aggregates and days only, never what people work on.
+- **Transparent.** Every signed-in user can read the same list in the app
+  (Help menu → *What administrators can see*).
+- **For administration only.** Running the instance (accounts, capacity, cost,
+  outages), nothing else. Consulting the page is not logged.
+
+The list lives in one place, `backend/admin/fields.py`. The admin API
+(`GET /admin/accounts`, `/admin/workspaces`, `/admin/health`) returns those
+fields and no others: a test fails if an endpoint returns a field the list does
+not declare. The in-app page is generated from the same list
+(`GET /admin/visibility`). To show administrators anything more, declare it
+there first, with its purpose, and update this section.
+
+| Section | Field | Why |
+| --- | --- | --- |
+| Accounts | Account number | Tells apart two accounts with the same email |
+| Accounts | Email | Finds the account, reaches its owner |
+| Accounts | Active | Whether it can sign in |
+| Accounts | Last sign-in | Spots unused accounts (day only) |
+| Accounts | Workspaces | How many, not which |
+| Workspaces | Identifier (slug) | Names it in admin commands |
+| Workspaces | Name | Tells workspaces apart |
+| Workspaces | Owners | Who to contact |
+| Workspaces | Members | How many, not who |
+| Workspaces | Created | Age (day only) |
+| Workspaces | Archived | Whether it is read-only |
+| Workspaces | Last activity | Day of the last execution |
+| Workspaces | Disk | Size of datasets and results |
+| Workspaces | Monthly cost | Tokens and cost on the instance's API keys only, last 3 months. Older runs that did not record whose key paid show apart, as "key unknown" |
+| Instance health | Running executions / allowed at once | Load against `MAX_CONCURRENT_EXPERIMENTS` |
+| Instance health | Failed, last 24 hours | A count, not which ones |
+
+Never shown: names or content of anything in a workspace; outputs, results,
+notes and shared links; display names, avatars and API keys; members other
+than owners, and roles; who did what, and when; spend on a workspace's own API
+keys.
+
+Whoever runs the server can still read the database and the files directly:
+these rules cover what the app shows. The cross-workspace queries all live in
+`backend/admin/queries.py`: no other API code reads across workspaces.
+
 ## Sample datasets
 
 - `backend/scripts/sample_datasets/mohler_dataset.csv` - the short-answer grading dataset from
