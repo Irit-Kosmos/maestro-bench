@@ -9,20 +9,27 @@ workflow:
 
 stages:
   - test
+  - deploy
 
 variables:
   # /builds is host-mounted on the runner: isolate concurrent jobs per slot,
   # otherwise they share a working directory and corrupt each other's files
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/$CI_PROJECT_PATH
 
-  # Keep in line with the base images of backend/Dockerfile and frontend/Dockerfile.local
+  # Keep in line with the base images of backend/Dockerfile and frontend/Dockerfile(.local)
   PYTHON_IMAGE: ghcr.io/astral-sh/uv:python3.13-trixie-slim
   NODE_IMAGE: node:24-alpine
   POSTGRES_IMAGE: postgres:17-alpine
   RUFF_VERSION: "0.14.10"
 
+  ## Configured in Settings > CI/CD > Variables, for the deploy job
+  # SSH_HOST, SSH_PORT, SSH_USER, SSH_PRIVATE_KEY, SSH_PINNED_HOST_KEY
+
 default:
   interruptible: true
+
+include:
+  - local: ".gitlab/ci/deploy.yaml"
 
 backend:
   stage: test

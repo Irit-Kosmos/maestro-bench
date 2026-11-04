@@ -1,0 +1,64 @@
+# Production stack, run on the server from /local/maestro-bench:
+#   docker-compose.yml  this file
+#   .env                version, database password and public URLs (see .env.example)
+#   backend.env         sign-in and LLM provider settings (see backend/.env.example)
+#
+# The GitHub CI publishes the images on ghcr.io (public: no login needed), and
+# the deploy job of the GitLab CI runs `pull` then `up -d` here
+# (.config/ansible/update.yaml). Both services listen on localhost only: a
+# reverse proxy on the server serves them (apache.conf).
+name: maestro-bench
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=maestro
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      - POSTGRES_DB=maestro
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maestro -d maestro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: ghcr.io/irit-kosmos/maestro-bench-backend:${MB_TAG:-main}
+    restart: unless-stopped
+    env_file: ./backend.env
+    environment:
+      - DATABASE_URL=postgresql+psycopg://maestro:${POSTGRES_PASSWORD}@postgres:5432/maestro
+      - FRONTEND_URL=${FRONTEND_URL:?set FRONTEND_URL in .env}
+      - PUBLIC_API_URL=${PUBLIC_API_URL:?set PUBLIC_API_URL in .env}
+      - CORS_ORIGINS=${FRONTEND_URL}
+      # The image holds only the runtime dependencies: keep `docker compose exec
+      # backend uv run ...` from installing the dev group
+      - UV_NO_SYNC=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      # Reach an Ollama running on the server (OLLAMA_API_BASE=http://host.docker.internal:11434)
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Datasets and execution results, one folder per workspace
+      - data:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    image: ghcr.io/irit-kosmos/maestro-bench-frontend:${MB_TAG:-main}
+    restart: unless-stopped
+    environment:
+      - NUXT_PUBLIC_BACK_URL=${PUBLIC_API_URL}
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  pgdata:
+  data:
