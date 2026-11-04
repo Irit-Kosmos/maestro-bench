@@ -63,6 +63,11 @@ def scope_session(session: Session, workspace_id: int, user_id: int | None = Non
     return session
 
 
+def is_scoped(session: Session) -> bool:
+    """Whether the session is confined to a workspace."""
+    return session.info.get(_WORKSPACE) is not None
+
+
 def current_workspace_id(session: Session) -> int:
     """The workspace a scoped session is confined to."""
     workspace_id = session.info.get(_WORKSPACE)
