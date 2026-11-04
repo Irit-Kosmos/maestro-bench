@@ -1,0 +1,27 @@
+# Runs the images of mb_tag (sha-<commit>, set by the deploy job) on the server.
+# The tag is written to MB_TAG in /local/maestro-bench/.env only once its images
+# are pulled, so that a failed pull leaves the running version as it is and a
+# later manual `docker compose up` keeps the deployed one. The database and the
+# files stay in their volumes; the backend migrates the schema on startup.
+---
+- name: Update MAESTRO-bench
+  hosts: all
+  vars:
+    dir: /local/maestro-bench
+    compose: docker compose -f /local/maestro-bench/docker-compose.yml
+  tasks:
+    - name: Pull the images
+      ansible.builtin.shell: "MB_TAG={{ mb_tag }} {{ compose }} pull"
+
+    - name: Record the deployed version
+      ansible.builtin.lineinfile:
+        path: "{{ dir }}/.env"
+        regexp: "^MB_TAG="
+        line: "MB_TAG={{ mb_tag }}"
+
+    - name: Restart the services
+      ansible.builtin.shell: "{{ compose }} up -d --remove-orphans"
+
+    - name: Remove the old images
+      ansible.builtin.shell: docker image prune -f
+...

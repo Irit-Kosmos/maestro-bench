@@ -1,0 +1,17 @@
+# Installed and built in the image
+node_modules/
+.pnpm-store/
+.nuxt/
+.output/
+
+# Local settings: the production image reads its config at runtime
+.env
+.env.*
+
+# Docker
+Dockerfile
+Dockerfile.local
+.dockerignore
+
+# OS files
+.DS_Store
