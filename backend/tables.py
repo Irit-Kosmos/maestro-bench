@@ -463,6 +463,10 @@ class AgentExecutionSnapshot(WorkspaceOwned, table=True):
     # and on snapshots made before steps kept their own
     total_tokens: int | None = None
     total_cost_usd: float | None = None
+    # Whose API key the step's calls used: "workspace" (its own), "instance", or empty
+    # (no key needed, or a snapshot made before this was recorded). Instance
+    # administrators only ever see what the instance paid (see admin/fields.py).
+    key_source: str | None = None
     created_at: datetime = now_field()
 
     __table_args__ = (

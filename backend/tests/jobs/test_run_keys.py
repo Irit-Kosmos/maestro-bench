@@ -69,3 +69,16 @@ def test_agents_call_their_provider_with_the_workspace_key(
     ]
     assert agents[0].key_id == agents[2].key_id != agents[1].key_id
     assert "sk-workspace-1234" not in repr(agents[0])
+
+
+def test_each_step_records_whose_key_pays(session, execution, monkeypatch):
+    monkeypatch.setattr(config, "ENCRYPTION_KEY", "e" * 40)
+    monkeypatch.setattr(config, "PROVIDERS_INSTANCE_FALLBACK", True)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-instance-5678")
+    credentials.set_key(session, "mistral", "sk-workspace-1234")
+
+    build_agent_configs_from_snapshot(execution, session)
+    session.commit()
+
+    snapshots = sorted(execution.agent_snapshots, key=lambda s: s.execution_order)
+    assert [s.key_source for s in snapshots] == ["workspace", "instance", "workspace"]
