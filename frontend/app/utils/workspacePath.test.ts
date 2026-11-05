@@ -82,7 +82,7 @@ describe('isWorkspaceApiPath', () => {
     },
   )
 
-  it.each(['/auth/me', '/auth/logout', '/workspaces', '/workspaces/a/tags', '/workspaces?x=1', '/invitations/abc', '/health'])(
+  it.each(['/auth/me', '/auth/logout', '/workspaces', '/workspaces/a/tags', '/workspaces?x=1', '/invitations/abc', '/health', '/admin/accounts', '/admin/visibility'])(
     '%s does not',
     (path) => {
       expect(isWorkspaceApiPath(path)).toBe(false)

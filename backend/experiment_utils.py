@@ -595,6 +595,14 @@ def build_agent_configs_from_snapshot(
         agent.api_key = accesses[agent.provider].api_key
         agent.key_id = accesses[agent.provider].key_id
         agent.access_error = accesses[agent.provider].error
+    # Which key pays for each step, kept for the instance's own spend (see admin/).
+    # Recorded once: a later rebuild must not relabel steps after a key changed
+    for snapshot in agent_snapshots:
+        if snapshot.key_source is not None:
+            continue
+        access = accesses.get(snapshot.model_provider_snapshot)
+        snapshot.key_source = access.source if access else None
+        session.add(snapshot)
 
     return agents
 

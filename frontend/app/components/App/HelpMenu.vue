@@ -37,6 +37,12 @@ const items = computed<DropdownMenuItem[]>(() => [
       shortcutsOpen.value = true
     },
   },
+  // Every user can read exactly what instance administrators see of them, and why
+  {
+    label: 'What administrators can see',
+    icon: 'i-ph-eye',
+    to: '/what-admins-see',
+  },
   ...(sourceUrl
     ? [{
         label: 'Source code',

@@ -809,3 +809,50 @@ export interface StudyActivityEvent {
   item: { kind: NoteKind, item_id: number, name: string } | null
   note: Note | null
 }
+
+// What instance administrators can see (declared in backend/admin/fields.py)
+export interface AdminField {
+  key: string
+  label: string
+  purpose: string
+  kind: string
+  fields: AdminField[]
+}
+
+export interface AdminVisibility {
+  sections: { key: string, title: string, task: string, fields: AdminField[] }[]
+  never_shown: string[]
+  administration_only: string
+}
+
+export interface AdminAccount {
+  id: number
+  email: string | null
+  active: boolean
+  last_sign_in_on: string | null
+  workspace_count: number
+}
+
+export interface AdminMonthUsage {
+  month: string
+  tokens: number
+  cost_usd: number
+}
+
+export interface AdminWorkspace {
+  slug: string
+  name: string
+  owner_emails: string[]
+  member_count: number
+  created_on: string | null
+  archived: boolean
+  last_activity_on: string | null
+  disk_bytes: number
+  usage: AdminMonthUsage[]
+}
+
+export interface AdminHealth {
+  running_executions: number
+  max_concurrent_executions: number
+  failed_last_24h: number
+}

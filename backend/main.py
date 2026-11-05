@@ -31,6 +31,7 @@ from starlette.middleware.sessions import SessionMiddleware
 import async_jobs
 import config
 import credentials
+from api import admin as admin_api
 from api import (
     agents,
     aggregators,
@@ -110,6 +111,8 @@ app.add_middleware(
 app.include_router(auth_api.router)
 app.include_router(workspaces_api.router)
 app.include_router(invitations_api.router)
+# What instance administrators can see (declared in admin/fields.py), outside any workspace
+app.include_router(admin_api.router)
 
 # What a workspace holds lives under /workspaces/{slug}: the user must belong to it,
 # with the role the route needs, and the request's database session only sees it
