@@ -837,8 +837,6 @@ export interface AdminMonthUsage {
   month: string
   tokens: number
   cost_usd: number
-  unknown_source_tokens: number
-  unknown_source_cost_usd: number
 }
 
 export interface AdminWorkspace {

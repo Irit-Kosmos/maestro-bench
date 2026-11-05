@@ -244,8 +244,6 @@ def test_workspaces_count_only_what_the_instance_pays(admin, bob, engine):
         "month": now.strftime("%Y-%m"),
         "tokens": 100,
         "cost_usd": 1.5,
-        "unknown_source_tokens": 7,
-        "unknown_source_cost_usd": 0.07,
     }
     assert all(m["tokens"] == 0 for m in row["usage"][1:])
 

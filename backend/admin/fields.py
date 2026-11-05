@@ -92,22 +92,13 @@ WORKSPACES = Section(
             "Monthly cost",
             f"Instance's API keys only, last {USAGE_MONTHS} months",
             "table",
+            # Only steps recorded as paid by the instance: older runs that did not
+            # record whose key paid may have used the workspace's own, so they count
+            # for nothing here
             fields=(
                 Field("month", "Month", "Calendar month (UTC)", "month"),
                 Field("tokens", "Tokens", "On the instance's keys", "count"),
                 Field("cost_usd", "Cost", "On the instance's keys, estimated", "usd"),
-                Field(
-                    "unknown_source_tokens",
-                    "Tokens, key unknown",
-                    "Older runs that did not record whose key paid",
-                    "count",
-                ),
-                Field(
-                    "unknown_source_cost_usd",
-                    "Cost, key unknown",
-                    "Same, estimated cost",
-                    "usd",
-                ),
             ),
         ),
     ),

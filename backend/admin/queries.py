@@ -95,7 +95,7 @@ def _months(today: date) -> list[date]:
 
 
 def _usage(db: Session, months: list[date]) -> dict[tuple[int, date], dict]:
-    """Tokens and cost of the steps, per workspace and month, by whose key paid."""
+    """Tokens and cost of the steps the instance's keys paid, per workspace and month."""
     since = datetime.combine(months[-1], datetime.min.time(), tzinfo=UTC)
     month = func.date_trunc(
         "month", func.timezone("UTC", ExperimentExecution.started_at)
@@ -104,7 +104,6 @@ def _usage(db: Session, months: list[date]) -> dict[tuple[int, date], dict]:
         select(
             AgentExecutionSnapshot.workspace_id,
             month,
-            AgentExecutionSnapshot.key_source,
             func.coalesce(func.sum(AgentExecutionSnapshot.total_tokens), 0),
             func.coalesce(func.sum(AgentExecutionSnapshot.total_cost_usd), 0.0),
         )
@@ -113,33 +112,19 @@ def _usage(db: Session, months: list[date]) -> dict[tuple[int, date], dict]:
             col(ExperimentExecution.id) == col(AgentExecutionSnapshot.execution_id),
         )
         .where(ExperimentExecution.started_at >= since)
-        # A workspace's own key is none of the instance's business
-        .where(
-            (AgentExecutionSnapshot.key_source == INSTANCE_KEY)
-            | col(AgentExecutionSnapshot.key_source).is_(None)
-        )
-        .group_by(
-            AgentExecutionSnapshot.workspace_id,
-            month,
-            AgentExecutionSnapshot.key_source,
-        )
+        # Only what the instance paid for: a workspace's own key is none of its
+        # business, and a step that did not record whose key paid may have used it
+        .where(AgentExecutionSnapshot.key_source == INSTANCE_KEY)
+        .group_by(AgentExecutionSnapshot.workspace_id, month)
     ).all()
-    usage: dict[tuple[int, date], dict] = {}
-    for workspace_id, started, source, tokens, cost in rows:
-        entry = usage.setdefault((workspace_id, started.date()), _empty_month())
-        prefix = "" if source == INSTANCE_KEY else "unknown_source_"
-        entry[f"{prefix}tokens"] += int(tokens)
-        entry[f"{prefix}cost_usd"] += float(cost)
-    return usage
+    return {
+        (workspace_id, started.date()): {"tokens": int(tokens), "cost_usd": float(cost)}
+        for workspace_id, started, tokens, cost in rows
+    }
 
 
 def _empty_month() -> dict:
-    return {
-        "tokens": 0,
-        "cost_usd": 0.0,
-        "unknown_source_tokens": 0,
-        "unknown_source_cost_usd": 0.0,
-    }
+    return {"tokens": 0, "cost_usd": 0.0}
 
 
 def disk_bytes(workspace_id: int) -> int:

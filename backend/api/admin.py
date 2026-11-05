@@ -62,8 +62,6 @@ class MonthUsageOut(BaseModel):
     month: str  # YYYY-MM
     tokens: int
     cost_usd: float
-    unknown_source_tokens: int
-    unknown_source_cost_usd: float
 
 
 class WorkspaceOut(BaseModel):

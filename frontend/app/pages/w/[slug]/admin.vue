@@ -64,10 +64,7 @@ function monthLabel(month: string, options: Intl.DateTimeFormatOptions = { month
 
 function usageTooltip(month: AdminMonthUsage): string {
   const when = monthLabel(month.month, { month: 'long', year: 'numeric' })
-  const known = `${formatCount(month.tokens)} tokens on the instance's keys in ${when}`
-  if (!month.unknown_source_tokens)
-    return known
-  return `${known}. Plus ${formatCount(month.unknown_source_tokens)} tokens (${formatCost(month.unknown_source_cost_usd)}) from before the app recorded whose key paid: they may have used the workspace's own key.`
+  return `${formatCount(month.tokens)} tokens on the instance's keys in ${when}`
 }
 
 const activeAccounts = computed(() => (accounts.value ?? []).filter(a => a.active).length)
@@ -188,11 +185,6 @@ const tdNum = `${td} text-end tabular-nums`
               </td>
               <td v-for="month in workspace.usage" :key="month.month" :class="tdNum" :title="usageTooltip(month)">
                 <span v-if="month.cost_usd">{{ formatCost(month.cost_usd) }}</span>
-                <!-- Paid by a key nobody recorded: shown apart, dimmed, never added to the instance's cost -->
-                <span v-else-if="month.unknown_source_cost_usd" class="inline-flex items-center gap-1 text-dimmed">
-                  {{ formatCost(month.unknown_source_cost_usd) }}
-                  <UIcon name="i-ph-question" class="size-3.5" aria-label="Key unknown" />
-                </span>
                 <span v-else class="text-dimmed">—</span>
               </td>
             </tr>

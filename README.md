@@ -445,7 +445,7 @@ there first, with its purpose, and update this section.
 | Workspaces | Archived | Whether it is read-only |
 | Workspaces | Last activity | Day of the last execution |
 | Workspaces | Disk | Size of datasets and results |
-| Workspaces | Monthly cost | Tokens and cost on the instance's API keys only, last 3 months. Older runs that did not record whose key paid show apart, as "key unknown" |
+| Workspaces | Monthly cost | Tokens and cost on the instance's API keys only, last 3 months. Older runs that did not record whose key paid are left out: they may have used the workspace's own key |
 | Instance health | Running executions / allowed at once | Load against `MAX_CONCURRENT_EXPERIMENTS` |
 | Instance health | Failed, last 24 hours | A count, not which ones |
 
