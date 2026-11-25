@@ -209,6 +209,11 @@ export interface ExperimentExecution {
   results_file_path?: string
   // Dataset rows processed; null until the results file exists
   row_count?: number | null
+  /** Live progress, in dataset rows; failed rows are counted in rows_done */
+  rows_done?: number
+  rows_failed?: number
+  /** Why the whole run failed, when it did */
+  error?: string | null
   // Aggregated metrics
   total_tokens?: number
   total_cost_usd?: number
@@ -530,8 +535,35 @@ export interface ExecutionRow {
   row_index: number
   input_data: Record<string, unknown>
   /** Aggregators also carry the value each formula variable resolved to */
-  agents: { name: string | null, kind?: AgentKind, inputs?: Record<string, unknown> | null, output: unknown, error: string | null }[]
+  agents: ExecutionRowAgent[]
   error: string | null
+}
+
+export interface ExecutionRowAgent {
+  name: string | null
+  step_key?: string | null
+  kind?: AgentKind
+  /** The chat messages the agent sent its model; none for aggregators and old results */
+  messages_sent?: { role: string, content: unknown }[] | null
+  inputs?: Record<string, unknown> | null
+  output: unknown
+  error: string | null
+}
+
+/** Rows of an execution that failed the same way */
+export interface FailureGroup {
+  message: string
+  /** The step that failed; null when the row failed before any agent ran */
+  agent_name: string | null
+  step_key: string | null
+  /** row_index of each row, in order */
+  rows: number[]
+}
+
+export interface ExecutionFailures {
+  failed_rows: number
+  /** Most rows first */
+  groups: FailureGroup[]
 }
 
 export interface AvailableExecution {

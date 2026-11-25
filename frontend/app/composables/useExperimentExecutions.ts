@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ExperimentExecution } from '~/types'
+import type { ExecutionFailures, ExperimentExecution } from '~/types'
 
 /**
  * Composable for managing experiment executions and their detailed configurations
@@ -37,7 +37,12 @@ export function useExperimentExecutions() {
     }
   }
 
+  // The failed rows of an execution, grouped by the step and error that stopped them
+  const fetchExecutionFailures = (executionId: number) =>
+    $api<ExecutionFailures>(`/executions/${executionId}/failures`)
+
   return {
     fetchExperimentExecutions,
+    fetchExecutionFailures,
   }
 }

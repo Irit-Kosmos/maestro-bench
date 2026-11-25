@@ -299,6 +299,35 @@ const executionRows = computed(() => [...executions.value]
     }
   }))
 
+// Failed rows of an execution once it has stopped; a running one shows them in its live progress
+function failedRows(execution: ExperimentExecution): number {
+  return liveRun.value?.execution_id === execution.id ? 0 : (execution.rows_failed ?? 0)
+}
+
+// Rows an execution got through: the results file's count, else the live one
+function processedRows(execution: ExperimentExecution): number {
+  return execution.row_count ?? execution.rows_done ?? 0
+}
+
+// What failed in an execution is folded under it. The latest one opens by itself once its
+// failures have loaded (so it opens at its final height), the first time only: then it stays
+// as the user leaves it
+const openFailures = ref(new Set<number>())
+const failuresSeen = new Set<number>()
+function onFailuresLoaded(execution: ExperimentExecution) {
+  if (failuresSeen.has(execution.id) || execution.id !== latestExecution.value?.id)
+    return
+  failuresSeen.add(execution.id)
+  openFailures.value.add(execution.id)
+}
+
+function setFailuresOpen(id: number, value: boolean) {
+  if (value)
+    openFailures.value.add(id)
+  else
+    openFailures.value.delete(id)
+}
+
 // A fade at the foot of the capped list says there is more below; it goes once the end is reached
 const executionsList = useTemplateRef<HTMLElement>('executionsList')
 const moreBelow = ref(false)
@@ -486,8 +515,21 @@ watch(() => route.params.id, () => {
               <li>
                 <UIMetaItem icon="i-ph-rows-bold" label="Rows used">
                   <UIRowCount :rows="datasetRows" />
-                  <span class="text-muted">· {{ samplingHint }}</span>
+                  <!-- The latest run's failures: opens them under it in Executions -->
+                  <a
+                    v-if="latestExecution && failedRows(latestExecution)"
+                    href="#executions"
+                    class="ms-1 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-1 text-xs font-medium text-error tabular-nums outline-none hover:bg-error/10 focus-visible:outline-2 focus-visible:outline-inverted"
+                    @click="setFailuresOpen(latestExecution.id, true)"
+                  >
+                    <UIcon name="i-ph-warning-bold" class="size-3.5 shrink-0" aria-hidden="true" />
+                    {{ failedRows(latestExecution) }} failed
+                  </a>
                 </UIMetaItem>
+                <!-- How the rows were picked is secondary to how many: its own quieter line -->
+                <p class="mt-0.5 ps-5 text-xs text-muted text-pretty first-letter:uppercase">
+                  {{ samplingHint }}
+                </p>
               </li>
               <!-- A batch that varies the dataset reads this one's rows under the base dataset's column names -->
               <li v-if="columnRenames.length > 0">
@@ -541,44 +583,80 @@ watch(() => route.params.id, () => {
                 <li
                   v-for="row in executionRows"
                   :key="row.execution.id"
-                  class="flex items-center gap-2 py-2 ps-3 pe-2"
+                  class="py-2 ps-3 pe-2"
                 >
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <UIStatusBadge :status="row.execution.status" />
-                      <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
-                      <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
-                      <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
-                      <UIPerson v-if="row.execution.launched_by" :person="row.execution.launched_by" label="Launched by" class="text-xs text-muted" />
+                  <!-- Download stays on the first line, whatever opens below -->
+                  <div class="flex items-start gap-2">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <UIStatusBadge :status="row.execution.status" />
+                        <span class="text-sm font-medium text-highlighted tabular-nums">#{{ row.execution.id }}</span>
+                        <UBadge v-if="row.execution.id === latestExecution?.id && executionRows.length > 1" label="Latest" color="neutral" variant="subtle" size="xs" />
+                        <span class="text-xs text-muted" :title="formatDate(row.execution.started_at)">{{ formatRelativeDate(row.execution.started_at) }}</span>
+                        <UIPerson v-if="row.execution.launched_by" :person="row.execution.launched_by" label="Launched by" class="text-xs text-muted" />
+                      </div>
+                      <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
+                      <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
+                      <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
+                        <UIMetaItem v-if="row.duration" icon="i-ph-clock-bold" label="Duration">
+                          {{ row.duration }}
+                        </UIMetaItem>
+                        <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
+                          <span :title="formatCount(row.execution.total_tokens)">{{ row.tokens }}</span>
+                        </UIMetaItem>
+                        <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
+                          <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
+                        </UIMetaItem>
+                      </div>
+                      <!-- Runs with the same seed ran on the same rows -->
+                      <p v-if="row.seed !== null" class="mt-1 text-xs text-muted tabular-nums">
+                        Random sample, seed {{ row.seed }}
+                      </p>
+                      <!-- Why the whole run stopped, when it did -->
+                      <p v-if="row.execution.error" class="mt-1.5 flex gap-1.5 text-xs text-error">
+                        <UIcon name="i-ph-x-circle-bold" class="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                        <span class="sr-only">Run failed: </span>
+                        <span class="line-clamp-3 min-w-0 break-words" :title="row.execution.error">{{ row.execution.error }}</span>
+                      </p>
                     </div>
-                    <UIRunProgress v-if="liveRun?.execution_id === row.execution.id" :run="liveRun" class="mt-1.5" />
-                    <!-- What the run took, used and cost: only what exists (a running one has none yet) -->
-                    <div v-if="row.duration || row.tokens || row.cost" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-toned tabular-nums">
-                      <UIMetaItem v-if="row.duration" icon="i-ph-clock-bold" label="Duration">
-                        {{ row.duration }}
-                      </UIMetaItem>
-                      <UIMetaItem v-if="row.tokens" icon="i-ph-text-aa-bold" label="Tokens">
-                        <span :title="formatCount(row.execution.total_tokens)">{{ row.tokens }}</span>
-                      </UIMetaItem>
-                      <UIMetaItem v-if="row.cost" icon="i-ph-coins-bold" label="Cost">
-                        <span :title="formatCostPrecise(row.execution.total_cost_usd)">{{ row.cost }}</span>
-                      </UIMetaItem>
-                    </div>
-                    <!-- Runs with the same seed ran on the same rows -->
-                    <p v-if="row.seed !== null" class="mt-1 text-xs text-muted tabular-nums">
-                      Random sample, seed {{ row.seed }}
-                    </p>
+                    <UTooltip v-if="row.execution.results_file_path" text="Download results">
+                      <UButton
+                        variant="ghost"
+                        color="neutral"
+                        icon="i-ph-download-simple-bold"
+                        size="sm"
+                        class="-mt-1"
+                        :aria-label="`Download results of execution #${row.execution.id}`"
+                        @click="() => { downloadResultsFile(row.execution.id) }"
+                      />
+                    </UTooltip>
                   </div>
-                  <UTooltip v-if="row.execution.results_file_path" text="Download results">
-                    <UButton
-                      variant="ghost"
-                      color="neutral"
-                      icon="i-ph-download-simple-bold"
-                      size="sm"
-                      :aria-label="`Download results of execution #${row.execution.id}`"
-                      @click="() => { downloadResultsFile(row.execution.id) }"
-                    />
-                  </UTooltip>
+                  <!-- Rows that failed, folded and full width: their errors, grouped, and each row in full.
+                         Loaded while folded, so it opens at its final height instead of growing as it loads. -->
+                  <UCollapsible
+                    v-if="failedRows(row.execution)"
+                    :open="openFailures.has(row.execution.id)"
+                    class="group/failures mt-1"
+                    :unmount-on-hide="false"
+                    :ui="{ content: 'data-[state=open]:animate-[collapsible-down_200ms_var(--ease-out)] data-[state=closed]:animate-[collapsible-up_150ms_var(--ease-out)] motion-reduce:animate-none' }"
+                    @update:open="(value: boolean) => setFailuresOpen(row.execution.id, value)"
+                  >
+                    <button
+                      type="button"
+                      class="-ms-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-error outline-none hover:bg-error/10 focus-visible:outline-2 focus-visible:outline-inverted"
+                    >
+                      <UIcon
+                        name="i-ph-caret-right-bold"
+                        class="size-3 shrink-0 transition-transform duration-200 ease-(--ease-out) motion-reduce:transition-none group-data-[state=open]/failures:rotate-90"
+                        aria-hidden="true"
+                      />
+                      <span class="tabular-nums">{{ failedRows(row.execution) }} of {{ formatRows(processedRows(row.execution)) }} failed</span>
+                    </button>
+                    <template #content>
+                      <!-- Padding, not margin: a margin would escape the measured height and jump at the end of the opening -->
+                      <ExperimentsExecutionFailures :execution-id="row.execution.id" class="pt-1.5" @loaded="onFailuresLoaded(row.execution)" />
+                    </template>
+                  </UCollapsible>
                 </li>
               </ul>
               <div
