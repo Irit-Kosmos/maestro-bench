@@ -383,6 +383,9 @@ class ExperimentExecution(Authored, table=True):
     rows_total: int | None = None
     rows_done: int = 0
     rows_failed: int = 0
+    # Why the whole run failed, when it did; rows that fail one by one keep
+    # their own error in the results file
+    error: str | None = None
 
     # Dataset snapshot at execution time
     dataset_snapshot: str = Field(

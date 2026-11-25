@@ -196,6 +196,28 @@ def test_a_failing_setup_marks_the_run_failed(engine, experiment_id, datasets_di
         assert s.get(Experiment, experiment_id).status == "failed"
 
 
+def test_a_failed_run_keeps_why_on_its_execution(engine, experiment_id):
+    with Session(engine) as session:
+        assert async_jobs._begin_run(session, experiment_id) is not None
+
+    async_jobs._close_run(experiment_id, "failed", "the dataset is gone")
+
+    with scoped(engine) as s:
+        execution = s.exec(select(ExperimentExecution)).one()
+    assert execution.status == "failed"
+    assert execution.error == "the dataset is gone"
+
+
+def test_a_cancelled_run_keeps_no_error(engine, experiment_id):
+    with Session(engine) as session:
+        assert async_jobs._begin_run(session, experiment_id) is not None
+
+    async_jobs._close_run(experiment_id, "cancelled", "cancelled")
+
+    with scoped(engine) as s:
+        assert s.exec(select(ExperimentExecution)).one().error is None
+
+
 def test_results_are_valid_json(engine, experiment_id, pipeline, results_dir):
     asyncio.run(async_jobs.run_experiment_async(experiment_id))
 

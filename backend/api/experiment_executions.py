@@ -24,13 +24,16 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from sqlmodel import Session, col, select
 
+from analysis import result_rows
 from db import SessionDep
 from loading import people
 from results_files import execution_row_count, results_path
 from schemas.experiment_executions import (
     AgentExecutionSnapshotResponse,
+    ExecutionFailures,
     ExperimentExecutionResponse,
     ExperimentTrace,
+    FailureGroup,
 )
 from tables import (
     AgentExecutionSnapshot,
@@ -103,6 +106,9 @@ def _build_execution_responses(
             dataset_snapshot=execution.dataset_snapshot,
             results_file_path=execution.results_file_path,
             row_count=execution_row_count(execution),
+            rows_done=execution.rows_done,
+            rows_failed=execution.rows_failed,
+            error=execution.error,
             agent_executions=snapshots[int(execution.id)],
         )
         for execution in executions
@@ -175,6 +181,50 @@ def get_execution_trace(
         },
         dataset_metadata=json.loads(execution.dataset_snapshot),
     )
+
+
+def failure_groups(rows: list[dict]) -> ExecutionFailures:
+    """Group the failed rows of a results file by the step and error that stopped them."""
+    groups: dict[tuple[str | None, str | None, str], list[int]] = {}
+    failed = 0
+    for row in rows:
+        failing = next((a for a in row.get("agents") or [] if a.get("error")), None)
+        if failing is None and not row.get("error"):
+            continue
+        failed += 1
+        if failing is not None:
+            key = (failing.get("name"), failing.get("step_key"), str(failing["error"]))
+        else:
+            # Failed before any agent ran (or an old file with no agent error)
+            key = (None, None, str(row["error"]))
+        groups.setdefault(key, []).append(row.get("row_index"))
+    ordered = sorted(groups.items(), key=lambda item: -len(item[1]))
+    return ExecutionFailures(
+        failed_rows=failed,
+        groups=[
+            FailureGroup(
+                message=message,
+                agent_name=agent_name,
+                step_key=step_key,
+                rows=sorted(r for r in row_ids if r is not None),
+            )
+            for (agent_name, step_key, message), row_ids in ordered
+        ],
+    )
+
+
+@router.get("/executions/{execution_id}/failures", response_model=ExecutionFailures)
+def get_execution_failures(execution_id: int, session: SessionDep):
+    """The rows of an execution that failed, grouped by what stopped them."""
+    execution = session.get(ExperimentExecution, execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    path = results_path(execution)
+    if path is None or not path.exists():
+        # No results file yet (running) or ever (the whole run failed): nothing to group
+        return ExecutionFailures(failed_rows=0, groups=[])
+    with open(path) as f:
+        return failure_groups(result_rows(json.load(f)))
 
 
 @router.get("/executions/{execution_id}/results")

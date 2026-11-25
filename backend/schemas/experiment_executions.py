@@ -86,7 +86,30 @@ class ExperimentExecutionResponse(BaseModel):
     results_file_path: str | None
     # Dataset rows processed; None until the results file exists
     row_count: int | None = None
+    # Live progress, in dataset rows; failed rows are counted in rows_done
+    rows_done: int = 0
+    rows_failed: int = 0
+    # Why the whole run failed, when it did
+    error: str | None = None
     agent_executions: list[AgentExecutionSnapshotResponse] = []
+
+
+class FailureGroup(BaseModel):
+    """Rows of an execution that failed the same way."""
+
+    message: str
+    # The step that failed; None when the row failed before reaching an agent
+    agent_name: str | None = None
+    step_key: str | None = None
+    # Rows of the execution (their row_index), in order
+    rows: list[int]
+
+
+class ExecutionFailures(BaseModel):
+    """The failed rows of an execution, grouped by error, most rows first."""
+
+    failed_rows: int
+    groups: list[FailureGroup]
 
 
 class ExperimentTrace(BaseModel):

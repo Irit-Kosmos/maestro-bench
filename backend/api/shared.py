@@ -63,12 +63,14 @@ READABLE = {
     "/executions/{execution_id}/results",
     "/executions/{execution_id}/analysis-fields",
     "/executions/{execution_id}/rows/{row_index}",
+    "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
 }
 DATA = {
     "/executions/{execution_id}/results",
     "/executions/{execution_id}/analysis-fields",
     "/executions/{execution_id}/rows/{row_index}",
+    "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
 }
 
