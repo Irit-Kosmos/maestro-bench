@@ -208,6 +208,14 @@ const toggle = 'flex h-8 items-center justify-between gap-3 rounded-md border bo
           class="w-full"
         />
       </UFormField>
+
+      <!-- The header's save scrolls away with long prompts: the end of the form repeats it -->
+      <div class="flex justify-end">
+        <UButton type="submit" color="neutral" variant="soft" size="sm" :loading="saving" :disabled="!valid">
+          {{ mode === 'create' ? 'Create version' : 'Save changes' }}
+          <BaseKbd value="meta" /><BaseKbd value="enter" />
+        </UButton>
+      </div>
     </div>
   </form>
 </template>

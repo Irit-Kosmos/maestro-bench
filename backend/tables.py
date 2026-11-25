@@ -136,7 +136,9 @@ class Model(Authored, table=True):
     max_tokens: int | None = None  # Model's context limit
 
     # Default model parameters (can be overridden in experiments)
-    default_temperature: float | None = Field(default=0)
+    # Some models take no temperature: none is ever sent to their provider
+    supports_temperature: bool = Field(default=True)
+    default_temperature: float | None = None
     default_max_tokens: int | None = None
 
     is_active: bool = Field(default=True)
@@ -381,6 +383,9 @@ class ExperimentExecution(Authored, table=True):
     rows_total: int | None = None
     rows_done: int = 0
     rows_failed: int = 0
+    # Why the whole run failed, when it did; rows that fail one by one keep
+    # their own error in the results file
+    error: str | None = None
 
     # Dataset snapshot at execution time
     dataset_snapshot: str = Field(

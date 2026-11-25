@@ -95,12 +95,16 @@ const openPrompts = reactive<Record<string, boolean>>({})
           <ModelsLabel :name="snapshot.model_name_snapshot" :provider="snapshot.model_provider_snapshot" />
         </dd>
       </div>
-      <div v-if="snapshot.final_temperature !== null && snapshot.final_temperature !== undefined" class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5">
         <dt class="text-muted">
           Temperature
         </dt>
-        <dd class="text-highlighted tabular-nums">
+        <!-- None: the model takes no temperature, none was sent -->
+        <dd v-if="snapshot.final_temperature !== null && snapshot.final_temperature !== undefined" class="text-highlighted tabular-nums">
           {{ snapshot.final_temperature }}
+        </dd>
+        <dd v-else class="text-muted" title="This model takes no temperature: none was sent">
+          None
         </dd>
       </div>
       <div v-if="snapshot.final_max_tokens" class="flex items-center gap-1.5">

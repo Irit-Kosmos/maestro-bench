@@ -231,6 +231,20 @@ def test_greedy_sampling_on_mistral_sets_top_p(monkeypatch, provider, temperatur
     assert seen[0].get("top_p") == top_p
 
 
+def test_no_temperature_is_sent_for_a_model_that_takes_none(monkeypatch):
+    seen = []
+
+    async def fake_acompletion(**kwargs):
+        seen.append(kwargs)
+        return _response()
+
+    monkeypatch.setattr(llm.litellm, "acompletion", fake_acompletion)
+    asyncio.run(
+        llm.call_llm("m", "anthropic", [{"role": "user", "content": "hi"}], temperature=None)
+    )
+    assert "temperature" not in seen[0]
+
+
 @pytest.mark.parametrize(
     ("provider", "model", "expected"),
     [

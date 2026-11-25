@@ -354,7 +354,9 @@ def get_execution_row(
         agents=[
             AgentRowOutput(
                 name=agent.get("name"),
+                step_key=agent.get("step_key"),
                 kind=agent.get("kind") or "llm",
+                messages_sent=agent.get("messages_sent"),
                 inputs=agent.get("inputs"),
                 output=parse_json_output(agent.get("output")),
                 error=agent.get("error"),

@@ -43,6 +43,15 @@ export interface AgentFlowEdge extends GraphEdge {
   fromMapping?: boolean
 }
 
+/**
+ * The graph as it was left for the list: the list's order at that moment, and the links drawn by hand.
+ * Coming back to the graph puts them back, as long as the list kept that order.
+ */
+export interface SavedFlowLayout {
+  keys: string[]
+  links: { source: string, target: string }[]
+}
+
 export type InputMappingSource = 'dataset' | 'agent' | 'static'
 
 const NODE_PREFIX = 'step-'
@@ -427,9 +436,49 @@ export function useAgentFlow(
       edges.value = edges.value.filter(e => e.id !== edgeId)
   }
 
+  // The links drawn on the graph, by step key: mapping edges come back with their mappings
+  function savedLinks(): SavedFlowLayout['links'] {
+    return edges.value
+      .filter(edge => !edge.fromMapping)
+      .map(edge => ({ source: keyOfNode(edge.source), target: keyOfNode(edge.target) }))
+  }
+
+  // Links of a saved graph that still hold for these steps, or null when the list reordered them.
+  // A step removed in the list hands its links on (A → B → C without B is A → C); a step added there
+  // runs between its neighbours in the list.
+  function restoredLinks(keys: string[], saved: SavedFlowLayout): SavedFlowLayout['links'] | null {
+    const present = new Set(keys)
+    const kept = saved.keys.filter(key => present.has(key))
+    const survivors = keys.filter(key => saved.keys.includes(key))
+    if (kept.join('\n') !== survivors.join('\n'))
+      return null
+
+    let links = saved.links.filter(link => saved.keys.includes(link.source) && saved.keys.includes(link.target))
+    for (const removed of saved.keys.filter(key => !present.has(key))) {
+      const before = links.filter(link => link.target === removed).map(link => link.source)
+      const after = links.filter(link => link.source === removed).map(link => link.target)
+      links = links.filter(link => link.source !== removed && link.target !== removed)
+      for (const source of before) {
+        for (const target of after)
+          links.push({ source, target })
+      }
+    }
+
+    keys.forEach((key, index) => {
+      if (saved.keys.includes(key))
+        return
+      if (index > 0)
+        links.push({ source: keys[index - 1]!, target: key })
+      if (index < keys.length - 1)
+        links.push({ source: key, target: keys[index + 1]! })
+    })
+    return links
+  }
+
   // Sync flow nodes from existing step configurations.
-  // Steps are chained in run order, so the graph opens as the same sequence the list showed.
-  function syncFromConfigs() {
+  // The graph left for the list comes back as it was; otherwise steps are chained in run order,
+  // so the graph opens as the same sequence the list showed.
+  function syncFromConfigs(saved?: SavedFlowLayout | null) {
     // Only sync if canvas is empty (preserve existing layout)
     if (nodes.value.length > 0)
       return
@@ -443,11 +492,19 @@ export function useAgentFlow(
         || a.agent.id - b.agent.id
         || splitStep(a.key).instance - splitStep(b.key).instance)
 
-    ordered.forEach((step, index) => {
-      addNode(step.key, step.agent)
-      if (index > 0)
-        connect(nodeIdOf(ordered[index - 1]!.key), nodeIdOf(step.key))
-    })
+    ordered.forEach(step => addNode(step.key, step.agent))
+
+    const keys = ordered.map(step => step.key)
+    const links = saved ? restoredLinks(keys, saved) : null
+    if (links) {
+      links.forEach(link => connect(nodeIdOf(link.source), nodeIdOf(link.target)))
+    }
+    else {
+      keys.forEach((key, index) => {
+        if (index > 0)
+          connect(nodeIdOf(keys[index - 1]!), nodeIdOf(key))
+      })
+    }
     syncMappingEdges()
   }
 
@@ -469,6 +526,7 @@ export function useAgentFlow(
     computeExecutionOrder,
     updateAgentConfig,
     syncFromConfigs,
+    savedLinks,
     syncMappingEdges,
     canConnect,
     connect,

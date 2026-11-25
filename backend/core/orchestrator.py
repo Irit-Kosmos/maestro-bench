@@ -57,7 +57,8 @@ class AgentConfig:
     variables: list[str]  # variable names this agent expects
     model: str
     provider: str
-    temperature: float = 0.0
+    # None: the model takes no temperature, none is sent
+    temperature: float | None = 0.0
     max_tokens: int | None = None
     execution_order: int = 1
     input_mappings: list[dict] | None = None

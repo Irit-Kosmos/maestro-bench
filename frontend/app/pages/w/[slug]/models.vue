@@ -64,10 +64,16 @@ function emptyForm(): ModelFormValues {
     provider: '',
     description: '',
     max_tokens: null,
+    supports_temperature: true,
     default_temperature: null,
     default_max_tokens: null,
     is_active: true,
   }
+}
+
+// An emptied number field may hold '' rather than null
+function temperatureOrNull(value: number | string | null): number | null {
+  return value === null || value === '' ? null : Number(value)
 }
 
 const createForm = ref<ModelFormValues>(emptyForm())
@@ -101,7 +107,8 @@ async function handleCreateModel() {
     const formData = {
       ...createForm.value,
       max_tokens: createForm.value.max_tokens ?? undefined,
-      default_temperature: createForm.value.default_temperature ?? undefined,
+      // null, not undefined: an emptied field clears the temperature
+      default_temperature: temperatureOrNull(createForm.value.default_temperature),
       default_max_tokens: createForm.value.default_max_tokens ?? undefined,
     }
 
@@ -131,6 +138,7 @@ function editModel(model: Model) {
     provider: model.provider,
     description: model.description || '',
     max_tokens: model.max_tokens ?? null,
+    supports_temperature: model.supports_temperature,
     default_temperature: model.default_temperature ?? null,
     default_max_tokens: model.default_max_tokens ?? null,
     is_active: model.is_active,
@@ -148,7 +156,8 @@ async function handleUpdateModel() {
     const formData = {
       ...editForm.value,
       max_tokens: editForm.value.max_tokens ?? undefined,
-      default_temperature: editForm.value.default_temperature ?? undefined,
+      // null, not undefined: an emptied field clears the temperature
+      default_temperature: temperatureOrNull(editForm.value.default_temperature),
       default_max_tokens: editForm.value.default_max_tokens ?? undefined,
     }
 

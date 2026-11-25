@@ -39,6 +39,7 @@ const { data: batches, pending, error, refresh } = await useMyLazyFetch<Batch[]>
 
 const { deleteBatch } = useBatches()
 const { canEdit } = useCurrentWorkspace()
+const { downloadSelection, downloadingZip } = useResultsDownload()
 const { showDeleteSuccess, showDeleteError } = useStandardToast()
 
 const showDeleteDialog = ref(false)
@@ -166,11 +167,21 @@ async function confirmDelete() {
         item-name="batch"
         item-name-plural="batches"
         searchable
-        :selectable="canEdit"
+        selectable
         @refresh="refresh"
       >
         <template #selection-actions="{ rows }">
-          <StudiesBulkMenu kind="batch" :ids="rows.map((row: Batch) => row.id)" />
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-ph-download-simple-bold"
+            size="sm"
+            :loading="downloadingZip"
+            @click="downloadSelection({ batchIds: rows.map((row: Batch) => row.id) })"
+          >
+            Download
+          </UButton>
+          <StudiesBulkMenu v-if="canEdit" kind="batch" :ids="rows.map((row: Batch) => row.id)" />
         </template>
 
         <template #experiments-cell="{ row }">

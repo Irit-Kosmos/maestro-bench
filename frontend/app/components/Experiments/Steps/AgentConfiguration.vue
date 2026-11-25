@@ -20,6 +20,7 @@
 -->
 
 <script setup lang="ts">
+import type { SavedFlowLayout } from '~/composables/useAgentFlow'
 import type { PipelineItem } from '~/composables/useAgentPipeline'
 import type { Agent, AgentConfiguration, Model, PromptVersion } from '~/types'
 
@@ -63,7 +64,14 @@ provide(AGENT_PROMPT_VERSIONS, computed(() => Object.fromEntries(Object.entries(
   .map(([key, config]) => [key, config?.prompt_version_id]))))
 
 const view = ref<'list' | 'graph'>('list')
-const flowViewRef = ref<{ computeExecutionOrder: () => Map<string, number>, addAgent: (agent: Agent) => void } | null>(null)
+const flowViewRef = ref<{
+  computeExecutionOrder: () => Map<string, number>
+  addAgent: (agent: Agent) => void
+  savedLinks: () => SavedFlowLayout['links']
+} | null>(null)
+
+// The graph's links, kept while the list is shown: coming back to the graph finds them as they were
+const savedLayout = ref<SavedFlowLayout | null>(null)
 
 // Run order for submission: the graph's topological order, or simply the list's
 function getExecutionOrder() {
@@ -88,7 +96,9 @@ function showView(next: 'list' | 'graph') {
     // The list has one order: connected agents keep theirs, unconnected ones follow the list
     const order = flowViewRef.value.computeExecutionOrder()
     const hasTies = new Set(order.values()).size < order.size
+    const links = flowViewRef.value.savedLinks()
     pipeline.applyOrder(order)
+    savedLayout.value = { keys: items.value.map(item => item.key), links }
     if (hasTies) {
       info('Agents now run in list order', 'Agents that were not connected to each other run one after another.')
     }
@@ -337,6 +347,7 @@ const problemCount = computed(() => problems.value.reduce((total, entry) => tota
         :all-prompt-versions="promptVersions"
         :agent-configurations="configurations"
         :dataset-headers="datasetHeaders"
+        :saved-layout="savedLayout"
         @update-agent-config="onGraphUpdate"
         @remove-agent-config="removeGraphStep"
         @add-agent="key => nextTick(() => pipeline.autoMap(key))"

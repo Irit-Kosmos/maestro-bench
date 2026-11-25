@@ -30,6 +30,7 @@ const { cancelBatch, rerunBatch, deleteBatch } = useBatches()
 const { formatDate } = useUIHelpers()
 const { canEdit } = useCurrentWorkspace()
 const { isShared } = useShare()
+const { downloadBatch, downloadingZip } = useResultsDownload()
 
 const { data: batch, pending, error, refresh } = await useMyLazyFetch<Batch>(() => `/batches/${batchId.value}`)
 
@@ -213,6 +214,16 @@ async function handleDelete() {
         >
           Analyze
         </UIGuardedButton>
+        <UButton
+          color="neutral"
+          variant="soft"
+          icon="i-ph-download-simple-bold"
+          size="sm"
+          :loading="downloadingZip"
+          @click="downloadBatch(batch.id)"
+        >
+          Download
+        </UButton>
         <SharesButton v-if="batch" kind="batch" :item-id="batch.id" />
         <UDropdownMenu
           v-if="canEdit"
@@ -297,7 +308,7 @@ async function handleDelete() {
         </div>
       </dl>
 
-      <ExperimentsSection id="experiments" title="Experiments" description="One experiment per combination. Open one to see its configuration and executions.">
+      <ExperimentsSection id="experiments" title="Experiments" icon="i-ph-flask-bold" description="One experiment per combination. Open one to see its configuration and executions.">
         <div class="overflow-x-auto rounded-lg border border-default">
           <table class="w-full text-sm">
             <thead class="border-b border-default text-start text-xs text-muted">

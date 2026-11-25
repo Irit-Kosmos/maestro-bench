@@ -203,7 +203,10 @@ page lists (a dataset on Datasets, a prompt on Prompts...), an experiment elsewh
    when sampling randomly, and share provider rate limits
    (`<PROVIDER>_MAX_RPS`). Deleting a batch keeps its experiments.
 7. **Results** - open an experiment to inspect its executions and per-agent
-   traces, or download the full JSON results file.
+   traces, or download the full JSON results file. **Download** on a batch, or
+   on a selection of batches or experiments, gives one `.zip` with the results
+   file of each experiment's latest completed execution, in one folder per
+   batch (`experiments/` for those in no batch).
 8. **Analyses** - click **Analyze** on an experiment (or create one from the
    Analyses page), pick the dataset column holding the ground truth and the
    path to the prediction in the agent's JSON output (e.g. `score`), choose
@@ -376,7 +379,7 @@ the app's own pages, with no account.
 - **What it opens**: the item and what lies strictly below it (an experiment's
   executions, a batch's experiments, the executions an analysis compares,
   everything a study gathers), with prompts, models, the dataset rows processed
-  and the results file. **Never**: notes, authors, tags, the rest of the
+  and the results files (a batch's as one `.zip` too). **Never**: notes, authors, tags, the rest of the
   workspace, API keys. The reader cannot change anything.
 - **Live**: the link shows the item as it is now. There is one active link per
   item, shared by all editors: whoever stops sharing, or makes a new link, ends

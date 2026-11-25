@@ -151,7 +151,10 @@ class ExecutionFields(BaseModel):
 
 class AgentRowOutput(BaseModel):
     name: str | None
+    step_key: str | None = None
     kind: str = "llm"
+    # The chat messages the agent sent its model (none for aggregators)
+    messages_sent: list[dict[str, Any]] | None = None
     # Aggregators: the value each formula variable resolved to
     inputs: dict[str, Any] | None = None
     # Parsed when the agent answered with JSON, the raw text otherwise

@@ -42,7 +42,14 @@ from fastapi.routing import APIRoute
 from sqlmodel import select
 
 import config
-from api import analyses, batches, experiment_executions, experiments, studies
+from api import (
+    analyses,
+    batches,
+    downloads,
+    experiment_executions,
+    experiments,
+    studies,
+)
 from db import SessionDep
 from schemas.shares import SharedRoot
 from share_scope import ROOT_TABLES, Scope, scope_of
@@ -63,13 +70,18 @@ READABLE = {
     "/executions/{execution_id}/results",
     "/executions/{execution_id}/analysis-fields",
     "/executions/{execution_id}/rows/{row_index}",
+    "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
+    # The results of every experiment of a batch, in one .zip file
+    "/batches/{batch_id}/results",
 }
 DATA = {
     "/executions/{execution_id}/results",
     "/executions/{execution_id}/analysis-fields",
     "/executions/{execution_id}/rows/{row_index}",
+    "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
+    "/batches/{batch_id}/results",
 }
 
 # The id in a path, and what it is the id of
@@ -88,7 +100,7 @@ TOKEN_FORMAT = re.compile(r"[A-Za-z0-9_-]{1,64}")
 ID_FORMAT = re.compile(r"[0-9]{1,18}")
 
 # What the app shows that a link must not: the people, the tags, the files of the server
-# (`results_file_path` too, see `scrub`)
+# (`results_file_path` too, see `scrub`). A function makes the blank of the field's value.
 BLANKED: dict[str, object] = {
     "author": None,
     "added_by": None,
@@ -98,7 +110,11 @@ BLANKED: dict[str, object] = {
     # The experiment a batch came from is not part of the batch: neither is its name
     "base_experiment_id": None,
     "base_experiment_name": None,
+    # Why a run failed is the server's own message (its paths, its internals): a link only
+    # says that it failed
+    "error": lambda error: RUN_FAILED if error else error,
 }
+RUN_FAILED = "The run stopped on an error"
 
 
 # What the results of an analysis show of the experiments it compares, which the link does not reach
@@ -120,7 +136,9 @@ def scrub(value: object, scope: Scope, blanked: dict[str, object] = BLANKED) -> 
     scrubbed = {}
     for key, item in value.items():
         if key in blanked:
-            scrubbed[key] = blanked[key]
+            # A value, or what to make of the field's own value
+            blank = blanked[key]
+            scrubbed[key] = blank(item) if callable(blank) else blank
         elif key == "batch_name" and hide_batch:
             scrubbed[key] = None
         elif key == "results_file_path":
@@ -251,7 +269,7 @@ def _route_class(path: str) -> type[APIRoute] | None:
 
 def _mount_readable_routes() -> None:
     mounted = set()
-    for module in (studies, batches, experiments, experiment_executions, analyses):
+    for module in (studies, batches, downloads, experiments, experiment_executions, analyses):
         for route in module.router.routes:
             if (
                 not isinstance(route, APIRoute)

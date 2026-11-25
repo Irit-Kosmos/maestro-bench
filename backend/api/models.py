@@ -27,6 +27,12 @@ from tables import Model as ModelTable
 router = APIRouter(tags=["models"])
 
 
+def _drop_unsupported_temperature(model: ModelTable) -> None:
+    """A model that takes no temperature keeps no default one."""
+    if not model.supports_temperature:
+        model.default_temperature = None
+
+
 @router.get("/models", response_model=list[ModelTable])
 def list_models(session: SessionDep):
     return session.exec(select(ModelTable)).all()
@@ -41,10 +47,12 @@ def create_model(
         provider=model_data.provider,
         description=model_data.description,
         max_tokens=model_data.max_tokens,
+        supports_temperature=model_data.supports_temperature,
         default_temperature=model_data.default_temperature,
         default_max_tokens=model_data.default_max_tokens,
         is_active=model_data.is_active,
     )
+    _drop_unsupported_temperature(model)
     session.add(model)
     session.commit()
     session.refresh(model)
@@ -71,6 +79,7 @@ def update_model(
 
     for field, value in model_data.model_dump(exclude_unset=True).items():
         setattr(model, field, value)
+    _drop_unsupported_temperature(model)
 
     session.add(model)
     session.commit()

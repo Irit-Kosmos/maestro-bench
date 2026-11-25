@@ -409,6 +409,9 @@ def _close_run(experiment_id: int, status: str, reason: str) -> None:
             for exc in running_executions:
                 exc.status = status
                 exc.completed_at = datetime.now(UTC)
+                # Kept to be shown with the execution; a cancellation needs no reason
+                if status == "failed":
+                    exc.error = reason[:2000]
                 db_session.add(exc)
 
             db_session.commit()

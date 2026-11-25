@@ -144,9 +144,24 @@ const unmappedCount = computed(() => variations.value.reduce((total, variation) 
   return total + addedOf(variation).filter(variable => !mapped.has(variable)).length
 }, 0))
 
+// A step whose model takes no temperature cannot vary it, unless its model
+// varies too (the runs on that model then ignore it and read "no T")
+function canVaryTemperature(stepKey: string) {
+  const modelId = steps.value.find(item => item.key === stepKey)?.config.model_id
+  const model = props.models?.find(m => m.id === modelId)
+  return model?.supports_temperature !== false
+    || variations.value.some(v => v.step_key === stepKey && v.field === 'model_id')
+}
+
+function fieldItems(stepKey: string) {
+  return VARIATION_FIELDS.map(f => f.value === 'temperature' && !canVaryTemperature(stepKey)
+    ? { ...f, disabled: true, label: `${f.label} (this model has none)` }
+    : f)
+}
+
 function firstFreeField(stepKey: string): VariationField {
   const used = new Set(variations.value.filter(v => v.step_key === stepKey).map(v => v.field))
-  return VARIATION_FIELDS.find(f => !used.has(f.value))?.value ?? 'model_id'
+  return fieldItems(stepKey).find(f => !used.has(f.value) && !('disabled' in f && f.disabled))?.value ?? 'model_id'
 }
 
 function add() {
@@ -164,9 +179,10 @@ function remove(index: number) {
   variations.value = variations.value.filter((_, i) => i !== index)
 }
 
-function parseTemperatures(raw: string[]): number[] {
-  const numbers = raw.map(value => Number(value.trim().replace(',', '.'))).filter(n => Number.isFinite(n) && n >= 0)
-  return [...new Set(numbers)]
+// The temperature the step's model falls back to when the setup leaves it empty
+function modelDefaultOf(stepKey: string) {
+  const modelId = steps.value.find(item => item.key === stepKey)?.config.model_id
+  return props.models?.find(m => m.id === modelId)?.default_temperature ?? null
 }
 
 // A step can leave the pipeline while its variation is still listed
@@ -245,6 +261,7 @@ watch(steps, (list) => {
             color="neutral"
             variant="ghost"
             size="sm"
+            class="justify-self-end self-start"
             aria-label="Stop varying the dataset"
             @click="() => { datasetAxis = null }"
           />
@@ -283,7 +300,7 @@ watch(steps, (list) => {
           <USelectMenu
             :model-value="variation.field"
             value-key="value"
-            :items="VARIATION_FIELDS"
+            :items="fieldItems(variation.step_key)"
             class="w-full"
             aria-label="Field to vary"
             @update:model-value="(field) => patch(index, { field: field as VariationField, extras: [] })"
@@ -312,27 +329,20 @@ watch(steps, (list) => {
             aria-label="Prompt versions to run"
             @update:model-value="(values) => patch(index, { extras: onlyAdded(variation, values) })"
           />
-          <div v-else class="flex min-w-0 items-center gap-2">
-            <UBadge
-              color="neutral"
-              variant="subtle"
-              class="shrink-0"
-              :label="`Current: ${baseOf(variation) ?? 'model default'}`"
-            />
-            <UInputTags
-              :model-value="variation.extras.map(String)"
-              placeholder="Add: 0, 0.5, 1 (Enter)"
-              class="min-w-0 flex-1"
-              aria-label="Other temperatures to run"
-              @update:model-value="(raw) => patch(index, { extras: parseTemperatures(raw as string[]) })"
-            />
-          </div>
+          <ExperimentsTemperatureValues
+            v-else
+            :model-value="variation.extras"
+            :base="baseOf(variation)"
+            :model-default="modelDefaultOf(variation.step_key)"
+            @update:model-value="(values) => patch(index, { extras: values })"
+          />
 
           <UButton
             icon="i-ph-x-bold"
             color="neutral"
             variant="ghost"
             size="sm"
+            class="justify-self-end self-start"
             aria-label="Remove variation"
             @click="remove(index)"
           />

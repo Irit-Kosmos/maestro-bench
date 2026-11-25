@@ -83,7 +83,9 @@ def test_returns_input_and_parsed_agent_output(client, engine, results_dir):
     assert body["agents"] == [
         {
             "name": "Grader",
+            "step_key": None,
             "kind": "llm",
+            "messages_sent": None,
             "inputs": None,
             "output": {"score": 4},
             "error": None,

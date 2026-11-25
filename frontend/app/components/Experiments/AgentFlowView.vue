@@ -20,6 +20,7 @@
 -->
 
 <script setup lang="ts">
+import type { SavedFlowLayout } from '~/composables/useAgentFlow'
 import type { StepRef } from '~/composables/useAgentPipeline'
 import type { Agent, Model, PromptVersion } from '~/types'
 import { useAgentFlow } from '~/composables/useAgentFlow'
@@ -30,6 +31,8 @@ interface Props {
   allPromptVersions?: PromptVersion[] | null
   agentConfigurations: Record<string, any>
   datasetHeaders?: readonly string[]
+  /** The graph as it was left for the list, to open it the same way */
+  savedLayout?: SavedFlowLayout | null
 }
 
 const props = defineProps<Props>()
@@ -69,6 +72,7 @@ const {
   computeExecutionOrder,
   updateAgentConfig: flowUpdateAgentConfig,
   syncFromConfigs,
+  savedLinks,
   syncMappingEdges,
   updateInputMapping,
   getInputMappings,
@@ -81,10 +85,15 @@ const {
 provide('agentFlowOrder', computed(() => computeExecutionOrder()))
 
 // Auto-populate the canvas from the agent configurations, also when they change under it
-// (e.g. switching from the list view)
+// (e.g. switching from the list view). The saved layout is for the first time only: a graph emptied
+// by hand starts afresh.
+let savedLayout = props.savedLayout
 watch(() => props.agentConfigurations, () => {
   if (nodes.value.length === 0) {
-    syncFromConfigs()
+    syncFromConfigs(savedLayout)
+    // Agents still loading leave the canvas empty: keep it for when they come
+    if (nodes.value.length > 0)
+      savedLayout = null
   }
   syncMappingEdges()
 }, { immediate: true, deep: true })
@@ -203,6 +212,7 @@ defineExpose({
   computeExecutionOrder,
   addAgent: (agent: Agent) => handleAddAgent(agent),
   getFlowStepKeys: () => flowStepKeys.value,
+  savedLinks,
 })
 </script>
 

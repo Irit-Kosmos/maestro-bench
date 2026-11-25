@@ -25,6 +25,7 @@ export interface ModelFormValues {
   provider: string
   description: string
   max_tokens: number | null
+  supports_temperature: boolean
   default_temperature: number | null
   default_max_tokens: number | null
   is_active: boolean
@@ -37,6 +38,21 @@ defineProps<{
 }>()
 
 const form = defineModel<ModelFormValues>({ required: true })
+
+// A model that takes no temperature keeps no default one
+watch(() => form.value.supports_temperature, (supported) => {
+  if (!supported)
+    form.value.default_temperature = null
+})
+
+// Open from the start when the model already sets some of the advanced fields
+// (the modal mounts the form each time it opens, with the values in place)
+const advancedOpen = ref(
+  form.value.max_tokens != null
+  || form.value.default_max_tokens != null
+  || form.value.default_temperature != null
+  || !form.value.supports_temperature,
+)
 
 const { lacksCredentials, missingKeyAdvice } = useProviderStatus()
 const { isOwner } = useCurrentWorkspace()
@@ -75,41 +91,61 @@ const { isOwner } = useCurrentWorkspace()
       />
     </UFormField>
 
-    <UFormField label="Context window" hint="Tokens">
-      <UInput
-        v-model="form.max_tokens"
-        type="number"
-        min="1"
-        placeholder="e.g. 128000"
-        class="w-full"
-      />
-    </UFormField>
-
-    <UFormField label="Default max tokens" hint="Tokens">
-      <UInput
-        v-model="form.default_max_tokens"
-        type="number"
-        min="1"
-        placeholder="e.g. 2048"
-        class="w-full"
-      />
-    </UFormField>
-
-    <UFormField label="Default temperature">
-      <UInput
-        v-model="form.default_temperature"
-        type="number"
-        step="0.1"
-        min="0"
-        max="2"
-        placeholder="e.g. 0.7"
-        class="w-full"
-      />
-    </UFormField>
-
-    <div class="flex items-center justify-between gap-3 self-end rounded-md border border-default px-3 h-8">
+    <div class="flex items-center justify-between gap-3 rounded-md border border-default px-3 h-8 sm:col-span-2">
       <label class="text-sm text-default" for="model-active">Active</label>
       <USwitch id="model-active" v-model="form.is_active" size="sm" />
     </div>
+
+    <!-- The tuning most models do without: folded away unless the model sets some of it -->
+    <UCollapsible v-model:open="advancedOpen" class="group/advanced sm:col-span-2">
+      <button
+        type="button"
+        class="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-start text-sm font-medium text-highlighted outline-none focus-visible:outline-2 focus-visible:outline-inverted"
+      >
+        <UIcon name="i-ph-caret-right-bold" class="size-4 shrink-0 text-muted transition-transform duration-200 ease-(--ease-out) group-data-[state=open]/advanced:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+        Advanced settings
+        <span class="truncate text-xs font-normal text-muted">Context window, max tokens, temperature</span>
+      </button>
+      <template #content>
+        <div class="grid grid-cols-1 gap-4 pt-3 sm:grid-cols-2">
+          <UFormField label="Context window" hint="Tokens">
+            <UInput
+              v-model="form.max_tokens"
+              type="number"
+              min="1"
+              placeholder="e.g. 128000"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Default max tokens" hint="Tokens">
+            <UInput
+              v-model="form.default_max_tokens"
+              type="number"
+              min="1"
+              placeholder="e.g. 2048"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div class="flex items-center justify-between gap-3 self-end rounded-md border border-default px-3 h-8">
+            <label class="text-sm text-default" for="model-supports-temperature">Supports temperature</label>
+            <USwitch id="model-supports-temperature" v-model="form.supports_temperature" size="sm" />
+          </div>
+
+          <UFormField v-if="form.supports_temperature" label="Default temperature">
+            <UInput
+              v-model="form.default_temperature"
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              placeholder="e.g. 0.7"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </template>
+    </UCollapsible>
   </div>
 </template>
