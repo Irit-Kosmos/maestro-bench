@@ -231,7 +231,10 @@ def unmapped_variables(
     return set() if mapped is None else prompt_variables - mapped
 
 
-def format_temperature(value: float | None) -> str:
+def format_temperature(value: float | None, *, supported: bool = True) -> str:
+    """Label of a temperature; "no T" when the model takes none (it is ignored)."""
+    if not supported:
+        return "no T"
     return "default T" if value is None else f"T={value:g}"
 
 

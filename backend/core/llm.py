@@ -146,7 +146,7 @@ async def call_llm(
     model: str,
     provider: str,
     messages: list[dict],
-    temperature: float = 0.0,
+    temperature: float | None = 0.0,
     max_tokens: int | None = None,
     api_key: str | None = None,
     key_id: str = "instance",
@@ -158,7 +158,8 @@ async def call_llm(
         model: Model identifier (e.g. "mistral-medium-2505", "gpt-4o", "claude-sonnet-4-20250514")
         provider: Provider name (e.g. "openai", "anthropic", "mistral")
         messages: Chat messages in OpenAI format [{"role": ..., "content": ...}]
-        temperature: Sampling temperature
+        temperature: Sampling temperature; None sends none (for models that
+            take no temperature, the provider decides)
         max_tokens: Maximum tokens to generate
         api_key: Key to call the provider with; None uses the instance's
             (the environment variable LiteLLM reads)
@@ -173,8 +174,9 @@ async def call_llm(
     kwargs: dict = {
         "model": litellm_model,
         "messages": messages,
-        "temperature": temperature,
     }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
     # Mistral treats a temperature of 0 as greedy sampling and refuses it unless

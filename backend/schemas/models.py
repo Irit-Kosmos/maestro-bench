@@ -31,7 +31,8 @@ class ModelCreate(BaseModel):
     provider: str
     description: str | None = None
     max_tokens: int | None = None
-    default_temperature: float | None = 0.7
+    supports_temperature: bool = True
+    default_temperature: float | None = None
     default_max_tokens: int | None = None
     is_active: bool = True
 
@@ -41,6 +42,7 @@ class ModelUpdate(BaseModel):
     provider: str | None = None
     description: str | None = None
     max_tokens: int | None = None
+    supports_temperature: bool | None = None
     default_temperature: float | None = None
     default_max_tokens: int | None = None
     is_active: bool | None = None

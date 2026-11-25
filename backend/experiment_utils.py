@@ -393,6 +393,20 @@ def aggregator_problems(
     return problems
 
 
+def resolve_temperature(model: Model, configured: float | None) -> float | None:
+    """The temperature a step runs at: None when its model takes none.
+
+    Otherwise the step's own (an explicit 0 is a real choice), else the
+    model's default, else 0. A step's temperature on a model that takes none
+    is kept in its configuration but ignored, so a batch can vary the model.
+    """
+    if not model.supports_temperature:
+        return None
+    if configured is not None:
+        return configured
+    return model.default_temperature or 0.0
+
+
 def create_execution_snapshot(
     experiment_id: int, session: Session
 ) -> ExperimentExecution:
@@ -512,10 +526,7 @@ def create_execution_snapshot(
             final_system_prompt=prompt_version.system_prompt,
             final_user_prompt=prompt_version.user_prompt,
             final_variables=prompt_version.variables,
-            # An explicit 0 is a real choice, not "use the model's default"
-            final_temperature=agent_config.temperature
-            if agent_config.temperature is not None
-            else (model.default_temperature or 0.0),
+            final_temperature=resolve_temperature(model, agent_config.temperature),
             final_max_tokens=agent_config.max_tokens or model.default_max_tokens,
             final_input_mappings=agent_config.input_mappings,
             execution_order=agent_config.execution_order,
@@ -574,7 +585,8 @@ def build_agent_configs_from_snapshot(
                 variables=variables,
                 model=snapshot.model_name_snapshot,
                 provider=snapshot.model_provider_snapshot,
-                temperature=snapshot.final_temperature or 0.0,
+                # None: the model takes no temperature (see resolve_temperature)
+                temperature=snapshot.final_temperature,
                 max_tokens=snapshot.final_max_tokens,
                 execution_order=snapshot.execution_order,
                 input_mappings=input_mappings,

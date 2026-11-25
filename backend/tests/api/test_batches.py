@@ -423,6 +423,58 @@ class TestBaseRun:
         assert [c.temperature for c in configs] == [None, 0.7]
 
 
+class TestModelWithoutTemperature:
+    """A temperature on a model that takes none is kept but ignored."""
+
+    @pytest.fixture
+    def no_temperature(self, engine, world):
+        with scoped(engine) as s:
+            model = s.get(Model, world["models"][2])
+            model.supports_temperature = False
+            s.add(model)
+            s.commit()
+        return world["models"][2]
+
+    def test_reads_no_t_when_varied_with_the_model(
+        self, client, world, engine, no_temperature
+    ):
+        variations = [
+            model_axis(world, 0, 2),
+            {"agent_id": world["agent"], "field": "temperature", "values": [0.3, 0.7]},
+        ]
+        body = client.post("/batches", json=payload(world, variations)).json()
+
+        assert [e["name"] for e in body["experiments"]] == [
+            "Compare · m-a · T=0.3",
+            "Compare · m-a · T=0.7",
+            "Compare · m-c · no T",
+            "Compare · m-c · no T",
+        ]
+        labels = [
+            [c["label"] for c in e["coordinates"]] for e in body["experiments"]
+        ]
+        assert labels[2] == ["m-c", "no T"]
+
+        with scoped(engine) as s:
+            snapshot = create_execution_snapshot(body["experiments"][2]["id"], s)
+            temperatures = [a.final_temperature for a in snapshot.agent_snapshots]
+        assert temperatures == [None]
+
+    def test_runs_at_its_temperature_on_a_model_that_takes_one(
+        self, client, world, engine, no_temperature
+    ):
+        variations = [model_axis(world, 0, 2)]
+        body = client.post(
+            "/batches", json=payload(world, variations, temperature=0.4)
+        ).json()
+
+        with scoped(engine) as s:
+            supported = create_execution_snapshot(body["experiments"][0]["id"], s)
+            ignored = create_execution_snapshot(body["experiments"][1]["id"], s)
+            assert [a.final_temperature for a in supported.agent_snapshots] == [0.4]
+            assert [a.final_temperature for a in ignored.agent_snapshots] == [None]
+
+
 class TestCreateBatchValidation:
     def assert_nothing_created(self, engine, jobs):
         with scoped(engine) as s:

@@ -136,7 +136,9 @@ class Model(Authored, table=True):
     max_tokens: int | None = None  # Model's context limit
 
     # Default model parameters (can be overridden in experiments)
-    default_temperature: float | None = Field(default=0)
+    # Some models take no temperature: none is ever sent to their provider
+    supports_temperature: bool = Field(default=True)
+    default_temperature: float | None = None
     default_max_tokens: int | None = None
 
     is_active: bool = Field(default=True)

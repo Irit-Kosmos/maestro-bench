@@ -134,6 +134,23 @@ def _value_label(field: str, value: int | float | None, labels: _Labels) -> str:
     return f"{prompt_name} v{version.version}"
 
 
+def _point_label(
+    point: dict, step: str, field: str, labels: _Labels
+) -> str:
+    """Label of a point's value, knowing the point's other values.
+
+    A temperature reads "no T" when the same step's model, varied with it,
+    takes none: the run ignores it.
+    """
+    fields = point[step]
+    value = fields[field]
+    if field == "temperature" and fields.get("model_id") is not None:
+        model = labels.get(Model, int(fields["model_id"]))
+        if model is not None and not model.supports_temperature:
+            return format_temperature(None, supported=False)
+    return _value_label(field, value, labels)
+
+
 def _agent_name(step: str, labels: _Labels) -> str:
     """Name of a step of a batch: its agent's, then "name #2"…"""
     if step == DATASET_AXIS:
@@ -543,9 +560,7 @@ def _batch_response(
                 agent_id=_axis_agent_id(v),
                 field=v["field"],
                 value=point[variation_step(v)][v["field"]],
-                label=_value_label(
-                    v["field"], point[variation_step(v)][v["field"]], labels
-                ),
+                label=_point_label(point, variation_step(v), v["field"], labels),
             )
             for v in variations
             if v["field"] in point.get(variation_step(v), {})
@@ -674,8 +689,7 @@ def create_batch(
         parts = []
         for variation in variations:
             step = variation_step(variation)
-            value = point[step][variation["field"]]
-            label = _value_label(variation["field"], value, labels)
+            label = _point_label(point, step, variation["field"], labels)
             parts.append(
                 f"{_agent_name(step, labels)}: {label}"
                 if multi_step and not is_dataset_axis(variation)
