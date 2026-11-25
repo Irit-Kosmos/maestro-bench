@@ -321,11 +321,25 @@ function onFailuresLoaded(execution: ExperimentExecution) {
   openFailures.value.add(execution.id)
 }
 
+// Each block reads its execution's whole results file: only the latest one is loaded with the
+// page. Another loads when its toggle is pointed at or focused (mostly done by the click, so it
+// still opens at its final height) or opened, then stays
+const failuresWanted = ref(new Set<number>())
+function wantFailures(id: number) {
+  failuresWanted.value.add(id)
+}
+function failuresLoad(execution: ExperimentExecution): boolean {
+  return execution.id === latestExecution.value?.id || failuresWanted.value.has(execution.id)
+}
+
 function setFailuresOpen(id: number, value: boolean) {
-  if (value)
+  if (value) {
+    wantFailures(id)
     openFailures.value.add(id)
-  else
+  }
+  else {
     openFailures.value.delete(id)
+  }
 }
 
 // A fade at the foot of the capped list says there is more below; it goes once the end is reached
@@ -632,7 +646,7 @@ watch(() => route.params.id, () => {
                     </UTooltip>
                   </div>
                   <!-- Rows that failed, folded and full width: their errors, grouped, and each row in full.
-                         Loaded while folded, so it opens at its final height instead of growing as it loads. -->
+                         Loaded while folded (see failuresLoad), so it opens at its final height instead of growing as it loads. -->
                   <UCollapsible
                     v-if="failedRows(row.execution)"
                     :open="openFailures.has(row.execution.id)"
@@ -644,6 +658,8 @@ watch(() => route.params.id, () => {
                     <button
                       type="button"
                       class="-ms-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-xs text-error outline-none hover:bg-error/10 focus-visible:outline-2 focus-visible:outline-inverted"
+                      @pointerenter="wantFailures(row.execution.id)"
+                      @focus="wantFailures(row.execution.id)"
                     >
                       <UIcon
                         name="i-ph-caret-right-bold"
@@ -654,7 +670,7 @@ watch(() => route.params.id, () => {
                     </button>
                     <template #content>
                       <!-- Padding, not margin: a margin would escape the measured height and jump at the end of the opening -->
-                      <ExperimentsExecutionFailures :execution-id="row.execution.id" class="pt-1.5" @loaded="onFailuresLoaded(row.execution)" />
+                      <ExperimentsExecutionFailures v-if="failuresLoad(row.execution)" :execution-id="row.execution.id" class="pt-1.5" @loaded="onFailuresLoaded(row.execution)" />
                     </template>
                   </UCollapsible>
                 </li>
