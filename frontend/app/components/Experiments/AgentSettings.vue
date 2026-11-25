@@ -45,7 +45,10 @@ const emit = defineEmits<{
 const selectedModel = computed(() => props.models.find(m => m.id === props.config?.model_id))
 
 // Empty fields fall back to the model's own defaults, so say which
-const temperaturePlaceholder = computed(() => selectedModel.value?.default_temperature?.toString() ?? 'Model default')
+// (an empty temperature on a model without a default one runs at 0)
+const temperaturePlaceholder = computed(() => selectedModel.value?.default_temperature?.toString() ?? '0')
+// A model that takes none: the step's temperature is kept but ignored
+const takesNoTemperature = computed(() => selectedModel.value?.supports_temperature === false)
 const maxTokensPlaceholder = computed(() => selectedModel.value?.default_max_tokens?.toString() ?? 'Model default')
 
 function toNumber(value: string | number | undefined, parse: (s: string) => number) {
@@ -97,15 +100,20 @@ const highlighted = ref<string | null>(null)
         />
       </UFormField>
 
-      <UFormField label="Temperature" :size="compact ? 'sm' : undefined">
+      <UFormField
+        label="Temperature"
+        :size="compact ? 'sm' : undefined"
+        :help="takesNoTemperature ? 'This model has no temperature' : undefined"
+      >
         <UInput
-          :model-value="config?.temperature?.toString() ?? ''"
+          :model-value="takesNoTemperature ? '' : (config?.temperature?.toString() ?? '')"
+          :disabled="takesNoTemperature"
           type="number"
           inputmode="decimal"
           step="0.1"
           min="0"
           max="1"
-          :placeholder="temperaturePlaceholder"
+          :placeholder="takesNoTemperature ? 'None' : temperaturePlaceholder"
           class="w-full tabular-nums"
           @update:model-value="(value: string | number) => emit('update', 'temperature', toNumber(value, Number.parseFloat))"
         />

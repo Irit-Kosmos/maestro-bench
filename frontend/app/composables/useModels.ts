@@ -29,6 +29,10 @@ export function useModels() {
     provider: string
     description?: string
     max_tokens?: number
+    supports_temperature?: boolean
+    /** null: no default temperature (and clears it on edit) */
+    default_temperature?: number | null
+    default_max_tokens?: number
     is_active?: boolean
   }) {
     try {
@@ -51,6 +55,10 @@ export function useModels() {
     provider?: string
     description?: string
     max_tokens?: number
+    supports_temperature?: boolean
+    /** null: no default temperature (and clears it on edit) */
+    default_temperature?: number | null
+    default_max_tokens?: number
     is_active?: boolean
   }) {
     try {

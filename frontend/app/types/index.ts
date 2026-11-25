@@ -25,6 +25,8 @@ export interface Model {
   provider: string
   description: string | null
   max_tokens: number | null
+  /** Some models take no temperature: none is ever sent to their provider */
+  supports_temperature: boolean
   default_temperature: number | null
   default_max_tokens: number | null
   is_active: boolean
