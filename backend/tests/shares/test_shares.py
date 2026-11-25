@@ -27,7 +27,7 @@ from sqlmodel import Session, select
 import config
 import main
 from api import shared
-from tables import Experiment, Share
+from tables import Experiment, ExperimentExecution, Share
 from tests.shares.conftest import build_world, share, workspace_id
 from workspace_scope import scope_session
 
@@ -389,6 +389,26 @@ def test_a_download_is_named_after_its_execution_not_its_experiment(alice, team,
     disposition = download.headers["content-disposition"]
     assert f"execution_{world['solo_run']}_results.json" in disposition
     assert "Solo" not in disposition
+
+
+def test_a_link_says_a_run_failed_but_not_the_servers_message(alice, team, engine, reader):
+    world = build_world(engine, team, alice.id)
+    message = "No such file or directory: '/data/workspaces/1/datasets/answers.csv'"
+    with Session(engine) as db:
+        scope_session(db, workspace_id(engine, team), alice.id)
+        execution = db.get(ExperimentExecution, world["solo_run"])
+        execution.status = "failed"
+        execution.error = message
+        db.add(execution)
+        db.commit()
+    token = share(alice, team, "experiment", world["solo"])
+    # The workspace sees why
+    assert alice.get(f"/workspaces/{team}/executions/{world['solo_run']}").json()["error"] == message
+
+    for path in (f"/executions/{world['solo_run']}", f"/experiments/{world['solo']}/executions"):
+        text = reader.get(f"/shared/{token}{path}").text
+        assert "/data/workspaces" not in text, path
+        assert shared.RUN_FAILED in text, path
 
 
 def test_a_link_to_a_batch_downloads_its_results_and_no_other_batch(alice, team, engine, reader):

@@ -100,7 +100,7 @@ TOKEN_FORMAT = re.compile(r"[A-Za-z0-9_-]{1,64}")
 ID_FORMAT = re.compile(r"[0-9]{1,18}")
 
 # What the app shows that a link must not: the people, the tags, the files of the server
-# (`results_file_path` too, see `scrub`)
+# (`results_file_path` too, see `scrub`). A function makes the blank of the field's value.
 BLANKED: dict[str, object] = {
     "author": None,
     "added_by": None,
@@ -110,7 +110,11 @@ BLANKED: dict[str, object] = {
     # The experiment a batch came from is not part of the batch: neither is its name
     "base_experiment_id": None,
     "base_experiment_name": None,
+    # Why a run failed is the server's own message (its paths, its internals): a link only
+    # says that it failed
+    "error": lambda error: RUN_FAILED if error else error,
 }
+RUN_FAILED = "The run stopped on an error"
 
 
 # What the results of an analysis show of the experiments it compares, which the link does not reach
@@ -132,7 +136,9 @@ def scrub(value: object, scope: Scope, blanked: dict[str, object] = BLANKED) -> 
     scrubbed = {}
     for key, item in value.items():
         if key in blanked:
-            scrubbed[key] = blanked[key]
+            # A value, or what to make of the field's own value
+            blank = blanked[key]
+            scrubbed[key] = blank(item) if callable(blank) else blank
         elif key == "batch_name" and hide_batch:
             scrubbed[key] = None
         elif key == "results_file_path":
