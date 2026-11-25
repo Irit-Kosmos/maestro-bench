@@ -77,6 +77,7 @@ watch(() => JSON.stringify([filterState.value.batch, filterState.value[failures.
 // Composables
 const { deleteExperiment, cancelExperiment } = useExperiments()
 const { canEdit } = useCurrentWorkspace()
+const { downloadSelection, downloadingZip } = useResultsDownload()
 const { ok, info, fail, showDeleteSuccess, showDeleteError } = useStandardToast()
 const { runOf } = useLiveRuns()
 useRefreshOnRunStatus(refresh)
@@ -396,13 +397,14 @@ async function handleCreateExperiment() {
         :loading="pending"
         :row-to="(exp: Experiment) => `/experiments/${exp.id}`"
         :row-hint="(exp: Experiment) => `#${exp.id}`"
-        :selectable="canEdit"
+        selectable
         item-name="experiment"
         searchable
         @refresh="refresh"
       >
         <template #selection-actions>
           <UButton
+            v-if="canEdit"
             variant="ghost"
             color="neutral"
             icon="i-ph-chart-bar-bold"
@@ -411,8 +413,19 @@ async function handleCreateExperiment() {
           >
             Analyze
           </UButton>
-          <StudiesBulkMenu kind="experiment" :ids="selectedIds" />
           <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-ph-download-simple-bold"
+            size="sm"
+            :loading="downloadingZip"
+            @click="downloadSelection({ experimentIds: selectedIds })"
+          >
+            Download
+          </UButton>
+          <StudiesBulkMenu v-if="canEdit" kind="experiment" :ids="selectedIds" />
+          <UButton
+            v-if="canEdit"
             variant="ghost"
             color="error"
             icon="i-ph-trash-bold"
