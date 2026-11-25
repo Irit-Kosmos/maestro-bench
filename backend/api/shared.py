@@ -42,7 +42,14 @@ from fastapi.routing import APIRoute
 from sqlmodel import select
 
 import config
-from api import analyses, batches, experiment_executions, experiments, studies
+from api import (
+    analyses,
+    batches,
+    downloads,
+    experiment_executions,
+    experiments,
+    studies,
+)
 from db import SessionDep
 from schemas.shares import SharedRoot
 from share_scope import ROOT_TABLES, Scope, scope_of
@@ -65,6 +72,8 @@ READABLE = {
     "/executions/{execution_id}/rows/{row_index}",
     "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
+    # The results of every experiment of a batch, in one .zip file
+    "/batches/{batch_id}/results",
 }
 DATA = {
     "/executions/{execution_id}/results",
@@ -72,6 +81,7 @@ DATA = {
     "/executions/{execution_id}/rows/{row_index}",
     "/executions/{execution_id}/failures",
     "/analyses/{analysis_id}/results",
+    "/batches/{batch_id}/results",
 }
 
 # The id in a path, and what it is the id of
@@ -253,7 +263,7 @@ def _route_class(path: str) -> type[APIRoute] | None:
 
 def _mount_readable_routes() -> None:
     mounted = set()
-    for module in (studies, batches, experiments, experiment_executions, analyses):
+    for module in (studies, batches, downloads, experiments, experiment_executions, analyses):
         for route in module.router.routes:
             if (
                 not isinstance(route, APIRoute)

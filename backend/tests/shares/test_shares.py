@@ -391,6 +391,20 @@ def test_a_download_is_named_after_its_execution_not_its_experiment(alice, team,
     assert "Solo" not in disposition
 
 
+def test_a_link_to_a_batch_downloads_its_results_and_no_other_batch(alice, team, engine, reader):
+    world = build_world(engine, team, alice.id)
+    token = share(alice, team, "batch", world["batch"])
+
+    download = reader.get(f"/shared/{token}/batches/{world['batch']}/results")
+
+    assert download.status_code == 200
+    assert download.headers["content-type"] == "application/zip"
+    # The selection of several batches is the workspace's own, not a link's
+    assert reader.get(f"/shared/{token}/results/download?batch_id={world['batch']}").status_code == 404
+    solo = share(alice, team, "experiment", world["solo"])
+    assert reader.get(f"/shared/{solo}/batches/{world['batch']}/results").status_code == 404
+
+
 def test_what_cannot_be_a_token_or_an_id_is_a_plain_404(alice, team, engine, reader):
     world = build_world(engine, team, alice.id)
     token = share(alice, team, "experiment", world["solo"])

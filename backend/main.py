@@ -39,6 +39,7 @@ from api import (
     batches,
     dashboard,
     datasets,
+    downloads,
     events,
     experiment_executions,
     experiments,
@@ -106,6 +107,8 @@ app.add_middleware(
     # What the interface uses, and nothing else
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Accept", "Content-Type", "Last-Event-ID", "X-CSRF-Token"],
+    # What a download says about itself: its name, and the experiments it left out
+    expose_headers=["Content-Disposition", "X-Skipped-Experiments"],
 )
 
 app.include_router(auth_api.router)
@@ -130,6 +133,7 @@ WORKSPACE_ROUTERS = [
     studies,
     notes,
     batches,
+    downloads,
     dashboard,
     events,
     setup,
